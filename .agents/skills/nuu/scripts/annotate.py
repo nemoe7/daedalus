@@ -915,6 +915,7 @@ def build_board(
   scale: int | None = None,
   project: Path | None = None,
   renderer: str = "auto",
+  wireframe: bool = False,
 ):
   dst = Path(output_path).resolve()
   if dst.exists():
@@ -928,6 +929,10 @@ def build_board(
     if not isinstance(loaded, dict):
       raise TypeError("board spec must be a JSON object")
     spec = loaded
+  use_wireframe = bool(wireframe or spec.get("wireframe"))
+  wf_dst = dst.with_name(f"{dst.stem}-wireframe{dst.suffix}") if use_wireframe else None
+  if wf_dst is not None and wf_dst.exists():
+    raise ValueError("board wireframe output path already exists")
   board_title = title if title is not None else spec.get("title")
   board_subtitle = subtitle if subtitle is not None else spec.get("subtitle")
   resolved_scale = int(scale if scale is not None else spec.get("scale", 2))
@@ -1165,7 +1170,53 @@ def build_board(
       stream.write(encode_png(total_w, total_h, canvas))
     out_w, out_h = total_w, total_h
 
-  return {
+  writes = [str(dst)]
+  if wf_dst is not None:
+    wf_w, wf_h, wf_rgba = decode_png(dst.read_bytes())
+    draw_box(wf_rgba, wf_w, wf_h, 0, 0, wf_w, wf_h, COLORS["blue"], thickness=2)
+    draw_label(
+      wf_rgba,
+      wf_w,
+      wf_h,
+      4,
+      4,
+      f"board {wf_w}x{wf_h}",
+      COLORS["blue"],
+      scale=1,
+    )
+    y_base = pad + (header_h + 12 if board_title else 0)
+    for i, p in enumerate(prepared_panels):
+      r, c = divmod(i, cols)
+      px = pad + sum(col_widths[:c]) + gap * c
+      py = y_base + sum(row_heights[:r]) + gap * r
+      pw = p["width"] + panel_pad * 2
+      ph = p["height"] + panel_header_h + panel_pad * 2
+      draw_box(
+        wf_rgba,
+        wf_w,
+        wf_h,
+        min(px, max(0, wf_w - 2)),
+        min(py, max(0, wf_h - 2)),
+        min(pw, max(1, wf_w - min(px, wf_w - 1))),
+        min(ph, max(1, wf_h - min(py, wf_h - 1))),
+        COLORS["amber"],
+        thickness=2,
+      )
+      draw_label(
+        wf_rgba,
+        wf_w,
+        wf_h,
+        min(px + 4, max(0, wf_w - 40)),
+        min(py + 2, max(0, wf_h - 12)),
+        f"panel#{p['index']} {p['width']}x{p['height']}",
+        COLORS["amber"],
+        scale=1,
+      )
+    with wf_dst.open("xb") as stream:
+      stream.write(encode_png(wf_w, wf_h, wf_rgba))
+    writes.append(str(wf_dst))
+
+  result_payload = {
     "status": "composed",
     "output": str(dst),
     "title": board_title,
@@ -1176,8 +1227,11 @@ def build_board(
     "renderer": used_renderer,
     "font_family": typography["font_sans"],
     "findings": [],
-    "writes": [str(dst)],
+    "writes": writes,
   }
+  if wf_dst is not None:
+    result_payload["wireframe_output"] = str(wf_dst)
+  return result_payload
 
 
 def main(argv: list[str] | None = None) -> int:

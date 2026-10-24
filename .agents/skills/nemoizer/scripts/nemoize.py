@@ -97,12 +97,25 @@ EXCEPTIONS = {
   "pull request": "PR",
   "pull requests": "PRs",
 }
+NEMOIZER_MODIFIED_NOUNS = (
+  r"rules?|lists?|linters?|prose|skills?|configs?|checks?|scripts?|"
+  r"parsers?|suites?|tests?|plugins?|domains?|targets?|markers?"
+)
+KEEP_LOWER = {"nemoizer"}
 ROTATIONS = (
   ("pick", r"(?<![A-Za-z0-9])pick\w*(?![A-Za-z0-9])", "select"),
   ("transmit", r"(?<![A-Za-z0-9])transmit\w*(?![A-Za-z0-9])", "send"),
   ("kind", r"(?<![A-Za-z0-9])kinds?(?![A-Za-z0-9])", "type"),
   ("repository", r"(?<![A-Za-z0-9])repositor(?:y|ies)(?![A-Za-z0-9])", "repo"),
   ("pull request", r"(?<![A-Za-z0-9])pull[ \t]+requests?(?![A-Za-z0-9])", "PR"),
+  (
+    "nemoizer",
+    (
+      rf"(?<![A-Za-z0-9_./:-])(?:the[ \t]+(?!nemoizer[ \t]+(?:{NEMOIZER_MODIFIED_NOUNS})\b))?"
+      r"nemoizer(?![A-Za-z0-9_/-]|\.[A-Za-z0-9_])"
+    ),
+    "nemoizer",
+  ),
 )
 RULE_IDS = {
   "transmit": "NMO100",
@@ -110,6 +123,7 @@ RULE_IDS = {
   "kind": "NMO100",
   "repository": "NMO901",
   "pull request": "NMO901",
+  "nemoizer": "NMO100",
 }
 ADVISORY_RULE_IDS = {
   "NMO901",
@@ -212,7 +226,10 @@ RULE_DESCRIPTIONS = {
   "NMP100": "paragraph has {count} sentences (cap {cap})",
   "NMP101": "comment block has {count} lines (cap {cap})",
   "NMO003": "missing Oxford comma",
-  "NMO902": '"the" density is {count}% (cap {cap}%)',
+  "NMO902": (
+    '"the" density is {count}% (cap {cap}%); '
+    'collapse list "the" articles (--format) or drop "the" before proper names'
+  ),
 }
 
 
@@ -553,6 +570,8 @@ def suppressed(code, ids, name=None):
 
 def plain(word, name, use):
   """Give the matched word its plain word, and keep the old word's case."""
+  if name in KEEP_LOWER:
+    return use
   normalized = " ".join(word.lower().split())
   form = EXCEPTIONS.get(normalized) or re.sub(
     re.escape(name), use, word, flags=re.IGNORECASE
@@ -562,6 +581,26 @@ def plain(word, name, use):
   if word[:1].isupper():
     return form[:1].upper() + form[1:]
   return form
+
+
+LIST_THE_SPAN = re.compile(
+  r"\b(the[ \t]+[^,.;:!?()\n]+)"
+  r"((?:,[ \t]+(?:(?:and|or)[ \t]+)?the[ \t]+[^,.;:!?()\n]+)+"
+  r"(?:\s+(?:and|or)[ \t]+the[ \t]+[^,.;:!?()\n]+)?)",
+  re.IGNORECASE,
+)
+SUBSEQUENT_LIST_THE = re.compile(
+  r"(,[ \t]+(?:(?:and|or)[ \t]+)?|[ \t]+(?:and|or)[ \t]+)the[ \t]+",
+  re.IGNORECASE,
+)
+
+
+def collapse_list_articles(line):
+  """Collapse repeated leading 'the' articles across comma-separated list items."""
+  return LIST_THE_SPAN.sub(
+    lambda match: match.group(1) + SUBSEQUENT_LIST_THE.sub(r"\1", match.group(2)),
+    line,
+  )
 
 
 def rotate(line, suppressed=frozenset()):
@@ -637,6 +676,8 @@ def scan(targets, ignores):
         if suppressed(code, excluded, name):
           continue
         for word in sorted(set(re.findall(pattern, visible, flags=re.IGNORECASE))):
+          if name in KEEP_LOWER and word == use:
+            continue
           findings.append(format_finding(path, number, code, f"{word} -> {use}", line))
   return findings, marks
 
@@ -655,17 +696,34 @@ def format_paths(targets, ignores, out=None):
       continue
     lines = text.split("\n")
     file_ids, line_ids, _ = exclusions(path, lines)
+    the_cap = ACTIVE_CONFIG.get("the_density_cap", THE_DENSITY_CAP)
+    min_the = ACTIVE_CONFIG.get("min_the_count", MIN_THE_COUNT)
+    block_lines = {}
+    for start_line, _, _, line_numbers in prose_blocks(text):
+      block_lines.setdefault(start_line, set()).update(line_numbers)
+    dense_lines = set()
+    for row_line, _, _ in prose_the_density(text, cap=the_cap, min_the=min_the):
+      group = block_lines.get(row_line, {row_line})
+      if not any("NMO902" in (file_ids | line_ids[ln - 1]) for ln in group):
+        dense_lines.update(group)
     rewritten, touched = [], False
     for number, line in enumerate(lines, 1):
       if TABLE_ROW.match(line.strip()):
         rewritten.append(line)
         continue
       suppressed = file_ids | line_ids[number - 1]
+      collapse_the = number in dense_lines and "NMO902" not in suppressed
       parts, start = [], 0
       for marker in MARKER.finditer(line):
-        parts.extend((rotate(line[start : marker.start()], suppressed), marker[0]))
+        seg = rotate(line[start : marker.start()], suppressed)
+        if collapse_the:
+          seg = collapse_list_articles(seg)
+        parts.extend((seg, marker[0]))
         start = marker.end()
-      parts.append(rotate(line[start:], suppressed))
+      tail = rotate(line[start:], suppressed)
+      if collapse_the:
+        tail = collapse_list_articles(tail)
+      parts.append(tail)
       rotated = "".join(parts)
       if rotated != line:
         print(f"{path}:{number}: -{line}", file=out)
@@ -914,14 +972,58 @@ def blank_inline_comments(line):
     cursor = end + 3
 
 
-def prose_passives(text):
-  """Find passive-voice constructions on prose lines outside code fences and code spans."""
-  passives = []
-  fence = None
-  for index, line in enumerate(text.splitlines()):
+def prose_blocks(text):
+  """Yield `(start_line, kind, clean_text, line_numbers)` for each prose block."""
+  lines = text.splitlines()
+  blocks, block = [], []
+  block_kind = "paragraph"
+  fence, width, divider_pending = None, 0, False
+
+  def clean_line(value):
+    clean = re.sub(r"(`+)(.*?)\1", lambda match: " " * len(match[0]), value)
+    return blank_inline_comments(clean)
+
+  def cells(value):
+    if "|" not in value:
+      return []
+    row, part, escaped = [], [], False
+    for character in value:
+      if escaped:
+        part.append(character)
+        escaped = False
+      elif character == "\\":
+        escaped = True
+      elif character == "|":
+        row.append("".join(part))
+        part.clear()
+      else:
+        part.append(character)
+    if escaped:
+      part.append("\\")
+    row.append("".join(part))
+    if row and not row[0].strip():
+      row.pop(0)
+    if row and not row[-1].strip():
+      row.pop()
+    return [cell.strip() for cell in row] if len(row) > 1 else []
+
+  def flush():
+    nonlocal block_kind
+    if not block:
+      return
+    joined = " ".join(part for _, part in block)
+    if joined.strip():
+      blocks.append(
+        (block[0][0], block_kind, joined, tuple(number for number, _ in block))
+      )
+    block.clear()
+    block_kind = "paragraph"
+
+  for index, line in enumerate(lines):
     number = index + 1
     marker = re.match(r"^\s*(`{3,}|~{3,})", line)
     if marker:
+      flush()
       if fence is None:
         fence = marker[1]
       elif (
@@ -930,20 +1032,110 @@ def prose_passives(text):
         and not line[marker.end() :].strip()
       ):
         fence = None
+      width, divider_pending = 0, False
       continue
-    if fence is not None or TABLE_ROW.match(line.strip()):
+    if fence is not None:
       continue
-    clean = re.sub(r"(`+)(.*?)\1", lambda match: " " * len(match[0]), line)
-    clean = blank_inline_comments(clean)
-    matches = [
+    if not line.strip():
+      flush()
+      width, divider_pending = 0, False
+      continue
+    if TABLE_ROW.match(line.strip()):
+      flush()
+      continue
+    if divider_pending:
+      divider_pending = False
+      continue
+    row = cells(line)
+    following = cells(lines[index + 1]) if index + 1 < len(lines) else []
+    header = (
+      row
+      and len(row) == len(following)
+      and all(re.fullmatch(r":?-{3,}:?", cell) for cell in following)
+    )
+    if header:
+      flush()
+      width, divider_pending = len(row), True
+    elif not width or len(row) != width:
+      width = 0
+    if width:
+      for segment in row:
+        li_items = re.findall(
+          r"<li\b[^>]*>(.*?)</li>", segment, flags=re.IGNORECASE | re.DOTALL
+        )
+        if li_items:
+          for item in li_items:
+            cleaned_item = clean_line(item)
+            if cleaned_item.strip():
+              blocks.append((number, "list", cleaned_item, (number,)))
+          rest_cell = re.sub(
+            r"<(?:ul|ol)\b[^>]*>.*?</(?:ul|ol)>",
+            " ",
+            segment,
+            flags=re.IGNORECASE | re.DOTALL,
+          )
+          cleaned_rest = clean_line(rest_cell)
+          if cleaned_rest.strip():
+            blocks.append((number, "table", cleaned_rest, (number,)))
+        else:
+          cleaned_cell = clean_line(segment)
+          if cleaned_cell.strip():
+            blocks.append((number, "table", cleaned_cell, (number,)))
+      continue
+    stripped = line.lstrip()
+    if re.match(r"^#{1,6}(?:\s+|$)", stripped):
+      flush()
+      heading_body = re.sub(r"^#{1,6}\s*(?:\d+[.)]\s+)?", "", stripped)
+      cleaned_heading = clean_line(heading_body)
+      if cleaned_heading.strip():
+        blocks.append((number, "heading", cleaned_heading, (number,)))
+      continue
+    if stripped.startswith(">"):
+      if block and block_kind != "blockquote":
+        flush()
+      inner = re.sub(r"^\s*>\s?", "", line)
+      if not inner.strip():
+        flush()
+        continue
+      block_kind = "blockquote"
+      block.append((number, clean_line(inner)))
+      continue
+    if re.match(r"^(?:[*+-]|\d+[.)])\s+", stripped):
+      flush()
+      item_body = re.sub(r"^(?:[*+-]|\d+[.)])\s+(?:\[[ xX]\]\s+)?", "", stripped)
+      block_kind = "list"
+      block.append((number, clean_line(item_body)))
+      continue
+    if block and block_kind == "blockquote":
+      flush()
+    block.append((number, clean_line(line)))
+  flush()
+  return blocks
+
+
+def prose_block_matches(text, matcher, skip_kinds=frozenset()):
+  """Collect `(start_line, column, count)` on prose blocks outside fences, code spans, and comments."""
+  rows = []
+  for start_line, kind, clean, _ in prose_blocks(text):
+    if kind in skip_kinds:
+      continue
+    hits = matcher(clean)
+    if hits:
+      rows.append((start_line, hits[0].start() + 1, len(hits)))
+  return rows
+
+
+def prose_passives(text):
+  """Find passive-voice constructions across prose blocks outside code fences and code spans."""
+  return prose_block_matches(
+    text,
+    lambda clean: [
       match
       for match in PASSIVE_VOICE_RE.finditer(clean)
       if match.group(1).lower() not in PASSIVE_STATE_ADJECTIVES
       or re.match(r"\s+by\b", clean[match.end() :], re.IGNORECASE)
-    ]
-    if matches:
-      passives.append((number, matches[0].start() + 1, len(matches)))
-  return passives
+    ],
+  )
 
 
 PHRASAL_VERB_RE = re.compile(
@@ -1047,15 +1239,15 @@ def prose_line_matches(text, matcher):
 
 
 def prose_phrasal_verbs(text):
-  return prose_line_matches(text, lambda clean: list(PHRASAL_VERB_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(PHRASAL_VERB_RE.finditer(clean)))
 
 
 def prose_ellipsis(text):
-  return prose_line_matches(text, lambda clean: list(ELLIPSIS_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(ELLIPSIS_RE.finditer(clean)))
 
 
 def prose_serial_commas(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text,
     lambda clean: [
       match
@@ -1246,66 +1438,69 @@ def prose_dangling_conjunctions(text):
 
 
 def prose_nominalizations(text):
-  return prose_line_matches(text, lambda clean: list(NOMINALIZATION_RE.finditer(clean)))
+  return prose_block_matches(
+    text, lambda clean: list(NOMINALIZATION_RE.finditer(clean))
+  )
 
 
 def prose_wordy_phrases(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text,
-    lambda clean: (
-      [] if clean.lstrip().startswith(">") else list(WORDY_PHRASE_RE.finditer(clean))
-    ),
+    lambda clean: list(WORDY_PHRASE_RE.finditer(clean)),
+    skip_kinds=frozenset({"blockquote"}),
   )
 
 
 def prose_archaic_connectors(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(ARCHAIC_CONNECTOR_RE.finditer(clean))
   )
 
 
 def prose_inline_lists(text):
-  return prose_line_matches(text, lambda clean: list(INLINE_LIST_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(INLINE_LIST_RE.finditer(clean)))
 
 
 def prose_double_negatives(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(DOUBLE_NEGATIVE_RE.finditer(clean))
   )
 
 
 def prose_compound_instructions(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(COMPOUND_INSTRUCTION_RE.finditer(clean))
   )
 
 
 def prose_noun_clusters(text):
-  return prose_line_matches(text, lambda clean: list(NOUN_CLUSTER_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(NOUN_CLUSTER_RE.finditer(clean)))
 
 
 def prose_synonym_clusters(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(SYNONYM_CLUSTER_RE.finditer(clean))
   )
 
 
 def prose_compound_tenses(text):
-  return prose_line_matches(text, lambda clean: list(COMPOUND_TENSE_RE.finditer(clean)))
+  return prose_block_matches(
+    text, lambda clean: list(COMPOUND_TENSE_RE.finditer(clean))
+  )
 
 
 def prose_staged_frames(text):
-  return prose_line_matches(text, lambda clean: list(STAGED_FRAME_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(STAGED_FRAME_RE.finditer(clean)))
 
 
 def prose_stacked_qualifiers(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(STACKED_QUALIFIER_RE.finditer(clean))
   )
 
 
 def prose_ai_vocabulary(text):
-  return prose_line_matches(text, lambda clean: list(AI_VOCABULARY_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(AI_VOCABULARY_RE.finditer(clean)))
 
 
 def prose_arrows(text):
@@ -1313,7 +1508,7 @@ def prose_arrows(text):
 
 
 def prose_chatbot_courtesy(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(CHATBOT_COURTESY_RE.finditer(clean))
   )
 
@@ -1323,42 +1518,25 @@ def prose_curly_quotes(text):
 
 
 def prose_negative_contrasts(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(NEGATIVE_CONTRAST_RE.finditer(clean))
   )
 
 
 def prose_aphorisms(text):
-  return prose_line_matches(text, lambda clean: list(APHORISM_RE.finditer(clean)))
+  return prose_block_matches(text, lambda clean: list(APHORISM_RE.finditer(clean)))
 
 
 def prose_rhetorical_setups(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(RHETORICAL_SETUP_RE.finditer(clean))
   )
 
 
 def prose_repeated_openers(text):
-  """Find three consecutive sentences on a prose line or block with the same two-word opener."""
+  """Find three consecutive sentences in a prose block with the same two-word opener."""
   rows = []
-  fence = None
-  for index, line in enumerate(text.splitlines()):
-    number = index + 1
-    marker = re.match(r"^\s*(`{3,}|~{3,})", line)
-    if marker:
-      if fence is None:
-        fence = marker[1]
-      elif (
-        marker[1][0] == fence[0]
-        and len(marker[1]) >= len(fence)
-        and not line[marker.end() :].strip()
-      ):
-        fence = None
-      continue
-    if fence is not None or TABLE_ROW.match(line.strip()):
-      continue
-    clean = re.sub(r"(`+)(.*?)\1", lambda match: " " * len(match[0]), line)
-    clean = blank_inline_comments(clean)
+  for start_line, _, clean, _ in prose_blocks(text):
     sentences = [
       part.strip() for part in re.split(r"(?<=[.!?])\s+", clean) if part.strip()
     ]
@@ -1370,7 +1548,7 @@ def prose_repeated_openers(text):
       )
     for pos in range(len(openers) - 2):
       if openers[pos] and openers[pos] == openers[pos + 1] == openers[pos + 2]:
-        rows.append((number, 1, 1))
+        rows.append((start_line, 1, 1))
         break
   return rows
 
@@ -1380,13 +1558,13 @@ def prose_dashes(text):
 
 
 def prose_vague_attributions(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(VAGUE_ATTRIBUTION_RE.finditer(clean))
   )
 
 
 def prose_copula_avoidance(text):
-  return prose_line_matches(
+  return prose_block_matches(
     text, lambda clean: list(COPULA_AVOIDANCE_RE.finditer(clean))
   )
 
@@ -1404,43 +1582,53 @@ def prose_consecutive_emojis(text):
 
 
 def prose_self_narration(text):
-  return prose_line_matches(text, lambda clean: list(SELF_NARRATION_RE.finditer(clean)))
+  return prose_block_matches(
+    text, lambda clean: list(SELF_NARRATION_RE.finditer(clean))
+  )
 
 
 def prose_the_density(text, cap=THE_DENSITY_CAP, min_the=MIN_THE_COUNT):
-  """Find prose lines where 'the' appears at least min_the times and >= cap% of words."""
+  """Find prose blocks where 'the' appears at least min_the times and >= cap% of words."""
   rows = []
-  fence = None
-  for index, line in enumerate(text.splitlines()):
-    number = index + 1
-    marker = re.match(r"^\s*(`{3,}|~{3,})", line)
-    if marker:
-      if fence is None:
-        fence = marker[1]
-      elif (
-        marker[1][0] == fence[0]
-        and len(marker[1]) >= len(fence)
-        and not line[marker.end() :].strip()
-      ):
-        fence = None
-      continue
-    if fence is not None or TABLE_ROW.match(line.strip()):
-      continue
-    clean = re.sub(r"(`+)(.*?)\1", lambda match: " " * len(match[0]), line)
-    clean = blank_inline_comments(clean)
+  for start_line, _, clean, _ in prose_blocks(text):
     words = re.findall(r"[A-Za-z0-9_'-]+", clean)
     hits = list(re.finditer(r"\bthe\b", clean, re.IGNORECASE))
     if len(hits) >= min_the and words:
       density = round(len(hits) * 100 / len(words))
       if density >= cap:
-        rows.append((number, hits[0].start() + 1, density))
+        rows.append((start_line, hits[0].start() + 1, density))
   return rows
+
+
+LINE_PROSE_RULE_IDS = {
+  "STE001",
+  "STE100",
+  "STE200",
+  "HMN400",
+  "HMN600",
+  "HMN905",
+  "HMN908",
+  "HMN909",
+}
 
 
 def prose_review(path, text, context, paragraph_cap):
   """Return unsuppressed measurable candidates for one explicit text scope."""
   lines = text.splitlines()
   file_ids, line_ids, _ = exclusions(path, lines)
+  block_lines = {}
+  for start_line, _, _, line_numbers in prose_blocks(text):
+    block_lines.setdefault(start_line, set()).update(line_numbers)
+
+  def rule_suppressed(code, number):
+    if code in LINE_PROSE_RULE_IDS:
+      return 1 <= number <= len(line_ids) and suppressed(code, line_ids[number - 1])
+    return any(
+      suppressed(code, line_ids[ln - 1])
+      for ln in block_lines.get(number, (number,))
+      if 1 <= ln <= len(line_ids)
+    )
+
   findings = []
   sentences, paragraphs = prose_counts(text)
   code = PROSE_RULE_IDS["semicolon"]
@@ -1518,7 +1706,7 @@ def prose_review(path, text, context, paragraph_cap):
     status = "manual_review" if code in ADVISORY_RULE_IDS else "review"
     if not suppressed(code, file_ids):
       for number, column, count in detector(text):
-        if not suppressed(code, line_ids[number - 1]):
+        if not rule_suppressed(code, number):
           findings.append(
             {
               "rule": code,
@@ -1546,7 +1734,7 @@ def prose_review(path, text, context, paragraph_cap):
       else:
         cap = paragraph_cap
         status = "review"
-      if count > cap and not suppressed(code, line_ids[number - 1]):
+      if count > cap and not rule_suppressed(code, number):
         findings.append(
           {
             "rule": code,
@@ -1566,7 +1754,7 @@ def prose_review(path, text, context, paragraph_cap):
     for number, column, density in prose_the_density(
       text, cap=the_cap, min_the=min_the
     ):
-      if not suppressed(code, line_ids[number - 1]):
+      if not rule_suppressed(code, number):
         findings.append(
           {
             "rule": code,
@@ -1616,17 +1804,27 @@ def source_prose(path, text, context, paragraph_cap):
             }
           )
   for value, first, last in spans:
-    for row in prose_review(
-      path,
-      MARKER_SPAN.sub(lambda match: " " * len(match[0]), value),
-      context,
-      paragraph_cap,
-    ):
+    cleaned_span = MARKER_SPAN.sub(lambda match: " " * len(match[0]), value)
+    span_blocks = {}
+    for start_line, _, _, line_numbers in prose_blocks(cleaned_span):
+      span_blocks.setdefault(start_line, set()).update(line_numbers)
+    for row in prose_review(path, cleaned_span, context, paragraph_cap):
+      local_line = row["line"]
       if len(value.splitlines()) > last - first + 1:
         row["line"] = first
+        phys_lines = range(first, last + 1)
+      elif row["rule"] in LINE_PROSE_RULE_IDS:
+        row["line"] = local_line + first - 1
+        phys_lines = (row["line"],)
       else:
-        row["line"] += first - 1
-      ids = file_ids | line_ids[row["line"] - 1]
+        row["line"] = local_line + first - 1
+        phys_lines = [
+          ln + first - 1 for ln in span_blocks.get(local_line, (local_line,))
+        ]
+      ids = set(file_ids)
+      for ln in phys_lines:
+        if 1 <= ln <= len(line_ids):
+          ids |= line_ids[ln - 1]
       if not suppressed(row["rule"], ids):
         findings.append(row)
   if path.name.endswith(".user.js"):

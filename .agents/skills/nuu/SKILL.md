@@ -12,7 +12,7 @@ license: MIT
 - Search the catalog (`nuu search`) and verify assets (`nuu assets`), then run static checks (`nuu lint`, `nuu extract`) before rendered checks (`nuu inspect`, `flow`, `a11y`, `audit`, `live`) at project widths plus `1280` and `360` px.
 - Keep screenshots, `measure.py`, flow results, and `nuu annotate` / `nuu board` boards; split automated findings (incl. missing `docs/design.md`) from visual judgment, name `nuu` deviations + reasons, and list unrun checks.
 - Keep live edits read-only unless authorized (`-Z`), repair only the requested scope, and update `docs/design.md` with linked visual references in the same change.
-- Format audit and verification reports with [references/audit-report.md](references/audit-report.md), omit empty Unrun Checks and table sections, state 0 in Counts, and embed cropped, annotated before-and-after images.
+- Format audit and verification reports with [references/audit-report.md](references/audit-report.md), omit empty Unrun Checks and table sections, state 0 in Counts, and embed cropped, annotated before-and-after images; use `-W` (`--wireframe`) for agent inspection only and NEVER commit `*-wireframe.png` or embed them in reports.
 
 ## House profile
 

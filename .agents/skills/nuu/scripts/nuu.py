@@ -397,6 +397,7 @@ def browser(args):
     "edit": load(args.edit) if args.edit else None,
     "authorized_edit": args.authorize_edit,
     "overlaps": args.overlaps,
+    "wireframe": bool(getattr(args, "wireframe", False)),
   }
   process = subprocess.run(
     ["node", str(HOME / "scripts" / "browser.cjs")],
@@ -577,6 +578,7 @@ def main(argv=None):
       command.add_argument("-s", "--spec", type=Path)
       command.add_argument("-S", "--scale", type=int)
       command.add_argument("-C", "--columns", type=int)
+      command.add_argument("-W", "--wireframe", action="store_true")
     if name == "search":
       command.add_argument("query")
       command.add_argument("-d", "--dataset")
@@ -609,6 +611,7 @@ def main(argv=None):
       command.add_argument("-E", "--edit", type=Path)
       command.add_argument("-A", "--authorize-edit", action="store_true")
       command.add_argument("-O", "--overlaps", action="store_true")
+      command.add_argument("-W", "--wireframe", action="store_true")
   args = parser.parse_args(raw_args)
   root = args.project.resolve()
   if not root.is_dir():
@@ -654,6 +657,7 @@ def main(argv=None):
         columns=args.columns,
         scale=args.scale,
         project=root,
+        wireframe=bool(args.wireframe),
       )
       args.output = None
     elif args.command == "doctor":

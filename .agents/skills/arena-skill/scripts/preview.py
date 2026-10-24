@@ -29,7 +29,7 @@ def __getattr__(name):
 	raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 ASSETS=Path(__file__).resolve().parents[1]/'assets'
 IDENTIFIER=re.compile('[a-zA-Z0-9_-]{1,80}\\Z')
-VIOLATION_NOTES="type NOT IN ('', 'survey')"
+VIOLATION_NOTES="type NOT IN ('', 'survey', 'state-backup')"
 PENDING_SUBMISSIONS='acknowledged_at IS NULL AND seq IN (SELECT MAX(seq) FROM submissions GROUP BY report_id)'
 REPLY_REFERENCE=re.compile('^RE:\\s*([a-zA-Z0-9_-]{1,80}(?:/[a-zA-Z0-9_-]{1,80})?)(?:\\s|$)',re.IGNORECASE)
 MAX_REPORT=2000000
@@ -1713,6 +1713,7 @@ def parse_state_import(text):
 	return value
 AUTOSAVE_HISTORY='userscript-autosave-history'
 AUTOSAVE_RECEIPTS='userscript-autosave-receipts'
+AUTOSAVE_OFFER_META='userscript-autosave-offered'
 def autosave_core_and_stamp(records):
 	if not isinstance(records,list)or not all(isinstance(row,dict)for row in records):raise TypeError('Autosave core must be an array of records')
 	if any(row.get('type')=='userscript-autosave'for row in records):raise ValueError('Autosave core cannot contain history')
@@ -2294,8 +2295,28 @@ class Store:
 			else:
 				scope_receipts[save_id]=digest;history=self.userscript_history(db);record={'type':'userscript-autosave','version':1,'save_id':save_id,'scope':scope,'digest':digest,'core':core,'stamp':stamp,'confirmed_at':now()};previous=[item for item in history if item['scope']==scope];kept=previous[-1:]+[record]
 				for item in kept:item['receipts']=scope_receipts.copy()
-				history=[item for item in history if item['scope']!=scope]+kept;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)))
+				history=[item for item in history if item['scope']!=scope]+kept;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)));db.execute('DELETE FROM meta WHERE key = ?',(AUTOSAVE_OFFER_META,))
 		return{'confirmed':True,'save_id':save_id,'digest':digest}
+	def offer_userscript_backup(self,payload):
+		if not isinstance(payload,dict):raise TypeError('Expected a backup offer object')
+		text=payload.get('text')
+		if not isinstance(text,str)or not text.strip():raise ValueError('Backup offer text must be a nonblank string')
+		records=parse_state_import(text);raw_name=payload.get('name');name=upload_name(raw_name if isinstance(raw_name,str)and raw_name.strip()else'state-backup.ndjson')
+		if not name.lower().endswith(('.ndjson','.json')):name=f"{name}.ndjson"
+		summary=payload.get('summary');summary_text=summary.strip()if isinstance(summary,str)and summary.strip()else'State mismatch detected.';data=text.encode('utf-8');backup_digest=body_digest(data);live_core,_=self.state_lines(self.state()['notes'],self.tasks()or{});live_digest=autosave_digest(live_core);mismatch_key=f"{backup_digest}:{live_digest}";backup_ids={str(row.get('id'))for row in records if isinstance(row,dict)and row.get('id')};created=[]
+		try:
+			with self.transaction(autosave=False)as db:
+				db.execute('BEGIN IMMEDIATE');offered=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_OFFER_META,)).fetchone();pending=db.execute("SELECT id FROM notes WHERE type = 'state-backup' AND acknowledged_at IS NULL ORDER BY at DESC, seq DESC LIMIT 1").fetchone()
+				if pending is not None and offered and offered[0]==mismatch_key:upload=db.execute('SELECT * FROM uploads WHERE note_id = ? ORDER BY seq LIMIT 1',(pending['id'],)).fetchone();return{'offered':True,'duplicate':True,'note_id':pending['id'],'path':upload_row(upload,self.path.parent)['path']if upload else None}
+				for _ in range(MINT_ATTEMPTS):
+					note_id=new_id()
+					if note_id not in backup_ids and not any(db.execute(f"SELECT 1 FROM {table} WHERE id = ?",(note_id,)).fetchone()for table in('notes','submissions','uploads','reports','tasks')):break
+				else:raise RuntimeError('The state holds no free six-character ID for a backup note')
+				record=self.save_upload(name,'application/x-ndjson',data,upload_id=note_id,note_id=note_id,shared=db);created.append(Path(record['path']));note_body=f"{summary_text} Backed-up state `{record['name']}` uploaded to `{record['path']}`.\nRun `arena-preview state compare` to inspect differences against live state before running `arena-preview state import {record['path']} -r` if the backup is newer, then acknowledge this note.";note=self.note(note_id,note_body,shared=db,autosave=False,quiet=True,blocking=True,type='state-backup');db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_OFFER_META,mismatch_key))
+		except Exception:
+			for path in created:path.unlink(missing_ok=True)
+			raise
+		return{'offered':True,'duplicate':False,'note_id':note['id'],'path':record['path']}
 	def compare_userscript_save(self,payload):
 		candidate,candidate_stamp=autosave_core_and_stamp(payload.get('core'));baseline=payload.get('baseline');result={'candidate_stamp':candidate_stamp,'counts':{'candidate':len(candidate)}}
 		if not isinstance(baseline,dict):return{**result,'result':'unknown-baseline'}
@@ -2515,7 +2536,9 @@ class Store:
 				receipts={}
 				for row in history:key=autosave_scope_key(row['scope']);receipts.setdefault(key,{}).update(row.get('receipts',{}));receipts[key][row['save_id']]=row['digest']
 				db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_HISTORY,json.dumps(history)));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(AUTOSAVE_RECEIPTS,json.dumps(receipts)))
-			for table in('notes','reports','submissions','tasks'):db.execute(f"DELETE FROM {table}")
+			for table in('notes','reports','submissions','tasks'):
+				if table=='notes':db.execute("DELETE FROM notes WHERE type <> 'state-backup'")
+				else:db.execute(f"DELETE FROM {table}")
 			self.import_tasks(tasks,replace_tasks,autosave=False,shared=db)
 			for record in messages:
 				if'text'not in record or'title'in record:raise ValueError('Each record must be a note, task or report answer')
@@ -2635,9 +2658,7 @@ class Store:
 		if reason is not None and reason not in VIOLATION_TYPES[tab]:raise ValueError('reason must name a violation type for this tab')
 		if clause_file not in(None,'')and clause_file not in read_set_files(self.repository_root()):raise ValueError('clause_file must name a path in the bible')
 		if note is not None and not isinstance(note,str):raise ValueError('note must be text')
-		cited=' '.join((note or'').split())
-		if len(cited)>300:raise ValueError('note must contain at most 300 characters')
-		evidence=[]
+		cited=' '.join((note or'').split());evidence=[]
 		if reason is not None:
 			heading=f"User flagged violation: {reason}."
 			if cited:heading+=f" Cited: {cited}"
@@ -2764,7 +2785,7 @@ class Store:
 		if pending_only:return not pending
 		return not(pending and polls>=threshold)
 	def read(self,include_quiet=True):
-		quiet_filter=' AND (quiet = 0 OR blocking = 1 OR seen_at IS NULL)'if include_quiet else' AND quiet = 0'
+		quiet_filter=' AND (quiet = 0 OR blocking = 1 OR seen_at IS NULL)'if include_quiet else" AND (quiet = 0 OR (type = 'state-backup' AND blocking = 1))"
 		with self.transaction(autosave=False)as db:
 			pending=[message_row(row)|{'type':'note'}for row in db.execute(f"SELECT * FROM notes WHERE acknowledged_at IS NULL{quiet_filter} ORDER BY at, seq")];pending+=[message_row(row)|{'type':'report'}for row in db.execute(f"SELECT * FROM submissions WHERE {PENDING_SUBMISSIONS} ORDER BY at, seq")];notes={}
 			for table in('notes','submissions'):
@@ -3225,7 +3246,7 @@ def handler(store):
 			except FileNotFoundError as error:self.problem(404,error)
 			except(OSError,sqlite_api().Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
-			path=urlsplit(self.path).path;autosave_post=path in{'/api/userscript-autosave','/api/userscript-autosave/compare'};report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';staged_upload=path=='/api/uploads';upload_drop=re.fullmatch('/api/uploads/([a-zA-Z0-9_-]{1,80})/drop',path);agent_key_post=path=='/api/key';timezone_post=path=='/api/timezone';skip_poll_post=path=='/api/skip-poll';interrupt_post=path=='/api/agent-interrupt';task_order_post=path=='/api/tasks/order';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
+			path=urlsplit(self.path).path;autosave_post=path in{'/api/userscript-autosave','/api/userscript-autosave/compare','/api/userscript-autosave/offer'};report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';staged_upload=path=='/api/uploads';upload_drop=re.fullmatch('/api/uploads/([a-zA-Z0-9_-]{1,80})/drop',path);agent_key_post=path=='/api/key';timezone_post=path=='/api/timezone';skip_poll_post=path=='/api/skip-poll';interrupt_post=path=='/api/agent-interrupt';task_order_post=path=='/api/tasks/order';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
 			if path not in{'/api/notes','/api/markdown','/api/slash','/api/fetch-jobs','/api/fetch-jobs/claim','/api/survey','/api/survey/request'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not staged_upload and not upload_drop and not fetch_post and not agent_key_post and not timezone_post and not skip_poll_post and not interrupt_post and not task_order_post and not autosave_post:self.problem(404,'Not found');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload or staged_upload:
@@ -3271,7 +3292,11 @@ def handler(store):
 							else:store.schedule_read_set_note(manual=True)
 						survey_state['requested']=True
 					self.reply(200,json.dumps({'ok':True}));return
-				if autosave_post:result=store.compare_userscript_save(payload)if path.endswith('/compare')else store.confirm_userscript_save(payload);self.reply(200,json.dumps(result,ensure_ascii=False));return
+				if autosave_post:
+					if path.endswith('/compare'):result=store.compare_userscript_save(payload)
+					elif path.endswith('/offer'):result=store.offer_userscript_backup(payload)
+					else:result=store.confirm_userscript_save(payload)
+					self.reply(200,json.dumps(result,ensure_ascii=False));return
 				if agent_key_post:
 					candidate=payload.get('key')
 					if not isinstance(candidate,str)or not AGENT_KEY_RE.fullmatch(candidate):raise ValueError('key must be 20 to 64 letters, digits, dashes or underscores')
@@ -3561,6 +3586,7 @@ def embed_report_images(markdown,report_dir):
 		if source.startswith('//')or re.match('[a-zA-Z][a-zA-Z0-9+.-]*:',source):return f"Publication skips remote image {source}. Fetch it locally, then embed it with arena-preview image-data-uri."
 		path=Path(source)
 		if not path.is_absolute():path=report_dir/path
+		if path.name.lower().endswith('-wireframe.png')or source.lower().endswith('-wireframe.png'):raise ValueError(f"Wireframe image {source} (*-wireframe.png) is for agent inspection only and cannot be embedded in reports")
 		try:mime,encoded=image_payload(path)
 		except ValueError as error:return f"Publication skips local image {source}: {error}. Run arena-preview image-data-uri for the helper."
 		return f"![{alt}](data:{mime};base64,{encoded}{suffix})"
@@ -3690,9 +3716,13 @@ def pre_command(state_dir,line,command,root,done='',shell=''):
 	if any(word in command for word in('curl','wget','git clone','git fetch'))or'git ls-remote'in command:
 		warning=egress_warning(command)
 		if warning:report(warning)
+	if'git add'in command and re.search('(?:^|[\\s\'\\"/])[^\\s\'\\"]*-wireframe\\.png(?:$|[\\s\'\\"])',command,re.IGNORECASE):report('WIREFRAME BLOCKED: never stage or commit wireframe captures (*-wireframe.png).');return finish(130)
 	if'git commit'in command:
 		warning=worktree_warning(state_dir,'commit',cwd=Path.cwd())
 		if warning:report(warning);return finish(130)
+		try:staged_wf=subprocess.run(['git','diff','--cached','--name-only','--diff-filter=ACMR'],cwd=str(Path.cwd()),capture_output=True,text=True,check=False);wf_paths=[line.strip()for line in staged_wf.stdout.splitlines()if line.strip().lower().endswith('-wireframe.png')]
+		except OSError:wf_paths=[]
+		if wf_paths:report('WIREFRAME BLOCKED: never stage or commit wireframe captures (*-wireframe.png): '+', '.join(wf_paths));return finish(130)
 		try:commit_store=Store(state_dir)
 		except FileNotFoundError:commit_store=None
 		if commit_store is not None:

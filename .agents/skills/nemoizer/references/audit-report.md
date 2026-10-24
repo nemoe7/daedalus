@@ -1,4 +1,4 @@
-# Nemoizer Audit: <target>
+# nemoizer Audit: <target>
 
 - **Status:** `<pass | action-needed>`
 - **Counts:** `<N>` blocking, `<N>` manual review, `<N>` `nonemo` markers (`<N>` files)

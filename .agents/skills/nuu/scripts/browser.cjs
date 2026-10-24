@@ -515,10 +515,83 @@ async function flow(page, context, steps, output, timeout) {
     assertions, steps: results, remaining: 0};
 }
 
+async function renderWireframe(page, outPath, timeout, selector) {
+  await page.evaluate(extraSelector => {
+    const existing = document.getElementById('nuu-wireframe-overlay');
+    if (existing) existing.remove();
+    const docEl = document.documentElement;
+    const docW = Math.max(docEl.scrollWidth || 0, docEl.clientWidth || 0, window.innerWidth || 0);
+    const docH = Math.max(docEl.scrollHeight || 0, docEl.clientHeight || 0, window.innerHeight || 0);
+    const root = document.createElement('div');
+    root.id = 'nuu-wireframe-overlay';
+    root.setAttribute('aria-hidden', 'true');
+    root.style.cssText =
+      `position:absolute;left:0;top:0;width:${docW}px;height:${docH}px;` +
+      'pointer-events:none;z-index:2147483647;overflow:hidden;' +
+      'background:rgba(10,12,16,0.22);font:600 10px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;';
+    const baseQuery =
+      'header,nav,main,section,article,aside,footer,dialog,form,table,details,summary,' +
+      'button,input,select,textarea,a,img,h1,h2,h3,[role],[id],.card,.panel,.row,.toolbar,.tab,.modal,.chip';
+    const fullQuery = extraSelector ? `${baseQuery},${extraSelector}` : baseQuery;
+    let nodes = [];
+    try {
+      nodes = Array.from(document.querySelectorAll(fullQuery));
+    } catch {
+      nodes = Array.from(document.querySelectorAll(baseQuery));
+    }
+    const seen = new Set();
+    for (const el of nodes) {
+      if (!el || el === root || root.contains(el) || seen.has(el)) continue;
+      seen.add(el);
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) continue;
+      const rect = el.getBoundingClientRect();
+      const w = Math.round(rect.width);
+      const h = Math.round(rect.height);
+      if (w < 8 || h < 8) continue;
+      const x = Math.round(rect.left + window.scrollX);
+      const y = Math.round(rect.top + window.scrollY);
+      const tag = el.tagName.toLowerCase();
+      const isControl = ['button', 'input', 'select', 'textarea', 'a', 'summary'].includes(tag) ||
+        ['button', 'link', 'tab', 'checkbox', 'radio', 'switch', 'textbox', 'combobox'].includes(el.getAttribute('role') || '');
+      const isLandmark = ['header', 'nav', 'main', 'section', 'article', 'aside', 'footer', 'dialog', 'form'].includes(tag);
+      const color = isControl ? '#ffab00' : (isLandmark ? '#00e5ff' : '#ff4081');
+      const box = document.createElement('div');
+      box.style.cssText =
+        `position:absolute;left:${x}px;top:${y}px;width:${w}px;height:${h}px;` +
+        `border:1.5px solid ${color};box-sizing:border-box;background:rgba(0,0,0,0.06);`;
+      const idPart = el.id ? `#${el.id}` : '';
+      const cls = !idPart && typeof el.className === 'string' && el.className.trim()
+        ? `.${el.className.trim().split(/\s+/)[0]}`
+        : '';
+      const label = document.createElement('span');
+      label.textContent = `${tag}${idPart || cls} ${w}\u00d7${h}`;
+      label.style.cssText =
+        `position:absolute;left:0;top:0;max-width:${Math.max(64, w)}px;` +
+        'padding:1px 4px;background:rgba(12,14,18,0.88);' +
+        `color:${color};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`;
+      box.appendChild(label);
+      root.appendChild(box);
+    }
+    document.body.appendChild(root);
+  }, selector || '');
+  try {
+    await page.screenshot({path: outPath, fullPage: true, timeout});
+  } finally {
+    await page.evaluate(() => {
+      const existing = document.getElementById('nuu-wireframe-overlay');
+      if (existing) existing.remove();
+    });
+  }
+}
+
 async function run() {
   if (request.command !== 'doctor') {
   if (request.overlaps !== undefined && typeof request.overlaps !== 'boolean') {
     throw new Error('Overlaps flag must be a boolean');
+  }
+  if (request.wireframe !== undefined && typeof request.wireframe !== 'boolean') {
+    throw new Error('Wireframe flag must be a boolean');
   }
   if (request.ready !== undefined && request.ready !== null &&
       (typeof request.ready !== 'string' || !request.ready.trim())) {
@@ -631,6 +704,10 @@ async function run() {
             }
             row.screenshot = path.join(output, `${width}-${scheme}-${motion}.png`);
             await page.screenshot({path: row.screenshot, fullPage: true, timeout});
+            if (request.wireframe) {
+              row.wireframe_screenshot = path.join(output, `${width}-${scheme}-${motion}-wireframe.png`);
+              await renderWireframe(page, row.wireframe_screenshot, timeout, request.selector);
+            }
             row.status = 'captured';
           } catch (error) {
             row.status = 'failed';

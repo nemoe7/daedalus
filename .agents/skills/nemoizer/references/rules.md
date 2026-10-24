@@ -30,7 +30,7 @@ To fix this issue, rewrite the text as follows:
 Do not send this type of token.
 ```
 
-Note: Each rotation matches the word stem in lower, capital, and upper case. Use `# nonemo: NMO100` or `<!-- nonemo: NMO100 -->` when an identifier or false friend must keep its spelling.
+Note: Each rotation matches the word stem in lower, capital, and upper case. Proper-name variations of `nemoizer` and `the nemoizer` in any case rotate to lowercase `nemoizer` with no leading `the`. Use `# nonemo: NMO100` or `<!-- nonemo: NMO100 -->` when an identifier or false friend must keep its spelling.
 
 Rationale: Plain, consistent words are shorter and easier to scan across documentation and code.
 
@@ -66,19 +66,19 @@ Aliases: `the-density`
 
 Parameters: `the_density_cap` (`int`; default `20`), `min_the_count` (`int`; default `3`)
 
-This rule triggers for manual review when a prose line uses `"the"` at least three times and `"the"` accounts for `20%` or more of the words on that line.
+This rule triggers for manual review when a prose block (paragraph, list item, blockquote, heading, or table cell) uses `"the"` at least three times and `"the"` accounts for `20%` or more of the words in that block. In flagged blocks, `nemoize.py --format` collapses repeated leading `"the"` articles in comma-separated lists.
 
 ```text
-Check the status of the server in the logs of the worker.
+Check the status, the logs, and the metrics for the worker.
 ```
 
-To fix this issue, remove unnecessary `"the"` articles where meaning stays unchanged:
+To fix this issue, remove unnecessary `"the"` articles where meaning stays unchanged, or run `nemoize.py --format` to collapse repeated list articles:
 
 ```text
-Check server status in worker logs.
+Check status, logs, and metrics for worker.
 ```
 
-Note: Default checks report `NMO902` as `(manual review)` (`advisory`) with exit code `0`. Retain `"the"` when removing it changes specificity or meaning.
+Note: Default checks report `NMO902` as `(manual review)` (`advisory`) with exit code `0`. Retain `"the"` when removing it changes specificity or meaning. Write `nemoizer` in lowercase without a leading `"the"`.
 
 Rationale: Excessive definite articles pad technical instructions and descriptions without adding information.
 

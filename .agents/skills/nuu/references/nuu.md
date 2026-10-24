@@ -14,8 +14,8 @@
 | `check` | Check computed-style measure JSON against the sheet | `<report>`, `-s, --sheet <path>`, `-g, --scale <px>`, `-d, --density`, `-j, --json` |
 | `density` | Check row/card ink ratio (`NUM205`), sibling gaps (`NUM206`), control width caps (`NUM207`), and symmetric icon buttons (`NUM208`) | `<report>` |
 | `ruler` | Measure pixel distance between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-g, --scale <px>`, `-j, --json` |
-| `annotate`, `board` | Render boxes, arrows, labels, callouts, and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>` |
-| `audit` | Run source, measure, flow, and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-o, --out <dir>`, `-j, --json` |
+| `annotate`, `board` | Render boxes, arrows, labels, callouts, and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>`, `-W, --wireframe` |
+| `audit` | Run source, measure, flow, and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-W, --wireframe`, `-o, --out <dir>`, `-j, --json` |
 
 ## Audit Coverage (`NUL001`–`NUA306`)
 

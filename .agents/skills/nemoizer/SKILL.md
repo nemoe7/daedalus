@@ -6,7 +6,7 @@ description: >
 compatibility: Python 3.11+, with Node.js and Acorn for JavaScript checks.
 ---
 
-# Nemoizer
+# nemoizer
 
 | Avoid | Use |
 | --- | --- |
