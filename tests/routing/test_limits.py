@@ -278,6 +278,22 @@ def test_neurons() -> None:
   }
   rows = limits.neuron_items(small)
   assert len(rows) == 1 and rows[0]["share"] == pytest.approx(0.99991, abs=1e-5), rows
+  over = {
+    "data": {
+      "viewer": {
+        "accounts": [{"aiInferenceAdaptiveGroups": [{"sum": {"totalNeurons": 12315}}]}]
+      }
+    }
+  }
+  rows = limits.neuron_items(over)
+  assert rows == [
+    {
+      "kind": "neurons",
+      "value": 0.0,
+      "limit": limits.CLOUDFLARE_FREE,
+      "share": 0.0,
+    }
+  ]
   refused = {"data": None, "errors": [{"message": "not authorized for that account"}]}
   assert limits.neuron_items(refused) == []
   assert limits.neuron_items({"data": {"viewer": {"accounts": []}}}) == []

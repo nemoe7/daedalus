@@ -295,8 +295,10 @@ def neuron_items(data: Any) -> list[Item]:
   used = sum(value for value in values if value is not None)
   if not math.isfinite(used):
     raise ValueError("the neuron sum is not finite")
-  left = share(CLOUDFLARE_FREE - used, CLOUDFLARE_FREE)
-  return [card_item("neurons", CLOUDFLARE_FREE - used, CLOUDFLARE_FREE, left)]
+  remaining = max(0.0, CLOUDFLARE_FREE - used)
+  return [
+    card_item("neurons", remaining, CLOUDFLARE_FREE, share(remaining, CLOUDFLARE_FREE))
+  ]
 
 
 Reader = Callable[[httpx.AsyncClient, str, str], Awaitable[Any]]
