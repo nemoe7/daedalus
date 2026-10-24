@@ -79,7 +79,7 @@ def test_classify_prompt_reads_only_the_first_2000_characters() -> None:
   ],
 )
 def test_similarity_cohort_buckets_the_length(length: int, bucket: str) -> None:
-  """The bucket changes at 200, 800 and 2000 characters."""
+  """The bucket changes at 200, 800, and 2000 characters."""
   prompt = "a" * length
   assert classifier.similarity_cohort(prompt, classifier.RequestType.GENERAL) == (
     f"general|{bucket}|code=0|math=0|mc=0|intl=0"

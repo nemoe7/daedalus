@@ -2,7 +2,7 @@
 
 See [Open WebUI integration](../owui.md) for the other plugins.
 
-Import [`github.json`](../../../integrations/openwebui/imports/tools/github.json) through **Workspace → Tools**, **Import JSON**. Then configure its valves and access.
+Import [`github.json`](../../../integrations/openwebui/imports/tools/github.json) through **Workspace > Tools**, **Import JSON**. Then configure its valves and access.
 
 [`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is an Open WebUI
 Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of
@@ -50,7 +50,7 @@ Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writ
 
 The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve, or reopen an alert.
 
-1. Import the JSON file in **Workspace → Tools**, **Import JSON**.
+1. Import the JSON file in **Workspace > Tools**, **Import JSON**.
 2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Set `permissions`. `Always ask` is the shipped default.
 3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.
 

@@ -268,19 +268,25 @@ def test_pr_title_uses_the_commit_rules():
   assert any("lowercase" in failure.message for failure in failures)
 
 
-def test_ste_lint_accepts_valid_text():
-  passed, output = check_pr.run_ste_lint("Start the server. Read the log.\n")
+def test_nemoizer_accepts_valid_text():
+  passed, output = check_pr.run_nemoizer("Start the server. Read the log.\n")
   assert passed, output
 
 
-def test_ste_lint_rejects_invalid_text():
-  passed, output = check_pr.run_ste_lint("Start the server; read the log.\n")
+def test_nemoizer_rejects_invalid_text():
+  passed, output = check_pr.run_nemoizer("Start the server; read the log.\n")
   assert not passed
   assert "semicolon" in output
+  passed, output = check_pr.run_nemoizer("Read the logs, metrics and traces.\n")
+  assert not passed
+  assert "serial-comma" in output
+  passed, output = check_pr.run_nemoizer("Open Settings → Providers.\n")
+  assert not passed
+  assert "arrow" in output
 
 
-def test_ste_lint_rejects_advisory_findings(tmp_path):
-  passed, output = check_pr.run_ste_lint("The file is saved.\n")
+def test_nemoizer_rejects_advisory_findings(tmp_path):
+  passed, output = check_pr.run_nemoizer("The file is saved.\n")
   assert not passed and "passive-voice" in output
   body = tmp_path / "body.md"
   body.write_text(VALID_BODY.replace("Add the commit validator.", "The file is saved."))
@@ -289,7 +295,7 @@ def test_ste_lint_rejects_advisory_findings(tmp_path):
   assert check_pr.check(None, None, str(body), False) == []
 
 
-def test_ste_lint_fails_closed_on_process_or_json_errors(monkeypatch):
+def test_nemoizer_fails_closed_on_process_or_json_errors(monkeypatch):
   for code, output, error in (
     (2, "", "synthetic linter error"),
     (1, '{"violations": []}', ""),
@@ -304,7 +310,7 @@ def test_ste_lint_fails_closed_on_process_or_json_errors(monkeypatch):
     monkeypatch.setattr(
       check_pr.subprocess, "run", lambda *args, result=result, **kwargs: result
     )
-    passed, detail = check_pr.run_ste_lint("Read the file.")
+    passed, detail = check_pr.run_nemoizer("Read the file.")
     assert not passed and detail, (code, output, error)
     if error:
       assert error in detail
@@ -313,13 +319,13 @@ def test_ste_lint_fails_closed_on_process_or_json_errors(monkeypatch):
     raise OSError("synthetic missing linter")
 
   monkeypatch.setattr(check_pr.subprocess, "run", missing)
-  passed, detail = check_pr.run_ste_lint("Read the file.")
+  passed, detail = check_pr.run_nemoizer("Read the file.")
   assert not passed and "synthetic missing linter" in detail
 
 
-def test_ste_lint_selftest_passes():
+def test_nemoizer_selftest_passes():
   result = subprocess.run(
-    [sys.executable, str(check_pr.STE_LINT), "--selftest"],
+    [sys.executable, str(check_pr.NEMOIZER), "--selftest"],
     capture_output=True,
     text=True,
     check=False,
@@ -327,16 +333,16 @@ def test_ste_lint_selftest_passes():
   assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_check_propagates_the_ste_failure(tmp_path: Path):
+def test_check_propagates_the_prose_failure(tmp_path: Path):
   body = tmp_path / "body.md"
   body.write_text(
     VALID_BODY.replace("pull request body.", "pull request body. One line; two rules."),
     encoding="utf-8",
   )
   failures = check_pr.check(None, None, str(body), True)
-  assert any("STE lint failed" in failure.message for failure in failures)
-  without_ste = check_pr.check(None, None, str(body), False)
-  assert not any("STE lint failed" in failure.message for failure in without_ste)
+  assert any("prose check failed" in failure.message for failure in failures)
+  without_prose = check_pr.check(None, None, str(body), False)
+  assert not any("prose check failed" in failure.message for failure in without_prose)
 
 
 def test_main_exit_codes(tmp_path: Path, capsys):

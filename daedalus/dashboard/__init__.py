@@ -309,7 +309,7 @@ def login() -> tuple[str, str]:
 
 
 def secret() -> str | None:
-  """The session signing key: a new master key, username or password ends all sessions."""
+  """The session signing key: a new master key, username, or password ends all sessions."""
   key = master()
   return None if key is None else "\n".join((key, *login()))
 
@@ -500,7 +500,7 @@ def env_names() -> dict[str, list[str]]:
 
 
 def env_rows() -> list[dict[str, Any]]:
-  """The state of each name for the dashboard (saved, env or missing), with masked start and length."""
+  """The state of each name for the dashboard (saved, env, or missing), with masked start and length."""
   rows = []
   for name, places in env_names().items():
     saved = config.SAVED.get(name)
@@ -688,7 +688,7 @@ def model_tag(
   weights: Mapping[str, float],
   ends: Mapping[str, float],
 ) -> str:
-  """Hash catalog time, config, model rows, cooldowns and weights rounded to two decimals for the model-list stamp."""
+  """Hash catalog time, config, model rows, cooldowns, and weights rounded to two decimals for the model-list stamp."""
   shown = {model: round(weight, 2) for model, weight in weights.items()}
   text = json.dumps([built, config, rows, shown, ends], default=str, sort_keys=True)
   return f'"{hashlib.sha256(text.encode()).hexdigest()[:16]}"'

@@ -62,7 +62,7 @@ def due(now: float) -> bool:
 
 
 def _record(before: dict[str, dict], reason: str) -> None:
-  """Write the event of a finished rebuild, with the rows it added, removed and moved.
+  """Write the event of a finished rebuild, with the rows it added, removed, and moved.
 
   Each moved row names every move it made: "p/one: tier TIER-A->TIER-B, rpm 10->20".
   """

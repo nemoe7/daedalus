@@ -1,4 +1,4 @@
-"""The `daedalus` command: serve, catalog, dump and hooks."""
+"""The `daedalus` command: serve, catalog, dump, and hooks."""
 
 import argparse
 import errno

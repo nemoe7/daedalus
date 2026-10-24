@@ -118,7 +118,7 @@ def test_structural_command_keeps_custom_markdown_exclusions(tmp_path, monkeypat
   assert lint_prose.main() == 0
 
 
-def test_default_command_checks_markdown_ste_findings(tmp_path, monkeypatch):
+def test_default_command_checks_markdown_prose_findings(tmp_path, monkeypatch):
   source = tmp_path / "guide.md"
   monkeypatch.setattr(lint_prose, "ROOT", tmp_path)
   monkeypatch.setattr(lint_prose.sys, "argv", ["lint_prose.py"])

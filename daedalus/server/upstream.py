@@ -37,7 +37,7 @@ DETAIL_LIMIT = 4000
 # models, and `affinity.count` stops at 10. Every connection stays warm.
 MAX_CONNECTIONS = 64
 
-# Client headers that daedalus owns: credentials, transport and proxy headers.
+# Client headers that daedalus owns: credentials, transport, and proxy headers.
 KEPT_BACK = frozenset(
   {
     "authorization",
@@ -63,7 +63,7 @@ KEPT_BACK = frozenset(
     "x-real-ip",
   }
 )
-# Open WebUI sends the name, e-mail, id and role of its user in `x-openwebui-user-*`.
+# Open WebUI sends the name, e-mail, id, and role of its user in `x-openwebui-user-*`.
 KEPT_BACK_PREFIXES = ("proxy-", "x-forwarded-", "tailscale-", "x-openwebui-user-")
 OWUI_CHAT_ID = "x-openwebui-chat-id"
 # A chat ID names the user's conversation. It stays inside daedalus unless the operator opts in.
@@ -298,7 +298,7 @@ def epoch_seconds(value: str) -> float:
 
 
 def retry_delay(payload: Any, headers: Mapping[str, str], text: str) -> float | None:
-  """The retry wait a provider body, header or message names, in seconds."""
+  """The retry wait a provider body, header, or message names, in seconds."""
   error = payload.get("error") if isinstance(payload, dict) else None
   details = error.get("details") if isinstance(error, dict) else None
   for detail in details or []:

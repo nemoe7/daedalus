@@ -187,7 +187,7 @@ def test_a_source_writes_its_files(
 def test_the_lock_records_the_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The lock keys an identity owner/repo/file.py, and holds its sha256, version, repo and commit."""
+  """The lock keys an identity owner/repo/file.py, and holds its sha256, version, repo, and commit."""
   body = block()
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),

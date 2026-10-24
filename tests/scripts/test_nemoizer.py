@@ -1,4 +1,4 @@
-"""The vendored ASD-STE linter, run the way the workflow runs it."""
+"""The vendored nemoizer linter, run the way the workflow runs it."""
 
 import re
 import subprocess

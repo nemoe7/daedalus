@@ -317,7 +317,7 @@ def test_static_copy_uses_locale_keys() -> None:
 
 
 def test_api_error_locale_metadata_preserves_payload_and_headers() -> None:
-  """API locale metadata preserves status, headers, messages and parameter values."""
+  """API locale metadata preserves status, headers, messages, and parameter values."""
   for status, key, params in (
     (503, "error.store_busy_text", {}),
     (503, "error.store_unreadable_text", {"command": "daedalus catalog"}),

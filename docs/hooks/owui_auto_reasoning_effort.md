@@ -57,7 +57,7 @@ its own effort. A chain with no reasoning model gets no call and no effort. `ups
 The [Auto reasoning effort Filter](../../integrations/openwebui/functions/auto_reasoning_effort.py) requires daedalus and this updated hook. It has no classifier of its own and does not work with a direct provider connection.
 
 1. Install the updated hook in the configured `hooks.dir` on daedalus.
-2. Import [auto_reasoning_effort.json](../../integrations/openwebui/imports/functions/auto_reasoning_effort.json) in **Admin Panel → Functions**.
+2. Import [auto_reasoning_effort.json](../../integrations/openwebui/imports/functions/auto_reasoning_effort.json) in **Admin Panel > Functions**.
 3. Enable the Filter only for models on the daedalus connection. Keep the `x-openwebui-chat-id` custom header described below.
 4. Set the Filter valves.
 

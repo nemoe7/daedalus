@@ -23,7 +23,7 @@ routes = APIRouter()
 logger = logging.getLogger("daedalus")
 TRANSCRIPT_FORMATS = ("json", "text", "srt", "verbose_json", "vtt")
 SPEECH_FORMATS = ("mp3", "opus", "aac", "flac", "wav", "pcm")
-# The server sets the shared weights, cooldowns and pacing at start.
+# The server sets the shared weights, cooldowns, and pacing at start.
 PENALTIES: penalties.Penalties | None = None
 COOLDOWNS: cooldowns.Cooldowns | None = None
 PACING: pacing.Pacing | None = None

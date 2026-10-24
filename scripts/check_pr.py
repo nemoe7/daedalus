@@ -12,18 +12,72 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
-STE_LINT = ROOT / ".agents" / "skills" / "nemoizer" / "scripts" / "nemoizer"
+NEMOIZER = ROOT / ".agents" / "skills" / "nemoizer" / "scripts" / "nemoizer"
 
 INLINE_CODE_RE = re.compile(r"`[^`]*`")
-STE_RULE_NAMES = {
+NEMOIZER_RULES = {
+  "STE001": (
+    "dangling-conjunction",
+    "advisory-free",
+    "List item ends with a dangling conjunction.",
+  ),
   "STE100": ("semicolon", "hard", "Semicolon joins clauses."),
   "STE101": ("slash-choice", "hard", "Slash choice obscures meaning."),
+  "STE102": (
+    "nominalization",
+    "advisory-free",
+    "Nominalized verb where a direct verb works.",
+  ),
+  "STE103": ("wordy-phrase", "advisory-free", "Wordy phrase where a short word works."),
+  "STE104": ("archaic-connector", "advisory-free", "Archaic legal connector."),
   "STE200": ("long-sentence", "advisory-free", "Sentence exceeds word cap."),
+  "STE201": (
+    "compound-instruction",
+    "advisory",
+    "Sentence combines multiple instructions.",
+  ),
   "STE300": ("noun-cluster", "advisory-free", "Noun cluster exceeds 3 words."),
+  "STE301": ("synonym-cluster", "advisory", "Paired synonyms where one word works."),
+  "STE302": ("compound-tense", "advisory", "Compound verb tense."),
+  "STE303": ("inline-list", "advisory", "Inline numbered or lettered list."),
+  "STE304": ("double-negative", "advisory", "Double negative obscures meaning."),
   "STE400": ("unapproved-word", "hard", "Unapproved word."),
   "STE901": ("passive-voice", "advisory", "Passive voice."),
   "STE902": ("phrasal-verb", "advisory", "Phrasal verb."),
   "STE903": ("participle", "advisory", "Trailing participle clause."),
+  "NMO001": (
+    "staged-frame",
+    "advisory-free",
+    "Staged temporal or conditional frame.",
+  ),
+  "NMO002": ("stacked-qualifier", "advisory-free", "Stacked qualifiers or hedging."),
+  "NMO003": (
+    "serial-comma",
+    "advisory-free",
+    "Three-item list omits the serial comma.",
+  ),
+  "HMN100": (
+    "chatbot-courtesy",
+    "advisory-free",
+    "Chatbot courtesy or disclaimer phrase.",
+  ),
+  "HMN200": ("curly-quote", "advisory-free", "Curly quotation mark or apostrophe."),
+  "HMN300": ("ai-vocabulary", "advisory-free", "Promotional or cliché AI vocabulary."),
+  "HMN400": ("arrow", "advisory-free", "Unicode arrow in prose."),
+  "HMN500": ("consecutive-emoji", "advisory-free", "Consecutive emojis in prose."),
+  "HMN600": ("self-narration", "advisory-free", "Self-narrating document opener."),
+  "HMN901": ("negative-contrast", "advisory", "Negative-contrast pivot."),
+  "HMN902": ("aphorism", "advisory", "Stock takeaway aphorism."),
+  "HMN903": ("rhetorical-setup", "advisory", "Conversational or rhetorical setup."),
+  "HMN904": (
+    "repeated-opener",
+    "advisory",
+    "Three consecutive sentences share an opener.",
+  ),
+  "HMN905": ("prose-dash", "advisory", "Em dash or spaced en dash in prose."),
+  "HMN906": ("vague-attribution", "advisory", "Unattributed authority claim."),
+  "HMN907": ("copula-avoidance", "advisory", "Ornamental verb in place of is or has."),
+  "HMN908": ("bold-label-bullet", "advisory", "Bold-label list item."),
 }
 NEGATED_OR_INFINITIVE_PASSIVE_RE = re.compile(
   r"\b(?:not|be)\s+(?:\w+ly\s+)?(?:\w+ed|\w+en|built|done|drawn|found|given|gone|"
@@ -286,7 +340,7 @@ def lint_prose_lines(
   lines: list[str], linter: Path | None = None
 ) -> tuple[bool, list[dict[str, object]], int, str]:
   """Run the repository prose linter on line-anchored text."""
-  target = STE_LINT if linter is None else linter
+  target = NEMOIZER if linter is None else linter
   cleaned: list[str] = []
   in_fence = False
   for line in lines:
@@ -318,21 +372,21 @@ def lint_prose_lines(
         check=False,
       )
   except OSError as exc:
-    return False, [], words, f"STE lint could not run: {exc}"
+    return False, [], words, f"Prose check could not run: {exc}"
   output = (result.stdout + result.stderr).strip()
   if result.returncode not in (0, 1) or result.stderr:
     return (
       False,
       [],
       words,
-      output or f"STE lint exited with status {result.returncode}.",
+      output or f"Prose check exited with status {result.returncode}.",
     )
   try:
     report = json.loads(result.stdout)
   except ValueError:
-    return False, [], words, f"Invalid STE lint JSON.\n{output}".strip()
+    return False, [], words, f"Invalid prose check JSON.\n{output}".strip()
   if not isinstance(report, dict):
-    return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+    return False, [], words, f"Invalid prose check findings.\n{output}".strip()
   if "violations" in report:
     raw = report.get("violations")
     if (
@@ -340,7 +394,7 @@ def lint_prose_lines(
       or any(not isinstance(item, dict) for item in raw)
       or (result.returncode and not raw)
     ):
-      return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+      return False, [], words, f"Invalid prose check findings.\n{output}".strip()
     return True, raw, int(report.get("words", words)), output
   raw = report.get("findings")
   if (
@@ -348,21 +402,28 @@ def lint_prose_lines(
     or any(not isinstance(item, dict) for item in raw)
     or (result.returncode and not raw)
   ):
-    return False, [], words, f"Invalid STE lint findings.\n{output}".strip()
+    return False, [], words, f"Invalid prose check findings.\n{output}".strip()
   violations: list[dict[str, object]] = []
   for item in raw:
     code = str(item.get("rule", ""))
-    if code not in STE_RULE_NAMES:
+    if code not in NEMOIZER_RULES:
       continue
     index = max(0, (int(item.get("line", 1)) - 1) // 2)
     line_text = cleaned[index] if index < len(cleaned) else ""
+    if (
+      code == "STE001"
+      and index + 1 < len(lines)
+      and lines[index + 1].startswith("  ")
+      and not LIST_ITEM_RE.match(lines[index + 1].lstrip())
+    ):
+      continue
     if code == "STE901" and NEGATED_OR_INFINITIVE_PASSIVE_RE.search(line_text):
       continue
     if code == "STE902" and UI_TOGGLE_PHRASAL_RE.search(line_text):
       continue
     if code == "STE903" and not PARTICIPLE_CLAUSE_RE.search(line_text):
       continue
-    rule_name, level, message = STE_RULE_NAMES[code]
+    rule_name, level, message = NEMOIZER_RULES[code]
     violations.append(
       {
         "line": index + 1,
@@ -375,7 +436,7 @@ def lint_prose_lines(
   return True, violations, words, rendered
 
 
-def run_ste_lint(text: str) -> tuple[bool, str]:
+def run_nemoizer(text: str) -> tuple[bool, str]:
   """Check prose with the repository linter and return its result."""
   ok, violations, _, detail = lint_prose_lines(text.splitlines())
   if not ok:
@@ -443,7 +504,7 @@ def check(
   revision_range: str | None,
   pr_title: str | None,
   body_file: str | None,
-  ste: bool,
+  prose: bool,
 ) -> list[Failure]:
   """Collect every contract failure for the given inputs."""
   failures: list[Failure] = []
@@ -459,10 +520,10 @@ def check(
     text = Path(body_file).read_text(encoding="utf-8")
     failures.extend(validate_pr_body(text))
     failures.extend(validate_breaking_crosscheck(subjects, text))
-    if ste:
-      passed, output = run_ste_lint(text)
+    if prose:
+      passed, output = run_nemoizer(text)
       if not passed:
-        failures.append(Failure("PR body", f"STE lint failed:\n{output}"))
+        failures.append(Failure("PR body", f"prose check failed:\n{output}"))
   return failures
 
 
@@ -472,9 +533,9 @@ def main(argv: list[str] | None = None) -> int:
   parser.add_argument("--pr-title", help="PR title to check as a commit subject")
   parser.add_argument("--body-file", help="file holding the complete PR body")
   parser.add_argument(
-    "--no-ste",
+    "--no-prose",
     action="store_true",
-    help="skip the ASD-STE lint of the PR body",
+    help="skip the nemoizer prose check of the PR body",
   )
   arguments = parser.parse_args(argv)
   if not (arguments.revision_range or arguments.pr_title or arguments.body_file):
@@ -483,7 +544,7 @@ def main(argv: list[str] | None = None) -> int:
     arguments.revision_range,
     arguments.pr_title,
     arguments.body_file,
-    not arguments.no_ste,
+    not arguments.no_prose,
   )
   for failure in failures:
     print(f"::error::{failure}")

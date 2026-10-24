@@ -15,7 +15,7 @@ CALLS = 200
 
 
 def fill(path: Path) -> list[str]:
-  """A store with MODELS rows, some of them with input, rate and pace limits."""
+  """A store with MODELS rows, some of them with input, rate, and pace limits."""
   rows = []
   for index in range(MODELS):
     row = {"id": f"provider-{index % 7}/model-{index}", "mode": "chat"}

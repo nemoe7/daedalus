@@ -39,7 +39,7 @@ The screenshots show dark mode with sample data.
 
 ## Edit provider files
 
-1. Open **Settings** → **Providers**.
+1. Open **Settings** > **Providers**.
 2. Select a provider file.
 3. If a file has multiple providers, select a name to open its form. A file with one provider opens its form directly, as `openrouter.yml` does.
 
@@ -81,11 +81,11 @@ On a phone, select a Settings section to open a separate page. Use the back labe
 
 ## Personalization
 
-Open **Settings** → **Personalization** and choose **Dark**, **Light**, or **System**. **System** follows the device theme.
+Open **Settings** > **Personalization** and choose **Dark**, **Light**, or **System**. **System** follows the device theme.
 
 ## API keys
 
-Open **Settings** → **API Keys** to generate keys for clients that call `/v1`. Copy a key before you close the reveal panel. The dashboard shows the full value once.
+Open **Settings** > **API Keys** to generate keys for clients that call `/v1`. Copy a key before you close the reveal panel. The dashboard shows the full value once.
 
 Delete a key to revoke its access. Use the dashboard username and password to sign in.
 

@@ -1,4 +1,4 @@
-"""The client headers go on to the provider, except credentials, transport and proxy headers."""
+"""The client headers go on to the provider, except credentials, transport, and proxy headers."""
 
 import json
 from pathlib import Path
@@ -98,7 +98,7 @@ def check(headers: httpx.Headers) -> None:
 
 
 async def test_client_headers(client: httpx.AsyncClient) -> None:
-  """Chat, stream and media requests carry the app headers of the client, and the provider key."""
+  """Chat, stream, and media requests carry the app headers of the client, and the provider key."""
   chat = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"}]}
   response = await client.post("/v1/chat/completions", json=chat)
   assert response.status_code == 200, response.text

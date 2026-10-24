@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.5
+# version: 1.0.6
 # surfaces: []
 # author: nemoe7
 # title: Example hook
@@ -8,7 +8,7 @@
 # ---
 """An example daedalus hook file. It changes nothing.
 
-Copy it, and name the copy in the hooks list of a model, provider or file:
+Copy it, and name the copy in the hooks list of a model, provider, or file:
 
   hooks:
     - on-upstream: hooks/my_hook.py

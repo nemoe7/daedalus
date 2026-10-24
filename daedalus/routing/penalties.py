@@ -61,7 +61,7 @@ class Penalties:
     return open_db(self.path(), tuple(TABLES))
 
   def clear(self) -> None:
-    """Remove all weights, pins and levels."""
+    """Remove all weights, pins, and levels."""
     database = self.connect()
     with database:
       database.execute("DELETE FROM weights")
@@ -136,7 +136,7 @@ class Penalties:
     return row[0] if row else None
 
   def prune(self) -> None:
-    """Drop the pins, tiers and levels that idled, for the timer."""
+    """Drop the pins, tiers, and levels that idled, for the timer."""
     now = self.clock() - self.idle
     database = self.connect()
     with database:

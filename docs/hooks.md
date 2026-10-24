@@ -103,7 +103,7 @@ Before the first attempt of a chat request, when the chain holds a reasoning mod
 
 ### `on-upstream`
 
-Before each chat request to the provider, streams and fallbacks included.
+Before each chat request to the provider, streams, and fallbacks included.
 
 `on_upstream(body, model, headers)`
 

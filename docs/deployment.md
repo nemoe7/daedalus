@@ -220,7 +220,7 @@ Open WebUI reads most of these settings only on the first start with a new data 
 
 For an existing or separate Open WebUI install:
 
-1. Open **Admin Settings → Connections**, and edit the daedalus OpenAI connection.
+1. Open **Admin Settings > Connections**, and edit the daedalus OpenAI connection.
 2. Open **Advanced**. Set **Custom Headers** to `{"X-OpenWebUI-Chat-Id":"{{CHAT_ID}}"}`.
 3. Keep **Forward User Info Headers** off.
 
@@ -228,9 +228,9 @@ To check the services and settings:
 
 1. `docker compose exec open-webui curl -s "http://searxng:8080/search?q=test&format=json" | head -c 200` shows JSON.
 2. `docker compose exec open-webui curl -s http://tika:9998/version` shows the Tika version.
-3. **Admin Settings → Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `mistral/mistral-embed-2312`.
-4. **Admin Settings → Web Search** shows `searxng`. **Code Execution** shows the code interpreter on, with `pyodide`.
-5. **Admin Settings → Audio** and **Images** show `http://api:3357/v1`. **Images** shows **Image Edit** on, with `daedalus/photos`. An older database keeps its values: set them there.
+3. **Admin Settings > Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `mistral/mistral-embed-2312`.
+4. **Admin Settings > Web Search** shows `searxng`. **Code Execution** shows the code interpreter on, with `pyodide`.
+5. **Admin Settings > Audio** and **Images** show `http://api:3357/v1`. **Images** shows **Image Edit** on, with `daedalus/photos`. An older database keeps its values: set them there.
 6. Upload a PDF in a chat. The daedalus log shows `/v1/embeddings` requests.
 
 | Feature | Tools for the model | Condition |

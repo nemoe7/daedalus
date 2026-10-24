@@ -9,10 +9,10 @@ from pathlib import Path
 
 if __package__:
   from . import extract_prose
-  from .check_pr import lint_prose_lines, run_ste_lint
+  from .check_pr import lint_prose_lines, run_nemoizer
 else:
   import extract_prose
-  from check_pr import lint_prose_lines, run_ste_lint
+  from check_pr import lint_prose_lines, run_nemoizer
 
 ROOT = extract_prose.ROOT
 EXCLUDES = extract_prose.EXCLUDES
@@ -45,7 +45,7 @@ INLINE_CODE = re.compile(r"`[^`]*`")
 
 
 def scan_file(path: Path) -> dict:
-  """Keep every STE finding, including advisories, and name manual-review work."""
+  """Keep every prose finding, including advisories, and name manual-review work."""
   record = extract_prose.collect([path])[0]
   result = {
     "path": record["path"],
@@ -140,7 +140,7 @@ def blocks(path: Path) -> list[tuple[int, str]]:
       or LIST.match(line)
       or line.startswith("    ")
     ):
-      # A heading, a table row, a list item or an indented block is not a paragraph.
+      # A heading, a table row, a list item, or an indented block is not a paragraph.
       skip = True
       continue
     if not held:
@@ -219,7 +219,7 @@ def main() -> int:
       if ADR_REFERENCE.search(text):
         failures += 1
         print(f"--- {path}\nA comment or docstring refers to an ADR.")
-      passed, output = run_ste_lint(text)
+      passed, output = run_nemoizer(text)
       if not passed:
         failures += 1
         print(f"--- {path}")

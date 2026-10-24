@@ -82,7 +82,7 @@ def test_stream() -> None:
 
 
 def test_discoverable() -> None:
-  """Alias rows and the models of OCR, moderation and realtime audio stay out."""
+  """Alias rows and the models of OCR, moderation, and realtime audio stay out."""
   chat = {"completion_chat": True}
   rows = {
     "mistral-medium-latest": ("mistral-medium-latest", chat),

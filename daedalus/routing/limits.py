@@ -247,7 +247,7 @@ def card_item(
   limit: float | str | None = None,
   fraction: float | None = None,
 ) -> Item:
-  """A balance value with its semantic kind, limit and remaining fraction."""
+  """A balance value with its semantic kind, limit, and remaining fraction."""
   return {"kind": kind, "value": value, "limit": limit, "share": fraction}
 
 
@@ -374,7 +374,7 @@ def saved_balances(found: Any) -> dict[str, list[Item]]:
 
 
 def reset_event(found: Any) -> dict[str, Any] | None:
-  """A stored reset event with its provider, lane, model, limit and boundary."""
+  """A stored reset event with its provider, lane, model, limit, and boundary."""
   if not isinstance(found, dict):
     return None
   provider, client = found.get("provider"), found.get("client")
@@ -523,7 +523,7 @@ def saved_warning_times(found: Any) -> dict[str, float | None]:
 
 
 class Limits:
-  """Provider limits, balances and reset notifications."""
+  """Provider limits, balances, and reset notifications."""
 
   def __init__(
     self,
@@ -783,7 +783,7 @@ class Limits:
     return [dict(event) for event in self.warning_history]
 
   def observe(self, lane: str, headers: Mapping[str, str], body: bytes = b"") -> None:
-    """Keep one answer's rate limits, cooldowns and advertised reset boundaries."""
+    """Keep one answer's rate limits, cooldowns, and advertised reset boundaries."""
     now = self.clock()
     changed = self._materialize_resets(now)
     model, client = lanes.split(lane)

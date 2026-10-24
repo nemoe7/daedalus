@@ -1,4 +1,4 @@
-"""Gemini thought signatures: save, find, replace and expire."""
+"""Gemini thought signatures: save, find, replace, and expire."""
 
 import time
 

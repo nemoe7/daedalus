@@ -153,7 +153,7 @@ def write_store(
 def read_models(
   routable_only: bool = True, tools_only: bool = False, vision_only: bool = False
 ) -> list[str]:
-  """The stored model ids, chat or unmatched rows by default, and tool or image rows on request."""
+  """The stored model ids: chat or unmatched rows by default, plus tool or image rows on request."""
   if not Path(MODELS_DB).exists():
     return []
   database = connect_read(MODELS_DB)

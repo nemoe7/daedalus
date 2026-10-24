@@ -1,4 +1,4 @@
-"""Find tool, thinking and answer loops, and keep the model that made each tool call."""
+"""Find tool, thinking, and answer loops, and keep the model that made each tool call."""
 
 import json
 import sqlite3

@@ -1,4 +1,4 @@
-"""Every workflow file: its name, its triggers, its permissions and its tools."""
+"""Every workflow file: its name, its triggers, its permissions, and its tools."""
 
 import shlex
 import shutil
@@ -75,7 +75,7 @@ def test_every_workflow_file_has_the_agreed_name() -> None:
 
 
 def test_the_workflows_that_answer_a_pull_request_do() -> None:
-  """A pull request runs the checks, the scans and the title rule."""
+  """A pull request runs the checks, the scans, and the title rule."""
   for name in ON_PULL_REQUEST:
     event = (
       "pull_request"
@@ -327,7 +327,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
 
 
 def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
-  """One workflow holds the title, the description, the commit and the version checks."""
+  """One workflow holds the title, the description, the commit, and the version checks."""
   data = load("pr-check.yml")
   assert sorted(data["jobs"]) == ["body", "commits", "title", "versions"]
 

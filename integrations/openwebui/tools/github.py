@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.9
+version: 3.0.10
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -30,7 +30,7 @@ JSON_ACCEPT = "application/vnd.github+json"
 
 
 class GitHubError(Exception):
-  """Report a GitHub failure with its status, API message, method and URL."""
+  """Report a GitHub failure with its status, API message, method, and URL."""
 
   def __init__(self, status: int, message: str, method: str = "", url: str = ""):
     self.status = status
@@ -656,7 +656,7 @@ class Tools:
     :param title: new title
     :param body: new markdown body
     :param state: open or closed
-    :param state_reason: completed, not_planned, duplicate or reopened
+    :param state_reason: completed, not_planned, duplicate, or reopened
     :param assignees: replacement usernames
     :param labels: replacement label names
     :param milestone: milestone number, 0 clears
@@ -956,9 +956,9 @@ class Tools:
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
-    :param action: COMMENT, APPROVE or REQUEST_CHANGES
+    :param action: COMMENT, APPROVE, or REQUEST_CHANGES
     :param review: the review body
-    :param file_comments: inline comments, each with path, body and line or position
+    :param file_comments: inline comments, each with path, body, and line or position
     :param commit_id: the commit the review applies to
     """
     repo = self._repo(repo_full_name)
@@ -1227,7 +1227,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Read a GitHub pull request with its title, url and unified diff.
+    """Read a GitHub pull request with its title, url, and unified diff.
 
     :param repo_full_name: owner/repo
     :param pr_number: the pull request number
@@ -1676,7 +1676,7 @@ class Tools:
 
     :param repository_full_name: owner/repo
     :param pr_number: the pull request number
-    :param merge_method: merge, squash or rebase
+    :param merge_method: merge, squash, or rebase
     :param commit_title: the commit title
     :param commit_message: the commit body
     :param expected_head_sha: refuse the merge unless head still points here
@@ -1753,7 +1753,7 @@ class Tools:
 
     :param repository_full_name: owner/repo
     :param path: the path inside the repository
-    :param ref: the branch, tag or commit. The default branch when absent
+    :param ref: the branch, tag, or commit. The default branch when absent
     :param encoding: utf-8 (decoded) or base64 (raw)
     :param start_line: keep from this line, 1-based
     :param end_line: keep to this line, inclusive
@@ -2270,7 +2270,7 @@ class Tools:
 
     :param repository_full_name: owner/repo
     :param path: only the commits that touch this path
-    :param sha: the branch, tag or commit to walk from
+    :param sha: the branch, tag, or commit to walk from
     :param since: an ISO 8601 timestamp, for example 2026-01-01T00:00:00Z
     :param until: an ISO 8601 timestamp
     :param per_page: commits per page
@@ -2396,10 +2396,10 @@ class Tools:
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert and its instances
-    :param state: open, dismissed or fixed
+    :param state: open, dismissed, or fixed
     :param tool_name: the scanning tool, for example CodeQL
-    :param ref: a branch, tag or commit
-    :param severity: note, warning or error
+    :param ref: a branch, tag, or commit
+    :param severity: note, warning, or error
     :param sort: created or updated
     :param direction: asc or desc
     :param per_page: alerts per page
@@ -2479,9 +2479,9 @@ class Tools:
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert and its locations
     :param state: open or resolved
-    :param resolution: false_positive, wont_fix, revoked or used_in_tests
+    :param resolution: false_positive, wont_fix, revoked, or used_in_tests
     :param secret_type: the secret type slug, for example github_personal_access_token
-    :param validity: active, inactive or unknown
+    :param validity: active, inactive, or unknown
     :param sort: created or updated
     :param direction: asc or desc
     :param per_page: alerts per page
@@ -2562,8 +2562,8 @@ class Tools:
 
     :param repo_full_name: owner/repo
     :param alert_number: the alert number. Set it to read that alert
-    :param state: open, dismissed, fixed or auto_dismissed
-    :param severity: low, medium, high or critical
+    :param state: open, dismissed, fixed, or auto_dismissed
+    :param severity: low, medium, high, or critical
     :param ecosystem: the package ecosystem, for example pip or npm
     :param package: the package name
     :param manifest: the manifest path
@@ -2920,7 +2920,7 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
-    """Search repositories by name, description or topic.
+    """Search repositories by name, description, or topic.
 
     :param query: the search terms, with any GitHub qualifiers
     :param per_page: results per page
@@ -3194,9 +3194,9 @@ class Tools:
     :param repository_url: one repository url or a list
     :param topn: results per page, up to 100
     :param page: page number, starting at 1
-    :param sort: best-match, created, updated, comments, reactions or interactions
+    :param sort: best-match, created, updated, comments, reactions, or interactions
     :param order: desc or asc
-    :param state: open, closed or all
+    :param state: open, closed, or all
     """
 
     async def run(
@@ -3257,9 +3257,9 @@ class Tools:
     :param org: restrict to one organization
     :param topn: results per page, up to 100
     :param page: page number, starting at 1
-    :param sort: best-match, created, updated, comments, reactions or interactions
+    :param sort: best-match, created, updated, comments, reactions, or interactions
     :param order: desc or asc
-    :param state: open, closed or all
+    :param state: open, closed, or all
     """
 
     async def run(
@@ -3318,7 +3318,7 @@ class Tools:
     :param repository_url: one repository url or a list
     :param org: restrict to one organization
     :param topn: results wanted
-    :param sort: best-match, author-date or committer-date
+    :param sort: best-match, author-date, or committer-date
     :param order: desc or asc
     """
 
@@ -3423,10 +3423,10 @@ class Tools:
     """List the GitHub check runs of a ref, or read 1 check run with its annotations.
 
     :param repo_full_name: owner/repo
-    :param ref: the commit SHA, branch or tag
+    :param ref: the commit SHA, branch, or tag
     :param check_name: only the runs of this check name
     :param check_run_id: the check run ID. Set it to read that run and its annotations
-    :param status: queued, in_progress or completed
+    :param status: queued, in_progress, or completed
     :param filter: latest keeps the newest run per name, all keeps every run
     :param per_page: runs per page
     :param page: the page number
@@ -4049,7 +4049,7 @@ class Tools:
   ) -> dict:
     """List the GitHub packages of the signed-in user, a user or an organization, or read 1 package.
 
-    :param package_type: npm, maven, rubygems, docker, nuget, container or generic. Required with owner.
+    :param package_type: npm, maven, rubygems, docker, nuget, container, or generic. Required with owner.
     :param owner: the user or organization login. Absent reads the packages of the signed-in user
     :param owner_type: org reads /orgs/{owner}/packages, user reads /users/{owner}/packages
     :param package_name: read 1 package with its versions
@@ -4317,7 +4317,7 @@ class Tools:
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
     :param state: resolved closes the alert, open reopens it
-    :param resolution: false_positive, wont_fix, revoked or used_in_tests. Required when resolved.
+    :param resolution: false_positive, wont_fix, revoked, or used_in_tests. Required when resolved.
     :param comment: the resolution comment
     """
     repo = self._repo(repo_full_name)
@@ -4357,7 +4357,7 @@ class Tools:
     :param repo_full_name: owner/repo
     :param alert_number: the alert number
     :param state: dismissed closes the alert, open reopens it
-    :param reason: fix_started, inaccurate, no_bandwidth, not_used or tolerable_risk. Required when dismissed.
+    :param reason: fix_started, inaccurate, no_bandwidth, not_used, or tolerable_risk. Required when dismissed.
     :param comment: the dismissal comment, at most 280 characters
     """
     repo = self._repo(repo_full_name)

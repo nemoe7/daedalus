@@ -1,4 +1,4 @@
-"""Tests for the OpenRouter media models: discovery of each output type, speech and images."""
+"""Tests for the OpenRouter media models: discovery of each output type, speech, and images."""
 
 import pytest
 

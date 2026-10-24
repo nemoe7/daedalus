@@ -18,8 +18,9 @@ class Kept(sqlite3.Connection):
   def close(self) -> None:
     pass
 
+  # 1 open connection for each thread, file, schema, and durability. A request or
 
-# 1 open connection for each thread, file, schema and durability. A request or
+
 # a poll reuses its thread's connection instead of opening a new one.
 _OPEN: dict[tuple[int, str, tuple[str, ...], bool], sqlite3.Connection] = {}
 # The same for the read-only connections, with the inode they opened.

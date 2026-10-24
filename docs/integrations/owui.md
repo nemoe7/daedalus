@@ -1,6 +1,6 @@
 # Open WebUI integration
 
-The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type. [`functions/`](../../integrations/openwebui/functions) holds the filters and the pipes. [`tools/`](../../integrations/openwebui/tools) holds the Workspace Tools. [`skills/`](../../integrations/openwebui/skills) holds the skills.
+The [`integrations/openwebui`](../../integrations/openwebui) folder holds 1 directory for each Open WebUI plugin type. [`functions/`](../../integrations/openwebui/functions) holds the filters and the pipes, [`tools/`](../../integrations/openwebui/tools) holds the Workspace Tools, and [`skills/`](../../integrations/openwebui/skills) holds the skills.
 
 The Python files are the editable sources. The [`imports/`](../../integrations/openwebui/imports) folder holds generated JSON downloads for the tools and filters. Import the skill folder without a generated JSON file.
 
@@ -29,10 +29,10 @@ flowchart TD
 
 ## Install
 
-1. Download the JSON file for the tool or filter. Use **Import JSON** in **Workspace → Tools** or **Admin Panel → Functions**. Enable a filter after import. For the skill, use **Import folder** in **Workspace → Skills**, select the `deep-research` folder, then **Import selected**.
+1. Download the JSON file for the tool or filter. Use **Import JSON** in **Workspace > Tools** or **Admin Panel > Functions**. Enable a filter after import. For the skill, use **Import folder** in **Workspace > Skills**, select the `deep-research` folder, then **Import selected**.
 2. **Access** on the item: make it public, or give read access to each user. A user without read access does not see the plugin.
 3. **Valves**: set the keys of the plugin. The page of each plugin names them.
-4. **Workspace → Models**: turn the plugin on for a model. A tool id and an action id ride in the `meta.toolIds` and `meta.actionIds` lists of the model.
+4. **Workspace > Models**: turn the plugin on for a model. A tool id and an action id ride in the `meta.toolIds` and `meta.actionIds` lists of the model.
 5. **The daedalus key**: the tools carry the keys of their services. The filters use the configured connection and hold no daedalus key.
 
 A gated tool asks over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by

@@ -67,7 +67,7 @@ jobs:
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
-        run: python3 scripts/check_pr.py --range "$PR_BASE..$PR_HEAD" --body-file pr-body.md --no-ste
+        run: python3 scripts/check_pr.py --range "$PR_BASE..$PR_HEAD" --body-file pr-body.md --no-prose
 
   versions:
     name: Module versions

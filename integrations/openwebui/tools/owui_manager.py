@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.13
+version: 1.0.14
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -1697,7 +1697,7 @@ class Tools:
     Read a knowledge directory and file tree with IDs, subject to depth, node, and output limits.
 
     :param knowledge_id: ID of the Open WebUI knowledge base
-    :param max_depth: how deep the tree goes, 1 or more
+    :param max_depth: how deep the tree goes, at least 1
     :param max_nodes: the most nodes to return
     """
 
@@ -2597,7 +2597,7 @@ class Tools:
     """
     Import full skill packages and binary files from a trusted HTTPS URL through Open WebUI's admin-only importer.
 
-    :param url: the HTTPS URL of a skill file, package, folder or repository
+    :param url: the HTTPS URL of a skill file, package, folder, or repository
     """
 
     refusal = await self._guard(
@@ -2749,7 +2749,7 @@ class Tools:
     version when the caller omits it. Keep other files unchanged.
 
     :param skill_id: the id of the skill to update
-    :param operations: put, move or delete operations for relative skill paths
+    :param operations: put, move, or delete operations for relative skill paths
     :param expected_version_id: the version expected by the caller, or empty to read it now
     :param commit_message: an optional description of this version
     """
