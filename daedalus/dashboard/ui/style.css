@@ -338,9 +338,16 @@ tr:last-child td { border-bottom: 0; }
   border-bottom: 1px solid var(--line);
 }
 section[data-page="models"] > .panel { overflow: clip; }
+#app > main { --main-pad-top: 28px; }
+#app > main[data-page="models"]::before {
+  content: ""; display: block; position: sticky; top: calc(-1 * var(--main-pad-top)); z-index: 4;
+  height: var(--main-pad-top); margin: calc(-1 * var(--main-pad-top)) -16px 0;
+  background: var(--bg); pointer-events: none;
+}
 section[data-page="models"] .toolbar {
   position: sticky; top: 0; z-index: 3; background: var(--panel);
   border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
+  box-shadow: 0 -1px 0 0 var(--line), 0 -13px 0 1px var(--bg);
 }
 @media (min-width: 721px) {
   section[data-page="models"] thead th {
@@ -1113,7 +1120,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches the sides. */
-  #app > main { padding-top: 16px; }
+  #app > main { padding-top: 16px; --main-pad-top: 16px; }
   /* The header keeps the brand and Log out. The status chips move to the card below. */
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .chips .ghost { min-height: 44px; }

@@ -2119,6 +2119,10 @@ def test_the_limits_table_scrolls_inside_its_panel() -> None:
   assert "position: sticky; top: 0; z-index: 3; background: var(--panel);" in css, (
     "the models toolbar sticks at the top of the scrollport"
   )
+  assert (
+    '#app > main[data-page="models"]::before {' in css
+    and "box-shadow: 0 -1px 0 0 var(--line), 0 -13px 0 1px var(--bg);" in css
+  ), "the top padding gutter and toolbar corner spandrels mask scrolled rows"
   assert "position: sticky; top: 68px; z-index: 2; background: var(--panel);" in css, (
     "the models table header sticks directly under the toolbar"
   )
