@@ -107,6 +107,7 @@ python scripts/measure.py ruler --from 120,340 --to 264,340
 - `data/vendor/`: licensed catalog data and source hashes.
 - `references/recipes/offline-fonts.md`: bundled and offline zero-jitter font recipe (`preload` with `crossorigin`, `font-display: block`, inline Base64 WOFF2, `FontFace` binary buffers, and metric-matched fallbacks).
 - `references/recipes/scroll-edge-fade.md`: scroll-driven CSS edge-fade mask recipe for scrollable panels and inputs (`@supports (animation-timeline: scroll(self))`).
+- `references/recipes/floating-overlay-scroll-fade.md` - Full-bleed scroll fade behind floating header and composer overlays
 - `references/recipes/modal-manager.md`: shared dialog modal manager and reusable template recipe (`showModal()`, deliberate autofocus with initial focus-ring suppression until keyboard navigation, and trigger focus restoration).
 - `references/recipes/loading-bar.md`: subtle delayed edge loading-bar recipe for long-running UI operations (`200ms` anti-flicker delay, `aria-busy` container, compositor `transform`, reduced-motion static fallback, and opt-in loud variant).
 - `references/recipes/scrollbars.md`: thin 10 px rounded-thumb scrollbar recipe on the surface track with arrow buttons hidden.

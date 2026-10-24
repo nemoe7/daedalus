@@ -42,6 +42,7 @@ Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- 
 
 - [references/recipes/offline-fonts.md](recipes/offline-fonts.md): bundled and offline fonts without reload jitter.
 - [references/recipes/scroll-edge-fade.md](recipes/scroll-edge-fade.md): scroll-driven CSS edge-fade mask (`@supports (animation-timeline: scroll(self))`).
+- `references/recipes/floating-overlay-scroll-fade.md` - Full-bleed scroll container fade behind floating header and composer overlays
 - [references/recipes/scrollbars.md](recipes/scrollbars.md): thin 10 px rounded-thumb scrollbar on the surface track without arrow buttons.
 - [references/recipes/overflow-and-clipping.md](recipes/overflow-and-clipping.md): focus-ring, shadow, and tooltip anti-clipping rules.
 
