@@ -108,7 +108,7 @@ Each chat pool is a gateway to one tier. The rule of thumb for the tiers:
 | moros | TIER-D | small |
 | koinos | TIER-C | small but more capable |
 | deinos | TIER-B | weak thinkers |
-| sophos | TIER-A | strong thinkers |
+| sophos | TIER-A | strong thinkers (also check user feedback on models when considering for TIER-A) |
 
 ## State database
 
