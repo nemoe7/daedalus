@@ -3355,6 +3355,27 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
   assert len(set(provider_light.values())) == len(provider_keys), (
     "every provider tile has a unique light-mode color"
   )
+  provider_dark = {
+    key: re.search(
+      rf'^:root\[data-theme="dark"\] \[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
+      css,
+      re.MULTILINE,
+    ).group(1)
+    for key in provider_keys
+  }
+  all_light = [*light_colors.values(), *provider_light.values()]
+  all_dark = [*dark_colors.values(), *provider_dark.values()]
+  assert len(set(all_light)) == len(all_light), (
+    "no light-mode tile color duplicates across settings and provider chips"
+  )
+  assert len(set(all_dark)) == len(all_dark), (
+    "no dark-mode tile color duplicates across settings and provider chips"
+  )
+  for hex_color in (*all_light, *all_dark):
+    r, g, b = (int(hex_color[index : index + 2], 16) for index in (1, 3, 5))
+    assert not (g > r and g > b), (
+      f"tile color {hex_color} stays within the indigo-plum-crimson-amber Daedalus palette"
+    )
 
 
 def test_app_js_hook_point_chips() -> None:

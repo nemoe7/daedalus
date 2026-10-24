@@ -725,50 +725,50 @@ section[data-page="providers"], section[data-page="settings"] {
 .tile svg { width: 13px; height: 13px; }
 .tile .mark { width: 13px; height: 13px; vertical-align: middle; }
 /* Each section tile has a unique hue around the wheel and uniform contrast against --tile-ink. */
-[data-chip="providers"] { background: #c13a1f; }
-[data-chip="keys"] { background: #147a44; }
-[data-chip="personalization"] { background: #ab22d2; }
-[data-chip="routing"] { background: #677012; }
-[data-chip="affinity"] { background: #1b6fa7; }
-[data-chip="balance"] { background: #cc2153; }
-[data-chip="limits"] { background: #147c15; }
-[data-chip="optimization"] { background: #7a4ae1; }
-[data-chip="privacy"] { background: #8e6217; }
-[data-chip="catalog"] { background: #137771; }
-[data-chip="hooks"] { background: #c01f99; }
-[data-chip="maintenance"] { background: #407813; }
-[data-chip="yaml"] { background: #475ce1; }
-:root[data-theme="dark"] [data-chip="providers"] { background: #ec9d8d; }
-:root[data-theme="dark"] [data-chip="keys"] { background: #21cb71; }
-:root[data-theme="dark"] [data-chip="personalization"] { background: #dc99ee; }
-:root[data-theme="dark"] [data-chip="routing"] { background: #acba1e; }
-:root[data-theme="dark"] [data-chip="affinity"] { background: #71b9e8; }
-:root[data-theme="dark"] [data-chip="balance"] { background: #ee98b2; }
-:root[data-theme="dark"] [data-chip="limits"] { background: #21cd24; }
-:root[data-theme="dark"] [data-chip="optimization"] { background: #bda5f0; }
-:root[data-theme="dark"] [data-chip="privacy"] { background: #e1a745; }
-:root[data-theme="dark"] [data-chip="catalog"] { background: #20c5bb; }
-:root[data-theme="dark"] [data-chip="hooks"] { background: #ed93d8; }
-:root[data-theme="dark"] [data-chip="maintenance"] { background: #6bc720; }
-:root[data-theme="dark"] [data-chip="yaml"] { background: #a2adf0; }
-[data-chip="free"] { background: #ab501c; }
-[data-chip="cloudflare"] { background: #147679; }
-[data-chip="gemini"] { background: #cb2154; }
-[data-chip="groq"] { background: #147b3a; }
-[data-chip="kilo"] { background: #b91eb4; }
-[data-chip="mistral"] { background: #327914; }
-[data-chip="openrouter"] { background: #8047e1; }
-[data-chip="pollinations"] { background: #6c6f12; }
-[data-chip="z-ai"] { background: #2d62dd; }
-:root[data-theme="dark"] [data-chip="free"] { background: #e9a177; }
-:root[data-theme="dark"] [data-chip="cloudflare"] { background: #21c4ca; }
-:root[data-theme="dark"] [data-chip="gemini"] { background: #ee98b2; }
-:root[data-theme="dark"] [data-chip="groq"] { background: #21cb5f; }
-:root[data-theme="dark"] [data-chip="kilo"] { background: #ed90ea; }
-:root[data-theme="dark"] [data-chip="mistral"] { background: #53ca21; }
-:root[data-theme="dark"] [data-chip="openrouter"] { background: #c0a4f0; }
-:root[data-theme="dark"] [data-chip="pollinations"] { background: #b3b81e; }
-:root[data-theme="dark"] [data-chip="z-ai"] { background: #96b1ee; }
+[data-chip="providers"] { background: #924c9f; }
+[data-chip="keys"] { background: #af4723; }
+[data-chip="personalization"] { background: #006da9; }
+[data-chip="routing"] { background: #007093; }
+[data-chip="affinity"] { background: #8152ae; }
+[data-chip="balance"] { background: #b14243; }
+[data-chip="limits"] { background: #3066bb; }
+[data-chip="optimization"] { background: #9f478c; }
+[data-chip="privacy"] { background: #a45100; }
+[data-chip="catalog"] { background: #6c59b8; }
+[data-chip="hooks"] { background: #af415e; }
+[data-chip="maintenance"] { background: #5c687e; }
+[data-chip="yaml"] { background: #535fbc; }
+:root[data-theme="dark"] [data-chip="providers"] { background: #d89fe2; }
+:root[data-theme="dark"] [data-chip="keys"] { background: #f49d81; }
+:root[data-theme="dark"] [data-chip="personalization"] { background: #6fbaf4; }
+:root[data-theme="dark"] [data-chip="routing"] { background: #58bee8; }
+:root[data-theme="dark"] [data-chip="affinity"] { background: #c7a4ef; }
+:root[data-theme="dark"] [data-chip="balance"] { background: #f69a95; }
+:root[data-theme="dark"] [data-chip="limits"] { background: #87b4fa; }
+:root[data-theme="dark"] [data-chip="optimization"] { background: #e59bd2; }
+:root[data-theme="dark"] [data-chip="privacy"] { background: #eea26f; }
+:root[data-theme="dark"] [data-chip="catalog"] { background: #b4a9f8; }
+:root[data-theme="dark"] [data-chip="hooks"] { background: #f599aa; }
+:root[data-theme="dark"] [data-chip="maintenance"] { background: #a8b3c8; }
+:root[data-theme="dark"] [data-chip="yaml"] { background: #9faffc; }
+[data-chip="free"] { background: #006f9b; }
+[data-chip="cloudflare"] { background: #8e509a; }
+[data-chip="gemini"] { background: #a64f17; }
+[data-chip="groq"] { background: #7757ac; }
+[data-chip="kilo"] { background: #ac4842; }
+[data-chip="mistral"] { background: #5960b5; }
+[data-chip="openrouter"] { background: #a94663; }
+[data-chip="pollinations"] { background: #2e68b2; }
+[data-chip="z-ai"] { background: #9f4981; }
+:root[data-theme="dark"] [data-chip="free"] { background: #6bbce8; }
+:root[data-theme="dark"] [data-chip="cloudflare"] { background: #d5a1de; }
+:root[data-theme="dark"] [data-chip="gemini"] { background: #eba27c; }
+:root[data-theme="dark"] [data-chip="groq"] { background: #bfa7ee; }
+:root[data-theme="dark"] [data-chip="kilo"] { background: #f19d94; }
+:root[data-theme="dark"] [data-chip="mistral"] { background: #a4aef5; }
+:root[data-theme="dark"] [data-chip="openrouter"] { background: #ef9baf; }
+:root[data-theme="dark"] [data-chip="pollinations"] { background: #87b6f3; }
+:root[data-theme="dark"] [data-chip="z-ai"] { background: #e59dc8; }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3, #balances h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
