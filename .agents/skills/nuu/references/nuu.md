@@ -27,7 +27,7 @@ Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- 
 | `NUB101`–`NUB103` | Browser (`inspect`, `flow`) | Horizontal overflow (`NUB101`), runtime console/page error (`NUB102`), or failed interaction flow (`NUB103`) |
 | `NUB104` | Browser (`--ready`) | Declared `--ready SELECTOR` did not match a visible element within the timeout |
 | `NUM201`–`NUM204` | Measure (`--measure`) | Off-scale spacing, off-ramp typography, unapproved border radius, or text contrast below 4.5:1 (`3:1` large text) |
-| `NUM205`–`NUM208` | Density (`density`, `--density`) | Row/card ink ratio below `0.25` at `>= 900` px (`NUM205`), sibling horizontal gap `> 320` px and `> 40%` width (`NUM206`), form control width `> 480` px (`NUM207`), or non-symmetric icon-only button (`NUM208`) |
+| `NUM205`–`NUM208` | Density (`density`, `--density`) | Row/card ink ratio below `0.75` at `>= 900` px excluding header and toolbar bars (`NUM205`), sibling horizontal gap `> 320` px and `> 40%` width (`NUM206`), form control width `> 480` px (`NUM207`), or non-symmetric icon-only button (`NUM208`) |
 | `NUA301` | Rendered `a11y` | Landmarks (`<main>` or `[role="main"]`) and skip-link target missing or broken |
 | `NUA302` | Rendered `a11y` | Visible interactive control without an accessible name or with `aria-hidden="true"` while focusable |
 | `NUA303` | Rendered `a11y` | Visible interactive control with bounding box smaller than `24x24` CSS px |

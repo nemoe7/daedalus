@@ -177,9 +177,17 @@ async function metrics(page, selector) {
         }
       }
       const tag = element.tagName.toLowerCase();
+      const role = element.getAttribute('role');
       const inputType = tag === 'input' ? (element.getAttribute('type') || 'text').toLowerCase() : null;
+      const classAndId = `${element.id || ''} ${typeof element.className === 'string' ? element.className : ''}`;
+      const toolbarExempt = ['header', 'nav', 'footer'].includes(tag) ||
+        ['banner', 'toolbar', 'navigation', 'menubar', 'tablist'].includes((role || '').toLowerCase()) ||
+        Boolean(element.closest && element.closest('header, nav, [role="banner"], [role="toolbar"], [role="navigation"]')) ||
+        /(?:^|[-_\s])(topbar|toolbar|header|navbar|menubar|statusbar|action-bar|tab-bar)(?:$|[-_\s])/i.test(classAndId) ||
+        (box.height > 0 && box.height <= 64 && style.getPropertyValue('justify-content') === 'space-between');
       return {selector: selectorFor(element),
-        tag, inputType, role: element.getAttribute('role'),
+        tag, inputType, role,
+        toolbarExempt,
         label: element.getAttribute('aria-label'),
         labelledBy: element.getAttribute('aria-labelledby'),
         labels: element.labels ? [...element.labels].map(label => label.textContent) : [],

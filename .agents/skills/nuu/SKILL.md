@@ -57,6 +57,8 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 15. Place a Lucide `x` exit button at the top right of a container, and place other action buttons at the bottom right.
 
+16. Combine min/max range sliders on one shared track, and set integer step snap points on integer sliders.
+
 ## Go-to libraries
 
 - For draggable and reorderable lists, vendor only the required part of [SortableJS](https://github.com/SortableJS/Sortable) with its MIT license instead of writing custom drag-and-drop handlers.
@@ -95,4 +97,5 @@ python scripts/measure.py ruler --from 120,340 --to 264,340
 - `data/vendor/`: licensed catalog data and source hashes.
 - `references/recipes/offline-fonts.md`: bundled and offline zero-jitter font recipe (`preload` with `crossorigin`, `font-display: block`, inline Base64 WOFF2, `FontFace` binary buffers, and metric-matched fallbacks).
 - `references/recipes/scroll-edge-fade.md`: scroll-driven CSS edge-fade mask recipe (`@supports (animation-timeline: scroll(self))`).
+- `references/recipes/modal-manager.md`: shared dialog modal manager and reusable template recipe (`showModal()`, deliberate `autofocus`, and trigger focus restoration).
 - `references/audit-report.md`: standalone template for nuu audits and visual verification reports.

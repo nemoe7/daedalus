@@ -28,9 +28,15 @@ from pathlib import Path
 
 DEFAULT_SHEET = Path(__file__).resolve().parent.parent / "references" / "style.css"
 DEFAULT_SCALE = 8
-MIN_INK_RATIO = 0.25
+MIN_INK_RATIO = 0.75
 MAX_SIBLING_GAP = 320.0
 MAX_CONTROL_WIDTH = 480.0
+TOOLBAR_TAGS = {"header", "nav", "footer"}
+TOOLBAR_ROLES = {"banner", "toolbar", "navigation", "menubar", "tablist"}
+TOOLBAR_NAME_RE = re.compile(
+  r"(?:^|[-_.#\s])(topbar|toolbar|header|navbar|menubar|statusbar|action-bar|tab-bar)(?:$|[-_.\s:])",
+  re.IGNORECASE,
+)
 STRETCH_EXEMPT_INPUTS = {
   "hidden",
   "checkbox",
@@ -105,6 +111,24 @@ def check(
   return findings
 
 
+def is_toolbar_or_header_bar(element: dict, height: float) -> bool:
+  """Return whether an element is a header or toolbar bar exempt from NUM205."""
+  if bool(element.get("toolbar_exempt", element.get("toolbarExempt"))):
+    return True
+  tag = str(element.get("tag") or "").lower()
+  if tag in TOOLBAR_TAGS:
+    return True
+  role = str(element.get("role") or "").lower()
+  if role in TOOLBAR_ROLES:
+    return True
+  selector = str(element.get("selector") or "")
+  if TOOLBAR_NAME_RE.search(selector):
+    return True
+  values = element.get("values") or {}
+  justify = str(values.get("justify-content") or "").lower()
+  return 0 < height <= 64 and justify == "space-between"
+
+
 def check_density(report: dict) -> list[dict]:
   """Return whitespace and layout-density findings (NUM205, NUM206, NUM207, NUM208)."""
   findings: list[dict] = []
@@ -114,7 +138,11 @@ def check_density(report: dict) -> list[dict]:
     bounds = element.get("bounds") or {}
     width = float(bounds.get("width", element.get("width", 0)) or 0)
     height = float(bounds.get("height", element.get("height", 0)) or 0)
-    if viewport_width >= 900 and width >= 320:
+    if (
+      viewport_width >= 900
+      and width >= 320
+      and not is_toolbar_or_header_bar(element, height)
+    ):
       raw_ratio = element.get("ink_ratio", element.get("inkRatio"))
       if raw_ratio is None:
         raw_ink = element.get("ink_width", element.get("inkWidth"))

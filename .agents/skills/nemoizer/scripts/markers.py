@@ -45,8 +45,11 @@ def collect_markers(path, lines, known_rule_ids, rotations=()):
 def is_advisory_finding(finding, advisory_rule_ids):
   """Return whether a formatted finding line belongs to a manual-review rule."""
   first = finding.splitlines()[0]
-  token = first.rsplit(": ", 1)[-1].split()[0].strip("[]")
-  return token in advisory_rule_ids
+  parts = first.rsplit(": ", 1)[-1].split()
+  token = parts[0].strip("[]") if parts else ""
+  return (
+    token in advisory_rule_ids or "(advisory)" in first or "(manual review)" in first
+  )
 
 
 def audit_lines(marks, findings, advisory_rule_ids):

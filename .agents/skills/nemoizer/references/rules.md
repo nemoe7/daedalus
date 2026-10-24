@@ -744,7 +744,7 @@ Parameters:
 
 - `paragraph_cap`: maximum sentences per prose paragraph (`4` by default)
 
-This rule triggers when a prose paragraph outside tables, headings, lists, and blockquotes exceeds `paragraph_cap` sentences.
+This rule triggers when a prose paragraph or table cell exceeds `paragraph_cap` sentences, when a list item exceeds 2 sentences, or when a heading exceeds 1 sentence, and flags blockquotes exceeding `paragraph_cap` sentences for manual review.
 
 ```text
 First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence.

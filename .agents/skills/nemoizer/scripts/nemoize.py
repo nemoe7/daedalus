@@ -62,8 +62,11 @@ except ImportError:
 
   def is_advisory_finding(finding, advisory_rule_ids):
     first = finding.splitlines()[0]
-    token = first.rsplit(": ", 1)[-1].split()[0].strip("[]")
-    return token in advisory_rule_ids
+    parts = first.rsplit(": ", 1)[-1].split()
+    token = parts[0].strip("[]") if parts else ""
+    return (
+      token in advisory_rule_ids or "(advisory)" in first or "(manual review)" in first
+    )
 
   def audit_lines(marks, findings, advisory_rule_ids):
     return [
@@ -133,6 +136,8 @@ ADVISORY_RULE_IDS = {
 }
 SENTENCE_CAPS = {"instruction": 20, "description": 25}
 PARAGRAPH_CAP = 4
+LIST_SENTENCE_CAP = 2
+HEADING_SENTENCE_CAP = 1
 THE_DENSITY_CAP = 20
 MIN_THE_COUNT = 3
 PROSE_RULE_IDS = {
@@ -211,8 +216,20 @@ RULE_DESCRIPTIONS = {
 }
 
 
+NMP100_LABELS = {
+  "paragraph": "paragraph",
+  "table": "table cell",
+  "list": "list item",
+  "heading": "heading",
+  "blockquote": "blockquote",
+}
+
+
 def describe_finding(row):
   """Format a human-readable violation description for one prose or comment finding."""
+  if row["rule"] == "NMP100" and row.get("kind") in NMP100_LABELS:
+    label = NMP100_LABELS[row["kind"]]
+    return f"{label} has {row['count']} sentences (cap {row['cap']})"
   template = RULE_DESCRIPTIONS.get(row["rule"], "{count} (cap {cap})")
   if "{count}" in template:
     return template.format(count=row["count"], cap=row["cap"])
@@ -506,14 +523,11 @@ def rotate(line, suppressed=frozenset()):
   return line
 
 
-def format_finding(path, line, code, message, source_line=None):
+def format_finding(path, line, code, message, source_line=None, status=None):
   """Format one finding in STE-linter style with an indented source snippet."""
-  level = "advisory" if code in ADVISORY_RULE_IDS else "advisory-free"
-  suffix = (
-    " (manual review)"
-    if code in ADVISORY_RULE_IDS and "(manual review)" not in message
-    else ""
-  )
+  advisory = code in ADVISORY_RULE_IDS or status == "manual_review"
+  level = "advisory" if advisory else "advisory-free"
+  suffix = " (manual review)" if advisory and "(manual review)" not in message else ""
   header = f"{path}:{line}: [{code}] ({level}) {message}{suffix}"
   if source_line is None:
     return header
@@ -611,6 +625,7 @@ def prose_counts(text):
   """Measure prose outside code fences and within table cells."""
   lines = text.splitlines()
   sentences, paragraphs, block = [], [], []
+  block_kind = "paragraph"
   fence, width, divider_pending = None, 0, False
 
   def parts(value):
@@ -645,17 +660,25 @@ def prose_counts(text):
     return [cell.strip() for cell in row] if len(row) > 1 else []
 
   def flush():
+    nonlocal block_kind
     if not block:
       return
-    if re.match(r"(?:[#>*+|-]|\d+[.)]\s)", block[0][1].lstrip()):
-      for number, value in block:
-        sentences.extend((number, 1, count) for count in lengths(value))
+    if block_kind in {"list", "blockquote"}:
+      for number, raw_line, _ in block:
+        sentences.extend((number, 1, count) for count in lengths(raw_line))
+      joined = " ".join(clean_line for _, _, clean_line in block)
+      count = sum(1 for match in parts(joined) if match[1].strip())
+      if count:
+        paragraphs.append((block[0][0], count, block_kind))
+    elif re.match(r"(?:[#>*+|-]|\d+[.)]\s)", block[0][1].lstrip()):
+      for number, raw_line, _ in block:
+        sentences.extend((number, 1, count) for count in lengths(raw_line))
     else:
       offsets, offset, count = [], 0, 0
-      for number, value in block:
+      for number, raw_line, _ in block:
         offsets.append((offset, number))
-        offset += len(value) + 1
-      for match in parts(" ".join(value for _, value in block)):
+        offset += len(raw_line) + 1
+      for match in parts(" ".join(raw_line for _, raw_line, _ in block)):
         value = match[1]
         if not value.strip():
           continue
@@ -663,8 +686,9 @@ def prose_counts(text):
         number = next(number for offset, number in reversed(offsets) if offset <= start)
         sentences.append((number, 1, len(value.split())))
         count += 1
-      paragraphs.append((block[0][0], count))
+      paragraphs.append((block[0][0], count, "paragraph"))
     block.clear()
+    block_kind = "paragraph"
 
   for index, line in enumerate(lines):
     number = index + 1
@@ -703,13 +727,60 @@ def prose_counts(text):
     elif not width or len(row) != width:
       width = 0
     if width:
-      segments = row
-    else:
-      block.append((number, line))
-      segments = [line]
-    if width:
-      for segment in segments:
-        sentences.extend((number, 1, count) for count in lengths(segment))
+      for segment in row:
+        li_items = re.findall(
+          r"<li\b[^>]*>(.*?)</li>", segment, flags=re.IGNORECASE | re.DOTALL
+        )
+        if li_items:
+          for item in li_items:
+            item_lengths = lengths(item)
+            sentences.extend((number, 1, count) for count in item_lengths)
+            if item_lengths:
+              paragraphs.append((number, len(item_lengths), "list"))
+          rest_cell = re.sub(
+            r"<(?:ul|ol)\b[^>]*>.*?</(?:ul|ol)>",
+            " ",
+            segment,
+            flags=re.IGNORECASE | re.DOTALL,
+          )
+          rest_lengths = lengths(rest_cell)
+          sentences.extend((number, 1, count) for count in rest_lengths)
+          if rest_lengths:
+            paragraphs.append((number, len(rest_lengths), "table"))
+        else:
+          cell_lengths = lengths(segment)
+          sentences.extend((number, 1, count) for count in cell_lengths)
+          if cell_lengths:
+            paragraphs.append((number, len(cell_lengths), "table"))
+      continue
+    stripped = line.lstrip()
+    if re.match(r"^#{1,6}(?:\s+|$)", stripped):
+      flush()
+      sentences.extend((number, 1, count) for count in lengths(line))
+      heading_body = re.sub(r"^#{1,6}\s*(?:\d+[.)]\s+)?", "", stripped)
+      heading_count = len(lengths(heading_body))
+      if heading_count:
+        paragraphs.append((number, heading_count, "heading"))
+      continue
+    if stripped.startswith(">"):
+      if block and block_kind != "blockquote":
+        flush()
+      inner = re.sub(r"^\s*>\s?", "", line)
+      if not inner.strip():
+        flush()
+        continue
+      block_kind = "blockquote"
+      block.append((number, line, inner))
+      continue
+    if re.match(r"^(?:[*+-]|\d+[.)])\s+", stripped):
+      flush()
+      item_body = re.sub(r"^(?:[*+-]|\d+[.)])\s+(?:\[[ xX]\]\s+)?", "", stripped)
+      block_kind = "list"
+      block.append((number, line, item_body))
+      continue
+    if block and block_kind == "blockquote":
+      flush()
+    block.append((number, line, line))
   flush()
   return sentences, paragraphs
 
@@ -1396,8 +1467,21 @@ def prose_review(path, text, context, paragraph_cap):
           )
   code = PROSE_RULE_IDS["paragraph"]
   if not suppressed(code, file_ids):
-    for number, count in paragraphs:
-      if count > paragraph_cap and not suppressed(code, line_ids[number - 1]):
+    for item in paragraphs:
+      number, count, kind = item if len(item) == 3 else (*item, "paragraph")
+      if kind == "heading":
+        cap = HEADING_SENTENCE_CAP
+        status = "review"
+      elif kind == "list":
+        cap = LIST_SENTENCE_CAP
+        status = "review"
+      elif kind == "blockquote":
+        cap = paragraph_cap
+        status = "manual_review"
+      else:
+        cap = paragraph_cap
+        status = "review"
+      if count > cap and not suppressed(code, line_ids[number - 1]):
         findings.append(
           {
             "rule": code,
@@ -1405,8 +1489,9 @@ def prose_review(path, text, context, paragraph_cap):
             "line": number,
             "column": 1,
             "count": count,
-            "cap": paragraph_cap,
-            "status": "review",
+            "cap": cap,
+            "kind": kind,
+            "status": status,
           }
         )
   code = PROSE_RULE_IDS["the_density"]
@@ -2005,6 +2090,7 @@ def main(argv=None):
         row["rule"],
         describe_finding(row),
         lines[row["line"] - 1] if 0 < row["line"] <= len(lines) else None,
+        status=row.get("status"),
       )
       for row in rows
     )
