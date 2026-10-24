@@ -1,7 +1,7 @@
 """Select a tier for a prompt with the vendored litellm heuristic v2."""
 
-# Vendored from litellm 1.102.1, MIT licence (artifacts/LITELLM-LICENSE.txt): classify_prompt,
-# TierSuccessPredictor, and the bundled ultrafeedback_tiers.json artifact.
+# Vendored from litellm 1.102.1 (changelog compared through v1.107.0-rc.2), MIT licence (artifacts/LITELLM-LICENSE.txt):
+# classify_prompt, TierSuccessPredictor, and the bundled ultrafeedback_tiers.json artifact.
 
 from __future__ import annotations
 

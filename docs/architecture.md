@@ -107,7 +107,7 @@ flowchart TD
 | Tool call | After the first tool call, the tier is C or higher, and the search stops. |
 | Keyword | A `routing.escalation` match in the last user message moves the tier 1 step up. |
 
-The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
+The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). The latest LiteLLM changelog check covers releases through `v1.107.0-rc.2`. The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
 
 ## Pools and the fallback ladder
 
