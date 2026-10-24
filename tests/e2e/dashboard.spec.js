@@ -58,28 +58,20 @@ for (const [name, hash] of ROUTES) {
   }
 }
 
-// A screen names itself in the first h1 of the document, so the outline and any reader that
-// takes the first heading both meet the visible title.
+// The header tab bar and document title name the screen without a duplicate page-title h1.
 for (const [name, hash] of ROUTES) {
   for (const [size, width, height] of SIZES) {
-    test(`${name} at ${size} names itself in the first h1`, async ({ page }) => {
+    test(`${name} at ${size} names itself in the header and title`, async ({ page }) => {
       await open(page, hash, width, height);
-      const title = await page.evaluate(() => {
-        const shown = (el) => {
-          const box = el.getBoundingClientRect();
-          return box.width > 1 && box.height > 1 && getComputedStyle(el).visibility !== "hidden";
-        };
-        const all = [...document.querySelectorAll("h1")];
-        return {
-          first: all[0] ? all[0].textContent.trim() : null,
-          firstDrawn: all[0] ? shown(all[0]) : false,
-          visible: all.filter(shown).map((el) => el.textContent.trim()),
-        };
-      });
+      const state = await page.evaluate(() => ({
+        pageTitle: document.getElementById("page-title"),
+        current: document.querySelector(".tabs a[aria-current='page']")?.dataset.page ?? null,
+        title: document.title,
+      }));
       const label = name.charAt(0).toUpperCase() + name.slice(1);
-      expect(title.firstDrawn, "the first h1 is the one on screen").toBe(true);
-      expect(title.first).toBe(label);
-      expect(title.visible).toEqual([label]);
+      expect(state.pageTitle).toBeNull();
+      expect(state.current).toBe(name);
+      expect(state.title).toContain(label);
     });
   }
 }

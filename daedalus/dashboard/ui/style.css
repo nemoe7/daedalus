@@ -111,6 +111,7 @@ header {
 }
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); border-bottom-color: var(--accent); }
+.tabs a:focus-visible { outline-offset: -2px; }
 /* The bar stretches, so the underline of the selected tab lands on the header bottom line. */
 .tab-bar { grid-area: tabs; display: flex; align-items: stretch; gap: 2px; min-width: 0; }
 .tabs { flex: 1; min-width: 0; }
@@ -182,8 +183,6 @@ button.chip:disabled { cursor: progress; }
   .ghost:hover { color: var(--text); border-color: var(--muted); }
 }
 main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
-/* Each screen names itself above the first card, so the outline starts with the view. */
-.page-title { margin: 0 0 14px; font-size: 22px; font-weight: 650; letter-spacing: -.4px; line-height: 1.2; flex: none; }
 .pools {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(min(168px, 100%), 1fr)); gap: 12px; margin-bottom: 16px;
 }
@@ -553,7 +552,7 @@ tr.live-row td { background: var(--field); }
 textarea {
   display: block; width: 100%; min-height: 380px; resize: vertical; margin: 0; padding: 16px;
   border: 0; border-bottom: 1px solid var(--control-line); background: var(--field); color: var(--text);
-  font: 13px/1.6 var(--mono); tab-size: 2; outline: none;
+  font: 13px/1.6 var(--mono); tab-size: 2;
 }
 /* Only the main area scrolls, so the header stays in place and spans the full width. */
 #app { display: flex; flex-direction: column; height: 100dvh; }
@@ -953,11 +952,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 @media (max-width: 900px) {
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
-  /* A phone drill page is named by its own title, so the page title leaves the screen and the
-     section summary keeps only its lede. */
-  /* The page title leaves the screen only when the open pane names itself, so a pane
-     without a heading keeps the screen title. */
-  main[data-page="settings"]:has(.section-pane .pane-title:not([hidden]):not(:empty)) > .page-title { display: none; }
+  /* A phone drill page is named by its own title, so the section summary keeps only its lede. */
   .settings > .section-pane .pane-heading h2 { display: none; }
   /* The Providers drill page names itself, so the section title under it leaves the screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }

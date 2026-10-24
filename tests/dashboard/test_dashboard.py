@@ -614,11 +614,10 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
 
 
 def test_each_screen_starts_with_a_named_heading() -> None:
-  """Each screen names itself in the one page title, so the outline starts with the view."""
+  """The header tabs name each screen, and the document title tracks the active view."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert html.count('class="page-title"') == 1
-  assert '<h1 class="page-title" id="page-title"></h1>' in html
+  assert "page-title" not in html
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   labels = app.partition("const PAGE_LABELS = {")[2].partition("};")[0]
   for page, key in (
@@ -630,7 +629,7 @@ def test_each_screen_starts_with_a_named_heading() -> None:
     ("settings", "nav.settings_link"),
   ):
     assert f'{page}: t("{key}")' in labels, f"{page} reuses the {key} label"
-  assert "title.textContent = PAGE_LABELS[page];" in app
+  assert 'document.title = t("page.title", { page: PAGE_LABELS[page] });' in app
 
 
 def test_status_card_sits_in_the_card_grid() -> None:
@@ -2225,14 +2224,13 @@ def test_model_numbers_align_right() -> None:
 
 
 def test_every_screen_names_itself_in_one_page_title() -> None:
-  """One title element names the screen, and a Settings section is a level below it."""
+  """The header tabs name each screen, and Settings sections carry their own headings."""
   root = Path(__file__).resolve().parents[2]
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  assert html.count('class="page-title"') == 1
-  assert '<h1 class="page-title" id="page-title"' in html
+  assert "page-title" not in html
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "settings-list-title" not in app
-  assert "if (title) title.textContent = PAGE_LABELS[page];" in app
+  assert "page-title" not in app
   assert '<h1 class="pane-title" data-pane-title hidden></h1>' in app
   assert (
     'summary.innerHTML = `${chipFor(host.id, key)}<div class="pane-heading"><h2>${esc(label)}</h2>'
@@ -2343,11 +2341,8 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
   assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
   assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
   assert ".sections button { min-height: 44px; }" in css
+  assert ".page-title" not in css
   narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
-  assert (
-    'main[data-page="settings"]:has(.section-pane .pane-title:not([hidden]):not(:empty))'
-    " > .page-title { display: none; }" in narrow
-  )
   assert (
     'main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty))'
     " #settings > .section-pane > .pane-bar > .pane-title { display: none; }" in narrow

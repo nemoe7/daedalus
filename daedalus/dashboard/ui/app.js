@@ -4251,9 +4251,6 @@ function showPage() {
   // The page layout of main rides on this dataset, so it needs no :has support.
   const main = document.querySelector("main");
   if (main?.dataset) main.dataset.page = page;
-  // One heading names the screen, so a reader and the outline both meet the same title first.
-  const title = document.getElementById("page-title");
-  if (title) title.textContent = PAGE_LABELS[page];
   // Animate the table, not the page, when a pool filter targets the current Models page.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);
