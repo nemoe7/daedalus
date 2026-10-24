@@ -7726,6 +7726,17 @@ for (const markup of [probe.overviewLimits(data), (probe.renderLimits(data), nod
 }
 probe.renderLimits({checked: null, lanes: [], providers: []});
 assert.strictEqual(node('balances').hidden, true);
+probe.renderLimits({checked: null, lanes: [], providers: [
+  {name: 'openrouter', items: []},
+  {name: 'kilo', items: []},
+  {name: 'pollinations', items: []},
+  {name: 'cloudflare', items: []},
+]});
+for (const provider of ['openrouter', 'kilo', 'pollinations', 'cloudflare']) {
+  assert(node('balances').innerHTML.includes(
+    `<h3><img class="mark" src="ui/icons/${provider}.svg" alt="" aria-hidden="true"> ${provider}</h3>`
+  ));
+}
 """,
   )
 

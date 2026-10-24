@@ -713,7 +713,7 @@ section[data-page="providers"], section[data-page="settings"] {
 [data-chip="yaml"] { background: color-mix(in srgb, var(--accent) 55%, var(--ok)); }
 [data-chip="providers"] { background: color-mix(in srgb, var(--ok) 60%, var(--accent)); }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
-.settings h3, .card.provider > h3, .card.yaml-view > h3 { display: flex; align-items: center; gap: 8px; }
+.settings h3, .card.provider > h3, .card.yaml-view > h3, #balances h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
 .provider-flow > .files { display: flex; flex-direction: column; gap: 16px; min-width: 0; margin: 0; }
 .provider-flow > .settings { flex: 1 1 auto; min-width: 0; min-height: 0; margin: 0; }

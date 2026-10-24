@@ -3528,7 +3528,7 @@ function renderLimits(data) {
     ? t("limits.checked_text", { time: timeText(data.checked) })
     : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
-  draw("balances", data.providers.map((p) => `<div class="card"><h3>${esc(p.name)}</h3>
+  draw("balances", data.providers.map((p) => `<div class="card"><h3>${MARK_FILES.has(p.name) ? `${mark(p.name)} ` : ""}${esc(p.name)}</h3>
     ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)), { title: balanceValue(item, false) })}</div>`).join("")}</div>`).join(""));
 }
 
