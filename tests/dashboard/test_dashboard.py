@@ -7381,6 +7381,22 @@ const steps = node('chain-modal-body').innerHTML;
 assert(steps.includes('ui/icons/groq.svg') && steps.includes('ui/icons/openai.svg'),
   'every chain step shows the vendored mark');
 assert(!steps.includes('<b>groq/synthetic</b>'), 'no raw slug remains in a step');
+const bare429 = {at: 101, model: 'mistral/mistral-embed-2312', via: null, status: 429, seconds: 0.002, attempts: null};
+probe.state.requests = [bare429];
+probe.renderRequests([bare429]);
+assert(html().includes('data-chain-at="101"'), 'a failed row without attempts still opens a chain');
+const tr3 = {
+  dataset: {chainAt: '101'},
+  closest: selector => selector === '[data-chain-at]' || selector === 'tr[data-chain-at]' ? tr3 : null,
+  focus: () => {},
+};
+node('chain-modal').shown = false;
+click(tr3);
+assert(node('chain-modal').shown, 'clicking a failed row without attempts opens the dialog');
+assert(node('chain-modal-body').innerHTML.includes('ui/icons/mistral.svg'),
+  'the fallback step shows the requested model mark');
+assert(node('chain-modal-body').innerHTML.includes(LOCALE['request.status.rate_limited_text']),
+  'the fallback step shows the rate-limit status note');
 probe.state.requests = [row, plain];
 node('chain-modal').shown = false;
 key(tr, 'Enter');

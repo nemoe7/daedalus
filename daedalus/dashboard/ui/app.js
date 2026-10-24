@@ -644,6 +644,20 @@ function statusClass(r) {
   return `s${String(r.status)[0]}`;
 }
 
+function chainAttempts(r) {
+  if ((r.attempts || []).length) return r.attempts;
+  if (!r.cancelled && (r.status == null || r.status === 200)) return [];
+  const result = r.cancelled
+    ? t("request.state.cancelled_text")
+    : STATUS_NOTES[r.status] || `HTTP ${r.status}`;
+  return [{
+    model: r.via || r.model || "-",
+    result,
+    seconds: r.seconds ?? 0,
+    ...(r.error ? { error: r.error } : {}),
+  }];
+}
+
 function chainText(r) {
   const head = [stamp(r.at), r.model, statusText(r),
     r.effort && t("request.chain.field.effort_text", { value: r.effort }),
@@ -653,7 +667,7 @@ function chainText(r) {
     r.retry && t("request.chain.field.retry_text", { value: r.retry }),
     r.loop && t("request.chain.field.loop_text", { value: r.loop }),
   ].filter(Boolean).join(" ");
-  const steps = (r.attempts || []).map((a, i) =>
+  const steps = chainAttempts(r).map((a, i) =>
     t("request.chain.attempt_text", {
       number: i + 1, model: a.model, result: a.result, time: seconds(a.seconds),
     }).trim() + ("effort" in a
@@ -666,10 +680,13 @@ function chainText(r) {
 }
 
 // A chain is available for multiple attempts or any result other than answered.
-const hasChain = (r) => (r.attempts || []).length > 1 || (r.attempts || []).some((a) => a.result !== "answered");
+const hasChain = (r) => {
+  const attempts = chainAttempts(r);
+  return attempts.length > 1 || attempts.some((a) => a.result !== "answered");
+};
 
 function chainSteps(r) {
-  const steps = (r.attempts || []).map((a, i) => `
+  const steps = chainAttempts(r).map((a, i) => `
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
       <span class="num">${i + 1}.</span> <b>${modelName(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
@@ -713,7 +730,7 @@ function routingCodes(r) {
 
 // The chain opens in a dialog: the whole row is the control that opens it.
 function openChain(at) {
-  const found = state.requests.find((r) => String(r.at) === at);
+  const found = splitRequests(state.requests).find((r) => String(r.at) === at);
   if (!found || !hasChain(found)) return;
   const many = fallbackCount(found);
   const title = many
