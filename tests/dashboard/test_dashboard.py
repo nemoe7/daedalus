@@ -6482,6 +6482,10 @@ def test_information_hovers_open_above_without_growing_the_settings_pane() -> No
     assert "top: auto;" in rule and "bottom: calc(100% + 4px);" in rule, (
       "every information tooltip opens above its trigger"
     )
+  assert (
+    ".card > .field.info:first-child .hint:hover ~ small" in style
+    and "top: calc(100% + 4px); bottom: auto;" in style
+  ), "first-row information tooltips open below so the pane top never clips them"
   assert "small.up" not in style and "hintFlip" not in app, (
     "the tooltip never opens below before a script flips it"
   )
