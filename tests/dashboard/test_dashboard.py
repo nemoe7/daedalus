@@ -3284,15 +3284,19 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
   assert (
-    'const name = known ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");'
+    'const name = known ?? (key === "free" ? "sparkles" : (host === "provider-form" ? SECTION_CHIPS.providers : ""));'
     in block
-  ), "a provider row without a mark draws the providers glyph"
+  ), "free.yml uses sparkles and unknown provider rows draw the providers glyph"
   assert "MARK_FILES.has(key)" in block, "a provider row with a mark draws that mark"
-  assert 'const tint = known ? key : "providers";' in block, (
-    "a provider row keeps the providers hue"
+  assert (
+    'const tint = known || PROVIDER_CHIPS.has(key) ? key : "providers";' in block
+  ), "known providers and free.yml get their own distinct tile color"
+  render_files = app.partition("function renderFiles() {")[2].partition("\n}\n")[0]
+  assert 'chipFor("provider-form", stem)' in render_files, (
+    "provider file rows derive their slug from the filename"
   )
   chips = app.partition("const SECTION_CHIPS = {")[2].partition("};")[0]
-  keys = re.findall(r"([a-z_0-9]+): \"", chips)
+  keys = re.findall(r'([a-z_0-9]+): "', chips)
   for glyph in re.findall(r': "([a-z_0-9]+)"', chips):
     assert re.search(rf"^  {glyph}: '", app, re.MULTILINE), (
       f"the glyph {glyph} is registered"
@@ -3319,6 +3323,28 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
   )
   assert len(set(dark_colors.values())) == len(keys), (
     "every settings section tile has a unique dark-mode color"
+  )
+  provider_keys = (
+    "free",
+    "cloudflare",
+    "gemini",
+    "groq",
+    "kilo",
+    "mistral",
+    "openrouter",
+    "pollinations",
+    "z-ai",
+  )
+  provider_light = {
+    key: re.search(
+      rf'^\[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
+      css,
+      re.MULTILINE,
+    ).group(1)
+    for key in provider_keys
+  }
+  assert len(set(provider_light.values())) == len(provider_keys), (
+    "every provider tile has a unique light-mode color"
   )
 
 

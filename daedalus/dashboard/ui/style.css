@@ -738,6 +738,24 @@ section[data-page="providers"], section[data-page="settings"] {
 :root[data-theme="dark"] [data-chip="hooks"] { background: #ed93d8; }
 :root[data-theme="dark"] [data-chip="maintenance"] { background: #6bc720; }
 :root[data-theme="dark"] [data-chip="yaml"] { background: #a2adf0; }
+[data-chip="free"] { background: #ab501c; }
+[data-chip="cloudflare"] { background: #147679; }
+[data-chip="gemini"] { background: #cb2154; }
+[data-chip="groq"] { background: #147b3a; }
+[data-chip="kilo"] { background: #b91eb4; }
+[data-chip="mistral"] { background: #327914; }
+[data-chip="openrouter"] { background: #8047e1; }
+[data-chip="pollinations"] { background: #6c6f12; }
+[data-chip="z-ai"] { background: #2d62dd; }
+:root[data-theme="dark"] [data-chip="free"] { background: #e9a177; }
+:root[data-theme="dark"] [data-chip="cloudflare"] { background: #21c4ca; }
+:root[data-theme="dark"] [data-chip="gemini"] { background: #ee98b2; }
+:root[data-theme="dark"] [data-chip="groq"] { background: #21cb5f; }
+:root[data-theme="dark"] [data-chip="kilo"] { background: #ed90ea; }
+:root[data-theme="dark"] [data-chip="mistral"] { background: #53ca21; }
+:root[data-theme="dark"] [data-chip="openrouter"] { background: #c0a4f0; }
+:root[data-theme="dark"] [data-chip="pollinations"] { background: #b3b81e; }
+:root[data-theme="dark"] [data-chip="z-ai"] { background: #96b1ee; }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3, #balances h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }

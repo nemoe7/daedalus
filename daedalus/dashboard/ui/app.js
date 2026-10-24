@@ -1147,6 +1147,7 @@ const ICON_PATHS = {
   key: '<path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />',
   code: '<path d="M10 12.5 8 15l2 2.5" /> <path d="m14 12.5 2 2.5-2 2.5" /> <path d="M14 2v4a2 2 0 0 0 2 2h4" /> <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z" />',
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />',
+  sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /> <path d="M20 3v4" /> <path d="M22 5h-4" />',
   undo_2: '<path d="M9 14 4 9l5-5" /> <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />',
 };
 function icon(name) {
@@ -1538,7 +1539,8 @@ function renderFiles() {
   const files = state.files.map((file, index) => {
     const mark = fileDirty(index) ? " &bull;" : "";
     const shadow = file.shadow ? t("provider.file.shadow_text", { file: file.shadow }) : "";
-    return actionButton(`${chipFor("settings", "providers")}<span>${esc(fileName(file.path))}${mark}</span>`, {
+    const stem = fileName(file.path).replace(/\.ya?ml$/i, "").toLowerCase();
+    return actionButton(`${chipFor("provider-form", stem)}<span>${esc(fileName(file.path))}${mark}</span>`, {
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
     });
   }).join("");
@@ -2123,12 +2125,15 @@ const SECTION_SUMMARIES = {
 };
 // Provider rows share the providers tile: their names are data, not sections.
 // A provider with a vendored mark draws that mark in the tile ink.
+const PROVIDER_CHIPS = new Set([
+  "free", "cloudflare", "gemini", "groq", "kilo", "mistral", "openrouter", "pollinations", "z-ai",
+]);
 const chipFor = (host, key) => {
   const known = SECTION_CHIPS[key];
   const provider = host === "provider-form" && !known && MARK_FILES.has(key);
-  const name = known ?? (host === "provider-form" ? SECTION_CHIPS.providers : "");
-  const tint = known ? key : "providers";
-  if (!known && !provider) return "";
+  const name = known ?? (key === "free" ? "sparkles" : (host === "provider-form" ? SECTION_CHIPS.providers : ""));
+  const tint = known || PROVIDER_CHIPS.has(key) ? key : "providers";
+  if (!known && !provider && !name) return "";
   return `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${
     provider ? mark(key, true) : icon(name)}</span>`;
 };
