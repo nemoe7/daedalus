@@ -8,48 +8,22 @@ license: MIT
 
 ## Shared workflow
 
-- Classify tasks as build, refine, audit, critique, harden, extract, or live inspection before choosing tools.
-- Preserve existing product design systems unless the user authorizes redesign.
-- Apply bundled house clauses, sheet, and work order only if no product design system exists or the user selects the house profile.
-- Record the audience, primary task, factual content, constraints, and acceptance checks before building a new interface.
-- Choose a visual direction from the brief without inventing claims, assets, or proof.
-- Search the local rule catalog for the task outcome and detected stack, and verify each recommendation against the project.
-- Identify fallback search results and missing evidence; never present them as exact matches.
-- Propose design systems without replacing existing tokens or design records before approval.
-- Record each asset's source, license, attribution, and local path before use.
-- Preserve applicable upstream licenses and notices when adapting text, code, or data.
-- Run source checks with stable finding IDs, locations, severity, and evidence before browser verification.
-- Inspect rendered pages at project widths plus 1280 and 360 px with available browser tools.
-- Test the changed task flow, including keyboard operation, focus movement, validation, loading, failure, retry, and recovery where applicable.
-- Check supported themes, reduced motion, long content, and empty, sparse, dense, error, and offline states where applicable.
-- Keep viewport screenshots, computed measurements, browser errors, and flow results with the verification report.
-- Separate automated findings, visual judgments, synthesized input, and real-device evidence in every audit.
-- Name checks that did not run, missing dependencies, and unsupported browser or device coverage without claiming a pass.
-- Report audit and critique findings without file changes unless repair is requested.
-- Keep live inspection read-only until the user authorizes a specific edit, and retain its before-and-after evidence.
-- Extract reusable tokens and component patterns without a competing source of truth.
-- Repair only the requested scope, then rerun affected source, browser, and task-flow checks.
-- Keep credentials and private page content out of external searches, asset requests, and shared artifacts.
-- Use existing design records as design authority, or docs/design.md if none exist.
-- Update the authoritative design record with settled design decisions in the same change.
-- MUST link the design record to separate local visual references for changed workflows and their applicable states.
-- Evaluate changed flows against the ten usability heuristics; cite observed behavior per finding.
-- Check alignment, hierarchy, color roles, typography, and useful imagery against the task and active design system.
-- Create interaction patterns only when existing patterns cannot meet the documented user need.
-- Map accessibility findings to applicable WCAG criteria with the test method, evidence, and verification status.
-- Label automated task-flow checks separately from real-participant usability sessions.
-- Mark implementation readiness and link behavior, states, assets, and component sources in each handoff.
-- Fork components only when existing variants cannot meet the task and the exception is recorded.
+- Install this skill's package with `pip install -e <skill>` or `uv pip install -e <skill>` (`uv tool install -e <skill>`) and run `nuu` directly; preserve an existing design record (`docs/design.md`), or use `references/style.css` (`-P house`).
+- Search the catalog (`nuu search`) and verify assets (`nuu assets`), then run static checks (`nuu lint`, `nuu extract`) before rendered checks (`nuu inspect`, `flow`, `a11y`, `audit`, `live`) at project widths plus `1280` and `360` px.
+- Retain screenshots, measurements (`measure.py`), flow results, and annotated composite boards (`nuu annotate`), separating automated findings from visual judgment, naming each UI deviation from `nuu` with its reason, and naming unrun checks.
+- Keep live edits read-only unless authorized (`-Z`), repair only the requested scope, and update `docs/design.md` with linked visual references in the same change.
+- Format audit and verification reports with [references/audit-report.md](references/audit-report.md), omit empty table sections, and state 0 in Counts.
 
 ## House profile
 
-Apply this skill to a page, a component, or an interface change. The sheet holds the values, and the design document records the calls a repository already made.
+Apply this skill to a page, a component, or an interface change. The sheet is the reference for values, and the design document records the calls that a repository already made.
 
 ## When to use
 
 - A task adds or changes a page, dialog, table, form, theme, or state.
 - A review asks whether the interface matches the house style.
-- A new pattern needs a decision that later pages repeat.
+- A new pattern needs a decision that later pages must repeat.
+- A page exists and the task changes one of these clauses.
 
 ## Clauses
 
@@ -61,13 +35,13 @@ Apply this skill to a page, a component, or an interface change. The sheet holds
 
 4. The roles resolve in light and in dark. The theme control names System, Light, and Dark, so the page can follow the machine.
 
-5. Four sizes from the sheet, three weights, one eyebrow size, and a tabular face for IDs.
+5. Four sizes from the sheet, three weights, one eyebrow size, and a tabular face for IDs, and MUST bundle and load custom fonts via [references/recipes/offline-fonts.md](references/recipes/offline-fonts.md) without reload jitter.
 
-6. Every gap lands on the 8 px scale. Rows are 40 px, panels take a 10 px radius and no shadow, and a touch target is at least 44 px.
+6. Every gap lands on the 8 px scale. Rows are 40 px, panels take a 10 px radius and no shadow, icon-only buttons are symmetric, and a touch target is at least 44 px.
 
-7. The sheet names 1200, 900, and 640. A width outside the list gets no behaviour of its own.
+7. The sheet names 75em, 60em, and 40em for width, plus 30em for short-height landscape. Choose each breakpoint where the content breaks. A dimension outside the list gets no behaviour of its own.
 
-8. Every transition shares one curve over 160 to 220 ms; vendor [GSAP](https://github.com/greensock/GSAP) as the go-to animation library. Reduced motion turns animation off.
+8. Every transition shares one curve over 160 to 220 ms; for animations, vendor [GSAP](https://github.com/greensock/GSAP) into the project as the go-to library. Reduced motion turns animation off.
 
 9. Each control shows default, hover, focus, active, disabled, and loading. Lists also show empty, failed, and offline. Hover exists only where a pointer does.
 
@@ -79,38 +53,46 @@ Apply this skill to a page, a component, or an interface change. The sheet holds
 
 13. When a page needs a pattern the sheet lacks, the change adds the entry, both widths, and the screenshots, in one pull request.
 
+14. Enable touch input (`hasTouch` and `isMobile`) when auditing or inspecting mobile viewports (`width <= 768` px or `height <= 480` px) so `@media (pointer: coarse)` rules apply.
+
+15. Place a Lucide `x` exit button at the top right of a container, and place other action buttons at the bottom right.
+
 ## Go-to libraries
 
-- For draggable and reorderable lists, vendor only the required part of [SortableJS](https://github.com/SortableJS/Sortable) with its MIT license; do not write custom drag-and-drop handlers.
+- For draggable and reorderable lists, vendor only the required part of [SortableJS](https://github.com/SortableJS/Sortable) with its MIT license instead of writing custom drag-and-drop handlers.
+- For animations and scroll-driven motion, vendor [GSAP](https://github.com/greensock/GSAP) into the project as the go-to library and respect `prefers-reduced-motion: reduce`.
 
 ## Order of work
 
 1. Read the authoritative design record, or create docs/design.md from references/design-document.md if none exists.
-2. Copy the declarations the page needs from `references/style.css`, and keep the role names.
-3. Read `references/examples.md` when the change touches a clause.
+2. Copy the declarations the page needs from `references/style.css`. Keep the role names, and change only the values that the repository settles.
+3. Read `references/examples.md` when the change touches a clause, so the correct and incorrect forms are both in view.
 4. Make only authorized page changes, then measure both widths and fix every value the check names.
-5. Update the authoritative design record with settled design decisions in the same change.
+5. Update the authoritative design record in the same change as a settled design decision.
 
 ## Measuring
 
-`scripts/measure.py check` names every computed value that leaves the sheet. A value passes when it sits on the scale, when a type property takes a ramp size, or when the sheet names that size for that property.
+`scripts/measure.py check` reads a JSON report of computed values and names every value that leaves the sheet. A value passes when it sits on the scale, when a type property takes a size from the ramp, or when the sheet names that size for that property, such as the 10 px radius.
 
-`scripts/measure.py ruler` reads a gap between two guides and says whether each axis sits on the scale.
+`scripts/measure.py ruler` reads a gap between two guides on the page, the way a screen ruler does, and answers whether each axis sits on the scale.
 
 ```bash
 python scripts/measure.py check report.json
 python scripts/measure.py ruler --from 120,340 --to 264,340
 ```
 
+`references/measure.md` holds the browser snippet that writes the report, and the list of what to keep.
+
 ## Files
 
 - `references/style.css`: the sheet as code. Roles, type, space, states, and motion.
 - `references/design-document.md`: the eleven sections of `docs/design.md`, with a filled example.
-- `references/examples.md`: one correct and incorrect pair per clause.
+- `references/examples.md`: one correct and incorrect pair per clause, drawn from the sheet.
 - `references/measure.md`: the report shape, the snippet, and the ruler.
 - `scripts/measure.py`: the check and the ruler.
 
-- `scripts/uiux.py`: briefs, catalog search, system proposals, design records, assets, source checks, extraction, and evidence-based task modes.
-- `scripts/browser.cjs`: optional Playwright captures, declared flows, and authorized transient live edits.
+- `scripts/nuu`: CLI entry point (`references/nuu.md`), alongside `scripts/measure.py` (`references/measure.md`), `scripts/annotate.py` (`references/annotate.md`), and `scripts/browser.cjs`.
 - `data/vendor/`: licensed catalog data and source hashes.
-- `references/tools.md`: command contracts, report fields, and coverage limits.
+- `references/recipes/offline-fonts.md`: bundled and offline zero-jitter font recipe (`preload` with `crossorigin`, `font-display: block`, inline Base64 WOFF2, `FontFace` binary buffers, and metric-matched fallbacks).
+- `references/recipes/scroll-edge-fade.md`: scroll-driven CSS edge-fade mask recipe (`@supports (animation-timeline: scroll(self))`).
+- `references/audit-report.md`: standalone template for nuu audits and visual verification reports.

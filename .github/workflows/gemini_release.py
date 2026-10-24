@@ -154,9 +154,9 @@ TEMPLATE = """\
 """
 
 # Requests above 250,000 input tokens per minute exceed the free tier.
-# Pack chunks to 230,000 tokens so one model allowance serves one request.
+# Pack chunks to 150,000 tokens so one model allowance serves one request with TPM headroom.
 MAX_INPUT_TOKENS = 250_000
-CHUNK_TOKENS = 230_000
+CHUNK_TOKENS = 150_000
 # A chunk answer is a short summary. The compact combine round stays uncapped
 # because its payload is small.
 MAX_OUTPUT_TOKENS = 8192
@@ -164,18 +164,47 @@ MAX_OUTPUT_TOKENS = 8192
 SAFETY_SECONDS = 5
 SUCCESS_COOLDOWN = 60
 API_TIMEOUT_SECONDS = 180
+CHUNK_TIMEOUT_SECONDS = 90
 REQUEST_DEADLINE_SECONDS = 300
 CAPACITY_RETRIES = 2
 CAPACITY_BACKOFF_SECONDS = 5
 CAPACITY_MAX_BACKOFF_SECONDS = 60
 CAPACITY_JITTER_SECONDS = 5
 COOLDOWNS = {}
+RUN_STARTED = time.monotonic()
 MODELS = (
   "gemini-3.8-flash",
   "gemini-3.6-flash",
   "gemini-3.5-flash-lite",
   "gemini-3.1-flash-lite",
 )
+
+
+def elapsed_stamp():
+  elapsed = max(0.0, time.monotonic() - RUN_STARTED)
+  minutes = int(elapsed // 60)
+  seconds = elapsed - minutes * 60
+  return f"+{minutes:02d}:{seconds:04.1f}"
+
+
+def group_start(title):
+  if os.getenv("GITHUB_ACTIONS") == "true":
+    summary(f"::group::[{elapsed_stamp()}] {title}")
+
+
+def group_end():
+  if os.getenv("GITHUB_ACTIONS") == "true":
+    summary("::endgroup::")
+
+
+def cooling_status(models):
+  now = time.monotonic()
+  active = [
+    f"{rung.removeprefix('gemini-')} {COOLDOWNS[rung] - now:.0f}s"
+    for rung in models
+    if COOLDOWNS.get(rung, 0) > now
+  ]
+  return f" [cooling: {', '.join(active)}]" if active else ""
 
 
 def run(*args, input=None, binary=False):
@@ -465,6 +494,41 @@ def measured(model, request):
   return TOKEN_COUNTS[key]
 
 
+def _semantic_split_parts(text):
+  """Split oversized commit text along file diff, hunk, or line boundaries before raw characters."""
+  for marker in ("\ndiff --git ", "\n@@ "):
+    if marker not in text:
+      continue
+    first = text.index(marker)
+    header = text[:first]
+    rest = text[first:]
+    blocks = [marker + chunk for chunk in rest.split(marker) if chunk]
+    if len(blocks) >= 2:
+      target = sum(len(block) for block in blocks) // 2
+      acc = 0
+      cut = 1
+      for idx, block in enumerate(blocks[:-1], 1):
+        acc += len(block)
+        cut = idx
+        if acc >= target:
+          break
+      prefix = header if len(header) <= len(text) // 3 else ""
+      left = header + "".join(blocks[:cut])
+      right = prefix + "".join(blocks[cut:])
+      if left and right and len(left) < len(text) and len(right) < len(text):
+        return left, right
+  if "\n" in text:
+    mid = len(text) // 2
+    before = text.rfind("\n", 1, mid + 1)
+    after = text.find("\n", mid)
+    candidates = [pos for pos in (before, after) if 0 < pos < len(text) - 1]
+    if candidates:
+      split_at = min(candidates, key=lambda pos: abs(pos - mid)) + 1
+      return text[:split_at], text[split_at:]
+  middle = len(text) // 2
+  return text[:middle], text[middle:]
+
+
 def split_item(item, context, model, ceiling, cover):
   """Split one oversized evidence item until each text part fits."""
   tokens = measured(model, request_for(context, [item]))
@@ -474,12 +538,12 @@ def split_item(item, context, model, ceiling, cover):
   if len(text) < 2:
     raise RuntimeError("One evidence item cannot fit the token ceiling")
   summary(
-    f"  evidence item {item['id']} is {tokens:,} input tokens over the "
+    f"  [{elapsed_stamp()}] evidence item {item['id']} is {tokens:,} input tokens over the "
     f"{ceiling:,} ceiling; splitting its text in half"
   )
-  middle = len(text) // 2
+  left_text, right_text = _semantic_split_parts(text)
   halves = []
-  for index, part in enumerate((text[:middle], text[middle:])):
+  for index, part in enumerate((left_text, right_text)):
     half = {"id": f"{item['id']}:{index + 1}/2", "text": part}
     cover[half["id"]] = cover[item["id"]]
     halves.append(half)
@@ -488,12 +552,54 @@ def split_item(item, context, model, ceiling, cover):
   )
 
 
+TOKEN_RATIO = [1.0]
+
+
 def fitting_prefix(items, context, model, ceiling):
-  """Find an ordered prefix that fits with exact-token binary search."""
+  """Find an ordered prefix that fits with byte-ratio interpolation and exact-token verification."""
+  if not items:
+    return 0
+  sizes = [max(1, len(item["text"].encode("utf-8"))) for item in items]
+  cum = [0]
+  for size in sizes:
+    cum.append(cum[-1] + size)
+
+  def probe(count):
+    tokens = measured(model, request_for(context, items[:count]))
+    if cum[count] > 0 and tokens > 0:
+      TOKEN_RATIO[0] = tokens / cum[count]
+    return tokens
+
   low, high = 0, len(items)
+  for _ in range(2):
+    if low >= high:
+      break
+    ratio = TOKEN_RATIO[0] if TOKEN_RATIO[0] > 0 else 1.0
+    target_bytes = ceiling / ratio
+    guess = low + 1
+    for idx in range(low + 1, high + 1):
+      if cum[idx] <= target_bytes:
+        guess = idx
+      else:
+        break
+    guess = max(low + 1, min(high, guess))
+    tokens = probe(guess)
+    if tokens <= ceiling:
+      low = guess
+      if low < high and probe(low + 1) <= ceiling:
+        low += 1
+      else:
+        high = low
+        break
+    else:
+      high = guess - 1
+      if high > low and probe(high) <= ceiling:
+        low = high
+        break
+      high = max(low, high - 1)
   while low < high:
     middle = (low + high + 1) // 2
-    if measured(model, request_for(context, items[:middle])) <= ceiling:
+    if probe(middle) <= ceiling:
       low = middle
     else:
       high = middle - 1
@@ -557,7 +663,8 @@ def gemini_call(model, action, payload, timeout=API_TIMEOUT_SECONDS):
       "x-goog-api-key": os.environ["GEMINI_API_KEY"],
     },
   )
-  summary(f"Gemini model attempt: {model} ({action})")
+  if action != "countTokens":
+    summary(f"Gemini model attempt: {model} ({action})")
   try:
     with urllib.request.urlopen(request, timeout=timeout) as response:
       return json.load(response)
@@ -607,13 +714,17 @@ def first_rung(model):
   return model[0] if isinstance(model, (list, tuple)) else model
 
 
-def ready_rung(models, exhausted):
-  """The highest rung that is neither cooling nor already failed on this request."""
+def ready_rung(models, exhausted, attempts=None):
+  """The highest ready rung with the fewest attempts on this request."""
   now = time.monotonic()
-  for rung in models:
-    if rung not in exhausted and COOLDOWNS.get(rung, 0) <= now:
-      return rung
-  return None
+  ready = [
+    rung for rung in models if rung not in exhausted and COOLDOWNS.get(rung, 0) <= now
+  ]
+  if not ready:
+    return None
+  if not attempts:
+    return ready[0]
+  return min(ready, key=lambda rung: (attempts.get(rung, 0), models.index(rung)))
 
 
 def earliest_ready(models, exhausted):
@@ -624,41 +735,54 @@ def earliest_ready(models, exhausted):
 
 def cool(rung, seconds, reason):
   COOLDOWNS[rung] = time.monotonic() + seconds
-  summary(f"  {rung} cooling {seconds:.1f}s ({reason})")
+  summary(f"  [{elapsed_stamp()}] {rung} cooling {seconds:.1f}s ({reason})")
 
 
 def generate(context, evidence, model, on_success=None):
   """Take the highest ready model within one bounded request."""
   deadline = time.monotonic() + REQUEST_DEADLINE_SECONDS
   retries = {}
+  attempts = {}
   models = [model] if isinstance(model, str) else list(model)
   failures = []
   exhausted = set()
   RUN_STATS["requests"] += 1
+  phase = context.get("phase", "release")
   summary(
-    f"Request {RUN_STATS['requests']} ({context.get('phase', 'release')}): "
+    f"[{elapsed_stamp()}] Request {RUN_STATS['requests']} ({phase}): "
     f"{len(evidence)} evidence item(s)"
   )
   tokens = measured(models[0], request_for(context, evidence))
-  summary(f"  {tokens:,} input tokens (allowance {MAX_INPUT_TOKENS:,})")
+  summary(
+    f"  [{elapsed_stamp()}] {tokens:,} input tokens (allowance {MAX_INPUT_TOKENS:,})"
+  )
   if tokens > MAX_INPUT_TOKENS:
     raise RuntimeError(
       f"Request exceeds the {MAX_INPUT_TOKENS:,}-token allowance; reduce CHUNK_TOKENS"
     )
+  phase_timeout = (
+    CHUNK_TIMEOUT_SECONDS if context.get("phase") == "chunk" else API_TIMEOUT_SECONDS
+  )
   while time.monotonic() < deadline:
-    rung = ready_rung(models, exhausted)
+    rung = ready_rung(models, exhausted, attempts)
     if rung is None:
       ready = earliest_ready(models, exhausted)
       if ready is None:
         raise RuntimeError("Every Gemini model failed: " + "; ".join(failures))
-      delay = min(
-        max(0.0, ready - time.monotonic()), max(0.0, deadline - time.monotonic())
+      if not failures:
+        delay = max(0.0, ready - time.monotonic())
+        deadline += delay
+      else:
+        delay = min(
+          max(0.0, ready - time.monotonic()), max(0.0, deadline - time.monotonic())
+        )
+      summary(
+        f"  [{elapsed_stamp()}] all models cooling; waiting {delay:.1f}s{cooling_status(models)}"
       )
-      summary(f"  all models cooling; waiting {delay:.1f}s")
       if delay:
         time.sleep(delay)
       continue
-    timeout = min(API_TIMEOUT_SECONDS, deadline - time.monotonic())
+    timeout = min(phase_timeout, deadline - time.monotonic())
     if timeout <= 0:
       continue
     try:
@@ -669,6 +793,7 @@ def generate(context, evidence, model, on_success=None):
       detail = redact(str(exc))
       failures.append(f"{rung}: {detail}")
       RUN_STATS["failures"] += 1
+      attempts[rung] = attempts.get(rung, 0) + 1
       hint = RETRY_HINT.search(" ".join(str(detail).split()))
       status = re.search(r"\bHTTP\s+(\d+)\b", detail)
       status = status.group(1) if status else None
@@ -677,6 +802,8 @@ def generate(context, evidence, model, on_success=None):
         retries[rung] = attempt + 1
         wait = min(CAPACITY_BACKOFF_SECONDS * 2**attempt, CAPACITY_MAX_BACKOFF_SECONDS)
         wait += random.uniform(0, CAPACITY_JITTER_SECONDS)
+        if tokens > MAX_INPUT_TOKENS // 2:
+          wait = max(wait, SUCCESS_COOLDOWN + SAFETY_SECONDS)
         cool(rung, wait, f"503, retry {attempt + 1}/{CAPACITY_RETRIES}")
       elif status == "429" or (status is None and "429" in detail):
         wait = (float(hint.group(1)) if hint else 60.0) + SAFETY_SECONDS
@@ -684,7 +811,9 @@ def generate(context, evidence, model, on_success=None):
       elif "HTTP" in detail or (detail.startswith("Gemini ") and " failed:" in detail):
         # The request never ran, so the rung stays ready. Step down for this request.
         exhausted.add(rung)
-        summary(f"Gemini model {rung} failed: {short_error(detail)}; stepping down")
+        summary(
+          f"[{elapsed_stamp()}] Gemini model {rung} failed: {short_error(detail)}; stepping down"
+        )
       else:
         # A blocked or unusable 200 response spends the tokens.
         cool(rung, SUCCESS_COOLDOWN + SAFETY_SECONDS, "blocked output")
@@ -718,7 +847,7 @@ def generate_once(context, evidence, model, timeout=API_TIMEOUT_SECONDS):
   text = response_text(data)
   usage = data.get("usageMetadata") or {}
   summary(
-    f"  {model} answered in {time.monotonic() - started:.1f}s, "
+    f"  [{elapsed_stamp()}] {model} answered in {time.monotonic() - started:.1f}s, "
     f"{int(usage.get('candidatesTokenCount') or 0):,} tokens out"
   )
   return text
@@ -732,26 +861,33 @@ def round_requests(items, context, phase, model, cover, round_number):
   if tokens <= CHUNK_TOKENS:
     probes = len(TOKEN_COUNTS) - probes_before
     summary(
-      f"  {phase} round {round_number}: {tokens:,} input tokens; one request "
+      f"  [{elapsed_stamp()}] {phase} round {round_number}: {tokens:,} input tokens; one request "
       f"after {probes} exact token probe(s)"
     )
     return whole, [items]
   # A packed first round summarizes the evidence. A packed later round combines the
   # summaries, whatever phase the final request carries.
   chunked = {**context, "phase": "chunk" if round_number == 1 else phase}
-  groups = grouped(items, chunked, model, cover)
-  shares = [measured(model, request_for(chunked, group)) for group in groups]
-  probes = len(TOKEN_COUNTS) - probes_before
-  summary(
-    f"  {phase} round {round_number}: {len(items)} evidence item(s), {tokens:,} input"
-    f" tokens over the {CHUNK_TOKENS:,} ceiling; packed into {len(groups)} request(s)"
-    f" after {probes} exact token probe(s)"
-  )
-  # The plan names each request's share before the requests run.
-  for index, (group, share) in enumerate(zip(groups, shares), 1):
+  group_start(f"Chunking {phase} round {round_number} ({len(items)} items)")
+  try:
+    groups = grouped(items, chunked, model, cover)
+    shares = [measured(model, request_for(chunked, group)) for group in groups]
+    probes = len(TOKEN_COUNTS) - probes_before
     summary(
-      f"    chunk {index}/{len(groups)}: {len(group)} evidence item(s), {share:,} tokens"
+      f"  [{elapsed_stamp()}] {phase} round {round_number}: {len(items)} evidence item(s), {tokens:,} input"
+      f" tokens over the {CHUNK_TOKENS:,} ceiling; packed into {len(groups)} request(s)"
+      f" after {probes} exact token probe(s)"
     )
+    # The plan names each request's share before the requests run.
+    for index, (group, share) in enumerate(zip(groups, shares), 1):
+      first_id = str(group[0]["id"])[:7]
+      last_id = str(group[-1]["id"])[:7]
+      span = first_id if first_id == last_id else f"{first_id}..{last_id}"
+      summary(
+        f"    [{elapsed_stamp()}] chunk {index}/{len(groups)}: {len(group)} evidence item(s), {share:,} tokens ({span})"
+      )
+  finally:
+    group_end()
   return chunked, groups
 
 

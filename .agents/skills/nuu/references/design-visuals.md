@@ -25,8 +25,8 @@ Design authority: [Design record](../design.md).
 
 ## Shared references
 
-- [Shared components](components.md): project component families, states, and variants in current use.
-- [Style reference](styles.md): project type, colors, imagery, elevation, and corners in current use.
+- [Shared components](components.md): composite component board (`../images/components-board.png`) showing avatars, badges, chips, button families across light and dark backgrounds, buttons in current use, and input field states.
+- [Style reference](styles.md): composite foundation board (`../images/styles-board.png`) showing the typography ramp, color palette families, colors in current use, imagery, elevations, and corner radii.
 
 ## Image evidence
 
@@ -34,5 +34,3 @@ Design authority: [Design record](../design.md).
 | --- | --- | --- | --- | --- | --- |
 | <local image> | <wireframe or rendered state> | <project source> | <license> | <capture date> | <not run or result> |
 ```
-
-Reference structure: [UI Prep, The Best Way to Document UX/UI Design](https://www.uiprep.com/blog/the-best-way-to-document-ux-ui-design).

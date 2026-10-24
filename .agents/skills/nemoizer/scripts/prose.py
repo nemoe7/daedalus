@@ -3,11 +3,18 @@
 import ast
 import io
 import json
+import re
 import subprocess
 import tokenize
 from functools import lru_cache
 from pathlib import Path
 
+COMMENT_BLOCK_CAP = 2
+DIRECTIVE_MARKER = re.compile(
+  r"^\s*(?:#|//)\s*(?:arena-preview-[\w-]+|case:\s*[\w-]+|shellcheck\s+disable=\S+|"
+  r"nonemo:\s*[A-Za-z0-9_-]+|noqa(?::.*)?|type:\s*ignore(?:\[.*\])?|pragma:\s*no cover|region|endregion)\s*$",
+  re.IGNORECASE,
+)
 USERSCRIPT_SUFFIX = ".user.js"
 USERSCRIPT_HEADER_START = "==UserScript=="
 USERSCRIPT_HEADER_END = "==/UserScript=="
@@ -50,6 +57,7 @@ def python_comments(source: str) -> list[tuple[str, int, int]]:
 def python_docstrings(source: str) -> list[tuple[str, int, int]]:
   """Collect Python docstrings with their source line spans."""
   sections = []
+  lines = source.splitlines(True)
   for node in ast.walk(ast.parse(source)):
     if isinstance(
       node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
@@ -63,10 +71,16 @@ def python_docstrings(source: str) -> list[tuple[str, int, int]]:
       ):
         text = first.value.value.strip()
         if text:
-          literal = ast.get_source_segment(source, first.value).lstrip("rRuU")
+          head = (
+            lines[first.value.lineno - 1]
+            .encode("utf-8")[first.value.col_offset :]
+            .decode("utf-8")
+          )
+          tail = "".join(lines[first.value.lineno : first.value.end_lineno])
+          literal = (head + tail).lstrip("rRuU")
           width = 3 if literal.startswith(('"""', "'''")) else 1
-          body = literal[width:]
-          leading = body[: len(body) - len(body.lstrip())]
+          inner = literal[width:]
+          leading = inner[: len(inner) - len(inner.lstrip())]
           sections.append(
             (text, first.value.lineno + leading.count("\n"), first.value.end_lineno)
           )
@@ -303,6 +317,45 @@ def comment_lines(path: Path, source: str) -> set[int]:
     if spans is not None
     else set()
   )
+
+
+def directive_marker_lines(source: str, path: Path | None = None) -> set[int]:
+  """Return comment lines that carry required tool directives."""
+  numbers = {
+    number
+    for number, line in enumerate(source.splitlines(), start=1)
+    if DIRECTIVE_MARKER.match(line)
+  }
+  if path is not None:
+    comments = (
+      python_comments(source)
+      if path.suffix == ".py"
+      else span_comments(path, source) or []
+    )
+    numbers.update(
+      first
+      for text, first, last in comments
+      if first == last and DIRECTIVE_MARKER.fullmatch("# " + text)
+    )
+  return numbers
+
+
+def comment_blocks(path: Path, source: str) -> list[tuple[int, int]]:
+  """Return (start_line, line_count) for contiguous non-directive code comment blocks."""
+  blocks: list[tuple[int, int]] = []
+  start = None
+  previous = None
+  numbers = sorted(comment_lines(path, source) - directive_marker_lines(source, path))
+  for number in [*numbers, None]:
+    if number is not None and (previous is None or number == previous + 1):
+      start = number if start is None else start
+      previous = number
+      continue
+    if start is not None and previous is not None:
+      blocks.append((start, previous - start + 1))
+    start = number
+    previous = number
+  return blocks
 
 
 def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:

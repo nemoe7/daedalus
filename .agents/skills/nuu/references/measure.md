@@ -2,6 +2,12 @@
 
 Read computed values, compare them with the sheet, and keep the numbers. Two widths are the minimum: 1280 px and 360 px.
 
+| Subcommand | Purpose | Arguments and Shorthands |
+| --- | --- | --- |
+| `check` | Compare computed-style report JSON with the sheet | `<report>`, `-s, --sheet <path>`, `-g, --scale <px>`, `-d, --density`, `-j, --json` |
+| `density` | Check row/card ink ratio, sibling gaps, and control width caps | `<report>` |
+| `ruler` | Measure pixel gap between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-g, --scale <px>`, `-j, --json` |
+
 ## Read the values
 
 Open the page at the width, then run this in the browser console. It prints one JSON report for the selectors named.

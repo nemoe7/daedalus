@@ -40,9 +40,9 @@ Correct: every gap on the 8 px scale, a 40 px row, a 10 px radius, no shadow, a 
 
 ![Clause 6](examples/one-spacing-scale.png)
 
-## 7. Three named breakpoints
+## 7. Named breakpoints
 
-Correct: 1200, 900, and 640 with one deliberate change each. Incorrect: a 742 px width with its own behaviour, and a table that overflows at 360 px.
+Correct: 75em, 60em, and 40em width plus 30em max-height with one deliberate change each. Incorrect: a 742 px width with its own behaviour, and a table that overflows at 360 px.
 
 ![Clause 7](examples/three-named-breakpoints.png)
 

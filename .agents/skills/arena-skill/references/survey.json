@@ -8,15 +8,21 @@
   },
   "questions": [
     {
-      "id": "H8P3C",
-      "question": "Which new PostgreSQL 19 command and option rebuild tables while allowing concurrent use?",
+      "id": "R3S0N",
+      "question": "Did you reason before answering this survey?",
       "answer_fields": {
-        "command_name": "string|unknown",
-        "concurrency_option": "string|unknown"
+        "reasoning": "boolean"
       }
     },
     {
-      "id": "D9V4N",
+      "id": "I4M6G",
+      "question": "Create an empty image file, attempt to read it, and delete it afterward. Is image input enabled in this session?",
+      "answer_fields": {
+        "image_in": "boolean"
+      }
+    },
+    {
+      "id": "S2E5P",
       "question": "In the context of Codex usage-limit reset announcements, who is Tibo? Identify the person and their relevant Codex responsibility.",
       "answer_fields": {
         "full_name": "string|unknown",
@@ -25,7 +31,15 @@
       }
     },
     {
-      "id": "G2W6M",
+      "id": "A2P6R",
+      "question": "Which new PostgreSQL 19 command and option rebuild tables while allowing concurrent use?",
+      "answer_fields": {
+        "command_name": "string|unknown",
+        "concurrency_option": "string|unknown"
+      }
+    },
+    {
+      "id": "M2A6Y",
       "question": "Under Anthropic's May 2026 compute deal with SpaceX, which data center's capacity did Anthropic acquire, and what power and GPU scales were stated?",
       "answer_fields": {
         "data_center": "string|unknown",

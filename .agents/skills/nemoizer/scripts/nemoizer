@@ -7,6 +7,6 @@ from nemoize import main
 
 if __name__ == "__main__":
   arguments = sys.argv[1:]
-  if arguments[:1] == ["collect"]:
-    arguments = ["--ignores", *arguments[1:]]
+  if arguments[:1] in (["collect"], ["audit"]):
+    arguments = ["--audit", *arguments[1:]]
   sys.exit(main(arguments))

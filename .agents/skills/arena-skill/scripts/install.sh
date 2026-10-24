@@ -106,21 +106,21 @@ PY
 COMMIT_MSG_HOOK
 chmod 755 "$GIT_HOOK" || fail "cannot make $GIT_HOOK executable"
 git config --local core.hooksPath "$GIT_HOOKS" || fail "cannot set core.hooksPath"
-echo "arena-preview installer: commit-msg validation active at $GIT_HOOK"
 
 # 5. Hook script: save $?, print the unacked-count reminder on stderr, restore the exit code.
 cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 #!/bin/bash
 # arena-preview-hook: poll the steering inbox after every agent call.
 rc=\$?
+cmd="\$(tr '\\0' ' ' < /proc/\$PPID/cmdline 2>/dev/null)"
 # The platform runs processes and probes through login shells. Those shells would otherwise count as agent calls and stamp call ends.
 # These are the shapes the gate already ignores, so the count and the stamp answer for the agent's own calls. The hook is a child of the shell that exits, so its parent carries that shell's line.
 # case: platform-shell
-case "\$(tr '\\0' ' ' < /proc/\$PPID/cmdline 2>/dev/null)" in
-  *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*)
+case "\$cmd" in
+  *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*|*"/bin/bash -l -c mkdir -p '"*|*"/bin/bash -l -c [ -e '"*|*"python3 -I - <<'PY'"*)
     exit "\$rc" ;;
 esac
-"$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --reminder >&2
+"$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --reminder --rc "\$rc" --line "\$cmd" >&2
 exit "\$rc"
 EOF
 chmod 755 "$HOOK"
@@ -158,6 +158,9 @@ strip_block "$GATE_MARKER"
 _arena_preview_gate() {
   # The shell command line never changes, so one read per shell serves every command.
   # case: shell-line
+  if [ -z "\${TZ:-}" ] && [ -s "$REPO_ROOT/$STATE_REL/display_tz" ]; then
+    export TZ="\$(head -n 1 "$REPO_ROOT/$STATE_REL/display_tz")"
+  fi
   case "\${_arena_preview_line:-}" in
     "") _arena_preview_line="\$(tr '\\0' ' ' < /proc/\$\$/cmdline 2>/dev/null)" ;;
   esac
@@ -202,7 +205,12 @@ unset _arena_preview_scripts
 EOF
 sed -i "s|__ARENA_PREVIEW_ROOT__|$REPO_ROOT|" "$PROFILE" || fail "cannot pin PATH root in $PROFILE"
 
-echo "arena-preview installer: ok; state: $REPO_ROOT/$STATE_REL, ignored through $GLOBAL_IGNORE; command: arena-preview in new Bash shells"
+cat <<'EOF'
+commitlint: ok
+gitignore: ok
+arena-preview: ok
+next action: `start_process`: `arena-preview --serve --port 8000`
+EOF
 
 # 8. Install the DEBUG gate trap last in ~/.bash_profile.
 GATE_TRAP_MARKER="# arena-preview-gate-trap"

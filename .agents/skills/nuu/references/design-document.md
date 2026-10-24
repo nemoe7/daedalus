@@ -108,12 +108,12 @@ Visual-reference template: [design-visuals.md](design-visuals.md).
 
 - Decision status: proposed example. Context, evidence, tradeoffs, and implementation links: <decision context; supporting evidence; tradeoffs; implementation links>.
 - Historical example entry:
-- 2026-03-04: inspector width at 1200 px set to 320 px.
+- 2026-03-04: inspector width at 75em set to 320 px.
 ```
 
 ## Rules for an entry
 
 - Mark decisions as proposed, accepted, or retired, and keep unresolved questions distinct from settled implementation facts.
 - Mark missing research, measurements, approvals, and test coverage as unknown or not run instead of inventing evidence.
-- Keep overview wireframes, workflow views, applicable component states, and shared style examples in separate local visual-reference documents, and link them from the authoritative design record.
+- Keep composite image boards — overview wireframe flow boards with navigation arrows, detail wireframes, side-by-side workflow views, multi-state component boards, shared component family sheets, and foundation style boards — in separate local visual-reference documents, and link them from the authoritative design record.
 - Delete an entry only with the code it describes.
