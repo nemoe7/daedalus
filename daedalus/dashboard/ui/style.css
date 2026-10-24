@@ -791,6 +791,10 @@ section[data-page="providers"] .card { padding-bottom: 10px; }
 section[data-page="settings"] .field:not(.stack),
 section[data-page="providers"] .field:not(.stack),
 .fold summary { min-height: 56px; }
+#settings > .section-pane .sections button { min-height: 56px; }
+@media (min-width: 721px) {
+  .card[data-section="keys"] .keys tbody tr { height: 56px; }
+}
 .field select { padding-block: 6px; }
 .sections button { min-height: 44px; }
 .section-pane { flex: 1 1 min(360px, 100%); display: grid; gap: 16px; min-width: 0; }

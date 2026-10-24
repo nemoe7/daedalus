@@ -1766,6 +1766,9 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
     'section[data-page="providers"] .field:not(.stack),\n'
     ".fold summary { min-height: 56px; }"
   ) in css, "every single-line settings row shares one 56px height"
+  assert "#settings > .section-pane .sections button { min-height: 56px; }" in css, (
+    "providers section file and block rows share the 56px settings row height"
+  )
   assert ".field select { padding-block: 6px; }" in css, (
     "select controls match input control height inside settings rows"
   )
