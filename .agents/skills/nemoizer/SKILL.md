@@ -25,7 +25,7 @@ python skills/nemoizer/scripts/nemoizer collect .
 ```
 
 Print each finding as `path:line: [ID] (advisory-free|advisory) description` with its indented source line and `Summary` footer; exit 1 only for mandatory findings, and mark advisory findings for manual review by agent or user. Vendored and generated
-trees are skipped, and `--ignore` or repo-root `nemoizer.toml` / `[tool.nemoizer]` in `pyproject.toml` configures exclusions, rule selection, and caps.
+trees are skipped; `--ignore` or repo-root `nemoizer.toml` / `[tool.nemoizer]` in `pyproject.toml` ([references/nemoizer.toml](references/nemoizer.toml)) sets exclusions, rules, and caps.
 
 `--format` rewrites the tree and prints each changed line as it was and as it
 becomes:
@@ -41,7 +41,7 @@ Do not rewrite exclusion markers or the rotation table; apply only unsuppressed 
 - Use any comment syntax for `nonemo: <id>`; scanning reads text, not syntax.
 - Apply an exclusion only to a known matching rule ID.
 - With `nemoizer collect` or `--ignores`, print every nonemo marker: path, line, rule ID, scope, and text; with `nemoizer audit` or `--audit`, print every `nonemo` marker and manual-review finding.
-- Format audit reports with the [audit report template](references/audit-report.md), omit empty sections, and state 0 in Counts.
+- Format audit reports with [references/audit-report.md](references/audit-report.md), one section per file (`Rule | Before | After | Verdict | Reason`), rule-applied `After` even when `Verdict` is `keep`, no empty sections, and 0 in Counts.
 
 
 Run rotations and serial-comma checks (`NMO`), semicolon/sentence/nominalization/manual-review style checks (`STE`), human-prose checks (`HMN`), paragraph checks (`NMP`), and test reviews (`NMT`) by default.

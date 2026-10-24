@@ -1,0 +1,35 @@
+# Default nemoizer configuration (nemoizer.toml).
+# In pyproject.toml, place these keys under [tool.nemoizer] and [tool.nemoizer.lint].
+
+exclude = [
+  ".git",
+  ".pytest_cache",
+  ".venv",
+  "__pycache__",
+  "build",
+  "dist",
+  "node_modules",
+  "out",
+  ".agents/skills/**",
+  "arena-state/**",
+  "*.json",
+  "*.webmanifest",
+]
+extend-exclude = []
+respect-gitignore = true
+context = "unknown"
+instruction-sentence-cap = 20
+description-sentence-cap = 25
+paragraph-cap = 4
+list-sentence-cap = 2
+heading-sentence-cap = 1
+comment-block-cap = 2
+the-density-cap = 20
+min-the-count = 3
+test-helpers = []
+
+[lint]
+select = ["ALL"]
+ignore = []
+
+[lint.per-file-ignores]

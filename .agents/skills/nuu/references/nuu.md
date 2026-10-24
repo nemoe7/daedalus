@@ -1,6 +1,6 @@
 # `nuu` CLI Reference
 
-`scripts/nuu` (`scripts/uiux.py`) is the single command-line entry point for UI/UX audits, system proposals, design records, measurements, and screenshot annotations.
+`scripts/nuu` (`scripts/nuu.py`) is the single command-line entry point for UI/UX audits, system proposals, design records, measurements, and screenshot annotations.
 
 ## Subcommands and Short Flags
 
@@ -14,7 +14,7 @@
 | `check` | Check computed-style measure JSON against the sheet | `<report>`, `-s, --sheet <path>`, `-g, --scale <px>`, `-d, --density`, `-j, --json` |
 | `density` | Check row/card ink ratio (`NUM205`), sibling gaps (`NUM206`), control width caps (`NUM207`), and symmetric icon buttons (`NUM208`) | `<report>` |
 | `ruler` | Measure pixel distance between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-g, --scale <px>`, `-j, --json` |
-| `annotate` | Render boxes, arrows, labels, and callouts on a PNG | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-s, --spec <json>`, `-j, --json` |
+| `annotate`, `board` | Render boxes, arrows, labels, callouts, and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>` |
 | `audit` | Run source, measure, flow, and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-o, --out <dir>`, `-j, --json` |
 
 ## Audit Coverage (`NUL001`–`NUA306`)
@@ -23,7 +23,7 @@ Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- 
 
 | Code | Pass | Condition |
 | --- | --- | --- |
-| `NUL001`–`NUL003` | Source (`lint`) | Missing image `alt` (`NUL001`), missing control naming evidence (`NUL002`), or `outline: none` / `0` (`NUL003`) |
+| `NUL001`–`NUL004` | Source (`lint`) | Missing image `alt` (`NUL001`), missing control naming evidence (`NUL002`), `outline: none` / `0` (`NUL003`), or missing `docs/design.md` (`NUL004`) |
 | `NUB101`–`NUB103` | Browser (`inspect`, `flow`) | Horizontal overflow (`NUB101`), runtime console/page error (`NUB102`), or failed interaction flow (`NUB103`) |
 | `NUB104` | Browser (`--ready`) | Declared `--ready SELECTOR` did not match a visible element within the timeout |
 | `NUM201`–`NUM204` | Measure (`--measure`) | Off-scale spacing, off-ramp typography, unapproved border radius, or text contrast below 4.5:1 (`3:1` large text) |

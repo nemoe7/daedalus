@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuu"
-version = "0.1.11"
+version = "0.1.14"
 description = "Design sheet and UI/UX inspection CLI."
 requires-python = ">=3.10"
 
 [project.scripts]
-nuu = "uiux:main"
+nuu = "nuu:main"
 
 [tool.setuptools]
 package-dir = {"" = "scripts"}
-py-modules = ["uiux", "measure", "annotate"]
+py-modules = ["nuu", "uiux", "measure", "annotate"]

@@ -273,9 +273,16 @@ DEFAULT_CONFIG = {
   "root": None,
   "exclude": None,
   "extend_exclude": (),
+  "respect_gitignore": True,
   "context": None,
-  "paragraph_cap": None,
+  "instruction_sentence_cap": SENTENCE_CAPS["instruction"],
+  "description_sentence_cap": SENTENCE_CAPS["description"],
+  "paragraph_cap": PARAGRAPH_CAP,
+  "list_sentence_cap": LIST_SENTENCE_CAP,
+  "heading_sentence_cap": HEADING_SENTENCE_CAP,
   "comment_block_cap": COMMENT_BLOCK_CAP,
+  "the_density_cap": THE_DENSITY_CAP,
+  "min_the_count": MIN_THE_COUNT,
   "test_helpers": (),
   "select": ("ALL",),
   "ignore": (),
@@ -357,21 +364,38 @@ def load_config(targets=(), config_path=None, no_config=False):
     config["exclude"] = tuple(str(item) for item in table["exclude"])
   if "extend-exclude" in table:
     config["extend_exclude"] = tuple(str(item) for item in table["extend-exclude"])
+  if "respect-gitignore" in table:
+    if not isinstance(table["respect-gitignore"], bool):
+      raise ValueError("respect-gitignore must be a boolean")
+    config["respect_gitignore"] = table["respect-gitignore"]
   if "context" in table:
     context = str(table["context"])
     if context not in {*SENTENCE_CAPS, "unknown"}:
       raise ValueError(f"invalid context in config: {context}")
     config["context"] = context
+  for toml_key, cfg_key in (
+    ("instruction-sentence-cap", "instruction_sentence_cap"),
+    ("description-sentence-cap", "description_sentence_cap"),
+    ("list-sentence-cap", "list_sentence_cap"),
+    ("heading-sentence-cap", "heading_sentence_cap"),
+    ("comment-block-cap", "comment_block_cap"),
+    ("min-the-count", "min_the_count"),
+  ):
+    if toml_key in table:
+      val = int(table[toml_key])
+      if val < 1:
+        raise ValueError(f"{toml_key} must be at least 1")
+      config[cfg_key] = val
+  if "the-density-cap" in table:
+    density_cap = int(table["the-density-cap"])
+    if not 1 <= density_cap <= 100:
+      raise ValueError("the-density-cap must be between 1 and 100")
+    config["the_density_cap"] = density_cap
   if "paragraph-cap" in table:
     paragraph_cap = int(table["paragraph-cap"])
     if not 0 < paragraph_cap <= PARAGRAPH_CAP:
       raise ValueError(f"paragraph-cap must be between 1 and {PARAGRAPH_CAP}")
     config["paragraph_cap"] = paragraph_cap
-  if "comment-block-cap" in table:
-    comment_cap = int(table["comment-block-cap"])
-    if comment_cap < 1:
-      raise ValueError("comment-block-cap must be at least 1")
-    config["comment_block_cap"] = comment_cap
   if "test-helpers" in table:
     config["test_helpers"] = tuple(
       (root / str(item)).resolve() if root else Path(str(item)).resolve()
@@ -464,6 +488,33 @@ def skipped(path, root, ignores):
   )
 
 
+def git_ignored(root, candidates):
+  """Return the subset of candidate Paths that git check-ignore marks as ignored."""
+  if not candidates or not ACTIVE_CONFIG.get("respect_gitignore", True):
+    return set()
+  base = root.resolve()
+  rel_map = {}
+  for candidate in candidates:
+    try:
+      rel = candidate.resolve().relative_to(base).as_posix()
+    except ValueError:
+      rel = candidate.as_posix()
+    rel_map[rel] = candidate
+  try:
+    proc = subprocess.run(
+      ["git", "-C", str(base), "check-ignore", "-z", "--stdin"],
+      input="\0".join(rel_map),
+      capture_output=True,
+      text=True,
+      check=False,
+    )
+  except OSError:
+    return set()
+  if proc.returncode not in (0, 1):
+    return set()
+  return {rel_map[item] for item in proc.stdout.split("\0") if item in rel_map}
+
+
 def walk(targets, ignores):
   """Yield every text file under the targets that survives the skip rules."""
   for target in targets:
@@ -473,8 +524,14 @@ def walk(targets, ignores):
         yield path
       continue
     root = path if path.is_dir() else Path(".")
-    for candidate in sorted(root.rglob("*")):
-      if candidate.is_file() and not skipped(candidate, root, ignores):
+    candidates = [
+      candidate
+      for candidate in sorted(root.rglob("*"))
+      if candidate.is_file() and not skipped(candidate, root, ignores)
+    ]
+    ignored_set = git_ignored(root, candidates)
+    for candidate in candidates:
+      if candidate not in ignored_set:
         yield candidate
 
 
@@ -1401,7 +1458,15 @@ def prose_review(path, text, context, paragraph_cap):
             "status": "review",
           }
         )
-  cap = SENTENCE_CAPS.get(context, SENTENCE_CAPS["instruction"])
+  sentence_caps = {
+    "instruction": ACTIVE_CONFIG.get(
+      "instruction_sentence_cap", SENTENCE_CAPS["instruction"]
+    ),
+    "description": ACTIVE_CONFIG.get(
+      "description_sentence_cap", SENTENCE_CAPS["description"]
+    ),
+  }
+  cap = sentence_caps.get(context, sentence_caps["instruction"])
   code = PROSE_RULE_IDS["sentence"]
   if not suppressed(code, file_ids):
     for number, column, count in sentences:
@@ -1470,10 +1535,10 @@ def prose_review(path, text, context, paragraph_cap):
     for item in paragraphs:
       number, count, kind = item if len(item) == 3 else (*item, "paragraph")
       if kind == "heading":
-        cap = HEADING_SENTENCE_CAP
+        cap = ACTIVE_CONFIG.get("heading_sentence_cap", HEADING_SENTENCE_CAP)
         status = "review"
       elif kind == "list":
-        cap = LIST_SENTENCE_CAP
+        cap = ACTIVE_CONFIG.get("list_sentence_cap", LIST_SENTENCE_CAP)
         status = "review"
       elif kind == "blockquote":
         cap = paragraph_cap
@@ -1495,8 +1560,12 @@ def prose_review(path, text, context, paragraph_cap):
           }
         )
   code = PROSE_RULE_IDS["the_density"]
+  the_cap = ACTIVE_CONFIG.get("the_density_cap", THE_DENSITY_CAP)
+  min_the = ACTIVE_CONFIG.get("min_the_count", MIN_THE_COUNT)
   if not suppressed(code, file_ids):
-    for number, column, density in prose_the_density(text):
+    for number, column, density in prose_the_density(
+      text, cap=the_cap, min_the=min_the
+    ):
       if not suppressed(code, line_ids[number - 1]):
         findings.append(
           {
@@ -1505,7 +1574,7 @@ def prose_review(path, text, context, paragraph_cap):
             "line": number,
             "column": column,
             "count": density,
-            "cap": THE_DENSITY_CAP,
+            "cap": the_cap,
             "status": "manual_review",
           }
         )

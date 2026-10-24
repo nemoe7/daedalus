@@ -3,20 +3,8 @@
 - **Status:** `<pass | action-needed>`
 - **Counts:** `<N>` blocking, `<N>` manual review, `<N>` `nonemo` markers (`<N>` files)
 
-## Blocking Findings
+## `<path>`
 
-| Location | Rule | Before | After |
-| --- | --- | --- | --- |
-| `path:line` | `NMO001`: avoided word | Before | After |
-
-## Manual-Review Findings
-
-| Location | Rule | Disposition | Before | After | Reason |
-| --- | --- | --- | --- | --- | --- |
-| `path:line` | `STE901`: passive voice | `keep` or `fix` | Before | After | Active voice is clear or rewrite clause |
-
-## Suppression Markers (`nonemo`)
-
-| Location | Rule | Scope | Text | Disposition |
+| Rule | Before | After | Verdict | Reason |
 | --- | --- | --- | --- | --- |
-| `path:line` | `NMO100` | `line` or `file` | Marker line text | `keep` or `remove` |
+| `<id>: <desc>` | Before | After (rule applied, even when `Verdict` is `keep`) | `<fix \| keep \| remove>` | Reason |
