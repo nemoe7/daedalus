@@ -8062,3 +8062,26 @@ def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
     assert "scrollbar-width: thin;" in block
     assert "scrollbar-color: var(--line) transparent;" in block
   assert "scrollbar-width: none;" in tabs.group(1)
+
+
+def test_scrollable_elements_follow_scroll_edge_fade_recipe() -> None:
+  """Scrollable containers and inputs use the scroll-driven edge-fade recipe."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "--edge-fade: 12px; --edge-ramp: 192px;" in css
+  for prop in ("--edge-start", "--edge-end"):
+    registered = re.search(rf"@property {prop} \{{([^}}]*)\}}", css)
+    assert registered and 'syntax: "<length>";' in registered.group(1)
+    assert "initial-value: 0px;" in registered.group(1)
+  assert "@supports (animation-timeline: scroll(self))" in css
+  assert "animation: edge-start linear both, edge-end linear both;" in css
+  assert (
+    "animation-range: 0px var(--edge-ramp), calc(100% - var(--edge-ramp)) 100%;" in css
+  )
+  for target in (
+    '#app > main:not([data-page="models"])',
+    ".section-pane:not(.fit-host)",
+    ".step pre",
+    ".notice",
+    "textarea",
+  ):
+    assert target in css
