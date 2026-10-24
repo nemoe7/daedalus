@@ -29,7 +29,10 @@ from daedalus.store import COLUMNS
 
 logger = logging.getLogger("daedalus.catalog")
 
-LITELLM_CATALOG = "https://api.litellm.ai/model_catalog"
+LITELLM_CATALOG = (
+  "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+  "model_prices_and_context_window.json"
+)
 
 
 LITELLM_PAGE_SIZE = 500
@@ -78,15 +81,33 @@ def litellm_entries(
   pages: list[dict[str, Any]] = []
   for page in range(1, MAX_PAGES + 1):
     payload = fetch(with_param(url, "page", page), {})
-    data = payload.get("data", [])
-    if not isinstance(data, list):
-      raise SourceShapeError("LiteLLM data must be a list")
-    pages.append(payload)
-    for entry in data:
-      if isinstance(entry, dict) and isinstance(entry.get("id"), str):
-        entries[entry["id"].removeprefix(f"{name}/")] = entry
-    if payload.get("has_more") is not True:
-      break
+    if "data" in payload or not payload:
+      data = payload.get("data", [])
+      if not isinstance(data, list):
+        raise SourceShapeError("LiteLLM data must be a list")
+      pages.append(payload)
+      for entry in data:
+        if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+          entries[entry["id"].removeprefix(f"{name}/")] = entry
+      if payload.get("has_more") is not True:
+        break
+      continue
+    rows: list[dict[str, Any]] = []
+    for model_id, entry in payload.items():
+      if model_id == "sample_spec":
+        continue
+      if not isinstance(entry, dict):
+        raise SourceShapeError("LiteLLM data must be a list")
+      if (
+        isinstance(model_id, str)
+        and model_id
+        and (entry.get("litellm_provider") == name or model_id.startswith(f"{name}/"))
+      ):
+        row = {"id": model_id, **entry}
+        rows.append(row)
+        entries[model_id.removeprefix(f"{name}/")] = row
+    pages.append({"data": rows})
+    break
   merged = merge_pages(pages)
   merged.pop("has_more", None)
   save_snapshot(url, merged)

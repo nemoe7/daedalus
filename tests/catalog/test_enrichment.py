@@ -87,6 +87,49 @@ def test_litellm_entries_keys_the_rows_by_slug() -> None:
   }
 
 
+def test_litellm_entries_reads_the_price_map() -> None:
+  """The price map filters by provider, skips sample_spec, and keys by slug."""
+  from daedalus.catalog import discovery
+
+  fetch, _ = sequenced(
+    {
+      "sample_spec": {"litellm_provider": "groq", "rpm": 1},
+      "groq/openai/gpt-oss-120b": {
+        "litellm_provider": "groq",
+        "mode": "chat",
+        "max_input_tokens": 131072,
+      },
+      "mistral/mistral-embed-2312": {
+        "litellm_provider": "mistral",
+        "mode": "embedding",
+      },
+    }
+  )
+  assert enrichment.LITELLM_CATALOG == (
+    "https://raw.githubusercontent.com/BerriAI/litellm/main/"
+    "model_prices_and_context_window.json"
+  )
+  found = enrichment.litellm_entries("groq", fetch)
+  assert found == {
+    "openai/gpt-oss-120b": {
+      "id": "groq/openai/gpt-oss-120b",
+      "litellm_provider": "groq",
+      "mode": "chat",
+      "max_input_tokens": 131072,
+    }
+  }
+  assert discovery.cached_snapshot(enrichment.litellm_url("groq")) == {
+    "data": [
+      {
+        "id": "groq/openai/gpt-oss-120b",
+        "litellm_provider": "groq",
+        "mode": "chat",
+        "max_input_tokens": 131072,
+      }
+    ]
+  }
+
+
 def test_litellm_entries_reads_until_a_page_says_no_more() -> None:
   """`has_more` true means one more read."""
   fetch, seen = sequenced(
