@@ -6514,9 +6514,12 @@ def test_information_hovers_open_above_without_growing_the_settings_pane() -> No
       "every information tooltip opens above its trigger"
     )
   assert (
-    ".card > .field.info:first-child .hint:hover ~ small" in style
-    and "top: calc(100% + 4px); bottom: auto;" in style
-  ), "first-row information tooltips open below so the pane top never clips them"
+    ".floating-info-tip {" in style
+    and "position: fixed; top: auto; z-index: 95; pointer-events: none;" in style
+    and "function placeInfoTip(" in app
+  ), (
+    "floating body-level tooltip escapes masked scroll-pane clipping while opening above the icon"
+  )
   assert "small.up" not in style and "hintFlip" not in app, (
     "the tooltip never opens below before a script flips it"
   )

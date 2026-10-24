@@ -4237,10 +4237,54 @@ function markSectionPaneEdges() {
   for (const pane of document.querySelectorAll(".section-pane")) markPaneEdges(pane);
 }
 
+let floatingTip = null;
+function ensureFloatingTip() {
+  if (floatingTip) return floatingTip;
+  if (!document.body?.appendChild || !document.createElement) return null;
+  floatingTip = document.createElement("div");
+  floatingTip.className = "floating-info-tip";
+  floatingTip.setAttribute("role", "tooltip");
+  floatingTip.hidden = true;
+  document.body.appendChild(floatingTip);
+  if (document.documentElement?.dataset) document.documentElement.dataset.floatingTip = "1";
+  return floatingTip;
+}
+function hideInfoTip() {
+  if (floatingTip) floatingTip.hidden = true;
+}
+function placeInfoTip(target) {
+  const trigger = target?.closest?.(".field.info .hint, .fold summary .hint, .fold summary:focus");
+  const host = trigger?.closest?.(".field.info > span, .fold summary");
+  const tipSource = host?.querySelector?.(":scope > small");
+  const box = ensureFloatingTip();
+  if (!box) return;
+  if (!host || !tipSource || !host.getBoundingClientRect) {
+    box.hidden = true;
+    return;
+  }
+  const rect = host.getBoundingClientRect();
+  const viewW = typeof window.innerWidth === "number" ? window.innerWidth : 1280;
+  const viewH = typeof window.innerHeight === "number" ? window.innerHeight : 800;
+  box.textContent = tipSource.textContent;
+  box.style.left = `${Math.round(Math.max(8, Math.min(rect.left, viewW - 268)))}px`;
+  box.style.bottom = `${Math.round(Math.max(8, viewH - rect.top + 4))}px`;
+  box.hidden = false;
+}
+document.addEventListener("mouseover", (event) => placeInfoTip(event.target));
+document.addEventListener("mouseout", (event) => {
+  if (!event.relatedTarget?.closest?.(".field.info .hint, .fold summary .hint")) hideInfoTip();
+});
+document.addEventListener("focusin", (event) => placeInfoTip(event.target));
+document.addEventListener("focusout", () => hideInfoTip());
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") hideInfoTip();
+});
+
 document.addEventListener("scroll", (event) => {
   const scroller = event.target;
   if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
   if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
+  placeInfoTip(document.querySelector(".field.info .hint:hover, .fold summary .hint:hover") || document.activeElement);
 }, true);
 
 // The strip breathes its own clipped edges: fades only, no chevrons.
