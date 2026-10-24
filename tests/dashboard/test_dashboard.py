@@ -3092,6 +3092,8 @@ def test_tablet_requests_filters_wrap_without_clipping() -> None:
   assert ':root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; }' in css
   assert ".sections button, .notification-item," in css
   assert ".sections button:focus-visible, .notification-item:focus-visible," in css
+  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
+  assert ".limits-check-stack { max-height: none; margin-block: 0; }" in narrow
 
 
 def test_keyboard_nav_dataset_toggles_between_keys_and_pointer() -> None:

@@ -1105,6 +1105,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* Round icon buttons keep their drawn box: the target grows outside it. */
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }
+  .limits-check-stack { max-height: none; margin-block: 0; }
 }
 /* A tablet trades 40 px of the weight meter for the name column beside it. */
 @media (min-width: 721px) and (max-width: 900px) {
