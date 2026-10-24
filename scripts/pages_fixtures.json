@@ -1036,6 +1036,26 @@
       "flags": [
         "vision"
       ],
+      "id": "cloudflare/@cf/cloudflare/clairic",
+      "max_input_tokens": 65536,
+      "max_output_tokens": null,
+      "mode": "decisions",
+      "order": 2,
+      "provider": "cloudflare",
+      "reasoning": false,
+      "slug": "@cf/cloudflare/clairic",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [],
+      "flags": [
+        "vision"
+      ],
       "id": "cloudflare/@cf/cloudflare/clef",
       "max_input_tokens": 65536,
       "max_output_tokens": null,
@@ -1057,13 +1077,34 @@
         "vision"
       ],
       "id": "cloudflare/@cf/cloudflare/clef-flash",
-      "max_input_tokens": 65536,
+      "max_input_tokens": 24576,
       "max_output_tokens": null,
       "mode": "decisions",
       "order": 2,
       "provider": "cloudflare",
       "reasoning": false,
       "slug": "@cf/cloudflare/clef-flash",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [],
+      "flags": [
+        "vision",
+        "audio_input"
+      ],
+      "id": "cloudflare/@cf/cloudflare/clef-omni",
+      "max_input_tokens": 65536,
+      "max_output_tokens": null,
+      "mode": "decisions",
+      "order": 2,
+      "provider": "cloudflare",
+      "reasoning": false,
+      "slug": "@cf/cloudflare/clef-omni",
       "tier": null,
       "tools": false,
       "weight": null
@@ -2436,6 +2477,7 @@
       "cooldown": null,
       "effort": null,
       "efforts": [
+        "none",
         "low",
         "medium"
       ],
@@ -2457,6 +2499,7 @@
       "cooldown": null,
       "effort": null,
       "efforts": [
+        "none",
         "medium",
         "high"
       ],
@@ -2490,6 +2533,29 @@
       "provider": "kilo",
       "reasoning": true,
       "slug": "nvidia/nemotron-3.5-lightning:free",
+      "tier": "TIER-B",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "max"
+      ],
+      "flags": [
+        "vision"
+      ],
+      "id": "kilo/nvidia/nemotron-3.5-super-vl:free",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "order": 1,
+      "provider": "kilo",
+      "reasoning": true,
+      "slug": "nvidia/nemotron-3.5-super-vl:free",
       "tier": "TIER-B",
       "tools": true,
       "weight": 1.0
@@ -2550,6 +2616,58 @@
         "max"
       ],
       "flags": [],
+      "id": "kilo/recursive/flint-v1.0:free",
+      "max_input_tokens": 262144,
+      "max_output_tokens": 235929,
+      "mode": "chat",
+      "order": 1,
+      "provider": "kilo",
+      "reasoning": true,
+      "slug": "recursive/flint-v1.0:free",
+      "tier": "TIER-C",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "flags": [],
+      "id": "kilo/reflection/beam-free",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "order": 1,
+      "provider": "kilo",
+      "reasoning": true,
+      "slug": "reflection/beam-free",
+      "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "flags": [],
       "id": "kilo/stealth/glyph-cluster",
       "max_input_tokens": 256000,
       "max_output_tokens": 256000,
@@ -2568,25 +2686,18 @@
       "effort": null,
       "efforts": [
         "none",
-        "minimal",
-        "low",
-        "medium",
-        "high",
         "max"
       ],
-      "flags": [
-        "vision",
-        "audio_input"
-      ],
-      "id": "kilo/thinkingmachines/inkling-small:free",
-      "max_input_tokens": 1048576,
-      "max_output_tokens": 262144,
+      "flags": [],
+      "id": "kilo/xingchen-agi/xing4.0-29b-a4b:free",
+      "max_input_tokens": 262144,
+      "max_output_tokens": 235929,
       "mode": "chat",
       "order": 1,
       "provider": "kilo",
       "reasoning": true,
-      "slug": "thinkingmachines/inkling-small:free",
-      "tier": "TIER-A",
+      "slug": "xingchen-agi/xing4.0-29b-a4b:free",
+      "tier": "TIER-B",
       "tools": true,
       "weight": 1.0
     },
@@ -2789,22 +2900,37 @@
       "client_cooldowns": {},
       "cooldown": null,
       "effort": null,
-      "efforts": [
-        "none",
-        "max"
-      ],
+      "efforts": [],
       "flags": [],
-      "id": "openrouter/apodex/apodex-1.1-mini:free",
-      "max_input_tokens": 262144,
-      "max_output_tokens": 235929,
-      "mode": "chat",
+      "id": "openrouter/baseten/elephant-1:free",
+      "max_input_tokens": 16384,
+      "max_output_tokens": 14745,
+      "mode": "decisions",
       "order": 1,
       "provider": "openrouter",
-      "reasoning": true,
-      "slug": "apodex/apodex-1.1-mini:free",
-      "tier": "TIER-B",
-      "tools": true,
-      "weight": 1.0
+      "reasoning": false,
+      "slug": "baseten/elephant-1:free",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [],
+      "flags": [],
+      "id": "openrouter/baseten/mammoth-1:free",
+      "max_input_tokens": 16384,
+      "max_output_tokens": 14745,
+      "mode": "decisions",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": false,
+      "slug": "baseten/mammoth-1:free",
+      "tier": null,
+      "tools": false,
+      "weight": null
     },
     {
       "client_cooldowns": {},
@@ -2919,7 +3045,9 @@
       "cooldown": null,
       "effort": null,
       "efforts": [],
-      "flags": [],
+      "flags": [
+        "vision"
+      ],
       "id": "openrouter/inception/mercury-decide:free",
       "max_input_tokens": 65536,
       "max_output_tokens": 58982,
@@ -3069,7 +3197,8 @@
       "effort": "medium",
       "efforts": [
         "medium",
-        "low"
+        "low",
+        "none"
       ],
       "flags": [],
       "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
@@ -3090,7 +3219,8 @@
       "effort": "high",
       "efforts": [
         "high",
-        "medium"
+        "medium",
+        "none"
       ],
       "flags": [],
       "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
@@ -3109,6 +3239,46 @@
       "client_cooldowns": {},
       "cooldown": null,
       "effort": null,
+      "efforts": [],
+      "flags": [
+        "vision"
+      ],
+      "id": "openrouter/nvidia/nemotron-3.5-embed-1b:free",
+      "max_input_tokens": 32768,
+      "max_output_tokens": 29491,
+      "mode": "embedding",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": false,
+      "slug": "nvidia/nemotron-3.5-embed-1b:free",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [],
+      "flags": [
+        "vision"
+      ],
+      "id": "openrouter/nvidia/nemotron-3.5-embed-8b:free",
+      "max_input_tokens": 32768,
+      "max_output_tokens": 29491,
+      "mode": "embedding",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": false,
+      "slug": "nvidia/nemotron-3.5-embed-8b:free",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
       "efforts": [
         "none",
         "max"
@@ -3122,6 +3292,49 @@
       "provider": "openrouter",
       "reasoning": true,
       "slug": "nvidia/nemotron-3.5-lightning:free",
+      "tier": "TIER-B",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [],
+      "flags": [
+        "vision"
+      ],
+      "id": "openrouter/nvidia/nemotron-3.5-rerank-8b:free",
+      "max_input_tokens": 32768,
+      "max_output_tokens": 29491,
+      "mode": "rerank",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": false,
+      "slug": "nvidia/nemotron-3.5-rerank-8b:free",
+      "tier": null,
+      "tools": false,
+      "weight": null
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "max"
+      ],
+      "flags": [
+        "vision"
+      ],
+      "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+      "max_input_tokens": 1000000,
+      "max_output_tokens": 131072,
+      "mode": "chat",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": true,
+      "slug": "nvidia/nemotron-3.5-super-vl:free",
       "tier": "TIER-B",
       "tools": true,
       "weight": 1.0
@@ -3165,6 +3378,32 @@
       "reasoning": true,
       "slug": "poolside/laguna-xs-2.1:free",
       "tier": "TIER-B",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ],
+      "flags": [],
+      "id": "openrouter/recursive/flint-v1.0:free",
+      "max_input_tokens": 262144,
+      "max_output_tokens": 235929,
+      "mode": "chat",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": true,
+      "slug": "recursive/flint-v1.0:free",
+      "tier": "TIER-C",
       "tools": true,
       "weight": 1.0
     },
@@ -3239,6 +3478,27 @@
       "reasoning": true,
       "slug": "thinkingmachines/inkling:free",
       "tier": "TIER-A",
+      "tools": true,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": null,
+      "efforts": [
+        "none",
+        "max"
+      ],
+      "flags": [],
+      "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+      "max_input_tokens": 262144,
+      "max_output_tokens": 235929,
+      "mode": "chat",
+      "order": 1,
+      "provider": "openrouter",
+      "reasoning": true,
+      "slug": "xingchen-agi/xing4.0-29b-a4b:free",
+      "tier": "TIER-B",
       "tools": true,
       "weight": 1.0
     },
@@ -3402,26 +3662,6 @@
       "tier": null,
       "tools": false,
       "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "vision"
-      ],
-      "id": "cloudflare/@cf/cloudflare/clef-omni",
-      "max_input_tokens": 65536,
-      "max_output_tokens": null,
-      "mode": "decisions",
-      "order": 2,
-      "provider": "cloudflare",
-      "reasoning": false,
-      "slug": "@cf/cloudflare/clef-omni",
-      "tier": null,
-      "tools": false,
-      "weight": null
     }
   ],
   "notifications": {
@@ -3448,7 +3688,7 @@
           "groq/qwen/qwen3.8-27b"
         ],
         "failed": [],
-        "models": 75,
+        "models": 76,
         "reason": "scheduled",
         "removed": []
       }
@@ -3478,6 +3718,36 @@
     {
       "context": 1048576,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/poolside/laguna-s-2.1:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/thinkingmachines/inkling-small:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/thinkingmachines/inkling:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/nvidia/nemotron-3-120b-a12b",
@@ -3534,38 +3804,62 @@
         },
         {
           "cooldown": null,
-          "id": "kilo/thinkingmachines/inkling-small:free",
+          "id": "kilo/reflection/beam-free",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-          "tier": "TIER-A",
+          "id": "openrouter/cohere/north-mini-code:free",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-          "tier": "TIER-A",
+          "id": "openrouter/dots-studio/dots-3-note-preview:free",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "openrouter/poolside/laguna-s-2.1:free",
-          "tier": "TIER-A",
+          "id": "openrouter/google/gemma-4-26b-a4b-it:free",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "openrouter/thinkingmachines/inkling-small:free",
-          "tier": "TIER-A",
+          "id": "openrouter/google/gemma-4-31b-it:free",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "openrouter/thinkingmachines/inkling:free",
-          "tier": "TIER-A",
+          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/poolside/laguna-xs-2.1:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
@@ -3654,6 +3948,12 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3.5-super-vl:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "kilo/poolside/laguna-xs-2.1:free",
           "tier": "TIER-B",
           "weight": 1.0
@@ -3666,49 +3966,7 @@
         },
         {
           "cooldown": null,
-          "id": "openrouter/apodex/apodex-1.1-mini:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/cohere/north-mini-code:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/dots-studio/dots-3-note-preview:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/google/gemma-4-26b-a4b-it:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/google/gemma-4-31b-it:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/poolside/laguna-xs-2.1:free",
+          "id": "kilo/xingchen-agi/xing4.0-29b-a4b:free",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -3722,6 +3980,12 @@
           "cooldown": null,
           "id": "z-ai/glm-4.7-flash",
           "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/recursive/flint-v1.0:free",
+          "tier": "TIER-C",
           "weight": 1.0
         },
         {
@@ -3780,6 +4044,12 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/recursive/flint-v1.0:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "mistral/codestral-2508",
           "tier": "TIER-C",
           "weight": 1.0
@@ -3800,6 +4070,12 @@
           "cooldown": null,
           "id": "mistral/voxtral-small-2507",
           "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "tier": "TIER-D",
           "weight": 1.0
         },
         {
@@ -3888,12 +4164,6 @@
         },
         {
           "cooldown": null,
-          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
           "id": "z-ai/glm-4.6v-flash",
           "tier": "TIER-D",
           "weight": 1.0
@@ -3905,6 +4175,36 @@
     {
       "context": 1048576,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/poolside/laguna-s-2.1:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/thinkingmachines/inkling-small:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/thinkingmachines/inkling:free",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/nvidia/nemotron-3-120b-a12b",
@@ -3961,37 +4261,7 @@
         },
         {
           "cooldown": null,
-          "id": "kilo/thinkingmachines/inkling-small:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/poolside/laguna-s-2.1:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/thinkingmachines/inkling-small:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/thinkingmachines/inkling:free",
+          "id": "kilo/reflection/beam-free",
           "tier": "TIER-A",
           "weight": 1.0
         }
@@ -4002,6 +4272,60 @@
     {
       "context": 1048576,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/cohere/north-mini-code:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/dots-studio/dots-3-note-preview:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/google/gemma-4-26b-a4b-it:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/google/gemma-4-31b-it:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/poolside/laguna-xs-2.1:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/xingchen-agi/xing4.0-29b-a4b:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
@@ -4088,6 +4412,12 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3.5-super-vl:free",
+          "tier": "TIER-B",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "kilo/poolside/laguna-xs-2.1:free",
           "tier": "TIER-B",
           "weight": 1.0
@@ -4100,49 +4430,7 @@
         },
         {
           "cooldown": null,
-          "id": "openrouter/apodex/apodex-1.1-mini:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/cohere/north-mini-code:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/dots-studio/dots-3-note-preview:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/google/gemma-4-26b-a4b-it:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/google/gemma-4-31b-it:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/poolside/laguna-xs-2.1:free",
+          "id": "kilo/xingchen-agi/xing4.0-29b-a4b:free",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4165,6 +4453,12 @@
     {
       "context": 1048576,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/recursive/flint-v1.0:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it",
@@ -4221,6 +4515,12 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/recursive/flint-v1.0:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "mistral/codestral-2508",
           "tier": "TIER-C",
           "weight": 1.0
@@ -4250,6 +4550,12 @@
     {
       "context": 262144,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "tier": "TIER-D",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "cloudflare/@cf/google/gemma-2b-it-lora",
@@ -4331,12 +4637,6 @@
         {
           "cooldown": null,
           "id": "mistral/ministral-8b-2512",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/liquid/lfm-2.5-2.6b:free",
           "tier": "TIER-D",
           "weight": 1.0
         },
@@ -5243,7 +5543,7 @@
       "rebuilding": false
     },
     "healthy": true,
-    "models": 75,
+    "models": 76,
     "sessions": 6,
     "version": "dev"
   }

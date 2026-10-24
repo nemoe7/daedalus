@@ -120,7 +120,7 @@ const nameCell = (text, shown = esc(text), label = t("model.column.model_column"
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // Render `provider/developer/slug` without duplicate provider names, using text when no SVG matches.
 const MARK_FILES = new Set([
-  "anthropic", "baai", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
+  "anthropic", "baai", "baseten", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
   "deepseek-ai",
   "dots-studio", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite", "inception",
   "kilo", "liquid", "meta", "meta-llama", "microsoft", "mistral", "mistralai", "moonshotai",

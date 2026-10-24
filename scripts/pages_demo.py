@@ -47,7 +47,7 @@ ENDPOINTS = (
 # The provider files of the demo. Its local main stays empty, and the shipped main supplies the
 # cached cloud blocks that the Providers form shows.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
-# The models of the demo: a captured snapshot of the live catalog, 126 rows.
+# The models of the demo: a captured snapshot of the live catalog, 137 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
