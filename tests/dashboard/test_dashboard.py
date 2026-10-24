@@ -1743,14 +1743,26 @@ assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
 
 
 def test_a_card_closes_on_the_room_of_its_rows() -> None:
-  """Settings and Provider card CSS uses row-sized bottom padding."""
+  """Settings and Provider card CSS uses row-sized padding and standardized row heights."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   assert (
+    'section[data-page="settings"] .card:not(.list),\n'
+    'section[data-page="providers"] .card:not(.list) { padding-top: 10px; }'
+  ) in css, "the first row of a card keeps the room of a row at the top edge"
+  assert (
     'section[data-page="settings"] .card,\n'
     'section[data-page="providers"] .card { padding-bottom: 10px; }'
   ) in css, "the last row of a card keeps the room of a row at the bottom edge"
+  assert (
+    'section[data-page="settings"] .field:not(.stack),\n'
+    'section[data-page="providers"] .field:not(.stack),\n'
+    ".fold summary { min-height: 56px; }"
+  ) in css, "every single-line settings row shares one 56px height"
+  assert ".field select { padding-block: 6px; }" in css, (
+    "select controls match input control height inside settings rows"
+  )
 
 
 def test_a_settings_rebuild_redraws_the_keys_rows() -> None:
