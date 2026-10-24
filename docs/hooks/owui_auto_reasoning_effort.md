@@ -1,8 +1,8 @@
 # Auto reasoning effort and try again
 
 [`hooks/owui_auto_reasoning_effort.py`](../../hooks/owui_auto_reasoning_effort.py) holds 1
-function for each surface: `on_request` names the turn and the retry code of a repeat, and `on_prompt` sets the
-reasoning level of the request. The optional Open WebUI Filter sends controls to this hook.
+function per surface. `on_request` names the turn and repeat code, and `on_prompt` sets the
+reasoning level. The optional Open WebUI Filter sends controls to this hook.
 
 | Item | Value |
 | --- | --- |

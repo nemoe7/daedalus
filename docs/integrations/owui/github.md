@@ -31,7 +31,7 @@ flowchart TD
   F --> H[The answer goes to the chat]
 ```
 
-3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the pull request. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
+3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the PR. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
 
 3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts`, and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
 
@@ -51,7 +51,7 @@ Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writ
 The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve, or reopen an alert.
 
 1. Import the JSON file in **Workspace > Tools**, **Import JSON**.
-2. **Valves**: set `github_token`, or set the `GITHUB_TOKEN` environment value. Set `permissions`. `Always ask` is the shipped default.
+2. **Valves**: set `github_token` or the `GITHUB_TOKEN` environment value. Set `permissions` (`Always ask` by default).
 3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.
 
 | Valve | Default | Meaning |
@@ -65,7 +65,7 @@ The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secre
 | `max_files_per_commit` | `30` | The file limit of `create_pr_with_files`. |
 | `max_tree_entries` | `2000` | The entry limit of `list_tree`. |
 
-All 49 public reads use the same permission gate. Under `Always ask` each one waits for the click, so no repository line reaches the chat. `Allow reads` frees them.
+All 49 public reads use the same permission gate. Under `Always ask` each one waits for the click, so no repo line reaches the chat. `Allow reads` frees them.
 
 `UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the tool valve.
 
@@ -85,9 +85,9 @@ Read only the pages needed for the task. Text offsets count characters, not byte
 
 - `list_repositories` returns short records with complete IDs, URLs, branch names, and permissions. Pass `next_offset` as `page_offset` and keep `page_size` unchanged.
 - `search_repositories`, `search_issues`, and `search_prs` return `next_page`. Keep the query and page size unchanged for later pages.
-- Search stops at GitHub's 1,000-result limit. When `search_limited` is true, narrow the query to find more results. `incomplete_results` retains the API status.
-- Issue and pull request summaries omit bodies and display aliases. Use their IDs or URLs with detail reads when needed.
-- `list_commits` returns SHA, URL, author, date, and a subject of at most 200 characters. `message_truncated` marks omitted message text. It returns `page`, `per_page`, and `next_page` without fetching further pages.
+- Search stops at GitHub's 1,000-result limit, and `incomplete_results` retains the API status. When `search_limited` is true, narrow the query to find more results.
+- Issue and PR summaries omit bodies and display aliases. Use their IDs or URLs with detail reads when needed.
+- `list_commits` returns SHA, URL, author, date, and a 200-character subject (`message_truncated` marks omitted text). It returns `page`, `per_page`, and `next_page` without fetching further pages.
 - `search_commits` uses the same short records. Use its existing page arguments for further results.
 - `fetch_blob` and `fetch_github_url` accept `offset` and `max_chars`. For a large commit, file, or diff, read its GitHub URL in text ranges.
 - Text reads reduce the requested range when needed to fit the byte limit. JSON API responses read through a URL are text, so one range need not contain a complete JSON document.

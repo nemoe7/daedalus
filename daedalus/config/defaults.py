@@ -1,4 +1,4 @@
-"""The default provider file of the repository, filled in for the names that the local file lacks."""
+"""The default provider file of the repo, filled in for the names that the local file lacks."""
 
 import logging
 import os

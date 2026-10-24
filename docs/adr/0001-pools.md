@@ -76,5 +76,4 @@ same chain from that tier.
 - daedalus reserves the four pool names. No provider model may use them.
 - A retry inside a pool comes before the chain moves on.
 - `"*"` under a tier key puts all other models of that provider in that tier.
-- A provider with a small daily quota can wait behind the other providers of its tier, and
-  still answer when they fail.
+- A provider with a small daily quota can wait behind the other providers of its tier, and still answer when they fail.

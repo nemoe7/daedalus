@@ -93,7 +93,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "on-prompt": [],
     "on-chunk": [],
   },
-  # The update check: the repository it reads for a newer daedalus.
+  # The update check: the repo it reads for a newer daedalus.
   "updates": {"repo": "nemoe7/daedalus"},
   # The names and the view that suit the operator, not the router.
   "personalization": {
@@ -152,7 +152,7 @@ DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # Parts of a source-qualified hook identity. The whole identity is at most 512 characters.
 HOOK_PART = re.compile(r"[A-Za-z0-9._-]{1,100}")
-# The GitHub repository of the update check, as owner/name.
+# The GitHub repo of the update check, as owner/name.
 REPO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+")
 # The keys of 1 hook source, and the keys that left the hooks group with the group that replaces them.
 SOURCE_KEYS = ("repo", "path", "ref", "auto_update")
@@ -194,7 +194,7 @@ def check(group: str, key: str, value: Any) -> Any:
     return schedule_value(name, key, value)
   if group == "updates" and key == "repo":
     if not isinstance(value, str) or not REPO_NAME.fullmatch(value):
-      raise SettingsError(f"{name} must be 1 GitHub repository, as owner/name")
+      raise SettingsError(f"{name} must be 1 GitHub repo, as owner/name")
     return value
   if group == "hooks":
     if key == "dir":
@@ -217,7 +217,7 @@ def check(group: str, key: str, value: Any) -> Any:
       return value
     if key == "theme":
       if value not in THEMES:
-        raise SettingsError(f"{name} must be system, light or dark")
+        raise SettingsError(f"{name} must be system, light, or dark")
       return value
     if key == "time_format":
       if value not in TIME_FORMATS:
@@ -225,7 +225,7 @@ def check(group: str, key: str, value: Any) -> Any:
       return value
   if key == "mode":
     if value not in MODES:
-      raise SettingsError(f"{name} must be none, session or race")
+      raise SettingsError(f"{name} must be none, session, or race")
     return value
   if key in (
     "enabled",
@@ -277,13 +277,13 @@ def dir_name(name: str, value: Any) -> str:
   """The folder at the root that holds the hook files: 1 plain folder name."""
   if not isinstance(value, str) or not DIR_NAME.fullmatch(value):
     raise SettingsError(
-      f"{name} must be 1 folder name of letters, digits, dots, dashes or underscores"
+      f"{name} must be 1 folder name of letters, digits, dots, dashes, or underscores"
     )
   return value
 
 
 def source_list(name: str, value: Any) -> list[dict[str, Any]]:
-  """The hook sources: the GitHub repo, the folder, the ref and the auto_update flag of each."""
+  """The hook sources: the GitHub repo, the folder, the ref, and the auto_update flag of each."""
   if value in (None, ""):
     return []
   if not isinstance(value, list):
@@ -305,7 +305,7 @@ def source_list(name: str, value: Any) -> list[dict[str, Any]]:
       raise SettingsError(f"{name}: path must be 1 folder name")
     ref = item.get("ref", "main")
     if not isinstance(ref, str) or not ref.strip():
-      raise SettingsError(f"{name}: ref must be 1 branch, tag or commit")
+      raise SettingsError(f"{name}: ref must be 1 branch, tag, or commit")
     auto = item.get("auto_update", False)
     if not isinstance(auto, bool):
       raise SettingsError(f"{name}: auto_update must be true or false")
@@ -388,7 +388,7 @@ def schedule_value(name: str, key: str, value: Any) -> float:
     or value < 0
     or (isinstance(value, float) and not math.isfinite(value))
   ):
-    raise SettingsError(f"{name} must be a finite number of hours, 0 or more")
+    raise SettingsError(f"{name} must be a finite number of hours, at least 0")
   if key == "anchor" and (value >= 24 or value != int(value)):
     raise SettingsError(f"{name} must be a whole hour from 0 to 23")
   if key == "every" and value:

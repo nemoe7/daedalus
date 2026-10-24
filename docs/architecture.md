@@ -245,7 +245,7 @@ The Notifications page shows 1 notice when a known provider limit resets. It che
 | --- | --- |
 | Limits | Tokens per minute, requests per minute, requests per hour, requests per day, and Cloudflare Neurons per day |
 | Sources | Provider reset headers, Gemini 429 quota details, OpenRouter request headers, Kilo hourly counts, and the Cloudflare UTC day |
-| Scope | Provider, client lane, limit kind, and limit span |
+| Scope | Provider, client lane, limit type, and limit span |
 | Pending reset | 1 for each scope. Only a newer boundary replaces it. |
 | Time of the notice | The known reset boundary, not the time of the page refresh |
 | Limits row | The remembered allowance returns to full and the elapsed reset time clears at the boundary |

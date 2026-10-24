@@ -1284,7 +1284,7 @@ def file_routes(
     if not isinstance(name, str) or not NAME.match(name):
       return failure(
         400,
-        "The provider name must use lowercase letters, digits and dashes.",
+        "The provider name must use lowercase letters, digits, and dashes.",
         "invalid_request_error",
       )
     folder = str(FILES[0].parent.resolve())

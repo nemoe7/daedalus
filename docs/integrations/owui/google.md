@@ -27,7 +27,7 @@ flowchart TD
 
 1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive, and Docs APIs.
 2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly`, and `documents`. The reply holds the refresh token.
-3. **Valves**: set `google_client_id`, `google_client_secret`, and `google_refresh_token`. Set `permissions`. `Always ask` is the shipped default.
+3. **Valves**: set `google_client_id`, `google_client_secret`, and `google_refresh_token`. Set `permissions` (`Always ask` by default).
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ A result that does not fit returns `tool_output_too_large`, its original byte co
 
 Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
 
-- `search_mail`, `agenda`, and `search_files` return `next_page_token`. Pass it as `page_token`. A null value ends the list.
+- `search_mail`, `agenda`, and `search_files` return `next_page_token` for `page_token`. A null value ends the list.
 - Keep the query, calendar, and page size unchanged for later pages. For `agenda`, also pass the returned `from` and `to` as `time_min` and `time_max`.
 - `read_thread` requests metadata and returns message headers and snippets, not message bodies. Use its message `offset`, `max_results`, and `next_offset` to read further pages.
 - `read_message` reads body text by message ID, `offset`, and `max_chars`.

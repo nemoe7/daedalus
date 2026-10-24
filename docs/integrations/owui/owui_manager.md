@@ -50,7 +50,7 @@ Pass the version from `show_skill` as `expected_version_id` for optimistic concu
 
 ### Import from a URL
 
-`install_skill` uses Open WebUI's native URL importer. It imports every package in a GitHub repository, folder, or `SKILL.md` URL. It also imports packages in a raw Markdown, JSON, or ZIP URL. Imported packages retain all text and base64-encoded binary files.
+`install_skill` uses Open WebUI's native URL importer. It imports every package in a GitHub repo, folder, or `SKILL.md` URL. It also imports packages in a raw Markdown, JSON, or ZIP URL. Imported packages retain all text and base64-encoded binary files.
 
 The URL must use HTTPS, contain no credentials and match `TRUSTED_DOMAINS`. Open WebUI then applies its redirect, SSRF, size, and package validation. The native URL-loader endpoint requires an Open WebUI administrator. Successfully imported skills join the selected presets.
 
@@ -87,11 +87,11 @@ Read only the pages needed for the task. Text offsets count characters, not byte
 - `read_file_content` returns a JSON string with the file ID, text, and continuation fields.
 - `read_knowledge_file`, `read_knowledge_file_at_path`, `show_skill`, `show_tool`, and `show_function` accept `offset` and `max_chars`. Their JSON strings contain a range of the rendered text and continuation fields.
 - `read_skill_file` keeps its text format and character offsets. It also reduces the range to fit the byte limit.
-- List results are JSON strings with complete records, `count`, `offset`, and `next_offset`. `max_results` defaults to 20, with a maximum of 100. The byte limit can reduce this count.
-- `list_knowledge_bases`, `list_knowledge_files`, `list_skills`, and `list_files` fetch one API page. Pass both `next_page` and `next_offset` as `page` and `offset`. Null values end the list.
-- `list_tools`, `list_functions`, and `list_skill_files` page the API's unpaged list locally. Pass `next_offset` as `offset`. A null value ends the list.
-- `search_files` uses the API's offset and limit, without file content. Pass `next_offset` as `offset`. The final full page can lead to one empty page.
+- List results are JSON strings with complete records, `count`, `offset`, and `next_offset`. `max_results` defaults to 20 (cap 100, reduced by the byte limit).
+- `list_knowledge_bases`, `list_knowledge_files`, `list_skills`, and `list_files` fetch one API page. Pass `next_page` and `next_offset` as `page` and `offset` until null.
+- `list_tools`, `list_functions`, and `list_skill_files` page the unpaged API list locally. Pass `next_offset` as `offset` until null.
+- `search_files` uses the API offset and limit without file content. Pass `next_offset` as `offset` (the final full page can precede an empty page).
 - `list_knowledge_files` includes directories on API page 1 only and preserves breadcrumbs. `total_count` counts files, not directories.
-- `list_skill_files` retains the snapshot's `version_id`. Pass this value for later pages. Other lists can change between calls.
+- `list_skill_files` retains the snapshot `version_id` for later pages. Other lists can change between calls.
 - Lists keep available access and state fields. A null `total_count` value means that the API gave no total.
 - If one record cannot fit, the tool returns an output-limit error instead of a continuation that cannot advance.

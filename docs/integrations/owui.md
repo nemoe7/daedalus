@@ -29,7 +29,7 @@ flowchart TD
 
 ## Install
 
-1. Download the JSON file for the tool or filter. Use **Import JSON** in **Workspace > Tools** or **Admin Panel > Functions**. Enable a filter after import. For the skill, use **Import folder** in **Workspace > Skills**, select the `deep-research` folder, then **Import selected**.
+1. Import the tool or filter JSON in **Workspace > Tools** or **Admin Panel > Functions**, and enable filters after import. For the skill, use **Import folder** in **Workspace > Skills** and select `deep-research`.
 2. **Access** on the item: make it public, or give read access to each user. A user without read access does not see the plugin.
 3. **Valves**: set the keys of the plugin. The page of each plugin names them.
 4. **Workspace > Models**: turn the plugin on for a model. A tool id and an action id ride in the `meta.toolIds` and `meta.actionIds` lists of the model.
@@ -44,7 +44,7 @@ and the tool sends nothing.
 
 Edit the Python sources, not the generated JSON. The imports contain source code and display metadata, not saved valves or credentials. Configure keys and access after import.
 
-Run from the repository root in cmd, PowerShell, or bash:
+Run from the repo root in cmd, PowerShell, or bash:
 
 ```text
 python scripts/export_owui.py

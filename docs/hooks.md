@@ -230,8 +230,7 @@ hook is a 500, and a missing file is a 404. Any valid key may call any hook file
 as admin code: it runs in the process of daedalus with full access.
 
 The shipped [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py)
-names the turn of an Open WebUI chat, writes the `rtN` code of a repeat, and sets the reasoning level
-of the request. Its page is [auto reasoning effort](hooks/owui_auto_reasoning_effort.md).
+names each Open WebUI turn and writes `rtN` on repeats. It also sets the request reasoning level. Its page is [auto reasoning effort](hooks/owui_auto_reasoning_effort.md).
 
 ## Errors
 

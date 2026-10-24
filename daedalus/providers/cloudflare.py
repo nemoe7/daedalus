@@ -187,7 +187,7 @@ class CloudflareProvider(OpenAIProvider):
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
     """A native run request, because the OpenAI-compatible API has no audio endpoint."""
     if (fields.get("response_format") or "json") not in TRANSCRIPT_FORMATS:
-      raise ProviderError("Cloudflare transcriptions support json, text and vtt only")
+      raise ProviderError("Cloudflare transcriptions support json, text, and vtt only")
     url = f"{self.base.removesuffix('/v1')}/run/{slug}"
     _, content, media = audio
     if "large-v3" not in slug:

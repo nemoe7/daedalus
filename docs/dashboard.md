@@ -59,7 +59,7 @@ The screenshots show dark mode with sample data.
 
 1. **Providers** returns to the provider file list.
 2. Select **YAML** to open the text editor.
-3. Select a value row, such as **API key**, to edit it. In the dialog, select **Save** to apply the change. **Cancel** or Escape leaves the saved value unchanged.
+3. Select a value row, such as **API key**, and select **Save** in the dialog. **Cancel** or Escape leaves the saved value unchanged.
 
 The dashboard shows **Delete file** for standalone provider files. The main `free.yml` file has no delete action. A deleted provider's models remain in the catalog until the next rebuild.
 

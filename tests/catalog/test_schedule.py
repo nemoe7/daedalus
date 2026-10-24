@@ -165,10 +165,10 @@ def test_settings() -> None:
   )
   for text, message in (
     ("catalog:\n  every: 5\n", "divide 24"),
-    ("catalog:\n  every: -1\n", "0 or more"),
+    ("catalog:\n  every: -1\n", "at least 0"),
     ("catalog:\n  anchor: 24\n", "from 0 to 23"),
     ("catalog:\n  anchor: 6.5\n", "whole hour"),
-    ("catalog:\n  anchor: true\n", "0 or more"),
+    ("catalog:\n  anchor: true\n", "at least 0"),
   ):
     try:
       settings.parse(text)

@@ -2,6 +2,7 @@
 
 <!-- markdownlint-disable MD033 -->
 <p align="center"><img src="daedalus/dashboard/ui/logo.svg" alt="daedalus: a D-shaped bow that shoots 3 arrows" width="176"></p>
+
 <p align="center"><em>"When used, it causes a wide spread of arrows to rain from the sky."</em> (<a href="https://terraria.wiki.gg/wiki/Daedalus_Stormbow">Daedalus Stormbow</a>)</p>
 <!-- markdownlint-enable MD033 -->
 
@@ -14,7 +15,7 @@ daedalus is in development. The code changes fast, and it breaks faster.
 - 1 OpenAI-compatible endpoint for 8 providers: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations, and Z.ai. Each provider gets its native API, Gemini included.
 - 4 pools (tiers) and `daedalus/auto`, which selects a tier from the prompt with the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2) classifier.
 - A [fallback ladder](docs/architecture.md#pools-and-the-fallback-ladder): when a model fails, the next model gets the request. The chain walks up the tiers first, then down.
-- [Weights](docs/architecture.md#weights) that change after each request. A weight goes up on an answer and down on a fault, a slow answer, or a rate limit. It also goes up with time.
+- [Weights](docs/architecture.md#weights) change after each request and recover over time. A weight rises on an answer and drops on a fault, slow reply, or rate limit.
 - [Session affinity](docs/architecture.md#session-affinity) in 3 modes (`none`, `session`, `race`), so a conversation keeps its model.
 - A conversation tier that does not go down, and keywords, such as "think hard", that move it 1 tier up.
 - [Loop fallback](docs/architecture.md#loops): a model that repeats a tool call 3 times or a thinking passage 4 times gets a fault. The next model continues.
@@ -42,7 +43,7 @@ Copy the file under a new name, keep the functions you need, and name the copy i
 
 ## Quick start
 
-1. Run the install command. First, it shows what it installs or downloads and asks `[y/N]`. Then it installs Docker if Docker is missing. It downloads the daedalus files to the `daedalus` folder in your home folder and makes `.env` with a new master key. Then it starts daedalus and shows the master key.
+1. Run the install command and confirm `[y/N]` to install Docker, download `~/daedalus`, and generate `.env`. The script then starts daedalus and prints the master key.
 
    cmd or PowerShell:
 
@@ -62,8 +63,8 @@ Copy the file under a new name, keep the functions you need, and name the copy i
    `install.cmd --dev`, to run the dev image with [`compose.dev.yml`](compose.dev.yml). With the source in the folder,
    the script builds the image. Without the source, it pulls `ghcr.io/nemoe7/daedalus:dev`.
 
-2. Open the dashboard at `http://localhost:3357/`. The user is `DAEDALUS_USERNAME`, else `admin`. The password is `DAEDALUS_PASSWORD`, else `DAEDALUS_MASTER_KEY`.
-3. On **Providers**, paste each provider key into its **API key** field and save. For Cloudflare, add the Account ID too. Click the Catalog chip to rebuild the model list. The dashboard saves pasted values in state. The shipped [`config/providers/free.yml`](config/providers/free.yml) keeps `env:NAME` references for `.env` values. See [Configuration](docs/configuration.md).
+2. Open the dashboard at `http://localhost:3357/`. Sign in with `DAEDALUS_USERNAME` (default `admin`) and `DAEDALUS_PASSWORD` (default `DAEDALUS_MASTER_KEY`).
+3. On **Providers**, save each **API key** (plus Cloudflare Account ID) and click the Catalog chip to rebuild models. Saved keys live in state, while [`config/providers/free.yml`](config/providers/free.yml) keeps `env:NAME` references ([Configuration](docs/configuration.md)).
 4. In **Settings > API keys**, make a key for each client.
 
 | Client setting | Value |

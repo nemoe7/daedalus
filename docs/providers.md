@@ -97,7 +97,7 @@ A mode that daedalus does not know keeps the model out of every chain and pool.
 | Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 | 400 |
 | Groq | - | Yes | Yes | - | - |
 | Mistral | Yes | `language` and `temperature` only | - | - | - |
-| OpenRouter | Yes | - | Yes, mp3 or pcm | Image API, needs a credit balance | Image API, `input_references` |
+| OpenRouter | Yes | - | Yes, mp3, or pcm | Image API, needs a credit balance | Image API, `input_references` |
 | Pollinations | - | - | - | Yes, with Pollen | `flux.2-klein-4b`, with Pollen |
 
 - "Yes": the provider has free models for this endpoint.

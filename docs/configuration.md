@@ -13,7 +13,7 @@ daedalus reads its settings from these sources:
 
 A key that appears 2 times in 1 map of a config file stops the start. The error gives the key and the 2 line numbers.
 
-At each catalog rebuild, daedalus reads the default provider file of the repository,
+At each catalog rebuild, daedalus reads the default provider file of the repo,
 [`config/providers/free.yml`](../config/providers/free.yml) on `main`, and adds each provider that the local `free.yml` lacks.
 A provider block in the local `free.yml` replaces its cloud block as a whole. A separate `{provider}.yml` file stays independent
 and does not replace the cloud block. The read never writes [`config/providers/free.yml`](../config/providers/free.yml): the copy
@@ -40,7 +40,7 @@ A restart reads the edited file.
 
 ## Files per provider
 
-[`free.yml`](../config/providers/free.yml) holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. [`openrouter.yml`](../config/providers/openrouter.yml) and the `openrouter` block of [`free.yml`](../config/providers/free.yml) are independent: the tiers, the excludes, and the models of 1 file do not apply to the other. [`pollinations.yml`](../config/providers/pollinations.yml) holds Pollinations, with no block in [`free.yml`](../config/providers/free.yml), because Pollinations spends a balance that does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
+[`free.yml`](../config/providers/free.yml) holds each provider. A second file, `{provider}.yml`, holds 1 provider with its own settings. [`openrouter.yml`](../config/providers/openrouter.yml) and [`free.yml`](../config/providers/free.yml) stay independent: tiers, excludes, and models in 1 file do not affect the other. [`pollinations.yml`](../config/providers/pollinations.yml) holds Pollinations without a [`free.yml`](../config/providers/free.yml) block because Pollinations spends a non-refilling balance ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)).
 
 | Item | Rule |
 | --- | --- |
@@ -340,7 +340,7 @@ To set up 2 clients:
 2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or paste the keys in **Client keys** on the Providers page in step 3.
 3. Add `client_keys` to the provider file, or add it in the **Client keys** field of the Providers page.
 
-4. After a `.env` change, run `docker compose up -d`. It rebuilds the container with the new `.env` values. `docker compose restart` keeps the old values.
+4. After a `.env` change, run `docker compose up -d` to apply the new `.env` values. `docker compose restart` keeps the old values.
 
 A saved value needs no restart.
 

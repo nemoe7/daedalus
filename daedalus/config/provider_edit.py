@@ -35,7 +35,7 @@ def round_trip() -> YAML:
 
 
 def same(old: Any, new: Any) -> bool:
-  """Equal values of the same kind, so that 1 does not stand for true."""
+  """Equal values of the same type, so that 1 does not stand for true."""
   kinds = (bool, str)
   return old == new and all(isinstance(old, k) == isinstance(new, k) for k in kinds)
 
