@@ -3088,6 +3088,47 @@ def test_tablet_requests_filters_wrap_without_clipping() -> None:
     'section[data-page="requests"] .requests-bar #request-clear.off { display: none; }'
     in css
   )
+  assert "@media (min-width: 721px) and (max-width: 960px) {" in css
+  assert ':root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; }' in css
+  assert ".sections button, .notification-item," in css
+  assert ".sections button:focus-visible, .notification-item:focus-visible," in css
+
+
+def test_keyboard_nav_dataset_toggles_between_keys_and_pointer() -> None:
+  """Navigation keys enable keyboard focus rings, and pointer input clears them."""
+  code = """
+const fs = require('fs');
+const vm = require('vm');
+const assert = require('assert');
+const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
+  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+const docEvents = {};
+const el = () => ({ innerHTML: '', textContent: '', addEventListener: () => {},
+  classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
+const sandbox = {
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
+  document: {
+    hidden: false,
+    documentElement: { dataset: {} },
+    getElementById: el,
+    querySelector: () => ({ firstChild: { textContent: 'Models' } }),
+    querySelectorAll: () => [],
+    addEventListener: (type, fn) => { (docEvents[type] ??= []).push(fn); },
+  },
+  navigator: {},
+  location: { hash: '' },
+  window: { addEventListener: () => {} },
+  getSelection: () => ({ isCollapsed: true }),
+  $: el,
+};
+vm.createContext(sandbox);
+vm.runInContext(src, sandbox);
+for (const fn of docEvents.keydown) fn({ key: 'Tab', ctrlKey: false, metaKey: false });
+assert.strictEqual(sandbox.document.documentElement.dataset.keyboardNav, 'true');
+for (const fn of docEvents.pointerdown) fn({});
+assert.strictEqual(sandbox.document.documentElement.dataset.keyboardNav, undefined);
+"""
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_header_state_matches_the_page_switcher() -> None:

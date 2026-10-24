@@ -169,5 +169,6 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-25 | Suppressed pointer focus rings, inset clipped `:focus-visible` rings, stacked `Requests` `.legend` at `<= 960px`, and harmonized `Settings` tiles. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `docs/design/`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-24 | Removed redundant `.page-head` title bars across all views because the `.top` navigation bar already indicates the active view. Restored accessibility semantics and contrast tokens across light and dark themes. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md) |
 | 2026-10-24 | Initialized the design record (`docs/design.md`), visual reference catalog (`docs/design-visuals/`), and annotated composite boards (`docs/images/`). | `docs/design.md`, `docs/design-visuals/*.md`, `docs/images/*.png` | [Component Visual Catalog](design-visuals/components.md), [Foundation Style Reference](design-visuals/styles.md) |

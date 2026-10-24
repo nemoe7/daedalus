@@ -77,6 +77,11 @@ body {
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+:root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; } /* nonuu: NUL003 */
+.sections button, .notification-item,
+section[data-page="models"] .toolbar :is(input, select, button), .models .sort { outline-offset: -3px; }
+.sections button:focus-visible, .notification-item:focus-visible,
+section[data-page="models"] .toolbar :focus-visible, .models .sort:focus-visible { outline-offset: -2px; }
 /* A press shows at once, also on a touch screen without hover. */
 button:not(:disabled):active, .tabs a:active, .add:active, .card.pool:active { opacity: .7; }
 tr.request:active td { background: var(--field); }
@@ -515,6 +520,15 @@ td.end { text-align: right; }
   section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 100%; min-width: 0; }
   section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
 }
+@media (min-width: 721px) and (max-width: 960px) {
+  main[data-page="requests"] { overflow: auto; }
+  main[data-page="requests"] > section[data-page="requests"] { flex: none; }
+  section[data-page="requests"] > .flow { flex-direction: column; flex: none; overflow: visible; }
+  section[data-page="requests"] > .flow > .column,
+  section[data-page="requests"] > .flow > .column:not(.wide) { flex: none; min-height: 0; width: 100%; }
+  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: none; overflow-x: auto; }
+  section[data-page="requests"] .legend { align-self: stretch; }
+}
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 /* The code legend of the Requests page. A desktop puts it in the column beside the table. */
@@ -864,11 +878,13 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
   background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
 }
 .field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
+.field.info small, .fold summary small, .floating-info-tip {
+  width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
+}
 .field.info small { display: none; }
 .field.info .hint:hover ~ small, .field.info .hint:focus ~ small {
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
-  width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
-  border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
   box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
 }
 /* A closed group of fields: the summary is the row, and the body holds the fields. */
@@ -890,8 +906,6 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 6
 .fold summary .hint:hover, .fold summary:focus-visible .hint { color: var(--text); border-color: var(--muted); }
 .fold summary .hint:hover ~ small, .fold summary:focus > small, .floating-info-tip {
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
-  width: max-content; max-width: 260px; padding: 6px 8px; border: 1px solid var(--line);
-  border-radius: 8px; background: var(--panel); color: var(--muted); font-size: 12px;
   box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
 }
 :root[data-floating-tip="1"] .field.info .hint:hover ~ small,

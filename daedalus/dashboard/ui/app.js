@@ -4687,11 +4687,17 @@ $("settings").addEventListener("click", (event) => {
   if (event.target.closest("#settings-yaml-save")) saveSettings();
 });
 document.addEventListener("keydown", (event) => {
+  if (["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+    document.documentElement.dataset.keyboardNav = "true";
+  }
   if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return;
   if (!yamlView()) return;
   event.preventDefault();
   if (sectionState($("settings")).key === "yaml") saveSettings();
   else saveYaml();
+});
+document.addEventListener("pointerdown", () => {
+  delete document.documentElement.dataset.keyboardNav;
 });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && state.timers?.length) refresh();
