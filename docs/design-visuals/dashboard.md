@@ -30,18 +30,26 @@ This composite board shows 4 interactive and adaptive states. Callouts `1` and `
 
 ![Dashboard interactive states composite board](../images/dashboard-states.png)
 
+## Six-Route Navigation and Responsive Detail Boards
+
+These composite boards show all 6 routes at `1440px` (`dashboard-overview.png`) and the `1440px`, `768px`, and `390px` responsive breakpoints (`dashboard-detail.png`).
+
+![Dashboard 6-route navigation composite board](../images/dashboard-overview.png)
+
+![Dashboard responsive detail composite board](../images/dashboard-detail.png)
+
 ## Annotated Component Map
 
 | Callout | Board | Component | Selector | Role |
 | --- | --- | --- | --- | --- |
 | `1` | `dashboard-overview.png` | Overview KPI strip | `.stats > .stat` | Displays in-flight count, success rate, lowest remaining limit, and catalog model count |
 | `2` | `dashboard-overview.png` | Health and Pool split | `.split` (`#overview-health`, `#overview-models`) | Pairs router health, session count, and limit bars with pool routing distribution bars |
-| `3` | `dashboard-overview.png` | Requests table | `table.requests` | Lists live and completed requests with model, provider, status, latency, and token columns |
+| `3` | `dashboard-overview.png` | Requests table | `table.requests` | Lists live and completed requests with right-aligned `Status`, `Input`, `Output`, `TTFT`, and `Stream` cell values (`td.num`) |
 | `4` | `dashboard-overview.png` | Code legend | `.code-legend` | Explains fallback and routing transition codes (`ctx`, `hlt`, `lmt`, `err`, `rnd`, `cls`, `esc`, `frX`, `tlN`, `rtN`) |
-| `5` | `dashboard-overview.png` | Models catalog | `#models-list` | Groups discovered models by pool and provider with tier, capability, and quota tags |
-| `1` | `dashboard-detail.png` | Limits quota list | `#limits-list .limit-row` | Shows remaining daily, hourly, or per-minute quota bars across providers and models |
-| `2` | `dashboard-detail.png` | Notifications list | `#notifications-list` | Displays router and provider events with clear and refresh actions |
-| `3` | `dashboard-detail.png` | Settings shell | `.settings-shell` (`.settings-menu` + `.settings-pane`) | Splits the 13 settings sections into 4 grouped navigation cards and an interactive editor pane |
+| `5` | `dashboard-overview.png` | Models catalog | `#models-list` | Groups discovered models below a single-row 7-card pool strip (`.pool-card`) |
+| `1` | `dashboard-detail.png` | Limits quota list | `#limit-rows .weight.left` | Stacks a `12px` remaining count above a `4px` weight bar inside `44px` rows |
+| `2` | `dashboard-detail.png` | Notifications list | `#notification-feed` | Displays router and provider events with relative timestamps |
+| `3` | `dashboard-detail.png` | Settings shell | `.settings-shell` (`.settings-menu` + `.settings-pane`) | Splits the 13 settings sections into 4 grouped navigation cards and a headerless editor pane |
 
 ## State Coverage Matrix
 
