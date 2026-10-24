@@ -14,6 +14,7 @@ Every page, in the order of a first read.
 | [Provider keys](provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](deployment.md) | Docker Compose, the image release, the optional services, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
 | [Dashboard](dashboard.md) | The 7 pages, the requests view, and the API keys |
+| [Design](design.md) | The dashboard design system, color tokens, typography, layout grids, components, and visual reference boards |
 
 ## Hooks
 
