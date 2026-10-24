@@ -123,10 +123,10 @@ def test_openwebui_embeds_through_a_listed_model() -> None:
 
 
 def test_headroom_pin_allows_its_internal_bind() -> None:
-  """Headroom 0.40 acknowledges its token-less bind inside the Compose network."""
+  """Headroom 0.41 acknowledges its token-less bind inside the Compose network."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   headroom = compose["services"]["headroom"]
-  assert headroom["image"] == "ghcr.io/headroomlabs-ai/headroom:0.40.0-slim"
+  assert headroom["image"] == "ghcr.io/headroomlabs-ai/headroom:0.41.0-slim"
   assert _service_env(compose, "headroom")["HEADROOM_ALLOW_UNAUTHENTICATED_BIND"] == "1"
   assert "ports" not in headroom, "the unauthenticated bind must remain internal"
 

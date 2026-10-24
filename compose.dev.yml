@@ -60,7 +60,7 @@ services:
 
   webui-db:
     profiles: [webui]
-    image: pgvector/pgvector:0.8.6-pg18-trixie
+    image: pgvector/pgvector:0.8.7-pg18-trixie
     container_name: daedalus-webui-db
     env_file:
       - path: ./services/webui-db/defaults.env
@@ -90,7 +90,7 @@ services:
 
   searxng:
     profiles: [search]
-    image: searxng/searxng:2026.9.25-12f8b6515
+    image: searxng/searxng:2026.10.23-629368e40
     container_name: daedalus-searxng
     env_file:
       - path: ./services/searxng/defaults.env
@@ -105,7 +105,7 @@ services:
 
   headroom:
     profiles: [headroom]
-    image: ghcr.io/headroomlabs-ai/headroom:0.40.0-slim # distroless: no shell
+    image: ghcr.io/headroomlabs-ai/headroom:0.41.0-slim # distroless: no shell
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     env_file:

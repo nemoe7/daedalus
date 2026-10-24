@@ -27,9 +27,9 @@ jobs:
         with:
           persist-credentials: false
       # The script is stdlib plus the test client, and the page shows this version.
-      - uses: astral-sh/setup-uv@v10.2.0
+      - uses: astral-sh/setup-uv@v10.3.2
         with:
-          version: "0.12.21"
+          version: "0.13.5"
           python-version: "3.12"
           enable-cache: true
       - run: uv sync --locked

@@ -80,7 +80,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload the SARIF report
-        uses: github/codeql-action/upload-sarif@v4.38.2
+        uses: github/codeql-action/upload-sarif@v4.39.1
         with:
           sarif_file: trivy.sarif
           category: trivy-container

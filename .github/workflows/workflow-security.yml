@@ -67,7 +67,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD" --output pr-source
-      - uses: zizmorcore/zizmor-action@v0.6.4
+      - uses: zizmorcore/zizmor-action@v0.8.0
         with:
           inputs: ${{ env.SOURCE }}
           config: .github/zizmor.yml
@@ -86,7 +86,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - uses: zizmorcore/zizmor-action@v0.6.4
+      - uses: zizmorcore/zizmor-action@v0.8.0
         with:
           config: .github/zizmor.yml
           advanced-security: true

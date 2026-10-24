@@ -6,7 +6,7 @@ provider or developer. The file name is the name in the model id, such as `openr
 
 ## Source
 
-The files come from `lobehub/lobe-icons` at commit `8a1b282`, from the mono set under
+The files come from `lobehub/lobe-icons` at commit `514037a`, from the mono set under
 `packages/static-svg/icons/`. The license is MIT, in `LICENSE`. A file keeps the shape of its
 origin under the catalog name. `daedalus.svg` is not from that set: it is the repo logo
 [`daedalus/dashboard/ui/logo.svg`](../logo.svg) in 1 color.
@@ -33,7 +33,7 @@ Each file keeps the name of its origin, except these files:
 
 ## Capability icons
 
-The chips and small buttons draw lucide glyphs from `cap/`. They come from `lucide-icons/lucide` at commit `a04f228`. Their license is ISC, appended to `LICENSE`. The app inlines the same paths in `app.js` and `index.html`.
+The chips and small buttons draw lucide glyphs from `cap/`. They come from `lucide-icons/lucide` at commit `7faf876`. Their license is ISC, appended to `LICENSE`. The app inlines the same paths in `app.js` and `index.html`.
 
 | File | Spot |
 | --- | --- |
