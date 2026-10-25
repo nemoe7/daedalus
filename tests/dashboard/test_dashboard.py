@@ -8483,3 +8483,52 @@ assert.strictEqual(nav.buttons[1].matchNode.hidden, false);
 assert(nav.buttons[1].matchNode.innerHTML.includes('<mark class="search-hit">forward_owui_chat_id</mark>'));
 """,
   )
+
+
+def test_time_format_defaults_to_24h_and_switches_to_12h_across_views() -> None:
+  """Timestamps default to 24-hour clocks and switch when the operator selects 12h."""
+  run_app_js(
+    "state, stamp, clockTime, timeText, applyTimeFormat, renderKeys, openChain",
+    r"""
+const morning = new Date(2026, 9, 25, 0, 5, 9).getTime() / 1000;
+const afternoon = new Date(2026, 9, 25, 14, 30, 46).getTime() / 1000;
+assert.strictEqual(vm.runInContext("hourCycle", sandbox), "h23");
+assert.strictEqual(sandbox.document.documentElement.dataset.timeFormat, "24h");
+assert.strictEqual(probe.stamp(morning), "2026-10-25 00:05:09");
+assert.strictEqual(probe.stamp(afternoon), "2026-10-25 14:30:46");
+
+const timeMarkup = probe.timeText(afternoon, { tag: "time", variant: "muted" });
+const relativeLabel = probe.timeText(afternoon).replace(/^<span[^>]*>|<\/span>$/g, "");
+assert.strictEqual(
+  timeMarkup,
+  '<time class="muted" title="2026-10-25 14:30:46">' + relativeLabel + "</time>",
+);
+
+probe.state.keys = [{ name: "ops", start: "dae_1", created: afternoon, used: afternoon }];
+probe.renderKeys(probe.state.keys);
+assert(node("keys").innerHTML.includes("2026-10-25 14:30:46"));
+
+probe.state.requests = [{
+  at: afternoon,
+  model: "daedalus/auto",
+  via: "demo/m1",
+  status: 200,
+  fallbacks: 1,
+  attempts: [
+    { model: "demo/m0", result: "429", seconds: 0.2, error: "rate limit" },
+    { model: "demo/m1", result: "answered", seconds: 0.4, error: "" },
+  ],
+}];
+node("chain-modal").showModal = function () { this.open = true; };
+probe.openChain(String(afternoon));
+assert(node("chain-modal-body").innerHTML.includes("2026-10-25 14:30:46"));
+
+probe.applyTimeFormat("12h");
+assert.strictEqual(vm.runInContext("hourCycle", sandbox), "h12");
+assert.strictEqual(sandbox.document.documentElement.dataset.timeFormat, "12h");
+assert.strictEqual(probe.stamp(morning), "2026-10-25 12:05:09 AM");
+assert.strictEqual(probe.stamp(afternoon), "2026-10-25 02:30:46 PM");
+assert(node("keys").innerHTML.includes("2026-10-25 02:30:46 PM"));
+assert(node("chain-modal-body").innerHTML.includes("2026-10-25 02:30:46 PM"));
+""",
+  )

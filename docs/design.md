@@ -93,6 +93,13 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 | Table header | `th` | `12px` | `500` | `1.4` | Standard |
 | Micro label / badge | `.hint`, `.chip`, `.kpi small` | `12px` | `500` | `1.4` | `tabular-nums` on counters |
 
+### Time Formatting (`personalization.time_format`)
+
+| Rule | Behavior |
+| --- | --- |
+| Default 24-hour clock | `stamp()` uses 24-hour time (`YYYY-MM-DD HH:MM:SS`) by default. Selecting `12h` in `Settings` switches stamps to `YYYY-MM-DD hh:MM:SS AM/PM`. |
+| Relative labels and hover stamps | Views show `nuu` relative durations (`just now`, `10min ago`) and carry `stamp()` in hover titles and dialogs. |
+
 ## 6. Layout, Spatial Architecture, and Focal Point Design
 
 ### Shell and Container

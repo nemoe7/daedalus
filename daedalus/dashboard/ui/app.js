@@ -45,15 +45,22 @@ const tierLetter = (name) => (name || "").replace("TIER-", "") || "-";
 const tokens = (n) => !n ? "-" : n >= 1e6 ? +(n / 1e6).toFixed(1) + "M" : n < 1000 ? String(n) : Math.round(n / 1024) + "K";
 // Use personalization.time_format: h23 for 24h and h12 for 12h.
 let hourCycle = "h23";
-// The stamp of an absolute time: 2026-10-04 12:30:46.
+function clockTime(seconds) {
+  const date = new Date(seconds * 1000);
+  const pad = (value) => String(value).padStart(2, "0");
+  const hours = date.getHours();
+  const mmss = `${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  if (hourCycle === "h12") {
+    return `${pad(hours % 12 || 12)}:${mmss} ${hours < 12 ? "AM" : "PM"}`;
+  }
+  return `${pad(hours)}:${mmss}`;
+}
+// The stamp of an absolute time: 2026-10-04 14:30:46 or 2026-10-04 02:30:46 PM.
 const stamp = (seconds) => {
   const date = new Date(seconds * 1000);
   const pad = (value) => String(value).padStart(2, "0");
   const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-  const time = date.toLocaleTimeString([], {
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle,
-  });
-  return `${day} ${time}`;
+  return `${day} ${clockTime(seconds)}`;
 };
 const plural = (number, one, other, values = {}) =>
   t(number === 1 ? one : other, { count: number, ...values });
@@ -120,7 +127,7 @@ function timeText(seconds, { tag = "span", variant = "" } = {}) {
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, fileOpen: false,
-  providerReturnKey: "", saved: [], timers: [],
+  providerReturnKey: "", saved: [], timers: [], chainAt: null,
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestShown: REQUESTS_PAGE, requestLimit: REQUESTS_STEP, requestFetched: 0, requestLoading: false, keys: [], catalog: {},
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
@@ -509,9 +516,13 @@ async function rebuildCatalog() {
 // Its catalog button starts a rebuild.
 function renderStatusCard(status) {
   const { built, next, rebuilding } = status.catalog || {};
-  const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
+  const last = rebuilding
+    ? `<b>${esc(t("catalog.rebuilding_text"))}</b>`
+    : built
+      ? timeText(built, { tag: "b" })
+      : `<b>${esc(t("catalog.never_text"))}</b>`;
   const following = next
-    ? t("catalog.next_text", { time: esc(relative(next)) })
+    ? t("catalog.next_text", { time: timeText(next) })
     : t("catalog.no_schedule_text");
   const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
   $("card-health").innerHTML =
@@ -526,7 +537,7 @@ function renderStatusCard(status) {
         : t("settings.choice.session_option"))
     : "";
   $("card-rows").innerHTML = line(t("common.sessions_label"), status.sessions) + affinityLine
-    + actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
+    + actionButton(`<span>${t("catalog.label")}</span><span>${last}${following}</span>`, {
       variant: "line rebuild",
       attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
     });
@@ -767,17 +778,19 @@ function routingCodes(r) {
 function openChain(at) {
   const found = splitRequests(state.requests).find((r) => String(r.at) === at);
   if (!found || !hasChain(found)) return;
+  state.chainAt = String(found.at);
   const many = fallbackCount(found);
   const title = many
     ? t("request.chain.title_with_count_text", { count: many })
     : t("request.chain.title");
   $("chain-modal-title").textContent = title;
   $("chain-modal-body").innerHTML = `<div class="chain-body">
-    <div class="chain-head"><span class="muted">${esc(title)}</span>
+    <div class="chain-head"><span class="muted num">${esc(title)} \u00b7 ${esc(stamp(found.at))}</span>
       ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
     ${raceNote(found)}${chainSteps(found)}
   </div>`;
-  $("chain-modal").showModal();
+  const dialog = $("chain-modal");
+  if (!dialog.open) dialog.showModal();
 }
 
 // Put the fallback count in the chain details. Display only the count for live rows.
@@ -3363,8 +3376,17 @@ function applyTheme(value = theme) {
   const dark = theme === "dark" || (theme === "system" && darkDevice.matches);
   document.documentElement.dataset.theme = dark ? "dark" : "light";
 }
+function applyTimeFormat(value = "24h", { refreshViews = true } = {}) {
+  const mode = value === "12h" ? "12h" : "24h";
+  const next = mode === "12h" ? "h12" : "h23";
+  const changed = next !== hourCycle;
+  hourCycle = next;
+  document.documentElement.dataset.timeFormat = mode;
+  if (changed && refreshViews) refreshRelativeTimes();
+}
 darkDevice.addEventListener("change", () => applyTheme());
 applyTheme();
+applyTimeFormat("24h", { refreshViews: false });
 
 // These fields accept decimals. Other fields accept whole numbers.
 const DECIMALS = new Set([
@@ -3611,7 +3633,7 @@ async function loadSettings({ render = true } = {}) {
   state.settings.lists = {};
   renderLegend();
   applyTheme(setting("personalization", "theme"));
-  hourCycle = setting("personalization", "time_format") === "12h" ? "h12" : "h23";
+  applyTimeFormat(setting("personalization", "time_format"));
   // Keep saved switch nodes in place so their knob and row transitions finish smoothly.
   if (render) renderSettings();
 }
@@ -4069,12 +4091,16 @@ function maintenanceCard() {
   body += rows.map(([left, right]) =>
     `<div class="field"><span>${esc(left)}</span><span>${right}</span></div>`).join("");
   const { built, next, rebuilding } = state.status?.catalog || {};
-  const last = rebuilding ? t("catalog.rebuilding_text") : built ? relative(built) : t("catalog.never_text");
+  const last = rebuilding
+    ? `<b>${esc(t("catalog.rebuilding_text"))}</b>`
+    : built
+      ? timeText(built, { tag: "b" })
+      : `<b>${esc(t("catalog.never_text"))}</b>`;
   const following = next
-    ? t("catalog.next_text", { time: esc(relative(next)) })
+    ? t("catalog.next_text", { time: timeText(next) })
     : t("catalog.no_schedule_text");
   const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
-  body += actionButton(`<span>${t("catalog.label")}</span><span><b>${esc(last)}</b>${following}</span>`, {
+  body += actionButton(`<span>${t("catalog.label")}</span><span>${last}${following}</span>`, {
     variant: "line rebuild field",
     attrs: { "data-catalog-rebuild": true, title: label, disabled: rebuilding },
   });
@@ -4674,6 +4700,7 @@ function refreshRelativeTimes() {
   if (state.limits) renderLimits(state.limits);
   if (state.notifications) renderNotifications(state.notifications);
   if (state.keys.length && $("keys")) renderKeys(state.keys);
+  if (state.chainAt && $("chain-modal")?.open) openChain(state.chainAt);
   tickSaveLine();
 }
 
@@ -4943,6 +4970,8 @@ $("settings").addEventListener("change", (event) => {
   // Save switch and select values immediately on change. A switch keeps its form: the page
   // already shows the new state, and a redraw would cut its motion off at the first frame.
   if (input.type !== "checkbox" && input.tagName !== "SELECT") return;
+  if (input.id === "set-personalization-theme") applyTheme(input.value);
+  if (input.id === "set-personalization-time_format") applyTimeFormat(input.value);
   state.writeAnchor = anchorOf(input);
   saveSettings(input.type === "checkbox");
 });

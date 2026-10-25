@@ -307,3 +307,20 @@ test("section search matches section content and config keys and highlights matc
   await expect(page.locator("#settings mark.search-hit")).toHaveCount(0);
   await expect(page.locator("#settings .config-key-hit")).toHaveCount(0);
 });
+
+test("time format defaults to 24h and updates stamps when switched to 12h in Settings", async ({ page }) => {
+  await open(page, "#/notifications", 1280, 900);
+  const firstStamp = await page.locator("#notification-feed time").first().getAttribute("title");
+  expect(firstStamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+
+  await page.goto("/#/settings");
+  await page.locator('#settings > .rail > .sections button[data-section="personalization"]').click();
+  const select = page.locator("#set-personalization-time_format");
+  await expect(select).toHaveValue("24h");
+  await select.selectOption("12h");
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.timeFormat)).toBe("12h");
+
+  await page.goto("/#/notifications");
+  const twelveHourStamp = await page.locator("#notification-feed time").first().getAttribute("title");
+  expect(twelveHourStamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (AM|PM)$/);
+});
