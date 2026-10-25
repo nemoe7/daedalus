@@ -8673,3 +8673,13 @@ def test_approved_nuu_deviation_markers_present() -> None:
   for code in ("NUM201", "NUM202"):
     assert f"nuu-deviation: {code}:" in css
     assert f"nuu-deviation: {code}" in design
+
+
+def test_modal_close_icon_button_rest_hover_and_active() -> None:
+  """Modal close X has no resting fill/border and shows fill + text color on hover and active."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert (
+    "border-color: transparent; background: transparent; color: var(--muted);" in css
+  )
+  assert ".ghost.modal-close:hover {" in css
+  assert ".ghost.modal-close:active {" in css

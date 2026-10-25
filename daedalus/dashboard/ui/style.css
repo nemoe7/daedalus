@@ -450,6 +450,17 @@ a.more:hover { color: var(--accent-text); }
 .modal-close {
   width: 32px; height: 32px; padding: 0; border-radius: 8px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
+  border-color: transparent; background: transparent; color: var(--muted);
+}
+@media (hover: hover) {
+  .ghost.modal-close:hover {
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+    border-color: transparent; color: var(--text);
+  }
+}
+.ghost.modal-close:active {
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  border-color: transparent; color: var(--text);
 }
 .modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
 .modal p { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-line; }

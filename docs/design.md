@@ -152,7 +152,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | `loading-bar` | `header::after`, `section[data-page][data-loading="true"]` | Anchors a `2px` bottom-edge `scaleX` bar on `header` after a `200ms` delay (`0.45` static opacity under reduced motion) and sets `aria-busy` in `finally`. |
 | `page-memory` | `state.memory`, `requestPages`, `loadSettings()` | Paints cached views immediately, keys request slices on catalog and head version, and skips DOM redraws when fresh JSON matches memory. |
 | `live-dot` | `.pulse`, `tr.live-row` | Renders a `6px` amber (`var(--orange)`) `aria-hidden="true"` dot with a `1.4s` pulse and zero dimension shift. |
-| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a top-right `x` button, restores trigger focus on `close`, focuses `Cancel` on confirmations, and gates deletions with a modal. |
+| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button with hover/press fill, restores trigger focus on `close`, and gates deletions with a confirmation modal. |
 | `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-end`, `.floating-info-tip` | Applies `12px` / `192px` scroll-driven masks (bottom-only below sticky headers) and viewport-clamped `position: fixed` tooltips (`min(320px, calc(100vw - 16px))`). |
 
 ### Approved `nuu` Deviations
