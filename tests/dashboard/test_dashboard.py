@@ -8569,12 +8569,22 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
   )
   assert ".rail-search input:focus-visible { outline: none" not in css
   assert ':root[data-keyboard-nav="true"] .rail-search:has(input:focus-visible)' in css
+  narrow_desk = css.split("@media (max-width: 75em) {", 1)[1].split("\n}", 1)[0]
+  assert (
+    'section[data-page="requests"] > .flow > .column:not(.wide) { display: none; }'
+    in narrow_desk
+  )
+  assert 'section[data-page="requests"] .legend-open {' in narrow_desk
   tablet = css.split("@media (max-width: 60em) {", 1)[1].split("\n}", 1)[0]
   assert (
     'section[data-page="limits"] > .flow > .column.wide { flex: none; width: 100%; min-height: 0; }'
     in tablet
   )
-  assert ".requests tbody {" in tablet and "minmax(min(340px, 100%), 1fr)" in tablet
+  phone = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
+  assert (
+    ".requests tbody {" in phone
+    and "repeat(auto-fit, minmax(min(280px, 100%), 1fr))" in phone
+  )
 
 
 def test_nuu_scrollbars_and_live_dot_recipes() -> None:

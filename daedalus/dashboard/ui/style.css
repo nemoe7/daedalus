@@ -1082,10 +1082,15 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="limits"] > .editbar { width: calc(100% - 276px); }
 }
 
+.legend-open { display: none; }
+
 @media (max-width: 75em) {
   /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
      tabs scroll when they do not fit. */
   #status { display: none; }
+  section[data-page="requests"] > .flow > .column:not(.wide) { display: none; }
+  section[data-page="requests"] .legend-open { display: inline-flex; align-items: center; flex: 0 0 auto; }
+  .requests .hide-sm { display: none; }
 }
 
 @media (max-width: 60em) {
@@ -1160,7 +1165,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: none; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
   }
   section[data-page="limits"] > .editbar { width: auto; }
-  /* Fold the 11-column Requests table to route-first cards at <= 60em so 960 px never clips columns. */
+  /* Keep Requests as a full-width table down to 40em once .legend moves to #legend-open. */
   main[data-page="requests"] { overflow: auto; }
   main[data-page="requests"] > section[data-page="requests"] { flex: none; }
   section[data-page="requests"] > .flow { flex-direction: column; flex: none; align-items: stretch; overflow: visible; }
@@ -1168,6 +1173,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="requests"] > .flow > .column.wide,
   section[data-page="requests"] > .flow > .column:not(.wide) { flex: none; width: 100%; min-height: 0; }
   section[data-page="requests"] .legend { align-self: stretch; }
+  .panel:has(> .requests) { overflow-x: auto; }
   .requests-bar {
     flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; padding: 0;
@@ -1175,14 +1181,58 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
   .requests-bar input[type=search] { flex: 1 1 10rem; min-width: 0; }
-  .requests-bar .live-toggle { flex: 0 0 auto; }
+  .requests-bar .live-toggle, .requests-bar .legend-open { flex: 0 0 auto; }
   .requests-bar select { flex: 1 1 8rem; }
   section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
   .requests-bar .hint { display: none; }
-  .panel:has(> .requests) { background: transparent; border: 0; margin-top: 0; }
+  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
+  .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
+  .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
+}
+
+@media (max-width: 40em) {
+  header, #app > main { padding-left: 16px; padding-right: 16px; }
+  /* A phone keeps 1 padding all around the page, so the top matches sides. */
+  #app > main { padding-top: 16px; --main-pad-top: 16px; }
+  /* The header keeps the brand and Log out. The status chips move to the card below. */
+  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
+  .chips .ghost { min-height: 44px; }
+  /* Enforce a 44px touch height across sort headers, live toggles, and filter controls. */
+  .sort { min-width: 44px; }
+  .sort, .line.rebuild, .live-toggle, .legend-open, section[data-page="limits"] > .editbar .ghost,
+  input[type="search"], #settings-search { min-height: 44px; }
+  .rail-search { min-height: 44px; padding-block: 0; }
+  /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
+     The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
+  .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
+  /* A phone swipes the pool strip sideways in 1 row, so the table keeps the first screen. */
+  .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
+  .pools > .pool { flex: 0 0 144px; scroll-snap-align: start; }
+  .kpi b { font-size: 18px; }
+  .editbar { gap: 8px; padding: 8px 10px; }
+  .editbar .primary, .editbar .ghost { padding: 5px 12px; }
+  /* A phone keeps every control at the 44px target size. */
+  .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
+  .tab { min-height: 44px; }
+  .editbar .tab { padding: 4px 10px; font-size: 13px; }
+  section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
+  th, td { padding: 10px; }
+  /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
+  .field.info > span { grid-template-columns: auto auto; }
+  .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
+  .field.info .hint { display: grid; place-items: center; }
+  .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
+  .field.info small { display: none; }
+  /* Reserve 3px corner clearance and 8px bottom space inside the mobile Requests bar. */
+  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
+  /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
+  .toolbar input:focus-visible, .toolbar select:focus-visible,
+  .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
+  /* Fold Requests to auto-fit route-first cards and stack balance cards at <= 40em. */
   .requests { display: block; }
   .requests tbody {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 10px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px;
   }
   .requests thead {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
@@ -1256,53 +1306,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
     flex: none; font-size: inherit; white-space: nowrap;
   }
   .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
-  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
-  .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
-  .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
-  .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
   .requests td.empty { display: block; text-align: center; }
-}
-
-@media (max-width: 40em) {
-  header, #app > main { padding-left: 16px; padding-right: 16px; }
-  /* A phone keeps 1 padding all around the page, so the top matches sides. */
-  #app > main { padding-top: 16px; --main-pad-top: 16px; }
-  /* The header keeps the brand and Log out. The status chips move to the card below. */
-  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
-  .chips .ghost { min-height: 44px; }
-  /* Enforce a 44px touch height across sort headers, live toggles, and filter controls. */
-  .sort { min-width: 44px; }
-  .sort, .line.rebuild, .live-toggle, section[data-page="limits"] > .editbar .ghost,
-  input[type="search"], #settings-search { min-height: 44px; }
-  .rail-search { min-height: 44px; padding-block: 0; }
-  /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
-     The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
-  .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
-  /* A phone swipes the pool strip sideways in 1 row, so the table keeps the first screen. */
-  .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
-  .pools > .pool { flex: 0 0 144px; scroll-snap-align: start; }
-  .kpi b { font-size: 18px; }
-  .editbar { gap: 8px; padding: 8px 10px; }
-  .editbar .primary, .editbar .ghost { padding: 5px 12px; }
-  /* A phone keeps every control at the 44px target size. */
-  .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
-  .tab { min-height: 44px; }
-  .editbar .tab { padding: 4px 10px; font-size: 13px; }
-  section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
-  th, td { padding: 10px; }
-  /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
-  .field.info > span { grid-template-columns: auto auto; }
-  .field.info .hint { width: 22px; height: 22px; font-size: 12px; }
-  .field.info .hint { display: grid; place-items: center; }
-  .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
-  .field.info small { display: none; }
-  /* Reserve 3px corner clearance and 8px bottom space inside the mobile Requests bar. */
-  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
-  /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
-  .toolbar input:focus-visible, .toolbar select:focus-visible,
-  .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
-  /* Stack Requests cards and provider balance cards in 1 column on phones. */
-  .requests tbody { grid-template-columns: 1fr; }
   section[data-page="limits"] > .flow > .column:not(.wide) { grid-template-columns: 1fr; }
   .model-stats { grid-template-columns: 1fr; }
   /* Lay out mobile Models rows as cards with Tier, Tools, Cooldown, and Weight below the name. */

@@ -1011,8 +1011,20 @@ function renderLegend(extra = state.legendExtra) {
     ["tlN", t("request.legend.tln_text")],
     ...extra,
   ];
-  $("legend-body").innerHTML = rows.map(([code, label]) =>
+  const html = rows.map(([code, label]) =>
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
+  $("legend-body").innerHTML = html;
+  if (!state.chainAt && $("chain-modal")?.open && $("chain-modal-title")?.textContent === t("request.legend.title")) {
+    $("chain-modal-body").innerHTML = `<div class="legend-body">${html}</div>`;
+  }
+}
+
+function openLegend() {
+  state.chainAt = null;
+  $("chain-modal-title").textContent = t("request.legend.title");
+  $("chain-modal-body").innerHTML = `<div class="legend-body">${$("legend-body").innerHTML}</div>`;
+  const dialog = $("chain-modal");
+  if (!dialog.open) dialog.showModal();
 }
 
 // Add hook legend rows below the base rows. Keep the base rows when no hook is available.
@@ -4481,6 +4493,8 @@ $("live-toggle").addEventListener("click", () => {
   }
   renderLiveToggle();
 });
+
+$("legend-open").addEventListener("click", openLegend);
 
 $("request-clear").addEventListener("click", () => {
   $("request-search").value = "";

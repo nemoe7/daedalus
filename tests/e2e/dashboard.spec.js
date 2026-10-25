@@ -359,16 +359,39 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
   });
   expect(keyOutline).toBeGreaterThanOrEqual(2);
 
+  await open(page, "#/requests", 1280, 900);
+  await expect(page.locator("#requests-legend")).toBeVisible();
+  await expect(page.locator("#legend-open")).toBeHidden();
+
   await open(page, "#/requests", 960, 900);
   const requestsAt960 = await page.evaluate(() => {
+    const row = document.querySelector(".requests tr.request, .requests tr.live-row");
+    return {
+      rowDisplay: row ? getComputedStyle(row).display : "table-row",
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+  expect(requestsAt960.rowDisplay).toBe("table-row");
+  expect(requestsAt960.overflow).toBeLessThanOrEqual(1);
+  await expect(page.locator("#requests-legend")).toBeHidden();
+  await expect(page.locator("#legend-open")).toBeVisible();
+  await page.locator("#legend-open").click();
+  await expect(page.locator("#chain-modal")).toBeVisible();
+  await expect(page.locator("#chain-modal-body")).toContainText("Previous model exceeded the context limit");
+  await page.keyboard.press("Escape");
+
+  await open(page, "#/requests", 640, 900);
+  const requestsAt640 = await page.evaluate(() => {
     const row = document.querySelector(".requests tr.request, .requests tr.live-row");
     return {
       rowDisplay: row ? getComputedStyle(row).display : "grid",
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
-  expect(requestsAt960.rowDisplay).toBe("grid");
-  expect(requestsAt960.overflow).toBeLessThanOrEqual(1);
+  expect(requestsAt640.rowDisplay).toBe("grid");
+  expect(requestsAt640.overflow).toBeLessThanOrEqual(1);
+  await expect(page.locator("#requests-legend")).toBeHidden();
+  await expect(page.locator("#legend-open")).toBeVisible();
 
   await open(page, "#/limits", 640, 900);
   const limitsAt640 = await page.evaluate(() => {
