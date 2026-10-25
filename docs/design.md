@@ -124,12 +124,12 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 
 The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/ui/index.html` builds all views from 8 shared component families. See [Component Visual Catalog](design-visuals/components.md) for annotated visual boards.
 
-1. **Header Navigation (`.top`, `.tabs a`)**: 6 route links (`Overview` through `Settings`) with model (`#tab-models-count`) and notification (`#tab-notifications-count`) count badges.
-2. **KPI Stat Strip (`.stats`, `.stat`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in the catalog`.
-3. **Pool and Quota Bars (`.pool-row`, `.limit-row`, `.bar`)**: Horizontal `6px` progress bars (`border-radius: 999px`, track `var(--bar)`, fill `var(--accent)` or `var(--bad)`) that show model share or remaining quota.
-4. **Filter Toolbar (`.toolbar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, and `#request-clear`.
-5. **Requests Table and Code Legend (`table.requests`, `.code-legend`)**: 11-column log table paired with a `260px` reference card for routing transition codes (`ctx`, `hlt`, `lmt`, `err`).
-6. **Settings Shell (`.settings-shell`, `.settings-menu`, `.setting-row`)**: 4 grouped category cards (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load the right-hand editor pane. Desktop rail and single-line pane rows use a `40px` height (`44px` below `900px`).
+1. **Header Navigation (`header`, `.tabs a`, `#nav`)**: 6 route links (`Overview` through `Settings`) with the catalog count badge (`#nav-models`).
+2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in the catalog`.
+3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills.
+4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, and `#request-clear`.
+5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`)**: 11-column log table paired with a `260px` card for routing codes (`ctx`, `hlt`, `lmt`, `err`).
+6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`)**: 4 grouped category cards in `.rail` (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load `.section-pane`. Desktop rail and single-line pane rows use a `40px` height (`44px` at `<= 60em`).
 7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
 8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
 
@@ -167,13 +167,13 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | State | Visual Treatment | Selector / Trigger |
 | --- | --- | --- |
 | Default | Surface `var(--panel)` or `var(--field)`, border `1px solid var(--line)` | All interactive controls |
-| Hover | Subtle surface shift (`color-mix(in srgb, var(--text) 5%, transparent)`) | `.tabs a:hover`, `tr[data-chain-at]:hover`, `.setting-row:hover` |
+| Hover | Subtle surface shift (`color-mix(in srgb, var(--text) 5%, transparent)`) | `.tabs a:hover`, `tr[data-chain-at]:hover`, `.sections button:hover` |
 | Focus-visible | `outline: 2px solid var(--accent-text)`, `outline-offset: 2px` (keyboard only) | `:focus-visible` under `:root[data-keyboard-nav="true"]` |
-| Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: color-mix(in srgb, var(--accent) 14%, transparent)` | `.tabs a.on`, `.settings-menu button.on` |
+| Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: var(--field)` | `.tabs a.on`, `.sections button.on` |
 | Pressed toggle | `border-color: var(--accent)`, `color: var(--accent-text)` | `#live-toggle[aria-pressed="true"]` |
 | Loading | `2px` delayed `header::after` edge bar and `aria-busy="true"` on active `section[data-page]` | `call()` when `spinner !== false` |
 | Disabled | `opacity: .45`, `cursor: not-allowed` | `:disabled` buttons and inputs |
-| Empty state | Muted helper copy (`color: var(--muted)`, `padding: 14px 16px`) inside `.panel` | `#requests-empty`, `#notifications-empty`, `#overview-requests` |
+| Empty state | Muted helper copy (`color: var(--muted)`, `padding: 24px 16px`) inside `.panel` | `td.empty`, `.rail-empty`, `#ov-requests` |
 
 ## 9. Responsive and Adaptive Design
 
@@ -189,10 +189,10 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 ## 10. Anti-Patterns and Guardrails
 
-1. **No redundant page-title headers**: Do not add an `<h1>` or `.page-head` title bar inside `section.page`. The sticky `.top` navigation bar already shows the active page (`aria-current="page"`).
+1. **No redundant page-title headers**: Do not add an `<h1>` or `.page-head` title bar inside `section[data-page]`. The sticky `header` navigation bar already shows the active page (`aria-current="page"`).
 2. **No hardcoded colors outside `:root`**: Every color in `style.css` and `app.js` references a CSS custom property. Light (`:root`) and dark (`:root[data-theme="dark"]`) schemes stay in sync.
 3. **No unclickable log rows with hidden errors**: Every request row with fallback attempts or an upstream error sets `data-chain-at`, `tabindex="0"`, and `role="button"`. Keyboard and pointer users can open `#chain-modal`.
-4. **No decorative charts or sparklines**: Use tabular numerals and horizontal `.bar` fills instead of multi-axis charts or circular gauges.
+4. **No decorative charts or sparklines**: Use tabular numerals and horizontal `.track` fills instead of multi-axis charts or circular gauges.
 5. **No layout shifts or state resets on poll**: Style scrollbars with the `10px` rounded `--scrollbar-thumb` recipe on `var(--bg)` without arrow buttons. Skip DOM redraws on unchanged poll responses so scroll position and dialog state stay intact.
 
 ## 11. Design Revision Log
