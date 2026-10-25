@@ -2172,7 +2172,12 @@ async function takeHooks() {
   }
 }
 
-async function runHooksUpdate() {
+async function runHooksUpdate(button) {
+  if (button) {
+    button.disabled = true;
+    button.classList.add("checking");
+    button.setAttribute?.("aria-busy", "true");
+  }
   hooksNote(t("hook.state.updating_text"));
   try {
     const answer = await call("hooks/update", { method: "POST" });
@@ -2183,6 +2188,12 @@ async function runHooksUpdate() {
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     hooksNote(error.message);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.classList.remove("checking");
+      button.removeAttribute?.("aria-busy");
+    }
   }
 }
 
@@ -4298,6 +4309,7 @@ $("limits-check").addEventListener("click", async () => {
   const button = $("limits-check");
   button.disabled = true;
   button.classList.add("checking");
+  button.setAttribute?.("aria-busy", "true");
   $("limits-message").textContent = "";
   try {
     renderLimits(await call("limits", { method: "POST", spinner: false }));
@@ -4307,6 +4319,7 @@ $("limits-check").addEventListener("click", async () => {
   } finally {
     button.disabled = false;
     button.classList.remove("checking");
+    button.removeAttribute?.("aria-busy");
   }
 });
 // Open the diff dialog from a rebuild notification.
@@ -4320,7 +4333,8 @@ $("settings").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");
   if (button) {
     button.disabled = true;
-    button.textContent = t("action.checking_button");
+    button.classList.add?.("checking");
+    button.setAttribute?.("aria-busy", "true");
     try {
       const result = await call("updates", { method: "POST" });
       state.notifications = { ...(state.notifications || {}), update: result };
@@ -4328,8 +4342,11 @@ $("settings").addEventListener("click", async (event) => {
       if (card) card.outerHTML = maintenanceCard();
     } catch (error) {
       if (error instanceof LoggedOut) return showLogin();
+    } finally {
       button.disabled = false;
-      button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
+      button.classList.remove?.("checking");
+      button.removeAttribute?.("aria-busy");
+      if (!button.innerHTML) button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
     }
     return;
   }
@@ -4351,6 +4368,11 @@ $("settings").addEventListener("click", async (event) => {
 });
 $("show-password").addEventListener("click", () => showPassword($("login").password.type === "password"));
 document.addEventListener("click", async (event) => {
+  if (event.target.closest?.(".skip-link")) {
+    event.preventDefault();
+    $("main")?.focus?.();
+    return;
+  }
   // Display hints without opening closed groups.
   if (event.target.closest(".fold summary .hint")) {
     event.preventDefault();
@@ -4585,10 +4607,16 @@ const FADE_GROW = 48;
 const fadeLen = (dist) => `${Math.round(Math.min(1, Math.max(0, dist / FADE_GROW)) * 20)}px`;
 const setFade = (host, name, dist) => host.style?.setProperty(name, fadeLen(dist));
 
+const cssInlineScrollFade = () =>
+  typeof CSS !== "undefined" && Boolean(CSS.supports?.("animation-timeline: scroll(self inline)"))
+  && !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+
 function markScrollEdges(scroller) {
   const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  setFade(scroller, "--fade-left", scroller.scrollLeft);
-  setFade(scroller, "--fade-right", end - scroller.scrollLeft);
+  if (!cssInlineScrollFade()) {
+    setFade(scroller, "--fade-left", scroller.scrollLeft);
+    setFade(scroller, "--fade-right", end - scroller.scrollLeft);
+  }
   return { left: scroller.scrollLeft <= 2, right: scroller.scrollLeft >= end - 2 };
 }
 
@@ -5058,7 +5086,7 @@ $("settings").addEventListener("click", async (event) => {
   const move = event.target.closest("[data-hook-move]");
   if (move) return moveHookFile(JSON.parse(move.dataset.hookMove));
   if (event.target.closest("[data-hook-drop]")) return dropHookFile(event.target.closest("[data-hook-drop]"));
-  if (event.target.closest("[data-hooks-update]")) return runHooksUpdate();
+  if (event.target.closest("[data-hooks-update]")) return runHooksUpdate(event.target.closest("[data-hooks-update]"));
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {

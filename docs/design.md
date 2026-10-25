@@ -124,7 +124,7 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 
 The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/ui/index.html` builds all views from 8 shared component families. See [Component Visual Catalog](design-visuals/components.md) for annotated visual boards.
 
-1. **Header Navigation (`header`, `.tabs a`, `#nav`)**: 6 route links (`Overview` through `Settings`) with the catalog count badge (`#nav-models`).
+1. **Header Navigation (`header`, `.skip-link`, `.tabs a`, `#nav`)**: Skip link to `#main` plus 6 route links (`Overview` through `Settings`) with `#nav-models`.
 2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in the catalog`.
 3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills.
 4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, and `#request-clear`.
@@ -137,7 +137,7 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 
 ### Motion Tokens
 
-- `--fast: .12s`
+- `--fast: .18s`
 - `--soft: .2s`
 - `--ease: cubic-bezier(.2, .7, .3, 1)`
 
@@ -199,6 +199,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-25 | Scoped switch/fold focus (`NUA307`), squared mobile key buttons (`NUM208`), aligned stacked buttons (`NUM205`), and added `@keyframes spin`, `.skip-link`, `--fast: .18s`, and CSS fades. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Applied `nuu` `scrollbars`, `loading-bar`, `page-memory`, `live-dot`, `modal-manager` (top-right `x`, trigger focus return, delete confirmations), `offline-fonts`, and tooltip anti-clipping recipes. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Adopted `nuu` house breakpoints (`75em`, `60em`, `40em`, `30em`) and `24h`/`12h` time formatting, fixed `.rail` overlap and `.rail-search` focus, folded `Requests` at `60em`, and stretched `Limits` full width at `<= 60em`. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Auto-loaded older `Requests` rows on scroll, adopted `nuu` full and mobile-abbreviated relative timestamps, and added `Settings` content/key search highlights. | `Overview`, `Requests`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |

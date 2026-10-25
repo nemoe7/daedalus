@@ -377,3 +377,69 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
   });
   expect(limitsAt640.wideWidth).toBeGreaterThanOrEqual(limitsAt640.contentWidth - 2);
 });
+
+const TOUCH_TARGET_FLOOR_PX = 44;
+const SYMMETRY_TOLERANCE_PX = 1;
+const BUTTON_SHIFT_TOLERANCE_PX = 0.5;
+const FOCUS_RING_MIN_PX = 2;
+
+test("skip link keeps route, switch suppresses pointer focus, and mobile key delete is symmetric", async ({ page }) => {
+  await open(page, "#/models", 1280, 900);
+  await page.evaluate(() => document.querySelector(".skip-link").focus());
+  await expect.poll(async () => (await page.locator(".skip-link").boundingBox()).y).toBeGreaterThanOrEqual(0);
+  await page.locator(".skip-link").dispatchEvent("click");
+  const afterSkip = await page.evaluate(() => ({
+    hash: location.hash,
+    activeId: document.activeElement?.id || "",
+  }));
+  expect(afterSkip).toEqual({ hash: "#/models", activeId: "main" });
+
+  await open(page, "#/settings?section=balance", 1280, 900);
+  const switchPointerOutline = await page.evaluate(() => {
+    delete document.documentElement.dataset.keyboardNav;
+    const sw = document.getElementById("set-balance-weights");
+    sw.focus();
+    const style = getComputedStyle(sw);
+    return style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth) || 0;
+  });
+  expect(switchPointerOutline).toBe(0);
+
+  await page.keyboard.press("Tab");
+  await page.evaluate(() => document.getElementById("set-balance-weights").focus());
+  const switchKeyOutline = await page.evaluate(() => {
+    const style = getComputedStyle(document.getElementById("set-balance-weights"));
+    return style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth) || 0;
+  });
+  expect(switchKeyOutline).toBeGreaterThanOrEqual(FOCUS_RING_MIN_PX);
+
+  await open(page, "#/settings?section=maintenance", 1280, 900);
+  const updateWidths = await page.evaluate(async () => {
+    const btn = document.getElementById("update-check");
+    const idle = btn.getBoundingClientRect().width;
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const origFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (String(url).includes("/updates")) await gate;
+      return origFetch(url, opts);
+    };
+    btn.click();
+    await new Promise((r) => setTimeout(r, 10));
+    const busy = btn.getBoundingClientRect().width;
+    const ariaBusy = btn.getAttribute("aria-busy");
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+    window.fetch = origFetch;
+    return { idle, busy, ariaBusy };
+  });
+  expect(updateWidths.ariaBusy).toBe("true");
+  expect(Math.abs(updateWidths.busy - updateWidths.idle)).toBeLessThanOrEqual(BUTTON_SHIFT_TOLERANCE_PX);
+
+  await open(page, "#/settings?section=keys", 360, 800);
+  const trashBtn = page.locator("#keys button[data-key]").first();
+  await expect(trashBtn).toBeVisible();
+  const trashBox = await trashBtn.boundingBox();
+  expect(trashBox.width).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR_PX);
+  expect(trashBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR_PX);
+  expect(Math.abs(trashBox.width - trashBox.height)).toBeLessThanOrEqual(SYMMETRY_TOLERANCE_PX);
+});

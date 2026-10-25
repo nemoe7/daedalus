@@ -6463,7 +6463,7 @@ def test_the_notice_floats_without_moving_page_content() -> None:
   assert rules["overflow-y"] == "auto"
   assert rules["align-items"] == "safe center"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
-  first = page.split("<main>", 1)[1].lstrip().split(">", 1)[0]
+  first = re.split(r"<main\b[^>]*>", page, maxsplit=1)[1].lstrip().split(">", 1)[0]
   assert first.startswith('<div class="notice"'), (
     "the alert precedes the page content in document order"
   )
@@ -8709,3 +8709,40 @@ def test_table_panels_apply_inline_scroll_edge_fade() -> None:
     "animation-timeline: scroll(self), scroll(self inline), scroll(self inline);" in css
   )
   assert "mask-composite: intersect;" in css
+
+
+MIN_FAST_SECONDS = 0.16
+MAX_FAST_SECONDS = 0.22
+MOBILE_TOUCH_MIN_PX = 44
+
+
+def test_nuu_audit_repairs_for_focus_spin_switch_skiplink_and_scroll_fade() -> None:
+  """Audit repairs gate focus outlines, define spin, use compositor switches, and wire skip link."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  html = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  locale = Path("daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+
+  fast_match = re.search(r"--fast:\s*(\.?\d+(?:\.\d+)?)s;", css)
+  assert fast_match is not None
+  fast_seconds = float(fast_match.group(1))
+  assert MIN_FAST_SECONDS <= fast_seconds <= MAX_FAST_SECONDS
+
+  assert ':root[data-keyboard-nav="true"] .field input.switch:focus-visible' in css
+  assert ':root[data-keyboard-nav="true"] .fold summary:focus-visible' in css
+  switch_rule = css.split(".field input.switch {", 1)[1].split("}", 1)[0]
+  assert "background-position" not in switch_rule
+  assert ".field input.switch::before {" in css
+  assert "transform: translateX(18px);" in css
+  assert ".settings .field.stack > button { align-self: flex-start; }" in css
+  assert "@keyframes spin { to { transform: rotate(360deg); } }" in css
+  assert (
+    f'.card[data-section="keys"] .keys .ghost {{ width: {MOBILE_TOUCH_MIN_PX}px; '
+    f"height: {MOBILE_TOUCH_MIN_PX}px; min-width: {MOBILE_TOUCH_MIN_PX}px; }}"
+  ) in css
+  assert ".tabs.scroll-fade," in css and ".card-scroll.scroll-fade," in css
+  assert '"nav.skip_to_main_link": "Skip to main content"' in locale
+  assert '<a class="skip-link" href="#main" data-i18n="nav.skip_to_main_link">' in html
+  assert '<main id="main" tabindex="-1">' in html
+  assert 'setAttribute?.("aria-busy", "true")' in app
+  assert "action.checking_button" not in app and "action.checking_button" not in locale

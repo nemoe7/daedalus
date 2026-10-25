@@ -59,7 +59,7 @@
   --accent: #304ffe; --accent-text: var(--accent); --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23616161' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #212c70; --tag: #5c388c; --field: #f7f7f9; --radius: 10px; --tile-ink: #ffffff;
-  --fast: .12s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
+  --fast: .18s; --soft: .2s; --ease: cubic-bezier(.2, .7, .3, 1);
   --font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --mono: var(--font-mono);
@@ -161,6 +161,14 @@ a, button, .snippet, .card, .chip, .pill, tr.request td {
   transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease),
     border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
 }
+.skip-link {
+  position: fixed; top: 8px; left: 16px; z-index: 100;
+  display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  background: var(--panel); color: var(--text); font-weight: 600; text-decoration: none;
+  transform: translateY(-200%); transition: transform var(--fast) var(--ease);
+}
+.skip-link:focus { transform: none; }
 header {
   position: relative;
   display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); grid-template-areas: "brand tabs chips";
@@ -855,18 +863,18 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 /* A boolean row draws a switch at the right edge of the row: a pill with a knob that
    slides when the value changes. The label keeps the left of the row. */
 .field input.switch {
-  appearance: none; width: 44px; height: 26px; margin: 0; flex: none; cursor: pointer;
-  border: 1px solid var(--line); border-radius: 999px;
-  background: var(--field) no-repeat 3px 50%;
-  background-image: radial-gradient(circle, var(--muted) 0 9px, transparent 10px);
-  background-size: 20px 20px;
-  transition: background-color var(--fast) var(--ease), background-position var(--fast) var(--ease);
+  appearance: none; position: relative; width: 44px; height: 26px; margin: 0; flex: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--field);
+  transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.field input.switch:checked {
-  border-color: var(--accent); background-color: var(--accent); background-position: 21px 50%;
-  background-image: radial-gradient(circle, #fff 0 9px, transparent 10px);
+.field input.switch::before {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  border-radius: 50%; background: var(--muted);
+  transition: transform var(--fast) var(--ease), background-color var(--fast) var(--ease);
 }
-.field input.switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.field input.switch:checked { border-color: var(--accent); background-color: var(--accent); }
+.field input.switch:checked::before { background: #fff; transform: translateX(18px); }
+:root[data-keyboard-nav="true"] .field input.switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
 .field.info .hint {
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
@@ -912,9 +920,10 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
   max-width: min(320px, calc(100vw - 16px));
 }
 .floating-info-tip[hidden] { display: none; }
-.fold summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[data-keyboard-nav="true"] .fold summary:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .fold-body { padding-bottom: 4px; }
 .settings .field.stack { flex-direction: column; align-items: stretch; gap: 8px; }
+.settings .field.stack > button { align-self: flex-start; }
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
 }
@@ -946,8 +955,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 2px; max-height: 39px; margin-block: -4px;
 }
+@keyframes spin { to { transform: rotate(360deg); } }
 #limits-check { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
 #limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }
+#update-check.checking svg, [data-hooks-update].checking svg { animation: spin .7s linear infinite; }
 #limits-checked { margin-left: 0; font-size: 11px; line-height: 1; white-space: nowrap; }
 /* A narrow card wraps a long label instead of cutting it. */
 .balance .line > :first-child { white-space: normal; }
@@ -1138,6 +1149,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="providers"] .field select,
   .card[data-section="keys"] .keys .ghost,
   .fold summary { min-height: 44px; }
+  .card[data-section="keys"] .keys .ghost { width: 44px; height: 44px; min-width: 44px; }
   /* Round icon buttons keep their drawn box: the target grows outside it. */
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }
@@ -1429,6 +1441,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
       animation-timeline: scroll(self), scroll(self);
       animation-range: 0px var(--edge-ramp), calc(100% - var(--edge-ramp)) 100%;
     }
+    .tabs.scroll-fade,
+    .card-scroll.scroll-fade,
     .panel:not(.editbar):not(section[data-page="models"] > .panel) {
       mask-image: linear-gradient(to right, transparent, black var(--edge-inline-start), black calc(100% - var(--edge-inline-end)), transparent);
       animation: edge-inline-start linear both, edge-inline-end linear both;
