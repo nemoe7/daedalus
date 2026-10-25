@@ -2260,9 +2260,12 @@ def test_the_short_values_carry_their_full_text() -> None:
     "grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);"
     in css
   ), "the desktop header balances outer tracks around the centered tab bar"
-  assert ".tabs a .count { line-height: 1; position: relative; top: 1px; }" in css, (
-    "the tab badge aligns with the label baseline"
-  )
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert (
+    '<span><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="nav-models"></span></span>'
+    in page
+  ), "the tab badge aligns with the label baseline"
+  assert ".tabs a .count" not in css
   assert "text-decoration: underline; }" in css, "a sort head marks its own click"
   assert "button.line.rebuild:hover { color: var(--accent-text); }" in css, (
     "the phone catalog line answers the mouse"

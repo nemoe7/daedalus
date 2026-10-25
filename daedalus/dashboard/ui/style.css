@@ -200,7 +200,6 @@ header {
 }
 .card-scroll { max-width: 100%; }
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
-.tabs a .count { line-height: 1; position: relative; top: 1px; }
 .count:empty { display: none; }
 .chips {
   grid-area: chips; display: flex; gap: 32px; flex-wrap: wrap; justify-content: flex-end;

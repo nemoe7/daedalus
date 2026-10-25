@@ -360,6 +360,21 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
   expect(keyOutline).toBeGreaterThanOrEqual(2);
 
   await open(page, "#/requests", 1280, 900);
+  const modelsTabBaselineDelta = await page.evaluate(() => {
+    const base = (el) => {
+      const p = document.createElement("span");
+      p.style.cssText = "display:inline-block;width:0;height:0;overflow:hidden;vertical-align:baseline;";
+      el.appendChild(p);
+      const y = p.getBoundingClientRect().bottom;
+      p.remove();
+      return y;
+    };
+    const link = document.querySelector('#nav a[data-page="models"]');
+    const label = link.querySelector('[data-i18n="nav.models_link"]');
+    const count = link.querySelector("#nav-models");
+    return Math.abs(base(count) - base(label));
+  });
+  expect(modelsTabBaselineDelta).toBeLessThanOrEqual(0.2);
   await expect(page.locator("#requests-legend")).toBeVisible();
   await expect(page.locator("#legend-open")).toBeHidden();
 
