@@ -3102,8 +3102,8 @@ def test_the_requests_bar_keeps_its_line_on_a_filter_selection() -> None:
     "{ flex: 1 1 8rem; min-width: 0; }" in desktop
   ), "the search field gives up its width first"
   assert (
-    'section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }'
-    in desktop
+    'section[data-page="requests"] .requests-bar .hint { margin-left: auto;'
+    " white-space: nowrap; }" in desktop
   ), "the count hint holds its own line"
 
 
@@ -6134,8 +6134,13 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
     ' && state.requestStatus === "all" && !state.requestHours);' in app
   ), "the Clear filters button shows only with a live filter"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert "#request-clear.off { visibility: hidden; }" in css, (
-    "the button holds its seat, so the hint never moves"
+  assert (
+    'section[data-page="requests"] .requests-bar .hint { margin-left: auto;'
+    " white-space: nowrap; }" in css
+  ), "the hint pins right without reserving dead Clear filters width"
+  assert (
+    'section[data-page="requests"] .requests-bar #request-clear.off { display:'
+    " none; }" in css
   )
 
 
@@ -6375,7 +6380,9 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     ),
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; align-items: center; }",
     'section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }',
-    "#new-key { padding: 3px 0 8px 3px; }",
+    "#new-key { padding: 3px 3px 8px; }",
+    '[data-page="models"] .toolbar { padding: 3px 3px 8px; }',
+    ".notification-item { padding: 14px 16px; }",
     ".toolbar input:focus-visible, .toolbar select:focus-visible,",
   ):
     assert rule in phone, rule

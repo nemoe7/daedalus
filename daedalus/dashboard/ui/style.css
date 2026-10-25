@@ -1023,8 +1023,8 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
   section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
   section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
-  section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }
-  section[data-page="requests"] .requests-bar #request-clear.off { visibility: hidden; }
+  section[data-page="requests"] .requests-bar .hint { margin-left: auto; white-space: nowrap; }
+  section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
   section[data-page="requests"] .legend { align-self: flex-start; }
   .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
   .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4),
@@ -1317,8 +1317,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .weight { width: auto; }
   /* The form row and the Models bar ride on the page rail, with their bottom padding. The 3px of
      room at the top left corner keeps the panel corner off the field and off its focus ring. */
-  #new-key { padding: 3px 0 8px 3px; }
-  [data-page="models"] .toolbar { padding: 3px 0 8px 3px; }
+  #new-key { padding: 3px 3px 8px; }
+  [data-page="models"] .toolbar { padding: 3px 3px 8px; }
+  .notification-item { padding: 14px 16px; }
+  .notification-feed > .more { padding: 16px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
