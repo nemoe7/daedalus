@@ -6240,7 +6240,9 @@ def test_the_page_carries_a_motion_base() -> None:
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "--fast:" in css and "--soft:" in css and "--ease:" in css, "the motion tokens"
-  assert "animation: pulse 1s var(--ease)" in css, "the state dot reads the easing"
+  assert "animation: pulse 1.4s ease-in-out infinite" in css, (
+    "the live dot uses the nuu 1.4 s pulse"
+  )
   assert "a, button, .snippet, .card, .chip, .pill, tr.request td {" in css, (
     "the controls and the rows glide between their states"
   )
@@ -6334,28 +6336,23 @@ process.exit(0);
 
 
 def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
-  """Loading source defines a header spinner, its timer, and initial skeleton rows."""
+  """Loading source defines a delayed 2 px edge bar, aria-busy state, and initial skeleton rows."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   brand = next(line for line in page.splitlines() if 'class="brand"' in line)
-  chips = page[page.index('<div class="chips">') : page.index('id="status"')]
-  assert 'id="spinner"' in chips, "the ring sits at the header right"
-  assert "spinner" not in brand, "the ring left the brand row, so no tab moves"
-  assert "@keyframes spin" in css and ".spinner {" in css, "the ring"
+  assert "spinner" not in brand and 'id="spinner"' not in page
+  assert "@keyframes nuu-edge-loading" in css and "200ms" in css and "scaleX(" in css
+  assert "opacity: 0.45;" in css, "reduced-motion static loading bar fallback"
   assert "@keyframes shimmer" in css and "tr.skeleton td span {" in css, (
     "the placeholder bar"
   )
-  assert "calling" in app and "setTimeout(() =>" in app, (
-    "the grace period of a slow call"
+  assert (
+    'setAttribute?.("aria-busy", "true")' in app
+    and 'setAttribute?.("aria-busy", "false")' in app
   )
-  assert 'ring.classList.add("on");' in app and 'ring.classList.remove("on");' in app, (
-    "the ring follows"
-  )
-  assert ".spinner.on {" in css and "visibility: visible;" in css, (
-    "the seat holds the width, so the ring shows without a shift"
-  )
+  assert 'dataset.loading = "true"' in app and "delete region.dataset.loading" in app
   assert "function skeletons(" in app and 'skeletons("requests"' in app, (
     "the placeholder rows"
   )
@@ -8198,15 +8195,22 @@ def test_validation_errors_keep_exception_details_private(
 
 
 def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
-  """Root and universal rules set thin scrollbars with the shared line and transparent track colors."""
+  """Scrollbars use 10 px WebKit thumbs, hidden buttons, and non-WebKit thin fallbacks."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   root = re.search(r":root\s*\{([^}]+)\}", css)
-  universal = re.search(r"\*\s*\{([^}]+)\}", css)
   tabs = re.search(r"\.tabs\s*\{([^}]+)\}", css)
-  assert root is not None and universal is not None and tabs is not None
-  for block in (root.group(1), universal.group(1)):
-    assert "scrollbar-width: thin;" in block
-    assert "scrollbar-color: var(--line) transparent;" in block
+  assert root is not None and tabs is not None
+  assert "--scrollbar-thumb: #c8c8d0;" in root.group(1)
+  assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
+  assert (
+    "::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; }"
+    in css
+  )
+  assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
+  assert "@supports not selector(::-webkit-scrollbar)" in css
+  assert (
+    "scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--bg);" in css
+  )
   assert "scrollbar-width: none;" in tabs.group(1)
 
 
@@ -8555,3 +8559,108 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
     in tablet
   )
   assert ".requests tbody {" in tablet and "minmax(min(340px, 100%), 1fr)" in tablet
+
+
+def test_nuu_scrollbars_and_live_dot_recipes() -> None:
+  """Stylesheet and live rows follow nuu scrollbar and live-dot recipes."""
+  root = Path(__file__).resolve().parents[2]
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert "--scrollbar-thumb: #c8c8d0;" in css
+  assert "--scrollbar-thumb: #302e2c;" in css
+  assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
+  assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
+  assert "@supports not selector(::-webkit-scrollbar)" in css
+  assert (
+    "background: var(--orange); flex: none; animation: pulse 1.4s ease-in-out infinite;"
+    in css
+  )
+  assert '<span class="pulse" aria-hidden="true"></span>' in app
+
+
+def test_nuu_modal_manager_and_delete_confirmations() -> None:
+  """Modals expose top-right close buttons, restore trigger focus, and gate deletions."""
+  root = Path(__file__).resolve().parents[2]
+  page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert page.count('class="ghost modal-close"') == 3
+  assert 'id="modal-cancel"' in page
+  for marker in (
+    "confirmDeleteEntry(",
+    "restoreModalTrigger(",
+    "rememberModalTrigger(",
+    't("hook.action.delete_source_title", { name: selected })',
+  ):
+    assert marker in app, marker
+  run_app_js(
+    "ask, restoreModalTrigger",
+    r"""
+let restored = 0;
+let cancelFocused = 0;
+const trigger = { focus: () => { restored += 1; } };
+sandbox.document.activeElement = trigger;
+node("modal").open = false;
+node("modal").showModal = function () { this.open = true; };
+node("modal-cancel").focus = () => { cancelFocused += 1; };
+node("modal-ok").classList = { toggle: () => {} };
+probe.ask("Delete entry", "Delete \"test\"?", "Delete", true);
+assert.strictEqual(cancelFocused, 1, "confirmation modals focus Cancel");
+probe.restoreModalTrigger(node("modal"));
+assert.strictEqual(restored, 1, "closing the modal restores trigger focus");
+""",
+  )
+
+
+def test_nuu_loading_bar_and_page_memory_recipes() -> None:
+  """API calls toggle aria-busy in finally, and page memory skips unchanged redraws."""
+  code = _app_js_vm(
+    r"""
+const active = {
+  dataset: { page: "settings" },
+  hidden: false,
+  attrs: {},
+  setAttribute(name, value) { this.attrs[name] = value; },
+};
+const header = { dataset: {} };
+sandbox.document.querySelector = (sel) => {
+  if (sel === "#app > header") return header;
+  if (sel === "section[data-page]:not([hidden])") return active;
+  return null;
+};
+let seenBusyDuringFetch = null;
+const payload = {
+  values: {
+    personalization: { theme: "dark", time_format: "24h" },
+    optimization: { parallel: { mode: "off" } },
+  },
+  defaults: {
+    affinity: { mode: "sticky" },
+    personalization: { theme: "dark", time_format: "24h" },
+  },
+  files: {},
+  text: "a: 1\n",
+  hook_rows: [],
+};
+sandbox.localStorage = { getItem: () => null };
+sandbox.sessionStorage = { getItem: () => null };
+sandbox.fetch = async () => {
+  seenBusyDuringFetch = active.attrs["aria-busy"];
+  return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(payload)) };
+};
+vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis.__renders += 1; };", sandbox);
+(async () => {
+  await sandbox.loadSettings();
+  assert.strictEqual(seenBusyDuringFetch, "true", "active section is aria-busy while fetching");
+  assert.strictEqual(active.attrs["aria-busy"], "false", "finally resets aria-busy to false");
+  assert.strictEqual(active.dataset.loading, undefined, "finally clears data-loading");
+  assert.strictEqual(header.dataset.loading, undefined, "finally clears header loading");
+  assert.strictEqual(sandbox.__renders, 1, "first settings load renders");
+  await sandbox.loadSettings();
+  assert.strictEqual(sandbox.__renders, 1, "unchanged settings payload skips redraw");
+  await sandbox.loadSettings({ fresh: true });
+  assert.strictEqual(sandbox.__renders, 2, "fresh reload forces redraw");
+  process.exit(0);
+})().catch((err) => { console.error(err); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)

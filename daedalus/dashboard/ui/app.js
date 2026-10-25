@@ -133,8 +133,32 @@ const state = {
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
-  source: null, env: [],
+  source: null, env: [], memory: {},
 };
+
+const REQUEST_PAGES = 32;
+const requestPages = new Map();
+function rememberJson(slot, value, fresh = false) {
+  const encoded = JSON.stringify(value);
+  const changed = fresh || state.memory[slot] !== encoded;
+  state.memory[slot] = encoded;
+  return changed;
+}
+function requestPageKey(limit, rows = state.requests) {
+  const head = rows[0];
+  return head ? `${state.catalog?.built || ""}/${head.at}:${rows.length}/${limit}` : "";
+}
+async function fetchRequestPage(limit, fresh = false) {
+  const key = requestPageKey(limit);
+  if (key && !fresh && requestPages.has(key)) return requestPages.get(key);
+  const rows = await call(`requests?limit=${limit}`);
+  const nextKey = requestPageKey(limit, splitRequests(rows));
+  if (nextKey) {
+    if (requestPages.size >= REQUEST_PAGES) requestPages.delete(requestPages.keys().next().value);
+    requestPages.set(nextKey, rows);
+  }
+  return rows;
+}
 
 const fileName = (path) => path.split(/[\\/]/).pop();
 function line(left, right, valueAttrs = {}) {
@@ -202,6 +226,18 @@ const poolOf = (r) => {
 const cell = (label, inner, cls = "", attrs = "") =>
   `<td role="cell"${cls ? ` class="${cls}"` : ""}${attrs}>${mobileLabel(label)}<span class="cell-value">${inner}</span></td>`;
 
+const modalTriggers = new Map();
+function rememberModalTrigger(dialog, trigger = document.activeElement) {
+  if (dialog && !dialog.open && trigger) modalTriggers.set(dialog, trigger);
+}
+function restoreModalTrigger(dialog) {
+  const trigger = modalTriggers.get(dialog);
+  modalTriggers.delete(dialog);
+  if (trigger && trigger !== document.body && typeof trigger.focus === "function") trigger.focus();
+}
+const confirmDeleteEntry = (name) =>
+  ask(t("dialog.delete_entry.title"), t("dialog.delete_entry.message", { name }), t("action.delete_button"), true);
+
 // Replace window.confirm with a modal that resolves true on Confirm, with an optional name field.
 // Read modal-input after confirmation. Tests resolve the dialog through globalThis.__settle.
 function ask(title, message, confirm, danger = false, placeholder = null, value = "") {
@@ -216,13 +252,19 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
     const box = $("modal-input");
     box.value = value;
     box.placeholder = placeholder ?? "";
+    box.toggleAttribute?.("autofocus", placeholder !== null);
+    $("modal-cancel")?.toggleAttribute?.("autofocus", placeholder === null);
     const ok = $("modal-ok");
     ok.textContent = confirm;
     ok.classList.toggle("danger", danger);
-    $("modal").returnValue = "";
-    $("modal").showModal();
-    if (placeholder !== null) box.focus?.();
-    if (value) box.select?.();
+    const dialog = $("modal");
+    rememberModalTrigger(dialog);
+    dialog.returnValue = "";
+    dialog.showModal();
+    if (placeholder !== null) {
+      box.focus?.();
+      if (value) box.select?.();
+    } else $("modal-cancel")?.focus?.();
   });
 }
 
@@ -240,14 +282,18 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     const nameBox = $("modal-input");
     nameBox.value = name;
     nameBox.placeholder = nameLabel;
+    nameBox.toggleAttribute?.("autofocus", true);
+    $("modal-cancel")?.toggleAttribute?.("autofocus", false);
     const valueBox = $("modal-input2");
     valueBox.value = value;
     valueBox.placeholder = valueLabel;
     const ok = $("modal-ok");
     ok.textContent = confirm;
     ok.classList.toggle("danger", false);
-    $("modal").returnValue = "";
-    $("modal").showModal();
+    const dialog = $("modal");
+    rememberModalTrigger(dialog);
+    dialog.returnValue = "";
+    dialog.showModal();
     nameBox.focus?.();
     if (name) nameBox.select?.();
   });
@@ -266,14 +312,18 @@ function askChoicePair(title, message, choices, placeholder) {
     $("modal-choice-field").hidden = false;
     const choice = $("modal-choice");
     choice.innerHTML = choices.map((key) => `<option value="${esc(key)}">${esc(key)}</option>`).join("");
+    $("modal-input")?.toggleAttribute?.("autofocus", false);
+    $("modal-cancel")?.toggleAttribute?.("autofocus", false);
     const box = $("modal-input2");
     box.value = "";
     box.placeholder = placeholder ?? "";
     const ok = $("modal-ok");
     ok.textContent = t("action.save_button");
     ok.classList.toggle("danger", false);
-    $("modal").returnValue = "";
-    $("modal").showModal();
+    const dialog = $("modal");
+    rememberModalTrigger(dialog);
+    dialog.returnValue = "";
+    dialog.showModal();
     choice.focus?.();
   });
 }
@@ -380,21 +430,35 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
-// Display the header spinner after a 300 ms delay while calls remain active.
-// Fast calls finish before the spinner appears.
+// Mark the active view and header with loading state while calls remain active.
+// CSS delays the 2 px edge bar by 200 ms so fast calls complete without flashing.
 let calling = 0;
-let spinnerTimer = null;
+const busyRegions = new Set();
 function showSpinner(on) {
-  const ring = $("spinner");
-  if (on) ring.classList.add("on");
-  else ring.classList.remove("on");
+  const header = document.querySelector?.("#app > header");
+  const active = document.querySelector?.("section[data-page]:not([hidden])");
+  if (on) {
+    if (header?.dataset) header.dataset.loading = "true";
+    if (active) {
+      if (active.dataset) active.dataset.loading = "true";
+      active.setAttribute?.("aria-busy", "true");
+      busyRegions.add(active);
+    }
+    return;
+  }
+  if (header?.dataset) delete header.dataset.loading;
+  for (const region of busyRegions) {
+    if (region.dataset) delete region.dataset.loading;
+    region.setAttribute?.("aria-busy", "false");
+  }
+  busyRegions.clear();
 }
 
 async function call(path, options = {}) {
   const { spinner = true, ...fetchOptions } = options;
   if (spinner) {
     calling += 1;
-    if (calling === 1) spinnerTimer = setTimeout(() => showSpinner(true), 300);
+    showSpinner(true);
   }
   try {
     let response;
@@ -423,10 +487,7 @@ async function call(path, options = {}) {
   } finally {
     if (spinner) {
       calling -= 1;
-      if (!calling) {
-        clearTimeout(spinnerTimer);
-        showSpinner(false);
-      }
+      if (!calling) showSpinner(false);
     }
   }
 }
@@ -526,7 +587,7 @@ function renderStatusCard(status) {
     : t("catalog.no_schedule_text");
   const label = rebuilding ? t("catalog.rebuild.running_title") : t("catalog.rebuild.start_title");
   $("card-health").innerHTML =
-    `<span class="dot${status.healthy ? "" : " off"}"></span>${status.healthy ? t("state.healthy_text") : t("state.down_text")}`;
+    `<span class="dot${status.healthy ? "" : " off"}" aria-hidden="true"></span>${status.healthy ? t("state.healthy_text") : t("state.down_text")}`;
   const affinity = status.affinity;
   const affinityLine = affinity?.mode && affinity.mode !== "none"
     ? line(t("common.affinity_label"), affinity.mode === "race"
@@ -790,7 +851,10 @@ function openChain(at) {
     ${raceNote(found)}${chainSteps(found)}
   </div>`;
   const dialog = $("chain-modal");
-  if (!dialog.open) dialog.showModal();
+  if (!dialog.open) {
+    rememberModalTrigger(dialog);
+    dialog.showModal();
+  }
 }
 
 // Put the fallback count in the chain details. Display only the count for live rows.
@@ -970,7 +1034,7 @@ function renderLive() {
   // Animate only new rows when the live group is redrawn.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell(t("request.column.time_column"), `<span class="pulse"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time_column"), `<span class="pulse" aria-hidden="true"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
@@ -1132,7 +1196,16 @@ function loadMoreRequests() {
     state.requestLoading = true;
     state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
     state.requestShown = shown + REQUESTS_PAGE;
-    Promise.resolve(guarded(refreshFast)).finally(() => {
+    const cachedKey = requestPageKey(state.requestLimit);
+    const task = cachedKey && requestPages.has(cachedKey)
+      ? fetchRequestPage(state.requestLimit, false).then((rows) => {
+          state.requests = splitRequests(rows);
+          state.requestFetched = rows.length;
+          renderRequestTable();
+          renderOverview();
+        })
+      : refreshFast();
+    Promise.resolve(guarded(() => task)).finally(() => {
       state.requestLoading = false;
       queueRequestsFill();
     });
@@ -1421,6 +1494,7 @@ function openModelModal(m) {
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
     + (use ? `<h4>${t("model.detail.use_title")}</h4><div class="model-stats">${use}</div>` : "")
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
+  rememberModalTrigger($("model-modal"));
   $("model-modal").showModal();
 }
 // Mix red at 0, orange at 0.5, and blue at 1.
@@ -2112,10 +2186,14 @@ async function runHooksUpdate() {
   }
 }
 
-function dropHookSource() {
+async function dropHookSource() {
   const sources = [...listValue("hooks", "sources")];
   if (!sources.length) return;
-  sources.splice(Math.min(state.hooksSource ?? 0, sources.length - 1), 1);
+  const index = Math.min(state.hooksSource ?? 0, sources.length - 1);
+  const entry = sources[index];
+  const selected = typeof entry === "string" ? entry : [entry?.repo, entry?.path].filter(Boolean).join("/");
+  if (!(await ask(t("dialog.delete_entry.title"), t("hook.action.delete_source_title", { name: selected }), t("action.delete_button"), true))) return;
+  sources.splice(index, 1);
   setListValue("hooks", "sources", sources);
   state.hooksSource = 0;
   renderSettings();
@@ -3628,14 +3706,17 @@ function renderSettingsSave() {
   if (cardSave) cardSave.disabled = !yaml || !settingsDirty();
 }
 
-async function loadSettings({ render = true } = {}) {
-  state.settings = await call("settings");
+async function loadSettings({ render = true, fresh = false } = {}) {
+  const known = state.settings;
+  const next = await call("settings");
+  const changed = rememberJson("settings", next, fresh);
+  state.settings = next;
   state.settings.lists = {};
   renderLegend();
   applyTheme(setting("personalization", "theme"));
   applyTimeFormat(setting("personalization", "time_format"));
-  // Keep saved switch nodes in place so their knob and row transitions finish smoothly.
-  if (render) renderSettings();
+  // Keep saved switch nodes in place, and skip redraws when the cached answer matches.
+  if (render && (!known || changed)) renderSettings();
 }
 
 // A selection sets the view of the page. Unsaved changes of the other view go after a confirmation.
@@ -3672,7 +3753,7 @@ async function saveSettings(keepForm = false) {
   renderSettingsSave();
 }
 
-async function refreshFast() {
+async function refreshFast({ fresh = false } = {}) {
   // Keep the last values after a failed call and mark the page state.
   const [answer, rows] = await Promise.allSettled([
     call("status"),
@@ -3681,20 +3762,34 @@ async function refreshFast() {
   for (const part of [answer, rows]) {
     if (part.status === "rejected" && part.reason instanceof LoggedOut) throw part.reason;
   }
+  let dirtyOverview = false;
   if (answer.status === "rejected") setStateKnown(false);
   else {
     const status = answer.value;
     // After a rebuild, the pools and models change too.
-    if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(refreshSlow);
+    if (state.catalog.rebuilding && !status.catalog?.rebuilding) guarded(() => refreshSlow({ fresh: true }));
     state.catalog = status.catalog || {};
-    renderStatus(status);
+    if (rememberJson("status", status, fresh) || stateKnown !== true) {
+      renderStatus(status);
+      dirtyOverview = true;
+    }
   }
   if (rows.status === "fulfilled") {
-    state.requests = splitRequests(rows.value);
-    state.requestFetched = rows.value.length;
-    renderRequestTable();
+    const split = splitRequests(rows.value);
+    const nextKey = requestPageKey(state.requestLimit, split);
+    if (nextKey) {
+      if (requestPages.size >= REQUEST_PAGES) requestPages.delete(requestPages.keys().next().value);
+      requestPages.set(nextKey, rows.value);
+    }
+    const hadSkeleton = Boolean($("requests")?.innerHTML?.includes("skeleton"));
+    if (rememberJson("requests", rows.value, fresh) || hadSkeleton) {
+      state.requests = split;
+      state.requestFetched = rows.value.length;
+      renderRequestTable();
+      dirtyOverview = true;
+    }
   }
-  renderOverview();
+  if (dirtyOverview) renderOverview();
 }
 
 // The Limits page: the balances of the provider keys, and the last rate-limit headers of each model.
@@ -3993,6 +4088,7 @@ function openDiffModal(event) {
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
     : none(t("model.diff.empty_text"));
+  rememberModalTrigger($("model-modal"));
   $("model-modal").showModal();
 }
 
@@ -4113,7 +4209,7 @@ function maintenanceCard() {
   return `<div class="card" data-section="maintenance" id="update-card">${body}</div>`;
 }
 
-async function refreshSlow() {
+async function refreshSlow({ fresh = false } = {}) {
   const [pools, models, limits, notifications] = await Promise.all([
     call("pools"),
     call("models"),
@@ -4121,18 +4217,23 @@ async function refreshSlow() {
     call("notifications"),
     refreshKeys(),
   ]);
+  const poolsChanged = rememberJson("pools", pools, fresh);
+  const hadSkeleton = Boolean($("models")?.innerHTML?.includes("skeleton"));
+  const modelsChanged = rememberJson("models", models, fresh) || hadSkeleton;
+  const limitsChanged = rememberJson("limits", limits, fresh);
+  const notesChanged = rememberJson("notifications", notifications, fresh);
   state.pools = pools;
   state.models = models;
-  renderLimits(limits);
-  renderNotifications(notifications);
-  renderPools(pools);
-  renderModels();
-  renderOverview();
+  if (limitsChanged) renderLimits(limits);
+  if (notesChanged) renderNotifications(notifications);
+  if (poolsChanged || modelsChanged) renderPools(pools);
+  if (modelsChanged) renderModels();
+  if (poolsChanged || modelsChanged || limitsChanged || notesChanged) renderOverview();
 }
 
 function refresh() {
-  guarded(refreshFast);
-  guarded(refreshSlow);
+  guarded(() => refreshFast({ fresh: true }));
+  guarded(() => refreshSlow({ fresh: true }));
 }
 
 async function start() {
@@ -4141,6 +4242,7 @@ async function start() {
   // Load settings before tables to apply the time format.
   await loadSettings();
   await loadLegend();
+  await document.fonts?.ready;
   // Display the page before the first state response.
   $("login").hidden = true;
   $("app").hidden = false;
@@ -4234,7 +4336,7 @@ $("settings").addEventListener("click", async (event) => {
   if (!event.target.closest("#reset-weights")) return;
   const message = $("reset-message");
   message.textContent = "";
-  const go = await ask(t("dialog.reset.title"), "", t("action.reset_button"), true);
+  const go = await ask(t("dialog.reset.title"), t("dialog.reset.message"), t("action.reset_button"), true);
   if (!go) return;
   try {
     await call("reset", { method: "POST" });
@@ -4658,6 +4760,7 @@ function showPage() {
       section.classList.add("enter");
     }
   });
+  if (calling > 0) showSpinner(true);
   document.querySelectorAll("#nav a").forEach((link) => {
     const on = link.dataset.page === page;
     link.classList.toggle("on", on);
@@ -4670,6 +4773,9 @@ function showPage() {
   markNavEdges();
   // Render before selecting the section to preserve its phone back animation classes.
   if (page === "settings" && state.settings) renderSettings();
+  if (page === "settings" && state.settings && changed && state.timers.length && !settingsDirty()) {
+    guarded(() => loadSettings());
+  }
   applySectionHash();
   slideAgain();
   document.title = t("page.title", { page: PAGE_LABELS[page] });
@@ -4797,7 +4903,7 @@ $("provider-form").addEventListener("input", (event) => {
 });
 bindValueRows($("provider-form"), () => saveForm());
 bindValueRows($("settings"), () => saveSettings());
-$("provider-form").addEventListener("click", (event) => {
+$("provider-form").addEventListener("click", async (event) => {
   if (event.target.closest("#drop-provider")) return deleteProviderFile();
   const view = event.target.closest("[data-provider-section]");
   if (view) return selectProviderSection(view.dataset.providerSection);
@@ -4807,8 +4913,13 @@ $("provider-form").addEventListener("click", (event) => {
   if (event.target.closest("#yaml-save")) return saveYaml();
   const drop = event.target.closest("[data-drop]");
   if (drop) {
+    const path = JSON.parse(drop.dataset.drop);
+    const parent = path.slice(0, -1).reduce((node, key) => node?.[key], state.forms[state.file]);
+    const last = path[path.length - 1];
+    const item = Array.isArray(parent) ? String(parent[last] ?? last) : String(last);
+    if (!(await confirmDeleteEntry(item))) return;
     state.writeAnchor = anchorOf(drop);
-    return dropAt(JSON.parse(drop.dataset.drop));
+    return dropAt(path);
   }
   const add = event.target.closest("[data-add]");
   if (add) {
@@ -4861,7 +4972,7 @@ async function addProviderValue(button) {
 $("provider-form").addEventListener("input", (event) => {
   if (event.target.dataset.set) setText(event.target);
 });
-$("provider-form").addEventListener("click", (event) => {
+$("provider-form").addEventListener("click", async (event) => {
   const add = event.target.closest("[data-form-hook-add]");
   if (add) {
     const [path] = JSON.parse(add.dataset.formHookAdd);
@@ -4873,6 +4984,11 @@ $("provider-form").addEventListener("click", (event) => {
   if (drop) {
     const parts = JSON.parse(drop.dataset.formHookDrop);
     const index = parts.pop();
+    const entry = formHookList(parts)[index];
+    const item = entry && typeof entry === "object"
+      ? [Object.keys(entry)[0], Object.values(entry)[0]].filter(Boolean).join(": ")
+      : String(entry ?? index);
+    if (!(await confirmDeleteEntry(item))) return;
     formHookList(parts).splice(index, 1);
     renderCard(parts[0]);
     return saveForm();
@@ -4946,8 +5062,12 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {
+    const path = JSON.parse(drop.dataset.settingDrop);
+    const [group, key, index] = path;
+    const item = String(listValue(group, key)[index] ?? key);
+    if (!(await confirmDeleteEntry(item))) return;
     state.writeAnchor = anchorOf(drop);
-    return dropSetting(JSON.parse(drop.dataset.settingDrop));
+    return dropSetting(path);
   }
   const add = event.target.closest("[data-setting-add]");
   if (add) {
@@ -5012,23 +5132,28 @@ $("modal-input").addEventListener("keydown", (event) => {
   $("modal-ok").click();
 });
 
-// Close on a backdrop click outside the dialog bounds, not on clicks inside the box.
-// Escape closes the dialog without this handler.
-$("modal").addEventListener("click", (event) => {
-  const dialog = event.currentTarget;
-  if (event.target !== dialog) return;
-  const box = dialog.getBoundingClientRect();
-  const outside = event.clientX < box.left || event.clientX > box.right
-    || event.clientY < box.top || event.clientY > box.bottom;
-  if (outside) dialog.close("cancel");
-});
+// Close on backdrop clicks outside dialog bounds, and restore trigger focus on close.
+for (const [id, cancelValue] of [["modal", "cancel"], ["chain-modal", "close"], ["model-modal", "close"]]) {
+  $(id)?.addEventListener("click", (event) => {
+    const dialog = event.currentTarget;
+    if (event.target !== dialog) return;
+    const box = dialog.getBoundingClientRect();
+    const outside = event.clientX < box.left || event.clientX > box.right
+      || event.clientY < box.top || event.clientY > box.bottom;
+    if (outside) dialog.close(cancelValue);
+  });
+}
 
 // Confirm, Cancel, Escape, and backdrop clicks close the dialog.
 $("modal").addEventListener("close", (event) => {
+  restoreModalTrigger(event.currentTarget);
   const done = globalThis.__settle;
   globalThis.__settle = null;
   done?.(event.target.returnValue === "ok");
 });
+for (const id of ["chain-modal", "model-modal"]) {
+  $(id)?.addEventListener("close", (event) => restoreModalTrigger(event.currentTarget));
+}
 
 applyLocale();
 renderLegend();

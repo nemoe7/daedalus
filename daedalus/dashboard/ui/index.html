@@ -13,32 +13,41 @@
 <body>
 <dialog id="modal" class="modal" aria-labelledby="modal-title">
   <form method="dialog">
-    <h3 id="modal-title"></h3>
+    <div class="modal-head">
+      <h3 id="modal-title"></h3>
+      <button class="ghost modal-close" type="submit" value="cancel" formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+    </div>
     <p id="modal-message"></p>
     <label class="modal-field" id="modal-choice-field" hidden><select id="modal-choice" aria-label="provider.key.label" data-i18n-aria-label="provider.key.label"></select></label>
     <label class="modal-field" id="modal-field" hidden><input id="modal-input" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.name_label" data-i18n-aria-label="dialog.name_label"></label>
     <label class="modal-field" id="modal-field2" hidden><input id="modal-input2" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.value_label" data-i18n-aria-label="dialog.value_label"></label>
     <div class="modal-actions">
-      <button class="ghost" type="submit" value="cancel" formnovalidate data-i18n="action.cancel_button">action.cancel_button</button>
+      <button class="ghost" type="submit" value="cancel" id="modal-cancel" formnovalidate data-i18n="action.cancel_button">action.cancel_button</button>
       <button class="primary" type="submit" id="modal-ok" value="ok"></button>
     </div>
   </form>
 </dialog>
 <dialog id="chain-modal" class="modal chain-modal" aria-labelledby="chain-modal-title">
   <form method="dialog">
-    <h3 id="chain-modal-title"></h3>
+    <div class="modal-head">
+      <h3 id="chain-modal-title"></h3>
+      <button class="ghost modal-close" type="submit" value="close" formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+    </div>
     <div id="chain-modal-body"></div>
     <div class="modal-actions">
-      <button class="ghost" type="submit" value="close" data-i18n="action.close_button">action.close_button</button>
+      <button class="ghost" type="submit" value="close" autofocus data-i18n="action.close_button">action.close_button</button>
     </div>
   </form>
 </dialog>
 <dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">
   <form method="dialog">
-    <h3 id="model-modal-title"></h3>
+    <div class="modal-head">
+      <h3 id="model-modal-title"></h3>
+      <button class="ghost modal-close" type="submit" value="close" formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg></button>
+    </div>
     <div id="model-modal-body"></div>
     <div class="modal-actions">
-      <button class="ghost" type="submit" value="close" data-i18n="action.close_button">action.close_button</button>
+      <button class="ghost" type="submit" value="close" autofocus data-i18n="action.close_button">action.close_button</button>
     </div>
   </form>
 </dialog>
@@ -57,7 +66,6 @@
     </nav>
     </div>
     <div class="chips">
-      <span class="spinner" id="spinner" aria-hidden="true"></span>
       <span id="status" class="chips" data-status></span>
       <button class="ghost logout" type="button" id="logout" data-i18n="action.logout_button">action.logout_button</button>
     </div>

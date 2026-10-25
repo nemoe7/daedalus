@@ -58,6 +58,8 @@ globalThis.DAEDALUS_LOCALE = {
   "common.sessions_label": "Sessions",
   "dialog.client_key.message": "Route a specific client to a specific key",
   "dialog.client_key.title": "Client key",
+  "dialog.delete_entry.message": "Delete \"{name}\"?",
+  "dialog.delete_entry.title": "Delete entry",
   "dialog.delete_file.message": "Delete provider \"{name}\"?\n\nIts models stay until a catalog rebuild.",
   "dialog.delete_file.title": "Delete provider",
   "dialog.delete_hook.message": "Delete \"{name}\" hook?",

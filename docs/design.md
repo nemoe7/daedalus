@@ -52,6 +52,7 @@ The visual direction matches the operational tooling domain:
 | `--field` | `#f7f7f9` | `#1f1f1f` | Input, select, search, and code block fill |
 | `--line` | `#e5e5e7` | `#353535` | Hairline border and row divider token |
 | `--control-line` | `#b3b3b3` | `#565656` | Interactive control border token |
+| `--scrollbar-thumb` | `#c8c8d0` | `#302e2c` | `10px` rounded scrollbar thumb token |
 
 ### Text and Accent Tokens
 
@@ -129,8 +130,8 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 4. **Filter Toolbar (`.toolbar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, and `#request-clear`.
 5. **Requests Table and Code Legend (`table.requests`, `.code-legend`)**: 11-column log table paired with a `260px` reference card for routing transition codes (`ctx`, `hlt`, `lmt`, `err`).
 6. **Settings Shell (`.settings-shell`, `.settings-menu`, `.setting-row`)**: 4 grouped category cards (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load the right-hand editor pane. Desktop rail and single-line pane rows use a `40px` height (`44px` below `900px`).
-7. **Token Chip Editor (`.chips`, `.chip`, `.chip-add`)**: Inline keyword tag list for `routing.escalation` and `routing.switch` with 1-click removal (`×`) and modal addition (`+ Add`).
-8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays (`border-radius: 10px`, `border: 1px solid var(--line)`) for setting values, fallback chains, and model details.
+7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
+8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog has a top-right `x` button, bottom-right actions, `Cancel` autofocus on confirmations, and focus return on `close`.
 
 ## 8. Motion, Interaction, and States
 
@@ -142,15 +143,28 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 
 Transitions apply only to `background-color`, `border-color`, `color`, `opacity`, and `transform`. Layout properties (`width`, `height`, `padding`, `margin`) never animate.
 
+### Applied `nuu` Recipes
+
+| Recipe | Surface / Selector | Behavior |
+| --- | --- | --- |
+| `offline-fonts` | `index.html`, `@font-face`, `start()` | Preloads bundled WOFF2 fonts with `crossorigin`, pairs `font-display: block` with metric-matched fallbacks, and awaits `document.fonts?.ready` before revealing `#app`. |
+| `scrollbars` | `::-webkit-scrollbar`, `@supports not selector(::-webkit-scrollbar)` | Styles a `10px` scrollbar with an `8px` rounded `--scrollbar-thumb` (`#c8c8d0` light, `#302e2c` dark) on `var(--bg)`, hides arrow buttons, and scopes `scrollbar-width: thin` to non-WebKit engines. |
+| `loading-bar` | `header::after`, `section[data-page][data-loading="true"]` | Anchors a `2px` bottom-edge `scaleX` bar on `header` after a `200ms` delay (`0.45` static opacity under reduced motion) and sets `aria-busy` in `finally`. |
+| `page-memory` | `state.memory`, `requestPages`, `loadSettings()` | Paints cached views immediately, keys request slices on catalog and head version, and skips DOM redraws when fresh JSON matches memory. |
+| `live-dot` | `.pulse`, `tr.live-row` | Renders a `6px` amber (`var(--orange)`) `aria-hidden="true"` dot with a `1.4s` pulse and zero dimension shift. |
+| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a top-right `x` button, restores trigger focus on `close`, focuses `Cancel` on confirmations, and gates deletions with a modal. |
+| `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-end`, `.floating-info-tip` | Applies `12px` / `192px` scroll-driven masks (bottom-only below sticky headers) and viewport-clamped `position: fixed` tooltips (`min(320px, calc(100vw - 16px))`). |
+
 ### Interactive States
 
 | State | Visual Treatment | Selector / Trigger |
 | --- | --- | --- |
 | Default | Surface `var(--panel)` or `var(--field)`, border `1px solid var(--line)` | All interactive controls |
 | Hover | Subtle surface shift (`color-mix(in srgb, var(--text) 5%, transparent)`) | `.tabs a:hover`, `tr[data-chain-at]:hover`, `.setting-row:hover` |
-| Focus-visible | `outline: 2px solid var(--accent)`, `outline-offset: 2px` | `:focus-visible` across links, buttons, inputs, and clickable rows |
+| Focus-visible | `outline: 2px solid var(--accent-text)`, `outline-offset: 2px` (keyboard only) | `:focus-visible` under `:root[data-keyboard-nav="true"]` |
 | Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: color-mix(in srgb, var(--accent) 14%, transparent)` | `.tabs a.on`, `.settings-menu button.on` |
 | Pressed toggle | `border-color: var(--accent)`, `color: var(--accent-text)` | `#live-toggle[aria-pressed="true"]` |
+| Loading | `2px` delayed `header::after` edge bar and `aria-busy="true"` on active `section[data-page]` | `call()` when `spinner !== false` |
 | Disabled | `opacity: .45`, `cursor: not-allowed` | `:disabled` buttons and inputs |
 | Empty state | Muted helper copy (`color: var(--muted)`, `padding: 14px 16px`) inside `.panel` | `#requests-empty`, `#notifications-empty`, `#overview-requests` |
 
@@ -172,12 +186,13 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 2. **No hardcoded colors outside `:root`**: Every color in `style.css` and `app.js` references a CSS custom property. Light (`:root`) and dark (`:root[data-theme="dark"]`) schemes stay in sync.
 3. **No unclickable log rows with hidden errors**: Every request row with fallback attempts or an upstream error sets `data-chain-at`, `tabindex="0"`, and `role="button"`. Keyboard and pointer users can open `#chain-modal`.
 4. **No decorative charts or sparklines**: Use tabular numerals and horizontal `.bar` fills instead of multi-axis charts or circular gauges.
-5. **No custom scrollbars or layout shifts on poll**: Periodic `refreshFast` and `refreshSlow` polls update DOM text and attributes in place without resetting scroll position or dialog state.
+5. **No layout shifts or state resets on poll**: Style scrollbars with the `10px` rounded `--scrollbar-thumb` recipe on `var(--bg)` without arrow buttons. Skip DOM redraws on unchanged poll responses so scroll position and dialog state stay intact.
 
 ## 11. Design Revision Log
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-25 | Applied `nuu` `scrollbars`, `loading-bar`, `page-memory`, `live-dot`, `modal-manager` (top-right `x`, trigger focus return, delete confirmations), `offline-fonts`, and tooltip anti-clipping recipes. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Adopted `nuu` house breakpoints (`75em`, `60em`, `40em`, `30em`) and `24h`/`12h` time formatting, fixed `.rail` overlap and `.rail-search` focus, folded `Requests` at `60em`, and stretched `Limits` full width at `<= 60em`. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Auto-loaded older `Requests` rows on scroll, adopted `nuu` full and mobile-abbreviated relative timestamps, and added `Settings` content/key search highlights. | `Overview`, `Requests`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Set `--radius` to `10px`, card padding to `16px`/`8px`, and desktop `Settings` rows to `40px` (`44px` mobile). Removed the mobile `Limits` check-stack cap. | `Overview`, `Limits`, `Settings`, `Providers` (`daedalus/dashboard/ui/style.css`, `docs/design/`, `docs/images/`) | [Component Visual Catalog](design-visuals/components.md), [Foundation Style Reference](design-visuals/styles.md) |
