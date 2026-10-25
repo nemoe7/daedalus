@@ -176,7 +176,7 @@ jobs:
           tags: |
             type=raw,value=dev
             type=raw,value=${{ steps.dev.outputs.version }}
-      # A digest only: the merge job puts the dev tags on the manifest list.
+      # A digest only: the merge job puts dev tags on the manifest list.
       - id: build
         uses: docker/build-push-action@v7.4.0
         with:
@@ -452,7 +452,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.release.outputs.tag }}
             type=raw,value=latest
-      # A digest only: the merge job puts the release tags on the manifest list.
+      # A digest only: the merge job puts release tags on the manifest list.
       - id: build
         uses: docker/build-push-action@v7.4.0
         with:

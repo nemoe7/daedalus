@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   review:
-    name: Review the pull request
+    name: Review the PR
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-24.04
     timeout-minutes: 10

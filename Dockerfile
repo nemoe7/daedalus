@@ -22,12 +22,12 @@ RUN --mount=from=ghcr.io/astral-sh/uv:0.13.5,source=/uv,target=/bin/uv \
   && chown daedalus .daedalus-state \
   && chown -R daedalus hooks
 
-# The version under the logo: the v* tag, or dev-COMMIT from install --dev.
+# Version under the logo: a v* tag, or dev-COMMIT from install --dev.
 ARG VERSION=dev
 ENV DAEDALUS_VERSION=$VERSION
 USER daedalus
 EXPOSE 3357
-# The first start can build the catalog before the server listens, so the start period is long.
+# First start can build the catalog before the server listens, using a long start period.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
   CMD ["python", "-c", "import os, urllib.request; urllib.request.urlopen('http://127.0.0.1:' + os.environ.get('DAEDALUS_PORT', '3357') + '/health', timeout=4)"]
 CMD ["daedalus", "serve"]
