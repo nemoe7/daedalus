@@ -104,20 +104,20 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 
 ### Shell and Container
 
-- **Root container (`#app`)**: `max-width: 1280px`, centered (`margin: 0 auto`), with `padding: 0 24px 48px` on desktop and `padding: 0 14px 32px` below `860px`.
-- **Top bar (`.top`)**: Sticky header (`padding: 14px 0`, `border-bottom: 1px solid var(--line)`) containing `.brand` on the left, `.tabs` navigation in the center, and `#logout` on the right.
-- **View switching**: Only `section.page.on` renders (`display: block`), while inactive views use `display: none`. The header tab (`aria-current="page"`) names the active view without a redundant `<h1>` title block.
+- **Root container (`#app`)**: Full-viewport column (`100dvh`) with centered `main` (`padding-inline: max(32px, calc((100% - 1116px) / 2))` on desktop, `16px` at `<= 40em`).
+- **Top bar (`header`)**: Sticky header (`border-bottom: 1px solid var(--line)`) with `.brand` left, `.tabs` centered, and `#status` plus `#logout` right (`#status` hides at `<= 75em`).
+- **View switching**: Only the active `section[data-page]` is visible (`hidden` removed). The header tab (`aria-current="page"`) names the active view without a redundant `<h1>` title block.
 
 ### View Grids
 
-| View | Route (`data-page`) | Desktop Grid (`>= 860px`) | Focal Point |
+| View | Route (`data-page`) | Desktop Grid (`> 60em`) | Focal Point |
 | --- | --- | --- | --- |
-| Overview | `overview` | 4-column `.stats` strip (`gap: 12px`) above a 2-column `.split` (`1.05fr 1fr`, `gap: 16px`) | Top-left `.stat` card (`In flight now`) and `.health-head` status banner |
-| Requests | `requests` | `.toolbar` filter bar above `.requests-layout` (`1fr 260px`, `gap: 14px`) | Live request table (`table.requests`) with sticky right `.code-legend` |
-| Models | `models` | `.toolbar` filter bar above stacked provider panels (`.panel.provider-card`) | Search input (`#model-search`) and pool summary rows |
-| Limits | `limits` | Single-column `.panel` (`#limits-list`) with 3-column quota rows (`minmax(180px, 1.2fr) 2fr auto`) | Lowest remaining quota progress bar |
-| Notifications | `notifications` | Single-column `.panel` (`#notifications-list`) with action toolbar | Unread or recent provider and router event rows |
-| Settings | `settings` | 2-column `.settings-shell` (`220px 1fr`, `gap: 20px`) with grouped left `.settings-menu` and right `.settings-pane` | Active settings category card (`#settings-pane`) |
+| Overview | `overview` | 4-column `.kpis` strip above a 2-column `.flow` (`gap: 16px`) | Top-left `.kpi` card (`In flight now`) and `.status-card` health row |
+| Requests | `requests` | `.requests-bar` filter bar above 2-column `.flow` (`table.requests` + `260px` `.legend`) | Live request table (`table.requests`) with right `.legend` |
+| Models | `models` | `.pools` strip above `.panel` with sticky `.toolbar` and `table.models` | Search input (`#search`) and pool summary cards |
+| Limits | `limits` | `.editbar` above 2-column `.flow` (`table.limits` + `260px` `#balances`) | Lowest remaining quota progress bar |
+| Notifications | `notifications` | Single-column `.notification-feed` card | Recent provider reset, limit, and catalog rebuild rows |
+| Settings | `settings` | 2-column `.settings` (`240px` `.rail` with `minmax(0, 1fr)` track + `.section-pane`) | Active settings category card in `.section-pane` |
 
 ## 7. Core Functional and Domain Components
 
@@ -156,13 +156,15 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 ## 9. Responsive and Adaptive Design
 
-`daedalus/dashboard/ui/style.css` adapts the console across 2 breakpoints:
+`daedalus/dashboard/ui/style.css` and `app.js` use the `nuu` house breakpoints (`75em`, `60em`, and `40em` width, plus `30em` landscape height):
 
-| Viewport Range | Shell Layout | Navigation | View Adjustments |
+| Breakpoint | Shell Layout | Navigation | View Adjustments |
 | --- | --- | --- | --- |
-| Desktop (`> 860px`) | `#app` `max-width: 1280px`, `padding: 0 24px 48px` | Single-row `.top` bar with inline `.tabs` | 4-column `.stats`, 2-column `.split`, 2-column `.requests-layout`, 2-column `.settings-shell` |
-| Tablet and Mobile (`<= 860px`) | `#app` `padding: 0 14px 32px` | `.top` wraps `.tabs` into a scrollable strip (`order: 3`, `overflow-x: auto`) | 2x2 `.stats`, 1-column `.split` and `.requests-layout`, 5-column `table.requests`, and drill-down `.settings-shell` |
-| Narrow Mobile (`<= 520px`) | `#app` `padding: 0 12px 28px` | Scrollable `.tabs` strip with compact padding | `.limit-row` stacks label, bar, and counter vertically |
+| Wide Desktop (`> 75em` / `> 1200px`) | Full-width `header` and centered `main` (`32px` min gutter) | Single-row header with `.tabs` and `#status` chips | 4-column `.kpis`, 2-column `Requests`, `Limits`, and `Settings` (`240px` `.rail`) |
+| Narrow Desktop (`<= 75em` / `<= 1200px`) | Centered `main` (`32px` min gutter) | `#status` hides so `.tabs` stay on 1 row | Keeps 2-column desktop layouts above `60em` |
+| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | Header stacks `.tabs` into a scrollable strip | `2x2` `.kpis`, `Requests` folds to cards, `Limits` stacks `100%` wide, and `Settings` uses drill-down (`44px` touch floor) |
+| Phone (`<= 40em` / `<= 640px`) | `16px` gutter and `76px` bottom clearance | Scrollable `.tabs` strip with `44px` targets | Horizontal `.pools` strip, `Models` / `Keys` / `Limits` fold to cards, `.model-stats` and `#balances` use 1 column, and timestamps use `nuu` compact units |
+| Landscape Short Height (`max-height: 30em` / `<= 480px`) | Outer `main` scroll unlocked | Compact header and `16px` `.login` top offset | `Settings`, `Providers`, `Requests`, and `Limits` scroll in `main`, and `.modal` caps height at `calc(100dvh - 32px)` |
 
 ## 10. Anti-Patterns and Guardrails
 
@@ -176,6 +178,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-25 | Adopted `nuu` house breakpoints (`75em`, `60em`, `40em`, `30em`) and `24h`/`12h` time formatting, fixed `.rail` overlap and `.rail-search` focus, folded `Requests` at `60em`, and stretched `Limits` full width at `<= 60em`. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Auto-loaded older `Requests` rows on scroll, adopted `nuu` full and mobile-abbreviated relative timestamps, and added `Settings` content/key search highlights. | `Overview`, `Requests`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Set `--radius` to `10px`, card padding to `16px`/`8px`, and desktop `Settings` rows to `40px` (`44px` mobile). Removed the mobile `Limits` check-stack cap. | `Overview`, `Limits`, `Settings`, `Providers` (`daedalus/dashboard/ui/style.css`, `docs/design/`, `docs/images/`) | [Component Visual Catalog](design-visuals/components.md), [Foundation Style Reference](design-visuals/styles.md) |
 | 2026-10-25 | Suppressed pointer focus rings, inset clipped `:focus-visible` rings, stacked `Requests` `.legend` at `<= 960px`, and harmonized `Settings` tiles. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/style.css`, `app.js`, `docs/design/`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |

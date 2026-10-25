@@ -638,7 +638,7 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  base_css, mobile_css = css.split("@media (max-width: 720px) {", 1)
+  base_css, mobile_css = css.split("@media (max-width: 40em) {", 1)
   mobile_css = mobile_css.split("\n}", 1)[0]
   assert "th[data-sort] { cursor: pointer; }" in base_css
   assert ".models th { padding: 13px 8px; }" in mobile_css
@@ -799,7 +799,7 @@ def test_narrow_desktop_header_keeps_one_row() -> None:
   """Narrow-header CSS hides status without hiding the Overview card or changing its padding."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  base, rest = css.split("@media (max-width: 1320px) {", 1)
+  base, rest = css.split("@media (max-width: 75em) {", 1)
   narrow = rest.split("\n}", 1)[0]
   assert "#status { display: none; }" in narrow, "a narrow header drops the state"
   assert ".status-card { display: none" not in css, "the card shows at every width"
@@ -1365,7 +1365,7 @@ def test_phone_panels_clear_the_last_row() -> None:
   """Phone CSS adds bottom padding to the main area and panels."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  mobile = css.split("@media (max-width: 720px) {", 1)[1].split("\n}", 1)[0]
+  mobile = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
   assert "#app > main { padding-bottom: 76px; }" in mobile, "the screen bottom clears"
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
@@ -1419,7 +1419,7 @@ def test_the_phone_limits_row_keeps_every_field() -> None:
   assert '"limits.meta.seen_text"' in meta, "the last check reaches the phone line"
   assert 'class="limit-meta"' in app, "each row carries the phone line"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  phone = css.split("@media (max-width: 40em) {", 1)[1]
   assert ".limit-meta { display: none; }" in css, "the desk row hides the phone line"
   assert "#limit-rows .limit-meta { display: block;" in phone, (
     "the phone row shows the line"
@@ -1543,7 +1543,7 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
   assert ".notification-feed" in css and ".notification-item" in css, (
     "the shared card lays out notification rows"
   )
-  desk = css.split("@media (max-width: 720px) {", 1)[0]
+  desk = css.split("@media (max-width: 40em) {", 1)[0]
   for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", desk):
     if "#limit-rows" in selector:
       assert "padding" not in body, "Limits columns use the shared table cell padding"
@@ -1783,7 +1783,7 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
   assert ".field select { padding-block: 4px; }" in css, (
     "select controls match input control height inside 40px settings rows"
   )
-  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
+  narrow = css.rsplit("@media (max-width: 60em) {", 1)[1]
   assert ".sections button { min-height: 44px; }" in narrow, (
     "narrow viewports preserve the 44px touch target floor"
   )
@@ -2146,7 +2146,7 @@ def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
   """The Limits filter bar takes the table column width, and field names itself."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide-page layout block"
   assert 'section[data-page="limits"] > .editbar { width: calc(100% - 276px); }' in (
     wide.group(1)
@@ -2421,13 +2421,13 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
   """Narrow headers keep one row of links and scroll it without a hard cut."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
-    "@media (max-width: 900px) {\n  header { grid-template-columns: 1fr auto;" in css
+    "@media (max-width: 60em) {\n  header { grid-template-columns: 1fr auto;" in css
   )
   assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
   assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
   assert ".sections button { min-height: 44px; }" in css
   assert ".page-title" not in css
-  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
+  narrow = css.rsplit("@media (max-width: 60em) {", 1)[1]
   assert (
     'main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty))'
     " #settings > .section-pane > .pane-bar > .pane-title { display: none; }" in narrow
@@ -2452,9 +2452,9 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  base_css, mobile_css = css.split("@media (max-width: 720px) {", 1)
-  mobile_css = mobile_css.split("\n}", 1)[0]
-  narrow_css = css.split("@media (max-width: 360px) {", 1)[1].split("\n}", 1)[0]
+  base_css, rest_css = css.split("@media (max-width: 60em) {", 1)
+  mobile_css = rest_css.split("@media (max-width: 30em) {", 1)[0]
+  narrow_css = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert ".requests td.fallbacks-cell { display: none; }" in base_css, (
     "the desktop table reads the fallback count in the chain of the row"
   )
@@ -2868,7 +2868,7 @@ def test_limit_columns_stay_compact() -> None:
   model_cell = re.search(r"#limit-rows td\.name\s*\{([^}]*)\}", css)
   value = re.search(r"#limit-rows td\.name \.cell-value\s*\{([^}]*)\}", css)
   limit_cell = re.search(r"#limit-rows td:nth-child\(2\)\s*\{([^}]*)\}", css)
-  mobile_css = css.split("@media (max-width: 720px) {", 1)[1]
+  mobile_css = css.split("@media (max-width: 40em) {", 1)[1]
   mobile_weight = re.search(r"#limit-rows \.weight\.left\s*\{([^}]*)\}", mobile_css)
   assert model_cell and "white-space: normal" in model_cell.group(1)
   assert model_cell and "max-width: 0" in model_cell.group(1)
@@ -2888,8 +2888,9 @@ def test_a_tablet_puts_the_limit_cards_under_the_table() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   band = re.search(
-    r"@media \(min-width: 601px\) and \(max-width: 1000px\) \{([^@]*?)\n\}",
+    r"@media \(max-width: 60em\) \{(.*?)\n\}",
     css,
+    re.DOTALL,
   )
   assert band, "the tablet band sets its own limits layout"
   rules = band.group(1)
@@ -2915,7 +2916,7 @@ def test_requests_time_column_keeps_its_width() -> None:
   """Desktop request CSS gives model columns equal widths and leaves phones on grid layout."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  desktop = css.split("@media (min-width: 721px) {", 1)[1]
+  desktop = css.split("@media not (max-width: 60em) {", 1)[1].split("\n}", 1)[0]
   hint = re.search(
     r"\.requests tr:not\(\.chain\) > th, \.requests tr:not\(\.chain\) > td \{ width: 1%; \}",
     desktop,
@@ -2941,7 +2942,7 @@ def test_requests_time_column_keeps_its_width() -> None:
     ".requests td.status, .requests td:nth-child(n+8):nth-child(-n+11) { text-align: right; }"
     in css
   ), "status, token, and timing values align right while headers stay left"
-  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  phone = css.split("@media (max-width: 60em) {", 1)[1]
   assert (
     "display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto;"
     in phone
@@ -3092,7 +3093,7 @@ def test_the_requests_bar_keeps_its_line_on_a_filter_selection() -> None:
   """Desktop toolbar CSS prevents wrapping and lets the search field shrink."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  desktop = css.split("@media (min-width: 721px) {", 1)[1]
+  desktop = css.split("@media not (max-width: 60em) {", 1)[1].split("\n}", 1)[0]
   assert (
     'section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }' in desktop
   ), "the bar keeps 1 row"
@@ -3111,21 +3112,16 @@ def test_tablet_requests_filters_wrap_without_clipping() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  assert "@media (min-width: 721px) and (max-width: 900px) {" in css
-  assert 'section[data-page="requests"] .requests-bar { flex-wrap: wrap; }' in css
-  assert (
-    'section[data-page="requests"] .requests-bar input[type="search"] '
-    "{ flex: 1 1 100%; min-width: 0; }" in css
-  )
+  narrow = css.split("@media (max-width: 60em) {", 1)[1].split("\n}", 1)[0]
+  assert ".requests-bar {" in narrow and "flex-wrap: wrap;" in narrow
+  assert ".requests-bar input[type=search] { flex: 1 1 10rem; min-width: 0; }" in narrow
   assert (
     'section[data-page="requests"] .requests-bar #request-clear.off { display: none; }'
-    in css
+    in narrow
   )
-  assert "@media (min-width: 721px) and (max-width: 960px) {" in css
   assert ':root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; }' in css
   assert ".sections button, .notification-item," in css
   assert ".sections button:focus-visible, .notification-item:focus-visible," in css
-  narrow = css.rsplit("@media (max-width: 900px) {", 1)[1]
   assert ".limits-check-stack { max-height: none; margin-block: 0; }" in narrow
 
 
@@ -5612,7 +5608,7 @@ def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide section layout"
   pane = re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
   assert pane and "mask-image: linear-gradient(180deg, transparent 0," in pane.group(
@@ -5666,7 +5662,7 @@ def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  phone = re.search(r"@media \(max-width: 720px\) \{(.*?)\n\}", css, re.DOTALL)
+  phone = re.search(r"@media \(max-width: 40em\) \{(.*?)\n\}", css, re.DOTALL)
   assert phone, "the phone media query holds the bar rules"
   bar = re.search(
     r'section\[data-page="requests"\] \.requests-bar \{([^}]*)\}', phone.group(1)
@@ -5704,7 +5700,7 @@ def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide media query holds the still-header layout"
   rail = re.search(r"\.rail \{([^}]*)\}", wide.group(1))
   assert rail and "position: sticky" in rail.group(1), (
@@ -5718,7 +5714,7 @@ def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
 def test_wide_settings_and_providers_scroll_only_the_section_pane() -> None:
   """Wide section CSS assigns vertical overflow to the pane and disables outer scrolling."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
+  wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide section layout"
   body = wide.group(1)
   outer = re.search(
@@ -5769,7 +5765,7 @@ const bare = () => ({
   children: [], scrollWidth: 0, clientWidth: 0, scrollLeft: 0, querySelectorAll: () => [],
 });
 const sandbox = {
-  matchMedia: () => ({ matches: true, addEventListener: () => {} }),
+  matchMedia: () => ({ matches: false, addEventListener: () => {} }),
   innerHeight: 900,
   getComputedStyle: () => ({ paddingBottom: '28px' }),
   document: {
@@ -6370,7 +6366,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   """Phone CSS defines metric and card layouts, and tab code replaces history entries."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  phone = css.split("@media (max-width: 720px) {", 1)[1]
+  phone = css.split("@media (max-width: 40em) {", 1)[1]
   for rule in (
     ".kpis { grid-template-columns: 1fr 1fr;",
     ".models tr > td.name { grid-column: 1 / -1; max-width: none; }",
@@ -6572,9 +6568,10 @@ def test_the_model_modal_reads_as_a_card() -> None:
   )
   assert "min-height: 60px;" in css, "a floor holds the blocks at one height"
   assert "grid-template-columns: repeat(3, 1fr);" in css, "the blocks ride one row"
-  assert (
-    "@media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }" in css
-  ), "a narrow page folds them to one column, so no wrap leaves an orphan"
+  phone_stats = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
+  assert ".model-stats { grid-template-columns: 1fr; }" in phone_stats, (
+    "a narrow page folds them to one column, so no wrap leaves an orphan"
+  )
   assert "width: min(560px, calc(100vw - 32px));" in css, (
     "the modal keeps one width on every screen"
   )
@@ -6780,7 +6777,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   assert ".card.list { padding: 0; background: none; border: 0; }" in style, (
     "the drill list page keeps its rows flush and paints no card of its own"
   )
-  phone = style.split("@media (max-width: 900px) {", 1)[1]
+  phone = style.split("@media (max-width: 60em) {", 1)[1]
   assert '.sections button::after { content: "\\203a";' in phone, (
     "a phone row carries a chevron"
   )
@@ -7774,7 +7771,7 @@ const outside = node('search');
 const focus = { header: buttons[2], small, outside };
 sandbox.document.activeElement = focus[focused];
 sandbox.document.querySelectorAll = selector => selector === '#model-head th' ? heads : [];
-sandbox.matchMedia = query => ({ matches: query === '(max-width: 720px)' && phone,
+sandbox.matchMedia = query => ({ matches: query === '(max-width: 40em)' && phone,
   addEventListener() {} });
 probe.state.sort = { key: 'weight', dir: -1 };
 probe.renderSortHeads();
@@ -8241,7 +8238,7 @@ def test_new_provider_insets_focus_outline_and_keeps_mobile_touch_floor() -> Non
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert "#new-provider:focus-visible" in css
   narrow = "\n".join(
-    re.findall(r"@media \(max-width: 900px\) \{\n(.*?)\n\}\n", css, re.DOTALL)
+    re.findall(r"@media \(max-width: 60em\) \{\n(.*?)\n\}\n", css, re.DOTALL)
   )
   assert "#new-provider," in narrow
 
@@ -8532,3 +8529,29 @@ assert(node("keys").innerHTML.includes("2026-10-25 02:30:46 PM"));
 assert(node("chain-modal-body").innerHTML.includes("2026-10-25 02:30:46 PM"));
 """,
   )
+
+
+def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
+  """Dashboard CSS and JS use only nuu house breakpoints and keep rail/fold contracts."""
+  root = Path(__file__).resolve().parent.parent.parent
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  allowed = {"75em", "60em", "40em", "30em"}
+  media_re = re.compile(r"\(\s*(?:min|max)-(?:width|height)\s*:\s*([^)]+?)\s*\)")
+  css_breakpoints = set(media_re.findall(css))
+  js_breakpoints = set(media_re.findall(app))
+  assert css_breakpoints == allowed
+  assert js_breakpoints <= allowed
+  assert "(max-height: 30em)" in css
+  assert (
+    "grid-template-columns: minmax(0, 1fr);"
+    in css.partition(".rail {")[2].partition("}")[0]
+  )
+  assert ".rail-search input:focus-visible { outline: none" not in css
+  assert ':root[data-keyboard-nav="true"] .rail-search:has(input:focus-visible)' in css
+  tablet = css.split("@media (max-width: 60em) {", 1)[1].split("\n}", 1)[0]
+  assert (
+    'section[data-page="limits"] > .flow > .column.wide { flex: none; width: 100%; min-height: 0; }'
+    in tablet
+  )
+  assert ".requests tbody {" in tablet and "minmax(min(340px, 100%), 1fr)" in tablet

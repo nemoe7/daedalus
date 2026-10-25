@@ -65,7 +65,7 @@ const stamp = (seconds) => {
 const plural = (number, one, other, values = {}) =>
   t(number === 1 ? one : other, { count: number, ...values });
 
-const mobileTime = () => typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches;
+const mobileTime = () => typeof matchMedia === "function" && matchMedia("(max-width: 40em)").matches;
 
 // Format relative time with localized full and mobile abbreviated labels.
 function relative(seconds, { compact = mobileTime(), now = Date.now() } = {}) {
@@ -1085,7 +1085,7 @@ function requestMatches(r, { live = false } = {}) {
 }
 
 const activeRequestsScroller = () => (
-  matchMedia("(min-width: 961px)").matches
+  !matchMedia("(max-width: 60em)").matches
     ? document.querySelector('section[data-page="requests"] .panel:not(.editbar)')
     : document.querySelector("#app > main")
 );
@@ -1447,7 +1447,7 @@ function sortModels(rows) {
 }
 
 function syncSortFocus() {
-  const phone = matchMedia("(max-width: 720px)").matches;
+  const phone = matchMedia("(max-width: 40em)").matches;
   const heads = [...document.querySelectorAll("#model-head th")];
   const small = $("sort-small");
   heads.forEach((th) => { th.querySelector("button").tabIndex = phone ? -1 : 0; });
@@ -2581,7 +2581,7 @@ function selectSection(host, key, open = sectionState(host).open) {
 }
 
 // Store the phone section in the hash so the back gesture returns to the list.
-const phoneSection = () => matchMedia("(max-width: 900px)").matches;
+const phoneSection = () => matchMedia("(max-width: 60em)").matches;
 
 function setProviderRoute(file, provider = null, push = phoneSection()) {
   const [path, query] = location.hash.split("?");
@@ -4603,7 +4603,7 @@ function keepSettingsScroll(at) {
 }
 
 function fitSectionPane() {
-  const wide = matchMedia("(min-width: 901px)").matches;
+  const wide = !matchMedia("(max-width: 60em)").matches && !matchMedia("(max-height: 30em)").matches;
   const main = document.querySelector("main");
   for (const pane of document.querySelectorAll(".section-pane")) {
     if (!wide || !pane.offsetParent || !main) {
@@ -4704,8 +4704,10 @@ function refreshRelativeTimes() {
   tickSaveLine();
 }
 
-matchMedia("(max-width: 720px)").addEventListener("change", syncSortFocus);
-matchMedia("(max-width: 720px)").addEventListener("change", refreshRelativeTimes);
+matchMedia("(max-width: 40em)").addEventListener("change", syncSortFocus);
+matchMedia("(max-width: 40em)").addEventListener("change", refreshRelativeTimes);
+matchMedia("(max-width: 60em)").addEventListener("change", fitSectionPane);
+matchMedia("(max-height: 30em)").addEventListener("change", fitSectionPane);
 syncSortFocus();
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");

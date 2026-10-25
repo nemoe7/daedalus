@@ -324,3 +324,56 @@ test("time format defaults to 24h and updates stamps when switched to 12h in Set
   const twelveHourStamp = await page.locator("#notification-feed time").first().getAttribute("title");
   expect(twelveHourStamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (AM|PM)$/);
 });
+
+test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/640 folds hold", async ({ page }) => {
+  await open(page, "#/settings", 1280, 900);
+  const settingsBoxes = await page.evaluate(() => {
+    const rail = document.querySelector("#settings > .rail").getBoundingClientRect();
+    const pane = document.querySelector("#settings > .section-pane").getBoundingClientRect();
+    return { railRight: rail.right, railWidth: rail.width, paneLeft: pane.left };
+  });
+  expect(settingsBoxes.railWidth).toBeLessThanOrEqual(241);
+  expect(settingsBoxes.railRight).toBeLessThan(settingsBoxes.paneLeft);
+
+  await page.locator("#settings-search").click();
+  const pointerOutline = await page.evaluate(() => {
+    const drawn = (el) => {
+      const style = getComputedStyle(el);
+      return style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth) || 0;
+    };
+    return {
+      boxWidth: drawn(document.querySelector("#settings .rail-search")),
+      inputWidth: drawn(document.getElementById("settings-search")),
+    };
+  });
+  expect(pointerOutline).toEqual({ boxWidth: 0, inputWidth: 0 });
+
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  const keyOutline = await page.evaluate(() => {
+    const style = getComputedStyle(document.querySelector("#settings .rail-search"));
+    return style.outlineStyle === "none" ? 0 : parseFloat(style.outlineWidth) || 0;
+  });
+  expect(keyOutline).toBeGreaterThanOrEqual(2);
+
+  await open(page, "#/requests", 960, 900);
+  const requestsAt960 = await page.evaluate(() => {
+    const row = document.querySelector(".requests tr.request, .requests tr.live-row");
+    return {
+      rowDisplay: row ? getComputedStyle(row).display : "grid",
+      overflow: document.documentElement.scrollWidth - window.innerWidth,
+    };
+  });
+  expect(requestsAt960.rowDisplay).toBe("grid");
+  expect(requestsAt960.overflow).toBeLessThanOrEqual(1);
+
+  await open(page, "#/limits", 640, 900);
+  const limitsAt640 = await page.evaluate(() => {
+    const main = document.querySelector("#app > main");
+    const mainStyle = getComputedStyle(main);
+    const contentWidth = main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight);
+    const wide = document.querySelector('section[data-page="limits"] .column.wide').getBoundingClientRect();
+    return { contentWidth, wideWidth: wide.width };
+  });
+  expect(limitsAt640.wideWidth).toBeGreaterThanOrEqual(limitsAt640.contentWidth - 2);
+});

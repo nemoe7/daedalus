@@ -106,10 +106,6 @@ tr.live-row.arrive { animation: arrive var(--soft) var(--ease); }
    left. The class lands on a selection or a back only, so a render never replays it. */
 @keyframes slide-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 @keyframes slide-back { from { opacity: 0; transform: translateX(-14px); } to { opacity: 1; transform: none; } }
-@media (max-width: 900px) {
-  .section-pane.slide { animation: slide-in var(--soft) var(--ease); }
-  .sections.slide { animation: slide-back var(--soft) var(--ease); }
-}
 /* A call that runs longer than a blink spins a ring at the header right, so a slow answer reads
    as work. The seat keeps its width, so the ring comes and goes without moving the tabs. */
 .spinner {
@@ -346,12 +342,6 @@ section[data-page="models"] .toolbar {
   border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
   box-shadow: 0 -1px 0 0 var(--line), 0 -13px 0 1px var(--bg);
 }
-@media (min-width: 721px) {
-  section[data-page="models"] thead th {
-    position: sticky; top: 68px; z-index: 2; background: var(--panel);
-    border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line);
-  }
-}
 input {
   padding: 8px 12px; border-radius: 8px; border: 1px solid var(--control-line);
   background: var(--field); color: var(--text); font: inherit;
@@ -447,8 +437,6 @@ a.more:hover { color: var(--accent-text); }
 .model-id .value { min-width: 0; overflow-wrap: anywhere; }
 .model-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .model-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-/* A narrow page folds the three blocks to one column, so no wrap leaves an orphan. */
-@media (max-width: 479px) { .model-stats { grid-template-columns: 1fr; } }
 /* The floor holds the token blocks at the height of the weight block, which draws the only bar. */
 .model-stats .stat { display: grid; gap: 2px; min-height: 60px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
 .model-stats .track { margin-top: auto; }
@@ -459,69 +447,6 @@ a.more:hover { color: var(--accent-text); }
 .modal .primary.danger { background: var(--bad); }
 td.end { text-align: right; }
 .empty { padding: 24px 16px; color: var(--muted); text-align: center; }
-/* The Requests list scrolls inside its panel, so the head stays in view and the page never scrolls sideways.
-   A phone keeps the card list and the page scroll. */
-@media (min-width: 721px) {
-  main[data-page="requests"] { display: flex; flex-direction: column; overflow: hidden; }
-  main[data-page="requests"] > section[data-page="requests"] {
-    flex: 1; display: flex; flex-direction: column; min-height: 0;
-  }
-  /* nowrap keeps the height of the 2 columns at the height of the flow, so the table panel scrolls. */
-  section[data-page="requests"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
-  section[data-page="requests"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
-  section[data-page="requests"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
-  /* The Requests table keeps its legend at the side, so the page takes the full width. */
-  #app > main[data-page="requests"] {
-    padding-inline: max(32px, calc((100% - 1716px) / 2));
-  }
-  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
-  /* The Limits table scrolls inside its panel too, so a long lane list never scrolls the page. */
-  main[data-page="limits"] { display: flex; flex-direction: column; overflow: hidden; }
-  main[data-page="limits"] > section[data-page="limits"] {
-    flex: 1; display: flex; flex-direction: column; min-height: 0;
-  }
-  section[data-page="limits"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
-  section[data-page="limits"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
-  section[data-page="limits"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
-  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
-  section[data-page="limits"] thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
-  section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
-  /* The bar keeps 1 row: a filter selection never drops the count hint to a second line. The search
-     field gives up its width first, so the controls and the hint hold their place. */
-  section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
-  section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
-  section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }
-  /* The Clear filters button holds its width when it is off, so showing it never pushes the hint. */
-  section[data-page="requests"] .requests-bar #request-clear.off { visibility: hidden; }
-  section[data-page="requests"] .legend { align-self: flex-start; }
-  /* Keep compact columns at intrinsic width so Model and Served by share free space. */
-  .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
-  /* The Model and Served by columns share the free width equally, so both move on a resize. The cap
-     holds the share: a long name ends in an ellipsis instead of eating the width of the other. */
-  .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4),
-  .requests tr:not(.chain) > th:nth-child(5), .requests tr:not(.chain) > td:nth-child(5) {
-    width: 30%; max-width: 30%;
-  }
-  /* Fill each 30% name column and truncate long model names with an ellipsis. */
-  .requests tr:not(.chain) > td.name > .cell-value {
-    display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis;
-  }
-}
-/* A tablet narrows the Requests column beside the legend, so its filters wrap instead of clipping. */
-@media (min-width: 721px) and (max-width: 900px) {
-  section[data-page="requests"] .requests-bar { flex-wrap: wrap; }
-  section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 100%; min-width: 0; }
-  section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
-}
-@media (min-width: 721px) and (max-width: 960px) {
-  main[data-page="requests"] { overflow: auto; }
-  main[data-page="requests"] > section[data-page="requests"] { flex: none; }
-  section[data-page="requests"] > .flow { flex-direction: column; flex: none; overflow: visible; }
-  section[data-page="requests"] > .flow > .column,
-  section[data-page="requests"] > .flow > .column:not(.wide) { flex: none; min-height: 0; width: 100%; }
-  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: none; overflow-x: auto; }
-  section[data-page="requests"] .legend { align-self: stretch; }
-}
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
 /* The code legend of Requests page. A desktop puts it in the column beside the table. */
@@ -695,7 +620,7 @@ section[data-page="providers"], section[data-page="settings"] {
 /* The provider form and the Settings page share the container: a section list, and the pane of
    the selected section. A wide screen puts the rail beside the pane, and a phone shows 1 at a time. */
 .settings { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; align-items: flex-start; }
-.rail { flex: 0 1 240px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.rail { flex: 0 1 240px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-content: start; min-width: 0; }
 .sections {
   display: grid; align-content: start; overflow: hidden;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
@@ -715,10 +640,11 @@ section[data-page="providers"], section[data-page="settings"] {
 .sections button.on { background: var(--field); border-left-color: var(--accent); }
 .rail-search { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; color: var(--muted);
   background: var(--panel); border: 1px solid var(--control-line); border-radius: var(--radius); }
-.rail-search:focus-within { outline: 2px solid var(--accent); outline-offset: -2px; }
+.rail-search:focus-within { border-color: var(--accent); }
+:root[data-keyboard-nav="true"] .rail-search:has(input:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+:root[data-keyboard-nav="true"] .rail-search input:focus-visible { outline-color: transparent; }
 .rail-search svg { width: 15px; height: 15px; flex: none; }
-.rail-search input { flex: 1; min-width: 0; border: 0; background: none; color: var(--text); font: inherit; }
-.rail-search input:focus-visible { outline: none; }
+.rail-search input, .rail-search input[type="search"] { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; }
 .rail-copy { display: grid; gap: 2px; min-width: 0; }
 .rail-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-match {
@@ -813,7 +739,11 @@ section[data-page="settings"] .field:not(.stack),
 section[data-page="providers"] .field:not(.stack) { min-height: 40px; padding: 0; }
 .fold summary { min-height: 40px; }
 #settings > .section-pane .sections button { min-height: 40px; }
-@media (min-width: 721px) {
+@media not (max-width: 40em) {
+  section[data-page="models"] thead th {
+    position: sticky; top: 68px; z-index: 2; background: var(--panel);
+    border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line);
+  }
   .card[data-section="keys"] .keys tbody tr { height: 40px; }
   .card[data-section="keys"] .keys tbody td { padding-block: 4px; }
 }
@@ -968,8 +898,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 #limits-check { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
 #limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }
 #limits-checked { margin-left: 0; font-size: 11px; line-height: 1; white-space: nowrap; }
-/* The provider cards hold short values, so the column stays narrow. The table takes the rest. */
-@media (min-width: 721px) { #balances { flex: 0 1 260px; } }
 /* A narrow card wraps a long label instead of cutting it. */
 .balance .line > :first-child { white-space: normal; }
 .editbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
@@ -1018,8 +946,43 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .login .check { display: flex; align-items: center; gap: 8px; }
 .login .check input { accent-color: var(--accent); }
 
-/* Keep the header and rail fixed on wide screens while the active section pane scrolls. */
-@media (min-width: 901px) {
+/* Keep the header, rail, and two-column tables fixed on wide screens above 60em. */
+@media not (max-width: 60em) {
+  #balances { flex: 0 1 260px; }
+  main[data-page="requests"] { display: flex; flex-direction: column; overflow: hidden; }
+  main[data-page="requests"] > section[data-page="requests"] {
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+  }
+  section[data-page="requests"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
+  section[data-page="requests"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
+  section[data-page="requests"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
+  #app > main[data-page="requests"] {
+    padding-inline: max(32px, calc((100% - 1716px) / 2));
+  }
+  section[data-page="requests"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
+  main[data-page="limits"] { display: flex; flex-direction: column; overflow: hidden; }
+  main[data-page="limits"] > section[data-page="limits"] {
+    flex: 1; display: flex; flex-direction: column; min-height: 0;
+  }
+  section[data-page="limits"] > .flow { flex: 1; min-height: 0; align-items: stretch; flex-wrap: nowrap; }
+  section[data-page="limits"] > .flow > .column { display: flex; flex-direction: column; min-height: 0; }
+  section[data-page="limits"] > .flow > .column:not(.wide) { flex: 0 0 260px; }
+  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) { flex: 1; min-height: 0; overflow: auto; }
+  section[data-page="limits"] thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
+  section[data-page="requests"] > .flow > .column > .requests-bar { flex: none; }
+  section[data-page="requests"] .requests-bar { flex-wrap: nowrap; }
+  section[data-page="requests"] .requests-bar input[type="search"] { flex: 1 1 8rem; min-width: 0; }
+  section[data-page="requests"] .requests-bar .hint { white-space: nowrap; }
+  section[data-page="requests"] .requests-bar #request-clear.off { visibility: hidden; }
+  section[data-page="requests"] .legend { align-self: flex-start; }
+  .requests tr:not(.chain) > th, .requests tr:not(.chain) > td { width: 1%; }
+  .requests tr:not(.chain) > th:nth-child(4), .requests tr:not(.chain) > td:nth-child(4),
+  .requests tr:not(.chain) > th:nth-child(5), .requests tr:not(.chain) > td:nth-child(5) {
+    width: 30%; max-width: 30%;
+  }
+  .requests tr:not(.chain) > td.name > .cell-value {
+    display: inline-block; width: 100%; overflow: hidden; text-overflow: ellipsis;
+  }
   #app > main[data-page="providers"],
   #app > main[data-page="settings"] {
     overflow-y: hidden; scrollbar-gutter: auto;
@@ -1062,22 +1025,17 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="limits"] > .editbar { width: calc(100% - 276px); }
 }
 
-/* Stack provider balance cards below the Limits table on medium-width screens. */
-@media (min-width: 601px) and (max-width: 1000px) {
-  main[data-page="limits"] { overflow: auto; }
-  main[data-page="limits"] > section[data-page="limits"] { flex: none; }
-  section[data-page="limits"] > .flow { flex-direction: column; flex: none; overflow: visible; }
-  section[data-page="limits"] > .flow > .column { flex: none; min-height: 0; }
-  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) { flex: none; overflow: visible; }
-  section[data-page="limits"] > .flow > .column:not(.wide) {
-    flex: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
-  }
-  section[data-page="limits"] > .editbar { width: auto; }
+@media (max-width: 75em) {
+  /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
+     tabs scroll when they do not fit. */
+  #status { display: none; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 60em) {
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
+  .section-pane.slide { animation: slide-in var(--soft) var(--ease); }
+  .sections.slide { animation: slide-back var(--soft) var(--ease); }
   /* The Providers drill page names itself, so the section title under it leaves the screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }
   /* A tablet reads the 4 figures as 2 rows of 2, not 3 plus 1. */
@@ -1108,6 +1066,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models thead th:nth-child(6), .models tbody td:nth-child(6),
   .models thead th:nth-child(7), .models tbody td:nth-child(7),
   .models thead th:nth-child(8), .models tbody td:nth-child(8) { display: none; }
+  .models .weight { width: 110px; }
   .undo-text { min-height: 44px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   .pills [data-drop], .pills [data-add], .pills [data-setting-drop], .pills [data-setting-add],
@@ -1127,17 +1086,121 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   button.hint { position: relative; }
   button.hint::after { content: ""; position: absolute; inset: -14px; }
   .limits-check-stack { max-height: none; margin-block: 0; }
+  /* Stack Limits full-width at <= 60em so .column.wide never shrinks inside .flow. */
+  main[data-page="limits"] { overflow: auto; }
+  main[data-page="limits"] > section[data-page="limits"] { flex: none; }
+  section[data-page="limits"] > .flow { flex-direction: column; flex: none; align-items: stretch; overflow: visible; }
+  section[data-page="limits"] > .flow > .column,
+  section[data-page="limits"] > .flow > .column.wide { flex: none; width: 100%; min-height: 0; }
+  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) { flex: none; overflow: visible; }
+  section[data-page="limits"] > .flow > .column:not(.wide) {
+    flex: none; width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
+  }
+  section[data-page="limits"] > .editbar { width: auto; }
+  /* Fold the 11-column Requests table to route-first cards at <= 60em so 960 px never clips columns. */
+  main[data-page="requests"] { overflow: auto; }
+  main[data-page="requests"] > section[data-page="requests"] { flex: none; }
+  section[data-page="requests"] > .flow { flex-direction: column; flex: none; align-items: stretch; overflow: visible; }
+  section[data-page="requests"] > .flow > .column,
+  section[data-page="requests"] > .flow > .column.wide,
+  section[data-page="requests"] > .flow > .column:not(.wide) { flex: none; width: 100%; min-height: 0; }
+  section[data-page="requests"] .legend { align-self: stretch; }
+  .requests-bar {
+    flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
+    border-radius: 0; padding: 0;
+  }
+  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
+  .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
+  .requests-bar input[type=search] { flex: 1 1 10rem; min-width: 0; }
+  .requests-bar .live-toggle { flex: 0 0 auto; }
+  .requests-bar select { flex: 1 1 8rem; }
+  section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
+  .requests-bar .hint { display: none; }
+  .panel:has(> .requests) { background: transparent; border: 0; margin-top: 0; }
+  .requests { display: block; }
+  .requests tbody {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 10px;
+  }
+  .requests thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+  }
+  .requests tr {
+    display: block; padding: 4px 12px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--panel);
+  }
+  .requests tr:has(> td.empty) { grid-column: 1 / -1; }
+  .requests tr.request, .requests tr.live-row {
+    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
+    align-items: center; padding: 8px 10px;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-size: 13px;
+  }
+  .requests tr.live-row { background: var(--field); }
+  .requests tr.request > td, .requests tr.live-row > td {
+    display: flex; align-items: baseline; justify-content: flex-start; gap: 5px;
+    min-width: 0; padding: 0; border: 0; white-space: normal; max-width: none; overflow: visible;
+  }
+  .requests tr.request:active td, .requests tr.live-row:active td { background: transparent; }
+  .requests tr.request:active, .requests tr.live-row:active { background: var(--field); }
+  .requests tr.request > td:nth-child(1) .cell-value,
+  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: inherit; white-space: nowrap; }
+  .requests tr.request > td:nth-child(1), .requests tr.live-row > td:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .requests tr.request > td:nth-child(2), .requests tr.live-row > td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
+  .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
+    grid-column: 4; grid-row: 1; justify-content: flex-end;
+  }
+  .requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
+  .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) { grid-column: 1 / -1; grid-row: 5; }
+  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 6; }
+  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 6; }
+  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 7; }
+  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 7; }
+  .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {
+    display: block; grid-column: 1 / -1; grid-row: 8;
+  }
+  .requests tr.request > td.fallbacks-cell.no-details,
+  .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }
+  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
+  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; }
+  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
+  .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
+  .requests .live-ago { display: none; }
+  .requests td.mono .mobile-label {
+    font-family: var(--font);
+  }
+  .requests tr.request > td:nth-child(1) .mobile-label,
+  .requests tr.request > td:nth-child(2) .mobile-label,
+  .requests tr.request > td:nth-child(7) .mobile-label,
+  .requests tr.live-row > td:nth-child(1) .mobile-label,
+  .requests tr.live-row > td:nth-child(2) .mobile-label,
+  .requests tr.live-row > td:nth-child(7) .mobile-label { display: none; }
+  .requests tr.request td.name .cell-value, .requests tr.live-row td.name .cell-value {
+    overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .requests tr.request > td:nth-child(7) .cell-value, .requests tr.live-row > td:nth-child(7) .cell-value {
+    flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--field); font-size: inherit;
+  }
+  .requests tr.request > td:nth-child(n+8):nth-child(-n+11),
+  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) {
+    align-items: baseline; gap: 3px; padding: 2px 0; background: transparent;
+    flex-wrap: wrap; column-gap: 10px;
+  }
+  .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .mobile-label,
+  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .mobile-label { font-size: inherit; }
+  .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .cell-value,
+  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .cell-value {
+    flex: none; font-size: inherit; white-space: nowrap;
+  }
+  .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
+  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
+  .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
+  .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
+  .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
+  .requests td.empty { display: block; text-align: center; }
 }
-/* A tablet trades 40 px of the weight meter for the name column beside it. */
-@media (min-width: 721px) and (max-width: 900px) {
-  .models .weight { width: 110px; }
-}
-@media (max-width: 1320px) {
-  /* A narrow desktop keeps 1 header row: the state leaves the header, as on a phone, and the
-     tabs scroll when they do not fit. */
-  #status { display: none; }
-}
-@media (max-width: 720px) {
+
+@media (max-width: 40em) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches sides. */
   #app > main { padding-top: 16px; --main-pad-top: 16px; }
@@ -1170,23 +1233,15 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .field.info .hint { display: grid; place-items: center; }
   .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
   .field.info small { display: none; }
-  /* Render the mobile Requests filter bar flat above a bottom divider line. */
-  .requests-bar {
-    flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
-    border-radius: 0; padding: 0;
-  }
   /* Reserve 3px corner clearance and 8px bottom space inside the mobile Requests bar. */
   section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
   /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
   .toolbar input:focus-visible, .toolbar select:focus-visible,
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
-  .requests-bar input[type=search] { flex: 1 1 10rem; min-width: 0; }
-  .requests-bar .live-toggle { flex: 0 0 auto; }
-  .requests-bar select { flex: 1 1 8rem; }
-  /* A phone shows Clear filters only while a filter is on: an inactive button costs a row. */
-  section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
-  /* A phone drops the count line: the cards carry the state, and line only pushes them down. */
-  .requests-bar .hint { display: none; }
+  /* Stack Requests cards and provider balance cards in 1 column on phones. */
+  .requests tbody { grid-template-columns: 1fr; }
+  section[data-page="limits"] > .flow > .column:not(.wide) { grid-template-columns: 1fr; }
+  .model-stats { grid-template-columns: 1fr; }
   /* Lay out mobile Models rows as cards with Tier, Tools, Cooldown, and Weight below the name. */
   .only-sm { display: block; }
   .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
@@ -1279,103 +1334,32 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   #limit-rows td.hide-sm { display: none; }
   #limit-rows .weight .track { display: none; }
   #limit-rows .limit-meta { display: block; grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
-  .requests, .requests tbody, .requests tr { display: block; }
-  .requests thead {
-    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
-    overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
-  }
-  .requests tr {
-    margin-bottom: 10px; padding: 4px 12px; border: 1px solid var(--line);
-    border-radius: var(--radius); background: var(--panel);
-  }
-  .requests tr.request, .requests tr.live-row {
-    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
-    align-items: center; margin-bottom: 10px; padding: 8px 10px;
-    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
-  }
-  .requests tr.live-row { background: var(--field); }
-  /* A card row carries its edge alone. The wrapper behind the cards drops its fill too, so the
-     page colour shows once instead of a layer behind every card. */
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
-  /* The first request card keeps the same gap from the bar rule as Models and Keys cards. */
   .panel:has(> .requests) { margin-top: 0; }
-  /* Keep mobile request cells transparent on press so text selection stays clean. */
-  .requests tr.request > td, .requests tr.live-row > td {
-    display: flex; align-items: baseline; justify-content: flex-start; gap: 5px;
-    min-width: 0; padding: 0; border: 0; white-space: normal; max-width: none; overflow: visible;
-  }
-  .requests tr.request:active td, .requests tr.live-row:active td { background: transparent; }
-  .requests tr.request:active, .requests tr.live-row:active { background: var(--field); }
-  /* The stamp reads on 1 line at its own width, so the client tag and the status badge keep their
-     own room. */
-  .requests tr.request > td:nth-child(1) .cell-value,
-  .requests tr.live-row > td:nth-child(1) .cell-value { font-size: inherit; white-space: nowrap; }
-  .requests tr.request > td:nth-child(1), .requests tr.live-row > td:nth-child(1) { grid-column: 1; grid-row: 1; }
-  .requests tr.request > td:nth-child(2), .requests tr.live-row > td:nth-child(2) { grid-column: 2 / 4; grid-row: 1; }
-  .requests tr.request > td:nth-child(7), .requests tr.live-row > td:nth-child(7) {
-    grid-column: 4; grid-row: 1; justify-content: flex-end;
-  }
-  .requests tr.request > td:nth-child(4), .requests tr.live-row > td:nth-child(4) { grid-column: 1 / -1; grid-row: 3; }
-  .requests tr.request > td:nth-child(6), .requests tr.live-row > td:nth-child(6) { grid-column: 1 / -1; grid-row: 5; }
-  /* The 4 token and time cells read as 2 rows of 2, so a label and its value never touch the
-     neighbour. */
-  .requests tr.request > td:nth-child(8), .requests tr.live-row > td:nth-child(8) { grid-column: 1 / 3; grid-row: 6; }
-  .requests tr.request > td:nth-child(9), .requests tr.live-row > td:nth-child(9) { grid-column: 3 / 5; grid-row: 6; }
-  .requests tr.request > td:nth-child(10), .requests tr.live-row > td:nth-child(10) { grid-column: 1 / 3; grid-row: 7; }
-  .requests tr.request > td:nth-child(11), .requests tr.live-row > td:nth-child(11) { grid-column: 3 / 5; grid-row: 7; }
-  .requests tr.request > td.fallbacks-cell, .requests tr.live-row > td.fallbacks-cell {
-    display: block; grid-column: 1 / -1; grid-row: 8;
-  }
-  .requests tr.request > td.fallbacks-cell.no-details,
-  .requests tr.live-row > td.fallbacks-cell.no-details { display: none; }
-  /* The phone card reads in this order: session, model, served by, effort, the 2 token pairs,
-     then the TTFT and stream pair. The chain details keep the last row. */
-  .requests tr.request > td:nth-child(3), .requests tr.live-row > td:nth-child(3) { grid-column: 1 / -1; grid-row: 2; }
-  .requests tr.request > td:nth-child(5), .requests tr.live-row > td:nth-child(5) { grid-column: 1 / -1; grid-row: 4; }
-  .requests .mobile-label { display: inline; flex: none; color: var(--muted); font-size: inherit; }
-  .requests .cell-value { flex: 1; min-width: 0; text-align: left; overflow-wrap: anywhere; }
-  /* Hide redundant relative timestamps on mobile live cards while the pulse dot animates. */
-  .requests .live-ago { display: none; }
-  /* The mono face belongs to the session hash, not to its "Session" label. */
-  .requests td.mono .mobile-label {
-    font-family: var(--font);
-  }
-  .requests tr.request > td:nth-child(1) .mobile-label,
-  .requests tr.request > td:nth-child(2) .mobile-label,
-  .requests tr.request > td:nth-child(7) .mobile-label,
-  .requests tr.live-row > td:nth-child(1) .mobile-label,
-  .requests tr.live-row > td:nth-child(2) .mobile-label,
-  .requests tr.live-row > td:nth-child(7) .mobile-label { display: none; }
-  .requests tr.request td.name .cell-value, .requests tr.live-row td.name .cell-value {
-    overflow: hidden; overflow-wrap: normal; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .requests tr.request > td:nth-child(7) .cell-value, .requests tr.live-row > td:nth-child(7) .cell-value {
-    flex: none; padding: 2px 7px; border: 1px solid var(--line); border-radius: 999px;
-    background: var(--field); font-size: inherit;
-  }
-  /* The 4 token and time cells share the row, so the row wraps them in 2 pairs instead of
-     letting the values touch. */
-  .requests tr.request > td:nth-child(n+8):nth-child(-n+11),
-  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) {
-    align-items: baseline; gap: 3px; padding: 2px 0; background: transparent;
-    flex-wrap: wrap; column-gap: 10px;
-  }
-  .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .mobile-label,
-  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .mobile-label { font-size: inherit; }
-  .requests tr.request > td:nth-child(n+8):nth-child(-n+11) .cell-value,
-  .requests tr.live-row > td:nth-child(n+8):nth-child(-n+11) .cell-value {
-    flex: none; font-size: inherit; white-space: nowrap;
-  }
-  .requests .fallbacks-cell > .mobile-label, .requests .fallbacks-cell > .cell-value { display: none; }
-  /* The chain dialog reads with the card on a phone: its text keeps the card size. */
-  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
-  .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
-  .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
-  .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
-  .requests td.empty { display: block; text-align: center; }
 }
-@media (max-width: 360px) {
+
+@media (max-width: 30em) {
   .requests tr.live-row > td:nth-child(1) .pulse { width: 4px; height: 4px; margin-right: 2px; }
+}
+
+@media (max-height: 30em) {
+  #app > main[data-page="providers"],
+  #app > main[data-page="settings"],
+  main[data-page="requests"],
+  main[data-page="limits"] {
+    overflow-y: auto;
+  }
+  main[data-page="requests"] > section[data-page="requests"],
+  main[data-page="limits"] > section[data-page="limits"],
+  section[data-page="requests"] > .flow,
+  section[data-page="limits"] > .flow,
+  section[data-page="requests"] > .flow > .column > .panel:not(.editbar),
+  section[data-page="limits"] > .flow > .column > .panel:not(.editbar) {
+    flex: none; overflow: visible;
+  }
+  .section-pane { max-height: none; overflow-y: visible; mask-image: none; }
+  .login { margin-top: 16px; }
+  .modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
 }
 .from, .transition-code { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .transition { white-space: normal; }
