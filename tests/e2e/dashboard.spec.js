@@ -167,3 +167,29 @@ test("an empty model filter says so", async ({ page }) => {
     "No models match the filter.",
   );
 });
+
+test("a single section search match shows no stray dividers", async ({ page }) => {
+  await open(page, "#/settings", 390, 844);
+  await page.locator("#settings-search").fill("Routing");
+  const state = await page.evaluate(() => {
+    const navs = [...document.querySelectorAll("#settings > .rail > .sections")];
+    const visibleNavs = navs.filter((nav) => getComputedStyle(nav).display !== "none");
+    const buttons = visibleNavs.flatMap((nav) =>
+      [...nav.querySelectorAll("button")].filter((btn) => getComputedStyle(btn).display !== "none"),
+    );
+    const style = buttons[0] ? getComputedStyle(buttons[0]) : null;
+    return {
+      visibleNavCount: visibleNavs.length,
+      visibleButtonCount: buttons.length,
+      borderTop: style ? style.borderTopWidth : null,
+      borderBottom: style ? style.borderBottomWidth : null,
+    };
+  });
+  expect(state).toEqual({
+    visibleNavCount: 1,
+    visibleButtonCount: 1,
+    borderTop: "0px",
+    borderBottom: "0px",
+  });
+});
+

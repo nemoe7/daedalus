@@ -8200,3 +8200,51 @@ def test_new_provider_insets_focus_outline_and_keeps_mobile_touch_floor() -> Non
     re.findall(r"@media \(max-width: 900px\) \{\n(.*?)\n\}\n", css, re.DOTALL)
   )
   assert "#new-provider," in narrow
+
+
+def test_section_search_single_result_hides_empty_groups_and_dividers() -> None:
+  """A single visible section result hides empty rail groups and draws no row divider."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  rows = css.partition(".sections button {")[2].partition("}")[0]
+  assert "border-bottom" not in rows
+  assert (
+    ".sections button:not([hidden]) ~ button:not([hidden]) { border-top: 1px solid var(--line); }"
+    in css
+  )
+  run_app_js(
+    "state, filterRail",
+    """
+const makeButton = (section, label) => ({
+  dataset: { section },
+  textContent: label,
+  hidden: false,
+  querySelector: () => null,
+});
+const makeNav = (items) => ({
+  hidden: false,
+  buttons: items.map(([key, label]) => makeButton(key, label)),
+  querySelectorAll(sel) { return sel === 'button' ? this.buttons : []; },
+});
+const empty = { hidden: true };
+const navs = [
+  makeNav([['routing', 'Routing'], ['affinity', 'Affinity']]),
+  makeNav([['privacy', 'Privacy'], ['hooks', 'Hooks']]),
+  makeNav([['personalization', 'Personalization']]),
+];
+const host = {
+  querySelectorAll: (sel) => (sel === ':scope > .rail > .sections' ? navs : []),
+  querySelector: (sel) => (sel === ':scope > .rail > .rail-empty' ? empty : null),
+};
+probe.state.settingsSearch = 'personalization';
+probe.filterRail(host);
+assert.deepStrictEqual(navs.map((nav) => nav.hidden), [true, true, false]);
+assert.strictEqual(navs[2].buttons[0].hidden, false);
+assert.strictEqual(empty.hidden, true);
+
+probe.state.settingsSearch = 'routing';
+probe.filterRail(host);
+assert.deepStrictEqual(navs.map((nav) => nav.hidden), [false, true, true]);
+assert.deepStrictEqual(navs[0].buttons.map((b) => b.hidden), [false, true]);
+assert.strictEqual(empty.hidden, true);
+""",
+  )

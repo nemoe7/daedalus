@@ -709,11 +709,11 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .sections button {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 16px; border: 0; border-bottom: 1px solid var(--line);
+  padding: 8px 16px; border: 0;
   border-left: 2px solid transparent; background: none;
   color: var(--text); font: inherit; font-weight: 500; text-align: left;
 }
-.sections button:last-child { border-bottom: 0; }
+.sections button:not([hidden]) ~ button:not([hidden]) { border-top: 1px solid var(--line); }
 .sections button:active { background: var(--field); }
 /* A pointer keeps the same look, and a touch screen keeps no hover after a tap. */
 @media (hover: hover) {

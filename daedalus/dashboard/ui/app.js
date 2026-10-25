@@ -2169,18 +2169,21 @@ function sectionList(id, items, active, opts = {}) {
   return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
 
-// Hide the rail rows the search text excludes, as the reference sidebar search does.
+// Hide the rail rows and empty groups that the search text excludes.
 function filterRail(host) {
   const navs = host.querySelectorAll(":scope > .rail > .sections");
   if (!navs.length) return;
   const query = (state.settingsSearch ?? "").trim().toLowerCase();
   let shown = 0;
   for (const nav of navs) {
+    let groupShown = 0;
     for (const button of nav.querySelectorAll("button")) {
       const hit = !query || button.textContent.toLowerCase().includes(query);
       button.hidden = !hit;
-      shown += Number(hit);
+      groupShown += Number(hit);
     }
+    nav.hidden = groupShown === 0;
+    shown += groupShown;
   }
   const empty = host.querySelector(":scope > .rail > .rail-empty");
   if (empty) empty.hidden = shown > 0;
