@@ -125,8 +125,8 @@ def test_skill_manifest_pages_keep_the_version():
   tool.valves.permissions = "Allow reads"
   out = json.loads(
     asyncio.run(
-      tool.list_skill_files(
-        "s", version_id="v1", offset=1, max_results=1, __request__=object()
+      tool.list_skills(
+        skill_id="s", version_id="v1", offset=1, max_results=1, __request__=object()
       )
     )
   )
@@ -301,7 +301,7 @@ def test_file_search_sends_skip_limit_and_ends_on_no_matches():
   tool.valves.permissions = "Allow reads"
   out = json.loads(
     asyncio.run(
-      tool.search_files("*.md", offset=5, max_results=1, __request__=object())
+      tool.list_files(filename="*.md", offset=5, max_results=1, __request__=object())
     )
   )
   assert out["next_offset"] == 6 and out["items"][0]["id"] == "f"
@@ -316,7 +316,7 @@ def test_file_search_sends_skip_limit_and_ends_on_no_matches():
   tool.valves.permissions = "Allow reads"
   out = json.loads(
     asyncio.run(
-      tool.search_files("*.md", offset=6, max_results=1, __request__=object())
+      tool.list_files(filename="*.md", offset=6, max_results=1, __request__=object())
     )
   )
   assert out["items"] == [] and out["next_offset"] is None

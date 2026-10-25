@@ -27,64 +27,40 @@ Tools = MOD.Tools
 
 KNOWLEDGE = [
   "list_knowledge_bases",
-  "list_knowledge_files",
-  "create_knowledge_base",
-  "update_knowledge_base",
-  "create_knowledge_directory",
-  "ensure_knowledge_directory_path",
-  "create_knowledge_markdown",
-  "create_knowledge_markdown_at_path",
-  "update_knowledge_file",
-  "read_knowledge_file",
-  "update_knowledge_file_at_path",
-  "read_knowledge_file_at_path",
-  "upsert_knowledge_markdown_at_path",
-  "rename_knowledge_file",
-  "rename_knowledge_directory",
-  "move_knowledge_directory",
-  "delete_knowledge_file",
-  "delete_knowledge_file_at_path",
-  "delete_knowledge_directory",
-  "search_knowledge_files",
-  "find_and_read_knowledge_file",
-  "get_knowledge_tree",
+  "save_knowledge_base",
   "delete_knowledge_base",
+  "list_knowledge_files",
+  "search_knowledge_files",
+  "read_knowledge_file",
+  "save_knowledge_file",
+  "delete_knowledge_file",
+  "manage_knowledge_directory",
 ]
 FILES = [
   "list_files",
-  "search_files",
-  "upload_file",
-  "rename_file",
   "read_file_content",
+  "save_file",
   "delete_file",
 ]
 SKILLS = [
   "list_skills",
   "show_skill",
-  "list_skill_files",
-  "read_skill_file",
-  "install_skill",
-  "create_skill",
-  "update_skill",
-  "update_skill_files",
+  "save_skill",
   "delete_skill",
 ]
 TOOLS = [
   "list_tools",
   "show_tool",
-  "create_tool",
-  "update_tool",
-  "toggle_tool",
+  "save_tool",
   "delete_tool",
 ]
 FUNCTIONS = [
   "list_functions",
   "show_function",
-  "create_function",
-  "update_function",
-  "toggle_function",
+  "save_function",
   "delete_function",
 ]
+EXPECTED_TOOL_COUNT = 25
 
 
 class FakeSession:
@@ -96,19 +72,21 @@ class FakeSession:
 
 
 def public_names():
-  """The public async tool names of the class."""
+  """Return sorted public async tool names on `Tools`."""
   names = []
   for name in dir(Tools):
     if name.startswith("_"):
       continue
     value = getattr(Tools, name)
-    if callable(value) and getattr(value, "__qualname__", "").startswith("Tools."):
+    if inspect.iscoroutinefunction(value) and getattr(
+      value, "__qualname__", ""
+    ).startswith("Tools."):
       names.append(name)
   return sorted(names)
 
 
 def make_tool(answers=None):
-  """A tool whose HTTP layer is a stub, plus the call log."""
+  """Build a `Tools` instance backed by an HTTP stub and call log."""
   tool = Tools()
   calls = []
   answers = answers or {}
@@ -130,17 +108,16 @@ def make_tool(answers=None):
 
 
 def test_the_one_file_holds_the_five_groups():
-  """The names of the plan are all there, and no valve tool joins them."""
+  """Verify all five consolidated groups total 25 public tools without valve methods."""
   names = public_names()
-  for group in (KNOWLEDGE, FILES, SKILLS, TOOLS, FUNCTIONS):
-    for name in group:
-      assert name in names, name
+  expected = sorted(KNOWLEDGE + FILES + SKILLS + TOOLS + FUNCTIONS)
+  assert names == expected
+  assert len(names) == EXPECTED_TOOL_COUNT
   assert not [name for name in names if "valve" in name]
-  assert len(KNOWLEDGE) == 23
 
 
 def test_the_shipped_permission_holds_a_mutation():
-  """Always ask refuses a mutation before the network, with no dialog."""
+  """Verify `Always ask` denies mutations before any network call."""
   tool, calls = make_tool()
   assert tool.valves.permissions == "Always ask"
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
@@ -149,7 +126,7 @@ def test_the_shipped_permission_holds_a_mutation():
 
 
 def test_always_allow_runs_the_mutation():
-  """Always allow runs the mutation."""
+  """Verify `Always allow` executes delete mutations."""
   tool, calls = make_tool({"DELETE /files/f1": {}})
   tool.valves.permissions = "Always allow"
   answer = asyncio.run(tool.delete_file("f1", __request__=object()))
@@ -158,7 +135,7 @@ def test_always_allow_runs_the_mutation():
 
 
 def test_the_gate_denies_when_no_dialog_is_possible():
-  """The shipped permission refuses when no event call reaches the tool."""
+  """Verify `Always ask` refuses mutations when no confirmation callback exists."""
   tool, calls = make_tool()
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
   assert answer["result"]["denied"] is True
@@ -167,7 +144,7 @@ def test_the_gate_denies_when_no_dialog_is_possible():
 
 
 def test_allow_reads_frees_a_read_and_holds_a_mutation():
-  """Allow reads lets a read run, and the gated calls still ask."""
+  """Verify `Allow reads` permits reads while gating mutations."""
   tool, calls = make_tool({"GET /files/": {}})
   tool.valves.permissions = "Allow reads"
   answer = asyncio.run(tool.list_files(__request__=object()))
@@ -178,7 +155,7 @@ def test_allow_reads_frees_a_read_and_holds_a_mutation():
 
 
 def test_a_new_item_runs_free_and_joins_the_presets():
-  """A create runs free, and its id joins the preset meta list."""
+  """Verify skill creation runs under `Allow reads` and attaches to writable presets."""
   presets = {
     "items": [
       {"id": "m1", "name": "Model 1", "write_access": True, "meta": {}},
@@ -203,7 +180,11 @@ def test_a_new_item_runs_free_and_joins_the_presets():
     return {}, None
 
   tool._request = fake_request
-  answer = asyncio.run(tool.create_skill("My Skill", "body", __request__=object()))
+  answer = asyncio.run(
+    tool.save_skill(
+      action="create", name="My Skill", content="body", __request__=object()
+    )
+  )
   assert "created skill My Skill (id=my-skill)" in answer
   assert "added to 1" in answer
   writes = [call for call in calls if call[1] == "/models/model/update"]
@@ -213,7 +194,7 @@ def test_a_new_item_runs_free_and_joins_the_presets():
 
 
 def test_list_skills_uses_the_v012_paged_route():
-  """The paged route returns items and the total, with write access."""
+  """Verify `list_skills` calls `/skills/list` and preserves write-access fields."""
   row = {"id": "s1", "name": "Skill One", "is_active": True, "write_access": False}
   tool, calls = make_tool({"GET /skills/list": {"items": [row], "total": 1}})
   tool.valves.permissions = "Allow reads"
@@ -223,7 +204,7 @@ def test_list_skills_uses_the_v012_paged_route():
 
 
 def test_create_skill_sends_the_root_and_supporting_files():
-  """Skill creation keeps SKILL.md and each UTF-8 supporting file in one snapshot."""
+  """Verify `save_skill(action='create')` sends `SKILL.md` and UTF-8 supporting files."""
   tool, calls = make_tool(
     {
       "POST /skills/create": {"id": "my-skill", "version_id": "v1"},
@@ -233,9 +214,10 @@ def test_create_skill_sends_the_root_and_supporting_files():
   tool.valves.permissions = "Allow reads"
 
   answer = asyncio.run(
-    tool.create_skill(
-      "My Skill",
-      "# Instructions",
+    tool.save_skill(
+      action="create",
+      name="My Skill",
+      content="# Instructions",
       files=[
         {"path": "references/api.md", "content": "API notes"},
         {"path": "scripts/check.py", "content": "print('ok')"},
@@ -257,7 +239,7 @@ def test_create_skill_sends_the_root_and_supporting_files():
 
 
 def test_show_and_read_skill_files_use_the_versioned_routes():
-  """A skill read exposes its snapshot and pages one UTF-8 supporting file."""
+  """Verify `show_skill` reads both skill manifests and character-paged supporting files."""
   tool, calls = make_tool(
     {
       "GET /skills/id/s1/files/content": {"_text": "0123456789"},
@@ -282,9 +264,9 @@ def test_show_and_read_skill_files_use_the_versioned_routes():
 
   shown = asyncio.run(tool.show_skill("s1", __request__=object()))
   content = asyncio.run(
-    tool.read_skill_file(
+    tool.show_skill(
       "s1",
-      "references/a.md",
+      path="references/a.md",
       version_id="v7",
       offset=2,
       max_chars=4,
@@ -304,14 +286,15 @@ def test_show_and_read_skill_files_use_the_versioned_routes():
 
 
 def test_update_skill_files_stays_behind_the_write_gate():
-  """The shipped permission blocks a file update before any API request."""
+  """Verify `save_skill(action='update_files')` requires write approval."""
   tool, calls = make_tool()
 
   answer = json.loads(
     asyncio.run(
-      tool.update_skill_files(
-        "s1",
-        [{"op": "put", "path": "SKILL.md", "content": "# New"}],
+      tool.save_skill(
+        action="update_files",
+        skill_id="s1",
+        operations=[{"op": "put", "path": "SKILL.md", "content": "# New"}],
         __request__=object(),
       )
     )
@@ -322,7 +305,7 @@ def test_update_skill_files_stays_behind_the_write_gate():
 
 
 def test_update_skill_files_posts_operations_with_the_current_version():
-  """A multi-file edit uses optimistic concurrency and preserves untouched files."""
+  """Verify `save_skill(action='update_files')` posts optimistic-concurrency operations."""
   tool, calls = make_tool(
     {
       "POST /skills/id/s1/update": {"id": "s1", "version_id": "v8"},
@@ -345,8 +328,12 @@ def test_update_skill_files_posts_operations_with_the_current_version():
   ]
 
   answer = asyncio.run(
-    tool.update_skill_files(
-      "s1", operations, commit_message="Refresh files", __request__=object()
+    tool.save_skill(
+      action="update_files",
+      skill_id="s1",
+      operations=operations,
+      commit_message="Refresh files",
+      __request__=object(),
     )
   )
 
@@ -361,7 +348,7 @@ def test_update_skill_files_posts_operations_with_the_current_version():
 
 
 def test_install_skill_uses_openwebui_url_import_and_keeps_packages():
-  """A URL import creates every native package, including binary supporting files."""
+  """Verify `save_skill(action='import_url')` imports packages and binary files."""
   packages = [
     {
       "id": "alpha",
@@ -398,7 +385,9 @@ def test_install_skill_uses_openwebui_url_import_and_keeps_packages():
   tool._attach_to_presets = fake_attach
   target = "https://github.com/example/skills/tree/main/packages?token=secret#readme"
 
-  answer = asyncio.run(tool.install_skill(target, __request__=object()))
+  answer = asyncio.run(
+    tool.save_skill(action="import_url", url=target, __request__=object())
+  )
 
   assert "imported Alpha (id=alpha, files=2)" in answer
   assert "imported Beta (id=beta, files=1)" in answer
@@ -422,23 +411,32 @@ def test_install_skill_uses_openwebui_url_import_and_keeps_packages():
   ],
 )
 def test_install_skill_rejects_unsafe_or_untrusted_urls(target, message):
-  """Rejected imports never reach either Open WebUI or the remote host."""
+  """Verify rejected URL imports fail before any HTTP request."""
   tool, calls = make_tool({})
   tool.valves.permissions = "Allow reads"
 
-  answer = asyncio.run(tool.install_skill(target, __request__=object()))
+  answer = asyncio.run(
+    tool.save_skill(action="import_url", url=target, __request__=object())
+  )
 
   assert message in answer
   assert calls == []
 
 
 def test_legacy_skill_update_keeps_its_single_content_request():
-  """The v0.12 file operations do not change the existing instructions CRUD call."""
+  """Verify `save_skill(action='update')` preserves single-content updates."""
   tool, calls = make_tool({"POST /skills/id/s1/update": {"id": "s1"}})
   tool.valves.permissions = "Always allow"
 
   answer = asyncio.run(
-    tool.update_skill("s1", "Skill One", "# Revised", "one", __request__=object())
+    tool.save_skill(
+      action="update",
+      skill_id="s1",
+      name="Skill One",
+      content="# Revised",
+      description="one",
+      __request__=object(),
+    )
   )
 
   assert answer == "updated skill s1"
@@ -453,8 +451,94 @@ def test_legacy_skill_update_keeps_its_single_content_request():
   }
 
 
+def test_consolidated_crud_and_toggles_across_groups():
+  """Verify consolidated base, directory, file, tool, and function actions."""
+  tool, calls = make_tool(
+    {
+      "POST /knowledge/create": {"id": "kb1", "name": "KB", "description": "d"},
+      "GET /knowledge/kb1": {"id": "kb1", "name": "KB", "description": "d"},
+      "POST /knowledge/kb1/update": {"name": "KB2", "description": "d"},
+      "POST /knowledge/kb1/dirs/d1/update": {"name": "Renamed", "parent_id": "p1"},
+      "DELETE /knowledge/kb1/dirs/d1/delete": {},
+      "POST /files/f1/rename": {},
+      "POST /skills/id/s1/toggle": {"is_active": False},
+      "POST /tools/create": {"id": "t1"},
+      "POST /tools/id/t1/update": {},
+      "POST /functions/create": {"id": "fn1"},
+      "POST /functions/id/fn1/update": {},
+      "POST /functions/id/fn1/toggle": {"is_active": True, "is_global": False},
+      "GET /models/list": {"items": []},
+    }
+  )
+  tool.valves.permissions = "Always allow"
+
+  assert "knowledge_id=kb1" in asyncio.run(
+    tool.save_knowledge_base(name="KB", description="d", __request__=object())
+  )
+  assert "name=KB2" in asyncio.run(
+    tool.save_knowledge_base(name="KB2", knowledge_id="kb1", __request__=object())
+  )
+  assert "new_name=Renamed" in asyncio.run(
+    tool.manage_knowledge_directory(
+      "kb1",
+      action="rename",
+      directory_id="d1",
+      new_name="Renamed",
+      __request__=object(),
+    )
+  )
+  assert "parent_id=p1" in asyncio.run(
+    tool.manage_knowledge_directory(
+      "kb1",
+      action="move",
+      directory_id="d1",
+      target_parent_id="p1",
+      __request__=object(),
+    )
+  )
+  assert "deleted" in asyncio.run(
+    tool.manage_knowledge_directory(
+      "kb1", action="delete", directory_id="d1", __request__=object()
+    )
+  )
+  assert "renamed file f1 to next.md" in asyncio.run(
+    tool.save_file("next.md", file_id="f1", __request__=object())
+  )
+  assert "toggled skill s1" in asyncio.run(
+    tool.save_skill(action="toggle", skill_id="s1", __request__=object())
+  )
+  assert "created tool My Tool (id=my_tool)" in asyncio.run(
+    tool.save_tool(
+      action="create", name="My Tool", content="pass", __request__=object()
+    )
+  )
+  assert "updated tool t1" in asyncio.run(
+    tool.save_tool(
+      action="update", tool_id="t1", name="T1", content="pass", __request__=object()
+    )
+  )
+  assert "created function My Fn (id=my_fn)" in asyncio.run(
+    tool.save_function(
+      action="create", name="My Fn", content="pass", __request__=object()
+    )
+  )
+  assert "updated function fn1" in asyncio.run(
+    tool.save_function(
+      action="update",
+      function_id="fn1",
+      name="Fn1",
+      content="pass",
+      __request__=object(),
+    )
+  )
+  assert "toggled function fn1" in asyncio.run(
+    tool.save_function(action="toggle", function_id="fn1", __request__=object())
+  )
+  assert calls
+
+
 def test_the_preset_filter_takes_ids_and_names():
-  """PRESET_MODELS selects the presets by id or by name, empty serves all."""
+  """Verify `PRESET_MODELS` matches preset IDs and names or accepts all when empty."""
   tool, _ = make_tool()
   assert tool._preset_selected({"id": "m1", "name": "One"}) is True
   tool.valves.PRESET_MODELS = "m2, Two"
@@ -464,7 +548,7 @@ def test_the_preset_filter_takes_ids_and_names():
 
 
 def test_the_attach_can_remove_a_tool_from_the_presets():
-  """The attach holds both directions, and functionIds rides the payload."""
+  """Verify `_attach_to_presets` removes tool and function IDs cleanly."""
   presets = {
     "items": [
       {
@@ -500,7 +584,7 @@ def test_the_attach_can_remove_a_tool_from_the_presets():
 
 
 def test_the_merge_keeps_the_order_and_the_ids():
-  """The merge drops the removed entries, adds the new ones and keeps order."""
+  """Verify `_merge_ids` drops removed entries, appends new ones, and preserves order."""
   merged = MOD._merge_ids(
     [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}],
     [{"id": "c", "name": "C"}, {"id": "a", "name": "A"}],
@@ -518,7 +602,10 @@ def test_the_merge_keeps_the_order_and_the_ids():
     ("list_skills", {}),
     ("list_tools", {}),
     ("list_functions", {}),
-    ("create_skill", {"name": "status-test", "content": "instructions"}),
+    (
+      "save_skill",
+      {"action": "create", "name": "status-test", "content": "instructions"},
+    ),
     ("delete_skill", {"skill_id": "s"}),
   ],
 )
@@ -627,18 +714,28 @@ def test_status_finishes_after_permission_denial():
 
 
 PATH_OPERATIONS = [
-  ("ensure_knowledge_directory_path", (), "directory_id=new-dir"),
-  ("create_knowledge_markdown_at_path", ("body",), "file_id=uploaded"),
-  ("read_knowledge_file_at_path", (), "file_id=f"),
-  ("update_knowledge_file_at_path", ("body",), "file_id=f"),
-  ("upsert_knowledge_markdown_at_path", ("body",), "file_id=f"),
-  ("delete_knowledge_file_at_path", (True,), "file_id=f"),
+  (
+    "ensure_path",
+    "manage_knowledge_directory",
+    {"action": "ensure_path"},
+    "directory_id=new-dir",
+  ),
+  (
+    "create",
+    "save_knowledge_file",
+    {"content": "body", "mode": "create"},
+    "file_id=uploaded",
+  ),
+  ("read", "read_knowledge_file", {}, "file_id=f"),
+  ("update", "save_knowledge_file", {"content": "body", "mode": "update"}, "file_id=f"),
+  ("upsert", "save_knowledge_file", {"content": "body", "mode": "upsert"}, "file_id=f"),
+  ("delete", "delete_knowledge_file", {"confirm": True}, "file_id=f"),
 ]
 
 
-@pytest.mark.parametrize(("operation", "arguments", "identifier"), PATH_OPERATIONS)
+@pytest.mark.parametrize(("kind", "operation", "kwargs", "identifier"), PATH_OPERATIONS)
 def test_knowledge_path_operations_normalize_and_resolve(
-  operation, arguments, identifier
+  kind, operation, kwargs, identifier
 ):
   tool, calls = make_tool(
     {
@@ -659,42 +756,43 @@ def test_knowledge_path_operations_normalize_and_resolve(
     return {"id": "uploaded", "filename": filename}, None
 
   tool._upload = upload
-  leaf = "child" if operation == "ensure_knowledge_directory_path" else "note.md"
+  leaf = "child" if kind == "ensure_path" else "note.md"
   path = " /folder/ /\\" + leaf + "/ "
   result = asyncio.run(
-    getattr(tool, operation)("k", path, *arguments, __request__=object())
+    getattr(tool, operation)(
+      knowledge_id="k", path=path, **kwargs, __request__=object()
+    )
   )
   assert identifier in result
   assert calls[0][1] == "/knowledge/k/files"
   writes = [call for call in calls if call[0] != "GET"]
-  if operation == "ensure_knowledge_directory_path":
+  if kind == "ensure_path":
     assert len(writes) == 1
     assert writes[0][2]["json"] == {"name": "child", "parent_id": "d"}
-  elif operation == "create_knowledge_markdown_at_path":
+  elif kind == "create":
     assert uploads == [("k", "d", "note.md", "body")]
-  elif operation in (
-    "update_knowledge_file_at_path",
-    "upsert_knowledge_markdown_at_path",
-  ):
+  elif kind in ("update", "upsert"):
     assert len(writes) == 1
     assert writes[0][1] == "/files/f/data/content/update"
     assert writes[0][2]["json"] == {"content": "body"}
-  elif operation == "delete_knowledge_file_at_path":
+  elif kind == "delete":
     assert [(method, url) for method, url, _ in writes] == [("DELETE", "/files/f")]
   else:
     assert not writes
     assert "body" in result
 
 
-@pytest.mark.parametrize(("operation", "arguments", "identifier"), PATH_OPERATIONS)
+@pytest.mark.parametrize(("kind", "operation", "kwargs", "identifier"), PATH_OPERATIONS)
 @pytest.mark.parametrize("path", [None, "", "folder/../note.md", "folder/./note.md"])
 def test_knowledge_path_operations_reject_invalid_paths_before_requests(
-  operation, arguments, identifier, path
+  kind, operation, kwargs, identifier, path
 ):
   tool, calls = make_tool()
   tool.valves.permissions = "Always allow"
   result = asyncio.run(
-    getattr(tool, operation)("k", path, *arguments, __request__=object())
+    getattr(tool, operation)(
+      knowledge_id="k", path=path, **kwargs, __request__=object()
+    )
   )
   assert "Error:" in result
   assert calls == []
@@ -729,9 +827,10 @@ def test_directory_path_creation_uses_the_new_item_gate(
 
   user = {"valves": {"mode": user_mode}} if user_mode else None
   result = asyncio.run(
-    tool.ensure_knowledge_directory_path(
+    tool.manage_knowledge_directory(
       "k",
-      "new",
+      action="ensure_path",
+      path="new",
       __request__=object(),
       __user__=user,
       __event_call__=confirm if decision is not None else None,
@@ -763,18 +862,22 @@ def test_directory_path_creation_uses_the_new_item_gate(
     ),
     ("read_knowledge_file", {"file_id": "file-target"}, ("file-target",)),
     (
-      "read_knowledge_file_at_path",
+      "read_knowledge_file",
       {"knowledge_id": "knowledge-target", "path": "folder/note.md"},
       ("knowledge-target", "folder/note.md"),
     ),
     ("search_knowledge_files", {"query": "query-target"}, ("query-target",)),
     (
-      "find_and_read_knowledge_file",
-      {"query": "query-target", "exact_filename": "note-target.md"},
+      "search_knowledge_files",
+      {"query": "query-target", "exact_filename": "note-target.md", "read_match": True},
       ("query-target", "note-target.md"),
     ),
-    ("get_knowledge_tree", {"knowledge_id": "knowledge-target"}, ("knowledge-target",)),
-    ("search_files", {"filename": "file-target"}, ("file-target",)),
+    (
+      "list_knowledge_files",
+      {"knowledge_id": "knowledge-target", "tree": True},
+      ("knowledge-target",),
+    ),
+    ("list_files", {"filename": "file-target"}, ("file-target",)),
     ("read_file_content", {"file_id": "file-target"}, ("file-target",)),
     ("show_skill", {"skill_id": "skill-target"}, ("skill-target",)),
     ("show_tool", {"tool_id": "tool-target"}, ("tool-target",)),
@@ -835,7 +938,7 @@ def test_upload_file_multipart_round_trip(filename, content, permissions):
   async def run():
     tool, calls = make_tool({"POST /files/": {"id": "fixture-file"}})
     tool.valves.permissions = permissions
-    answer = await tool.upload_file(filename, content, __request__=object())
+    answer = await tool.save_file(filename, content, __request__=object())
     assert "id=fixture-file" in answer
     assert len(calls) == 1
     method, path, kwargs = calls[0]
@@ -879,7 +982,7 @@ def test_upload_file_rejects_filename_line_breaks(filename):
   async def run():
     tool, calls = make_tool()
     tool.valves.permissions = "Always allow"
-    answer = await tool.upload_file(filename, "text", __request__=object())
+    answer = await tool.save_file(filename, "text", __request__=object())
     assert answer.startswith("Error:")
     assert calls == []
 
@@ -889,7 +992,7 @@ def test_upload_file_rejects_filename_line_breaks(filename):
 def test_upload_file_denial_precedes_request():
   async def run():
     tool, calls = make_tool()
-    answer = await tool.upload_file("notes.md", "text", __request__=object())
+    answer = await tool.save_file("notes.md", "text", __request__=object())
     assert json.loads(answer)["result"]["denied"] is True
     assert calls == []
 
