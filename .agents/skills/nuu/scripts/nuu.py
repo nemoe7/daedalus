@@ -55,7 +55,82 @@ KNOWN_NUU_RULES = {
   *(f"NUM{i}" for i in range(201, 211)),
   *(f"NUA{i}" for i in range(301, 310)),
 }
+RULE_DESCRIPTIONS = {
+  "NUL001": "Every <img> element must carry an explicit alt attribute.",
+  "NUL002": (
+    "Every form control (<input>, <select>, <textarea>) must have an accessible "
+    "name via <label>, aria-label, aria-labelledby, or title."
+  ),
+  "NUL003": (
+    "CSS rules must not suppress focus outlines with outline: none or outline: 0 "
+    "without a replacement focus indicator."
+  ),
+  "NUL004": (
+    "Every repository must maintain docs/design.md recording house-style "
+    "decisions and visual references."
+  ),
+  "NUL005": (
+    "Interactive state rules (:hover, :focus, :active, :disabled, [aria-busy]) "
+    "must not alter geometry (width, height, padding, border-width, font-size, line-height)."
+  ),
+  "NUI001": "Inline SVG icons require a companion license file in the repository.",
+  "NUI002": "Inline <svg> icons must follow the Lucide -> Simple Icons -> Phosphor icon ladder.",
+  "NUI003": "Inline SVG icons in one source file must use a single consistent icon size.",
+  "NUB101": "Interactive controls must meet the minimum 24x24 CSS px target size (WCAG 2.5.8).",
+  "NUB102": "Pages must not produce horizontal document overflow at audited viewport widths.",
+  "NUB103": "Visible text must meet WCAG AA contrast ratios (4.5:1 normal text, 3:1 large text).",
+  "NUB104": "Sibling elements must not unintentionally overlap in rendered layout.",
+  "NUM201": "Font sizes must match a named step on the house typographic scale.",
+  "NUM202": "Line-height ratios must fall within the house reading band for the element role.",
+  "NUM203": "Font weights must use approved house tokens (400, 500, 600, 700).",
+  "NUM204": "Prose line measure must stay within 60-75 characters (45-80 ch bounds).",
+  "NUM205": "Spacing, padding, and gaps must align to the 4 px / 8 px house spatial grid.",
+  "NUM206": "Border radii must match the house radius tokens.",
+  "NUM207": "Resolved colors must match declared house surface, text, border, or semantic tokens.",
+  "NUM208": "Rendered controls must be >= 24x24 px on desktop and >= 44x44 px on touch viewports.",
+  "NUM209": "Card density must stay within <= 4 data points per card, <= 3 cards per row, and >= 16 px gaps.",
+  "NUM210": "Above-the-fold viewport budget must keep >= 25% open background and <= 4 component groups.",
+  "NUA301": "Rendered pages must not overflow horizontally at house breakpoints.",
+  "NUA302": "Rendered text must satisfy WCAG AA contrast thresholds.",
+  "NUA303": "Interactive targets must be >= 24x24 px at desktop widths and >= 44x44 px at 360 px mobile width.",
+  "NUA304": "Rendered controls and images must expose non-empty accessible names.",
+  "NUA305": "Document heading levels (<h1>-<h6>) must not skip hierarchy levels.",
+  "NUA306": "Pages must expose a <main> landmark and a non-empty <title>.",
+  "NUA307": "Visible sibling elements must not collide or overlap in rendered layout.",
+  "NUA308": "Clipped text elements must provide a title or aria-label when truncated.",
+  "NUA309": "Modal dialogs and drawers must trap focus and expose an accessible close control.",
+}
 NONUU_MARKER_RE = re.compile(r"\bnonuu:[ \t]*(.*?)(?=-->|\*/|;|\s|$|\bnonuu:)")
+DEVIATION_MARKER_RE = re.compile(
+  r"\bnuu-deviation:[ \t]*([A-Za-z0-9_.-]+)(?::[ \t]*(.*?))?(?=-->|\*/|$)"
+)
+
+
+def enrich_finding_rule(finding: dict) -> dict:
+  code = finding.get("rule") or finding.get("id") or ""
+  if code and "rule_description" not in finding:
+    finding["rule_description"] = RULE_DESCRIPTIONS.get(str(code), f"House rule {code}")
+  return finding
+
+
+def collect_deviation_markers(path, lines):
+  deviations = []
+  for number, line in enumerate(lines, 1):
+    for match in DEVIATION_MARKER_RE.finditer(line):
+      dev_id = (match[1] or "").strip()
+      reason = (match[2] or "").strip()
+      mark_str = f"{path}:{number}: {dev_id}: {reason or '<no-reason>'}"
+      deviations.append(
+        {
+          "id": dev_id,
+          "reason": reason,
+          "path": str(path),
+          "line": number,
+          "source": line.strip(),
+          "mark": mark_str,
+        }
+      )
+  return deviations
 
 
 def collect_nonuu_markers(path, lines):
@@ -276,13 +351,14 @@ class SourcePage(HTMLParser):
 
 
 def lint(root):
-  findings, coverage, marks, suppressions = [], [], [], []
+  findings, coverage, marks, suppressions, deviations = [], [], [], [], []
   for path in files(root, {".html", ".css", ".js", ".jsx", ".ts", ".tsx"}):
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     file_ids, line_ids, file_marks, file_supps = collect_nonuu_markers(path, lines)
     marks.extend(file_marks)
     suppressions.extend(file_supps)
+    deviations.extend(collect_deviation_markers(path, lines))
     supported = path.suffix.lower() in {".html", ".css"}
     coverage.append(
       {
@@ -368,10 +444,13 @@ def lint(root):
         "criterion": "clause-11",
       }
     )
+  for finding in findings:
+    enrich_finding_rule(finding)
   return {
     "findings": findings,
     "marks": marks,
     "suppressions": suppressions,
+    "deviations": deviations,
     "coverage": coverage,
     "limits": [
       "Source patterns do not prove accessible names or WCAG conformance.",
@@ -790,6 +869,7 @@ def main(argv=None):
       command.add_argument("-l", "--label", action="append", default=[])
       command.add_argument("-a", "--arrow", action="append", default=[])
       command.add_argument("-c", "--callout", action="append", default=[])
+      command.add_argument("-C", "--crop")
       command.add_argument("-s", "--spec", type=Path)
       command.add_argument("-S", "--scale", type=int)
     if name == "board":
@@ -840,6 +920,7 @@ def main(argv=None):
       command.add_argument("-A", "--authorize-edit", action="store_true")
       command.add_argument("-O", "--overlaps", action="store_true")
       command.add_argument("-W", "--wireframe", action="store_true")
+      command.add_argument("-D", "--deviations", action="store_true")
   args = parser.parse_args(raw_args)
   root = args.project.resolve()
   if not root.is_dir():
@@ -873,6 +954,7 @@ def main(argv=None):
         spec_path=args.spec,
         scale=args.scale,
         project=root,
+        crop=args.crop,
       )
       args.output = None
     elif args.command == "board":
@@ -915,24 +997,54 @@ def main(argv=None):
       result = browser(args)
     else:
       source_res = lint(root)
+      deviations = list(source_res.get("deviations", []))
+      if getattr(args, "deviations", False):
+        for extra_path in files(root, {".md", ".toml", ".py"}):
+          extra_lines = extra_path.read_text(encoding="utf-8").splitlines()
+          deviations.extend(collect_deviation_markers(extra_path, extra_lines))
+      rendered_res = (
+        browser(args)
+        if args.url
+        else {"status": "not_checked", "reason": "url_missing"}
+      )
+      for finding in rendered_res.get("findings", []):
+        if isinstance(finding, dict):
+          enrich_finding_rule(finding)
       result = {
         "source": source_res,
         "icons": check_icons(root),
         "design": extract(root),
         "marks": source_res.get("marks", []),
         "suppressions": source_res.get("suppressions", []),
-        "rendered": browser(args)
-        if args.url
-        else {"status": "not_checked", "reason": "url_missing"},
+        "deviations": deviations,
+        "deviation_marks": [d["mark"] for d in deviations],
+        "report_sections": [
+          "Status",
+          "Counts",
+          "Unrun Checks",
+          "Automated Findings",
+          "Visual Judgments",
+          "Deviations",
+          "Captures",
+        ],
+        "rendered": rendered_res,
         "visual_judgment": "not_run",
         "participant_research": "not_run",
         "real_device": "not_run",
       }
     if args.command in {"audit", "collect"}:
-      result["findings"] = result["source"]["findings"] + result["rendered"].get(
-        "findings", []
-      )
-      result["status"] = result["rendered"].get("status")
+      if (
+        args.command == "collect"
+        and getattr(args, "deviations", False)
+        and not args.url
+      ):
+        result["findings"] = []
+        result["status"] = "checked"
+      else:
+        result["findings"] = result["source"]["findings"] + result["rendered"].get(
+          "findings", []
+        )
+        result["status"] = result["rendered"].get("status")
     result = {
       "tool": args.command,
       "version": VERSION,

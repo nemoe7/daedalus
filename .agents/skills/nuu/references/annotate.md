@@ -10,7 +10,8 @@
 | `--label <x,y,text[,color]>` | `-l` | Text banner at `x,y` (repeatable) |
 | `--arrow <x1,y1,x2,y2[,color]>` | `-a` | Directional arrow from `x1,y1` to `x2,y2` (repeatable) |
 | `--callout <x,y,n[,label[,color]]>` | `-c` | Numbered badge at `x,y` with optional label (repeatable) |
-| `--spec <json>` | `-s` | JSON file with `boxes`, `labels`, `arrows`, `callouts`, and optional `scale` |
+| `--crop <x,y,w,h>` | `-C` | Crop the annotated output PNG to `x,y,w,h` in image pixels |
+| `--spec <json>` | `-s` | JSON file with `boxes`, `labels`, `arrows`, `callouts`, `crop`, and optional `scale` |
 | `--scale <1-6>` | `-S` | Integer font and badge scale factor (default `2`) |
 | `--json` | `-j` | Emit machine-readable JSON output |
 

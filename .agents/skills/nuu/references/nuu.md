@@ -14,13 +14,13 @@
 | `check` | Check computed-style measure JSON against the sheet | `<report>`, `-s, --sheet <path>`, `-g, --scale <px>`, `-d, --density`, `-j, --json` |
 | `density` | Check row/card ink ratio (`NUM205`), sibling gaps (`NUM206`), control width caps (`NUM207`), and symmetric icon buttons (`NUM208`) | `<report>` |
 | `ruler` | Measure pixel distance between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-g, --scale <px>`, `-j, --json` |
-| `annotate`, `board` | Render boxes, arrows, labels, callouts, and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>`, `-W, --wireframe` |
+| `annotate`, `board` | Render boxes, arrows, labels, callouts, crops (`--crop`), and multi-panel comparison boards with the project's default text font | `-i, --input <png>`, `-o, --output <png>`, `-b, --box <spec>`, `-l, --label <spec>`, `-a, --arrow <spec>`, `-c, --callout <spec>`, `-C, --crop <x,y,w,h>`, `-t, --title <text>`, `-p, --panel <spec>`, `-s, --spec <json>`, `-S, --scale <1-6>`, `-W, --wireframe` |
 | `walk` | Run deterministic browser walk steps or capture named view PNGs for `nuu board` | `[target]`, `-s, --script <py>`, `-V, --views`, `-o, --out <dir>` |
-| `audit` | Run source, measure, flow, and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-W, --wireframe`, `-o, --out <dir>`, `-j, --json` |
+| `audit`, `collect` | Run source, measure, flow, deviation (`--deviations`), and rendered a11y checks | `-r, --root <path>`, `-u, --url <url>`, `-s, --sheet <path>`, `-m, --measure <path>`, `-f, --flows <json>`, `-c, --change <spec>`, `-A, --allow-live-edits`, `-R, --ready <selector>`, `-W, --wireframe`, `-D, --deviations`, `-o, --out <dir>`, `-j, --json` |
 
 ## Audit Coverage (`NUL001`–`NUA308`)
 
-Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- nonuu: NUL001 -->` or `/* nonuu: NUL003 */`).
+Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- nonuu: NUL001 -->` or `/* nonuu: NUL003 */`). Record an approved house-style deviation with `nuu-deviation: <id>: <reason>`. Agents MUST NEVER add `nuu-deviation:` automatically and ALWAYS require explicit user approval.
 
 | Code | Pass | Condition |
 | --- | --- | --- |

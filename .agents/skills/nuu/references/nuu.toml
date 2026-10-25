@@ -1,0 +1,25 @@
+# Default nuu configuration (nuu.toml).
+
+[fonts]
+sans = '"Basel Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif'
+mono = '"Basel Grotesk Mono", ui-monospace, "SFMono-Regular", monospace'
+files = [
+  "Basel_Grotesk_Regular.woff2",
+  "Basel_Grotesk_Book.woff2",
+  "Basel_Grotesk_Medium.woff2",
+  "Basel_Grotesk_Bold.woff2",
+  "Basel_Grotesk_Mono_Regular.woff2",
+]
+
+[annotate]
+scale = 2
+renderer = "auto"
+
+[board]
+columns = 2
+scale = 2
+wireframe = false
+
+[audit]
+widths = [360, 768, 1280]
+wireframe = false

@@ -28,8 +28,9 @@ COLORS = {
   "black": (17, 24, 39, 255),
 }
 
-DEFAULT_FONT_SANS = 'system-ui, -apple-system, "Segoe UI", sans-serif'
-DEFAULT_FONT_MONO = 'ui-monospace, "SFMono-Regular", monospace'
+DEFAULT_NUU_TOML = Path(__file__).resolve().parent.parent / "references" / "nuu.toml"
+DEFAULT_FONT_SANS = '"Basel Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif'
+DEFAULT_FONT_MONO = '"Basel Grotesk Mono", ui-monospace, "SFMono-Regular", monospace'
 SKIP_DIRS = {
   ".git",
   ".agents",
@@ -255,10 +256,21 @@ def resolve_project_typography(
     or cfg.get("font_files")
     or cfg.get("font_path")
   )
+  if raw_files is None and DEFAULT_NUU_TOML.is_file():
+    try:
+      default_raw = tomllib.loads(DEFAULT_NUU_TOML.read_text(encoding="utf-8"))
+      default_fonts = (
+        default_raw.get("fonts") if isinstance(default_raw.get("fonts"), dict) else {}
+      )
+      raw_files = default_fonts.get("files")
+    except (OSError, tomllib.TOMLDecodeError):
+      raw_files = None
   if isinstance(raw_files, (str, dict)):
     raw_files = [raw_files]
   if isinstance(raw_files, list):
-    default_fam = _extract_primary_family(cfg_sans, "Nuu Sans")
+    default_fam = _extract_primary_family(
+      cfg_sans or DEFAULT_FONT_SANS, "Basel Grotesk"
+    )
     for item in raw_files:
       if isinstance(item, str):
         p = Path(item)
@@ -769,15 +781,24 @@ def _chromium_render_png(
     env["LD_LIBRARY_PATH"] = (
       f"/tmp/al2023/lib:{existing_ld}" if existing_ld else "/tmp/al2023/lib"
     )
+  repo_root = Path(__file__).resolve().parents[3]
+  cwd = Path.cwd().resolve()
   node_paths = [
     str(Path(__file__).resolve().parent),
+    str(cwd / "node_modules"),
+    str(cwd / "arena-state" / "chromium-env" / "node_modules"),
+    str(repo_root / "node_modules"),
+    str(repo_root / "arena-state" / "chromium-env" / "node_modules"),
+    "/home/user/clankers/arena-state/chromium-env/node_modules",
+    "/home/user/clankers/node_modules",
     "/home/user/node_modules",
   ]
   if env.get("NODE_PATH"):
     node_paths.append(env["NODE_PATH"])
-  env["NODE_PATH"] = ":".join(node_paths)
+  env["NODE_PATH"] = ":".join(dict.fromkeys(node_paths))
   script = """
 const fs = require("node:fs");
+const path = require("node:path");
 let pw = null;
 for (const mod of ["playwright-core", "playwright"]) {
   try { pw = require(mod); break; } catch {}
@@ -786,12 +807,28 @@ if (!pw || !pw.chromium) process.exit(2);
 const payload = JSON.parse(fs.readFileSync(0, "utf8"));
 (async () => {
   const pwExec = typeof pw.chromium.executablePath === "function" ? pw.chromium.executablePath() : "";
-  const execPath = payload.executable || pwExec;
+  let execPath = payload.executable || pwExec;
+  if (!execPath || !fs.existsSync(execPath) || !fs.existsSync("/tmp/al2023/lib")) {
+    try {
+      const chromium = require("@sparticuz/chromium");
+      const pkgDir = path.dirname(require.resolve("@sparticuz/chromium/package.json"));
+      const binDir = path.join(pkgDir, "bin");
+      if (!fs.existsSync("/tmp/al2023/lib")) {
+        const lambdafs = require("@sparticuz/chromium/build/cjs/lambdafs.js").default;
+        await lambdafs.inflate(path.join(binDir, "al2023.tar.br"));
+        await lambdafs.inflate(path.join(binDir, "fonts.tar.br"));
+      }
+      chromium.setupLambdaEnvironment("/tmp/al2023/lib");
+      if (!execPath || !fs.existsSync(execPath)) {
+        execPath = await chromium.executablePath(binDir);
+      }
+    } catch {}
+  }
   if (!execPath || !fs.existsSync(execPath)) process.exit(3);
   const browser = await pw.chromium.launch({
     executablePath: execPath,
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--single-process"]
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--no-zygote", "--disable-gpu"]
   });
   try {
     let vw = Math.max(1600, payload.width + 64);
