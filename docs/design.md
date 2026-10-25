@@ -155,6 +155,13 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a top-right `x` button, restores trigger focus on `close`, focuses `Cancel` on confirmations, and gates deletions with a modal. |
 | `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-end`, `.floating-info-tip` | Applies `12px` / `192px` scroll-driven masks (bottom-only below sticky headers) and viewport-clamped `position: fixed` tooltips (`min(320px, calc(100vw - 16px))`). |
 
+### Approved `nuu` Deviations
+
+| Marker | Surface / Selector | Reason |
+| --- | --- | --- |
+| `nuu-deviation: NUM201` | `.chip`, `.chip.flag`, `.pill`, `.ghost` (`style.css`) | Compact inline badges and pills (`0 7px` to `4px 12px`) preserve 1-line desktop rows and 4 visible phone cards. |
+| `nuu-deviation: NUM202` | `body`, `th`, `td`, `.card.pool` (`style.css`) | Dense operational type (`11`-`15` px, `22` px KPI) and cell paddings (`6`/`10`/`12` px) fit 11-column tables without wrapping slugs. |
+
 ### Interactive States
 
 | State | Visual Treatment | Selector / Trigger |

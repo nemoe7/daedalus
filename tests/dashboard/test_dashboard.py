@@ -8664,3 +8664,12 @@ vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis._
 """
   )
   subprocess.run(["node", "-e", code], check=True)
+
+
+def test_approved_nuu_deviation_markers_present() -> None:
+  """Approved compact-control and dense-scale nuu-deviation markers stay recorded."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  design = Path("docs/design.md").read_text(encoding="utf-8")
+  for code in ("NUM201", "NUM202"):
+    assert f"nuu-deviation: {code}:" in css
+    assert f"nuu-deviation: {code}" in design

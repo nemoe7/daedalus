@@ -83,6 +83,7 @@
   * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--bg); }
 }
 [hidden] { display: none !important; }
+/* nuu-deviation: NUM202: dense operational type and cell ramp fits 11-column tables */
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.5 var(--font);
@@ -212,6 +213,7 @@ button.line {
 .kpi { display: grid; gap: 2px; min-width: 0; }
 .kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
 .kpi small { color: var(--muted); font-size: 12px; }
+/* nuu-deviation: NUM201: compact inline badges and pills preserve operator table density */
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
   border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
