@@ -1,93 +1,77 @@
 # GitHub tool
 
-See [Open WebUI integration](../owui.md) for the other plugins.
+See [Open WebUI integration](../owui.md) for companion plugins.
 
-Import [`github.json`](../../../integrations/openwebui/imports/tools/github.json) through **Workspace > Tools**, **Import JSON**. Then configure its valves and access.
+Import [`github.json`](../../../integrations/openwebui/imports/tools/github.json) through **Workspace > Tools**, **Import JSON**, then configure valves and access.
 
-[`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is an Open WebUI
-Workspace Tool: one Python file, standard library only, empty `requirements`. It holds the GitHub surface of
-the reference connector. The `permissions` valve sets the gate. `Always ask`, the shipped default, holds every
-call, including reads.
+[`integrations/openwebui/tools/github.py`](../../../integrations/openwebui/tools/github.py) is a single-file Open WebUI Workspace Tool using Python's standard library (`requirements` empty). It exposes 42 tools (23 reads and 19 writes) so `github.py` (42), `owui_manager.py` (25), and `google.py` (9) total 76 tools, leaving room below the 128-tool provider cap.
 
-`Allow reads` frees the reads and holds the writes.
-
-Each tool name and its docstring are the interface that the model reads. Open WebUI turns the text
-above the first `:param` into the description of the tool. Each `:param name:` line becomes the
-description of that argument in the JSON schema. A param line is the only place that gives the model a
-rule, so keep it.
+Each tool docstring defines the model schema. Text above the first `:param` becomes the tool description, and each `:param name:` line defines its argument rule.
 
 ```mermaid
 flowchart TD
-  A[Chat] --> B[The model calls a tool]
+  A[Chat] --> B[Model calls tool]
   B --> C{Read or write?}
   C -- read --> D{permissions?}
   C -- write --> D
-  D -- Always ask --> E[The confirmation dialog]
-  D -- Allow reads, read --> F[The GitHub API]
+  D -- Always ask --> E[Confirmation dialog]
+  D -- Allow reads, read --> F[GitHub API]
   D -- Allow reads, write --> E
   D -- Always allow --> F
-  E -- click --> F
-  E -- no answer --> G[denied: true, nothing sent]
-  F --> H[The answer goes to the chat]
+  E -- approve --> F
+  E -- deny or timeout --> G[denied: true, nothing sent]
+  F --> H[Result returns to chat]
 ```
 
-3 tools sit outside the connector list. `create_pr_with_files` writes a file list as 1 commit and opens or updates the PR. `list_commits` reads the history of a path or a branch. `list_tree` reads the whole tree in 1 call.
+## Tool groups (42 tools)
 
-3 security reads cover the alert lists: `code_scanning_alerts`, `secret_scanning_alerts`, and `dependabot_alerts`. Each lists the alerts with filters, or reads 1 alert with its instances or locations. They need a token with the `security_events` scope, or the matching fine-grained read. Without it GitHub answers 403.
+| Group | Reads | Writes |
+| --- | --- | --- |
+| Issues (7) | `fetch_issue`, `list_recent_issues` | `create_issue`, `update_issue`, `write_issue_comment`, `edit_assignees`, `edit_labels` |
+| PRs and reviews (13) | `fetch_pr`, `fetch_pr_comments`, `fetch_pr_diff`, `list_pull_request_reviews` | `create_pull_request`, `update_pull_request`, `merge_pull_request`, `create_pr_with_files`, `add_review_to_pr`, `dismiss_pull_request_review`, `request_pull_request_reviewers`, `write_review_comment`, `set_review_thread` |
+| Files, trees, commits (8) | `fetch_github_file`, `fetch_github_url`, `list_tree`, `list_commits`, `fetch_commit`, `compare_commits` | `write_github_file`, `write_branch` |
+| Repos, refs, packages, account (6) | `get_repo`, `list_repositories`, `list_repo_refs`, `list_github_releases`, `list_github_packages`, `inspect_github_account` | none |
+| Search (1) | `search_github` (`issues`, `prs`, `repositories`, `code`, `commits`, `branches`) | none |
+| Security alerts (2) | `list_security_alerts` (`code_scanning`, `secret_scanning`, `dependabot`) | `update_security_alert` |
+| Checks and Actions (3) | `list_github_check_runs`, `inspect_workflow_run` | `rerun_failed_workflow_run_jobs` |
+| Gists (2) | `read_gist` | `write_gist` |
 
-2 CI reads cover the checks. `list_github_check_runs` lists the check runs of a ref with the name, the status and the filter, or reads 1 run with its annotations. `list_workflows` lists the Actions workflows.
+- `fetch_pr` sets `include_diff=false` for metadata-only reads, while `fetch_pr_diff` switches across `diff`, `patch`, `files`, `filenames`, and single-file `file` patches.
+- `update_pull_request` handles REST fields alongside `draft=true` or `draft=false` GraphQL toggles.
+- `list_security_alerts` and `update_security_alert` require a token with `security_events` or matching fine-grained alert permissions.
 
-4 more reads ship:
+## Setup and valves
 
-| Read | Use |
-| --- | --- |
-| `actions_minutes` | The Actions minutes of an org or a user |
-| `list_github_releases` | The releases, or 1 by id or tag |
-| `list_github_tags` | The tags |
-| `list_github_packages` | The packages of the signed-in user, a user, or an org |
-
-Gist management ships as 5 tools: `list_gists`, `fetch_gist`, and the gated writes `create_gist`, `update_gist`, and `delete_gist`.
-
-The 3 alert reads take gated writes: `update_code_scanning_alert`, `update_secret_scanning_alert`, and `update_dependabot_alert` dismiss, resolve, or reopen an alert.
-
-1. Import the JSON file in **Workspace > Tools**, **Import JSON**.
-2. **Valves**: set `github_token` or the `GITHUB_TOKEN` environment value. Set `permissions` (`Always ask` by default).
-3. **Access** on the tool: make it public, or give read access to each user. A user without read access does not see the tool.
+1. Import `github.json` in **Workspace > Tools**, **Import JSON**.
+2. Set `github_token` or `GITHUB_TOKEN`, and choose `permissions` (`Always ask` by default).
+3. Grant public or per-user read access so users can see the tool.
 
 | Valve | Default | Meaning |
 | --- | --- | --- |
-| `github_token` | empty | The token. `GITHUB_TOKEN` is the fallback. |
-| `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one complete tool result, at least 1024 |
-| `permissions` | `Always ask` | `Always ask` gates every call, reads included. `Allow reads` frees the reads and holds the gated calls. `Always allow` holds nothing. |
-| `timeout_seconds` | `60` | The wait for the confirmation. A closed tab, no dialog, or a late answer reads as no. |
-| `http_timeout_seconds` | `30` | The GitHub HTTP timeout. |
-| `api_version` | `2022-11-28` | The `X-GitHub-Api-Version` header. |
-| `max_files_per_commit` | `30` | The file limit of `create_pr_with_files`. |
-| `max_tree_entries` | `2000` | The entry limit of `list_tree`. |
+| `github_token` | empty | GitHub token, falling back to `GITHUB_TOKEN` |
+| `max_output_bytes` | `32768` | Maximum UTF-8 bytes in one serialized tool result, minimum `1024` |
+| `permissions` | `Always ask` | Default gate (`Always ask`, `Allow reads`, or `Always allow`) |
+| `timeout_seconds` | `60` | Confirmation wait in seconds (`0` uses `60`) |
+| `http_timeout_seconds` | `30` | GitHub HTTP timeout in seconds |
+| `api_version` | `2022-11-28` | `X-GitHub-Api-Version` header value |
+| `max_files_per_commit` | `30` | Maximum files per `create_pr_with_files` call |
+| `max_tree_entries` | `2000` | Maximum entries returned by `list_tree` |
 
-All 49 public reads use the same permission gate. Under `Always ask` each one waits for the click, so no repo line reaches the chat. `Allow reads` frees them.
+All 23 read tools share `_read`. Under `Always ask`, every read waits for confirmation before calling GitHub, while `Allow reads` runs reads directly and gates all 19 writes.
 
-`UserValves.mode` gives each user the same 3 levels, and `default` follows the tool valve. `UserValves.timeout_seconds` gives each user their own confirmation wait. A value of `0` keeps the tool valve.
+`UserValves.mode` accepts `default` and the three permission modes, while unknown runtime modes require confirmation. `UserValves.timeout_seconds` overrides `timeout_seconds` per user (`0` inherits the tool valve).
 
-`UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
+Confirmations travel over the active tab WebSocket. Because Open WebUI leaves `WEBSOCKET_EVENT_CALLER_TIMEOUT` unset by default, `timeout_seconds` bounds closed or refreshed tabs and returns `denied: true` without sending requests.
 
-The confirmation travels over the socket of the chat tab. `WEBSOCKET_EVENT_CALLER_TIMEOUT` is unset by default, so the Open WebUI server waits without a timeout when the browser does not answer. Only `timeout_seconds` ends that wait. A page refresh drops the dialog, the tool returns `denied: true`, and the tool sends nothing.
-
-[`tests/integrations/openwebui/tools/test_owui_github_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_github_tool.py) holds the tool surface, the gate, and the error path.
+[`tests/integrations/openwebui/tools/test_owui_github_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_github_tool.py) verifies the 42-tool surface, permission gates, consolidated modes, and error handling.
 
 ## Output limits
 
-`max_output_bytes` limits the complete serialized result, including metadata. It does not limit the HTTP download or the total chat context. Repeated calls can still fill a chat.
+`max_output_bytes` caps each serialized tool response, metadata included. Oversized results return `tool_output_too_large`, byte counts, and complete identifiers that fit without repeating writes.
 
-A result that does not fit returns `tool_output_too_large`, its original byte count, and complete identifiers that fit. The tool withholds the oversized payload instead of returning broken JSON. It does not repeat the operation. Do not repeat a write to recover omitted output.
+Text offsets count characters, not bytes. Paged text responses return `offset`, `next_offset`, `total_chars`, and `truncated`, where `null` `next_offset` marks completion.
 
-Read only the pages needed for the task. Text offsets count characters, not bytes. A text page includes `offset`, `next_offset`, `total_chars`, and `truncated`. A null `next_offset` ends the read.
-
-- `list_repositories` returns short records with complete IDs, URLs, branch names, and permissions. Pass `next_offset` as `page_offset` and keep `page_size` unchanged.
-- `search_repositories`, `search_issues`, and `search_prs` return `next_page`. Keep the query and page size unchanged for later pages.
-- Search stops at GitHub's 1,000-result limit, and `incomplete_results` retains the API status. When `search_limited` is true, narrow the query to find more results.
-- Issue and PR summaries omit bodies and display aliases. Use their IDs or URLs with detail reads when needed.
-- `list_commits` returns SHA, URL, author, date, and a 200-character subject (`message_truncated` marks omitted text). It returns `page`, `per_page`, and `next_page` without fetching further pages.
-- `search_commits` uses the same short records. Use its existing page arguments for further results.
-- `fetch_blob` and `fetch_github_url` accept `offset` and `max_chars`. For a large commit, file, or diff, read its GitHub URL in text ranges.
-- Text reads reduce the requested range when needed to fit the byte limit. JSON API responses read through a URL are text, so one range need not contain a complete JSON document.
+- `list_repositories` returns compact summaries with IDs, URLs, default branches, and permissions. Pass `next_offset` as `page_offset` with constant `page_size`.
+- `search_github` (`repositories`, `issues`, and `prs` scopes) returns `next_page`, stops at GitHub's 1,000-result cap, and sets `search_limited` when results exceed `1000`.
+- `list_commits` and `search_github(scope="commits")` return compact 200-character subjects (`message_truncated` marks trimmed messages) with `page` and `per_page`.
+- `fetch_github_file(blob_sha=...)` and `fetch_github_url` accept `offset` and `max_chars`, shrinking ranges automatically to fit `max_output_bytes`.

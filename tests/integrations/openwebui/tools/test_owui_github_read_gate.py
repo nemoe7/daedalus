@@ -1,4 +1,4 @@
-"""Check the read gate before each GitHub transport call."""
+"""Check read permission gates before each GitHub transport call."""
 
 import asyncio
 
@@ -7,32 +7,30 @@ import test_owui_github_tool as github
 
 CASES = [
   ("fetch_issue", {"issue_number": 1, "repository_full_name": "a/b"}),
-  ("fetch_issue_comments", {"repo_full_name": "a/b", "issue_number": 1}),
+  ("list_recent_issues", {}),
   ("fetch_pr", {"repo_full_name": "a/b", "pr_number": 1}),
   ("fetch_pr_comments", {"repo_full_name": "a/b", "pr_number": 1}),
-  ("fetch_pr_patch", {"repo_full_name": "a/b", "pr_number": 1}),
-  ("fetch_pr_file_patch", {"repo_full_name": "a/b", "pr_number": 1, "path": "file"}),
+  ("fetch_pr_diff", {"repo_full_name": "a/b", "pr_number": 1}),
+  ("list_pull_request_reviews", {"repo_full_name": "a/b", "pr_number": 1}),
   ("fetch_github_file", {"repository_full_name": "a/b", "path": "file"}),
-  ("fetch_blob", {"repository_full_name": "a/b", "blob_sha": "abc"}),
+  ("fetch_github_file", {"repository_full_name": "a/b", "blob_sha": "abc"}),
   ("fetch_github_url", {"url": "https://api.github.com/repos/a/b"}),
-  ("code_scanning_alerts", {"repo_full_name": "a/b"}),
-  ("secret_scanning_alerts", {"repo_full_name": "a/b"}),
-  ("dependabot_alerts", {"repo_full_name": "a/b"}),
-  ("compare_commits", {"repo_full_name": "a/b", "base": "main", "head": "change"}),
-  ("search_github_code", {"query": "term"}),
+  ("list_tree", {"repository_full_name": "a/b", "ref": "main"}),
+  ("list_commits", {"repository_full_name": "a/b"}),
   ("fetch_commit", {"repository_full_name": "a/b", "commit_sha": "abc"}),
-  ("list_github_check_runs", {"repo_full_name": "a/b", "ref": "main"}),
-  ("fetch_commit_workflow_runs", {"repo_full_name": "a/b", "commit_sha": "abc"}),
-  ("fetch_workflow_run_jobs", {"repo_full_name": "a/b", "run_id": 1}),
-  ("fetch_workflow_job_steps", {"repo_full_name": "a/b", "job_id": 1}),
-  ("fetch_workflow_job_logs", {"repo_full_name": "a/b", "job_id": 1}),
-  ("fetch_workflow_run_artifacts", {"repo_full_name": "a/b", "run_id": 1}),
-  ("actions_minutes", {"owner": "a"}),
+  ("compare_commits", {"repo_full_name": "a/b", "base": "main", "head": "change"}),
+  ("get_repo", {"repository_full_name": "a/b"}),
+  ("list_repositories", {}),
+  ("list_repo_refs", {"repo_full_name": "a/b"}),
   ("list_github_releases", {"repo_full_name": "a/b"}),
-  ("list_github_tags", {"repo_full_name": "a/b"}),
   ("list_github_packages", {}),
-  ("list_gists", {}),
-  ("fetch_gist", {"gist_id": "abc"}),
+  ("inspect_github_account", {}),
+  ("search_github", {"query": "term", "scope": "code"}),
+  ("list_security_alerts", {"repo_full_name": "a/b"}),
+  ("list_github_check_runs", {"repo_full_name": "a/b", "ref": "main"}),
+  ("inspect_workflow_run", {"repo_full_name": "a/b"}),
+  ("read_gist", {}),
+  ("read_gist", {"gist_id": "abc"}),
 ]
 
 
@@ -95,7 +93,7 @@ def test_read_gate_accepts_model_user_valves_and_keeps_the_result():
 
   tool._request = request
   user = {"valves": tool.UserValves(mode="Allow reads")}
-  result = asyncio.run(tool.fetch_gist("gist", __user__=user))
+  result = asyncio.run(tool.read_gist("gist", __user__=user))
   assert result == {
     "result": {"gist": {"id": "gist", "files": {"note.md": {"content": "text"}}}}
   }

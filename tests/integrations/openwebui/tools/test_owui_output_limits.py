@@ -102,7 +102,9 @@ def test_github_blob_ranges_fit_unicode_and_metadata():
     }
 
   tool._request = request
-  out = asyncio.run(tool.fetch_blob("a/b", "abc", offset=3, max_chars=10000))
+  out = asyncio.run(
+    tool.fetch_github_file("a/b", blob_sha="abc", offset=3, max_chars=10000)
+  )
   result = out["result"]
   assert result["sha"] == "abc" and result["offset"] == 3
   assert result["content"] == text[3 : result["next_offset"]]

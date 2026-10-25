@@ -39,8 +39,8 @@ def test_repository_offsets_skip_exactly_and_keep_action_fields():
   assert out["next_offset"] == 4 and calls[0]["page"] == 2
 
 
-@pytest.mark.parametrize("name", ["search_issues", "search_prs"])
-def test_issue_search_pages_and_short_records(name):
+@pytest.mark.parametrize("scope", ["issues", "prs"])
+def test_issue_search_pages_and_short_records(scope):
   tool = github.client()
   calls = []
 
@@ -64,7 +64,7 @@ def test_issue_search_pages_and_short_records(name):
     }
 
   tool._request = request
-  out = asyncio.run(getattr(tool, name)("query", topn=1, page=2))["result"]
+  out = asyncio.run(tool.search_github("query", scope=scope, topn=1, page=2))["result"]
   assert calls[0]["page"] == 2 and out["next_page"] == 3
   row = out["issues"][0]
   assert row["id"] == 7 and row["node_id"] == "issue-7" and row["number"] == 4
@@ -149,13 +149,13 @@ def test_thread_reads_request_headers_without_message_bodies():
   ]
 
 
-@pytest.mark.parametrize("name", ["search_repositories", "search_issues", "search_prs"])
+@pytest.mark.parametrize("scope", ["repositories", "issues", "prs"])
 @pytest.mark.parametrize(
   "total,page,size,expected",
   [(2, 2, 1, None), (3, 2, 1, 3), (1200, 10, 100, None), (0, 1, 20, None)],
 )
 def test_github_search_stops_at_the_total_or_search_limit(
-  name, total, page, size, expected
+  scope, total, page, size, expected
 ):
   tool = github.client()
   tool.valves.max_output_bytes = 131072
@@ -167,7 +167,9 @@ def test_github_search_stops_at_the_total_or_search_limit(
     }
 
   tool._request = request
-  out = asyncio.run(getattr(tool, name)("query", topn=size, page=page))["result"]
+  out = asyncio.run(tool.search_github("query", scope=scope, topn=size, page=page))[
+    "result"
+  ]
   assert out["next_page"] == expected
   assert out["search_limited"] == (total > 1000)
 

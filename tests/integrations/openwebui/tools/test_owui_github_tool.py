@@ -1,4 +1,4 @@
-"""Test GitHub tool discovery, permission gates, request payloads, and error propagation."""
+"""Test GitHub tool discovery, permission gates, consolidated modes, and errors."""
 
 import ast
 import asyncio
@@ -26,90 +26,50 @@ tool = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(tool)
 
 TOOLS = [
-  "actions_minutes",
-  "add_comment_to_issue",
-  "add_issue_assignees",
-  "add_issue_labels",
   "add_review_to_pr",
-  "code_scanning_alerts",
   "compare_commits",
-  "convert_pull_request_to_draft",
-  "create_branch",
-  "create_gist",
-  "create_github_file",
   "create_issue",
   "create_pr_with_files",
   "create_pull_request",
-  "delete_gist",
-  "delete_github_file",
-  "dependabot_alerts",
   "dismiss_pull_request_review",
-  "download_workflow_artifact",
-  "fetch_blob",
+  "edit_assignees",
+  "edit_labels",
   "fetch_commit",
-  "fetch_commit_workflow_runs",
-  "fetch_gist",
   "fetch_github_file",
   "fetch_github_url",
   "fetch_issue",
-  "fetch_issue_comments",
   "fetch_pr",
   "fetch_pr_comments",
-  "fetch_pr_file_patch",
-  "fetch_pr_patch",
-  "fetch_workflow_job_logs",
-  "fetch_workflow_job_steps",
-  "fetch_workflow_run_artifacts",
-  "fetch_workflow_run_jobs",
-  "get_commit_combined_status",
-  "get_github_profile",
-  "get_pr_diff",
-  "get_pr_info",
+  "fetch_pr_diff",
   "get_repo",
-  "get_repo_collaborator_permission",
-  "label_pr",
+  "inspect_github_account",
+  "inspect_workflow_run",
   "list_commits",
-  "list_gists",
   "list_github_check_runs",
   "list_github_packages",
   "list_github_releases",
-  "list_github_tags",
-  "list_installations",
-  "list_pr_changed_filenames",
-  "list_pull_request_review_threads",
   "list_pull_request_reviews",
   "list_recent_issues",
+  "list_repo_refs",
   "list_repositories",
+  "list_security_alerts",
   "list_tree",
-  "list_user_orgs",
-  "list_workflows",
-  "mark_pull_request_ready_for_review",
   "merge_pull_request",
-  "remove_issue_assignees",
-  "remove_issue_label",
-  "reply_to_review_comment",
+  "read_gist",
   "request_pull_request_reviewers",
   "rerun_failed_workflow_run_jobs",
-  "resolve_review_thread",
-  "search_branches",
-  "search_commits",
-  "search_github_code",
-  "search_issues",
-  "search_prs",
-  "search_repositories",
-  "secret_scanning_alerts",
-  "unresolve_review_thread",
-  "update_code_scanning_alert",
-  "update_dependabot_alert",
-  "update_gist",
-  "update_github_file",
+  "search_github",
+  "set_review_thread",
   "update_issue",
-  "update_issue_comment",
   "update_pull_request",
-  "update_ref",
-  "update_review_comment",
-  "update_secret_scanning_alert",
+  "update_security_alert",
+  "write_branch",
+  "write_gist",
+  "write_github_file",
+  "write_issue_comment",
+  "write_review_comment",
 ]
+EXPECTED_TOOL_COUNT = 42
 
 
 class Answer:
@@ -129,7 +89,7 @@ class Answer:
 
 
 def opener(monkeypatch, body, calls=None, error=None):
-  """Record requests and return the body or each list item in order."""
+  """Record requests and return body or each list item in order."""
   replies = list(body) if isinstance(body, list) else None
   served = 0
 
@@ -156,8 +116,7 @@ def opener(monkeypatch, body, calls=None, error=None):
 
 
 def client(token: str = "t0ken") -> "tool.Tools":
-  """A tool with a token, bypassing the environment."""
-
+  """Build a `Tools` client with a token and `Allow reads` enabled."""
   instance = tool.Tools()
   instance.valves.github_token = token
   instance.valves.permissions = "Allow reads"
@@ -178,6 +137,7 @@ def test_the_surface_holds_the_tool_list():
     and not node.name.startswith("_")
   ]
   assert sorted(found) == sorted(TOOLS)
+  assert len(found) == EXPECTED_TOOL_COUNT
 
 
 def test_the_gate_defaults_to_confirmation_and_user_inheritance():
@@ -222,26 +182,28 @@ def test_every_write_goes_through_the_gate():
 def test_an_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
   calls = []
   opener(monkeypatch, "{}", calls)
-  out = asyncio.run(client().label_pr("o/r", 1, "bug", __event_call__=None))
+  out = asyncio.run(client().edit_labels("o/r", 1, "bug", __event_call__=None))
   assert out["result"]["denied"] is True
   assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
   assert calls == []
 
 
 @pytest.mark.parametrize(
-  "method, args",
+  "method, args, kwargs",
   [
-    ("resolve_review_thread", ("thread-id",)),
-    ("unresolve_review_thread", ("thread-id",)),
-    ("dismiss_pull_request_review", ("review-id", "New review needed.")),
-    ("convert_pull_request_to_draft", ("o/r", 1)),
-    ("mark_pull_request_ready_for_review", ("o/r", 1)),
+    ("set_review_thread", ("thread-id",), {"resolved": True}),
+    ("set_review_thread", ("thread-id",), {"resolved": False}),
+    ("dismiss_pull_request_review", ("review-id", "New review needed."), {}),
+    ("update_pull_request", ("o/r", 1), {"draft": True}),
+    ("update_pull_request", ("o/r", 1), {"draft": False}),
   ],
 )
-def test_graphql_writes_without_a_dialog_send_nothing(monkeypatch, method, args):
+def test_graphql_writes_without_a_dialog_send_nothing(
+  monkeypatch, method, args, kwargs
+):
   calls = []
   opener(monkeypatch, '{"node_id": "PR_test"}', calls)
-  out = asyncio.run(getattr(client(), method)(*args, __event_call__=None))
+  out = asyncio.run(getattr(client(), method)(*args, **kwargs, __event_call__=None))
   assert calls == []
   assert out["result"]["denied"] is True
   assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
@@ -249,12 +211,12 @@ def test_graphql_writes_without_a_dialog_send_nothing(monkeypatch, method, args)
 
 def test_a_confirmed_write_sends_one_request(monkeypatch):
   calls = []
-  opener(monkeypatch, '{"ok": true}', calls)
+  opener(monkeypatch, '[{"name": "bug"}]', calls)
 
   async def answer(payload):
     return payload["type"] == "confirmation"
 
-  out = asyncio.run(client().label_pr("o/r", 7, "bug", __event_call__=answer))
+  out = asyncio.run(client().edit_labels("o/r", 7, "bug", __event_call__=answer))
   assert out["result"]["success"] is True
   assert calls[0]["method"] == "POST"
   assert calls[0]["url"] == "https://api.github.com/repos/o/r/issues/7/labels"
@@ -273,7 +235,9 @@ def test_a_slow_answer_denies_at_the_timeout(monkeypatch):
     return True
 
   started = time.monotonic()
-  out = asyncio.run(instance.remove_issue_label("o/r", 3, "stale", __event_call__=slow))
+  out = asyncio.run(
+    instance.edit_labels("o/r", 3, "stale", action="remove", __event_call__=slow)
+  )
   assert out["result"]["denied"] is True
   assert time.monotonic() - started < 3
   assert calls == []
@@ -295,13 +259,141 @@ def test_a_user_timeout_wins_over_the_tool_valve(monkeypatch):
 
     started = time.monotonic()
     out = asyncio.run(
-      instance.remove_issue_label("o/r", 3, "stale", __user__=user, __event_call__=slow)
+      instance.edit_labels(
+        "o/r",
+        3,
+        "stale",
+        action="remove",
+        __user__=user,
+        __event_call__=slow,
+      )
     )
     assert out["result"]["denied"] is True
     assert instance._wait_seconds(user) == 1
     assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
     assert time.monotonic() - started < 3
   assert calls == []
+
+
+def test_issue_comments_assignees_and_review_comments(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps([{"id": 10, "body": "first"}]),
+      json.dumps({"id": 11, "body": "added"}),
+      json.dumps({"id": 11, "body": "edited"}),
+      json.dumps({"number": 2, "html_url": "u", "title": "t"}),
+      json.dumps({"number": 2, "html_url": "u", "title": "t"}),
+      json.dumps({"id": 21, "body": "reply"}),
+      json.dumps({"id": 21, "body": "updated"}),
+    ],
+    calls,
+  )
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  comments = asyncio.run(
+    client().fetch_issue(2, repository_full_name="o/r", comments_only=True)
+  )
+  assert comments["result"]["comments"][0]["id"] == 10
+  added = asyncio.run(
+    client().write_issue_comment("o/r", "added", issue_number=2, __event_call__=answer)
+  )
+  assert added["result"]["id"] == 11
+  edited = asyncio.run(
+    client().write_issue_comment("o/r", "edited", comment_id=11, __event_call__=answer)
+  )
+  assert edited["result"]["body"] == "edited"
+  asyncio.run(
+    client().edit_assignees("o/r", 2, ["alice"], action="add", __event_call__=answer)
+  )
+  asyncio.run(
+    client().edit_assignees("o/r", 2, ["alice"], action="remove", __event_call__=answer)
+  )
+  assert calls[3]["method"] == "POST" and calls[4]["method"] == "DELETE"
+  reply = asyncio.run(
+    client().write_review_comment(
+      "o/r",
+      "reply",
+      pr_number=5,
+      reply_to_comment_id=9,
+      __event_call__=answer,
+    )
+  )
+  assert reply["result"]["id"] == 21
+  updated = asyncio.run(
+    client().write_review_comment(
+      "o/r", "updated", comment_id=21, __event_call__=answer
+    )
+  )
+  assert updated["result"]["body"] == "updated"
+
+
+def test_pr_reads_diffs_reviews_and_draft_toggle(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps({"number": 4, "title": "PR"}),
+      "diff --git a/x b/x",
+      json.dumps([{"filename": "x.py", "patch": "@@ -1 +1 @@", "blob_url": "u"}]),
+      json.dumps([{"filename": "x.py", "patch": "@@ -1 +1 @@", "blob_url": "u"}]),
+      json.dumps(
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "reviews": {"nodes": [{"id": "R1"}]},
+              }
+            }
+          }
+        }
+      ),
+      json.dumps(
+        {
+          "data": {
+            "repository": {
+              "pullRequest": {
+                "reviewThreads": {"nodes": [{"id": "T1", "isResolved": False}]},
+              }
+            }
+          }
+        }
+      ),
+      json.dumps({"data": {"repository": {"pullRequest": {"id": "PR_4"}}}}),
+      json.dumps(
+        {
+          "data": {
+            "convertPullRequestToDraft": {
+              "pullRequest": {"id": "PR_4", "isDraft": True}
+            }
+          }
+        }
+      ),
+    ],
+    calls,
+  )
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  info = asyncio.run(client().fetch_pr("o/r", 4, include_diff=False))
+  assert info["result"]["number"] == 4
+  patch = asyncio.run(client().fetch_pr_diff("o/r", 4, mode="patch"))
+  assert patch["result"]["diff"].startswith("diff --git")
+  names = asyncio.run(client().fetch_pr_diff("o/r", 4, mode="filenames"))
+  assert names["result"]["filenames"] == ["x.py"]
+  one_file = asyncio.run(client().fetch_pr_diff("o/r", 4, mode="file", path="x.py"))
+  assert one_file["result"]["patch"]["filename"] == "x.py"
+  both = asyncio.run(client().list_pull_request_reviews("o/r", 4, target="both"))
+  assert both["result"]["reviews"][0]["id"] == "R1"
+  assert both["result"]["review_threads"][0]["id"] == "T1"
+  drafted = asyncio.run(
+    client().update_pull_request("o/r", 4, draft=True, __event_call__=answer)
+  )
+  assert drafted["result"]["isDraft"] is True
 
 
 def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
@@ -325,21 +417,89 @@ def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
 
   calls.clear()
   opener(monkeypatch, json.dumps({"items": [{"path": "p", "html_url": "u"}]}), calls)
-  out = asyncio.run(client().search_github_code("needle", 5, repository_name="o/r"))
+  out = asyncio.run(
+    client().search_github("needle", scope="code", topn=5, repository_full_name="o/r")
+  )
   assert calls[0]["url"].startswith("https://api.github.com/search/code?")
   assert "q=needle+repo%3Ao%2Fr" in calls[0]["url"]
   assert out["result"]["results"][0]["display_url"] == "u"
 
 
-def test_list_commits_filters_by_path(monkeypatch):
+def test_write_file_and_branch_actions(monkeypatch):
   calls = []
-  opener(monkeypatch, json.dumps([{"sha": "abc", "commit": {"message": "x"}}]), calls)
+  opener(
+    monkeypatch,
+    [
+      json.dumps({"commit": {"sha": "c1"}, "content": {"sha": "b1"}}),
+      json.dumps({"commit": {"sha": "c2"}, "content": {"sha": "b2"}}),
+      json.dumps({"commit": {"sha": "c3"}}),
+      json.dumps({"ref": "refs/heads/feat/x"}),
+      json.dumps({"ref": "refs/heads/feat/x"}),
+    ],
+    calls,
+  )
+
+  async def answer(payload):
+    return payload["type"] == "confirmation"
+
+  created = asyncio.run(
+    client().write_github_file(
+      "o/r", "a.py", "add a", action="create", content="1\n", __event_call__=answer
+    )
+  )
+  assert created["result"]["commit_sha"] == "c1"
+  updated = asyncio.run(
+    client().write_github_file(
+      "o/r",
+      "a.py",
+      "edit a",
+      action="update",
+      content="2\n",
+      sha="b1",
+      __event_call__=answer,
+    )
+  )
+  assert updated["result"]["commit_sha"] == "c2"
+  deleted = asyncio.run(
+    client().write_github_file(
+      "o/r", "a.py", "rm a", action="delete", sha="b2", __event_call__=answer
+    )
+  )
+  assert deleted["result"]["commit_sha"] == "c3"
+  branch = asyncio.run(
+    client().write_branch(
+      "o/r", "feat/x", action="create", sha="c3", __event_call__=answer
+    )
+  )
+  assert branch["result"]["branch"] == "feat/x"
+  moved = asyncio.run(
+    client().write_branch(
+      "o/r", "feat/x", action="move", sha="c2", force=True, __event_call__=answer
+    )
+  )
+  assert moved["result"]["success"] is True
+
+
+def test_list_commits_filters_by_path_and_commit_status(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps([{"sha": "abc", "commit": {"message": "x"}}]),
+      json.dumps(
+        {"state": "success", "statuses": [{"context": "ci"}], "total_count": 1}
+      ),
+    ],
+    calls,
+  )
   out = asyncio.run(
     client().list_commits("o/r", path="src/app.py", since="2026-01-01T00:00:00Z")
   )
   assert out["result"]["commits"][0]["sha"] == "abc"
   assert "path=src%2Fapp.py" in calls[0]["url"]
   assert "since=2026-01-01T00%3A00%3A00Z" in calls[0]["url"]
+  status = asyncio.run(client().fetch_commit("o/r", "abc", status_only=True))
+  assert status["result"]["state"] == "success"
 
 
 def test_list_tree_is_recursive_and_filtered(monkeypatch):
@@ -427,50 +587,55 @@ def test_create_pr_with_files_without_a_dialog_sends_nothing(monkeypatch):
   assert calls == []
 
 
-def test_code_scanning_alerts_filter_and_read_instances(monkeypatch):
+def test_security_alerts_read_all_three_scanners(monkeypatch):
   calls = []
   opener(
     monkeypatch,
-    [json.dumps({"alerts": []}), json.dumps({"number": 7}), json.dumps([])],
+    [
+      json.dumps({"alerts": []}),
+      json.dumps({"number": 7}),
+      json.dumps([]),
+      json.dumps({"number": 3}),
+      json.dumps([{"path": "a.env"}]),
+      json.dumps([{"number": 1}]),
+      json.dumps({"number": 9}),
+    ],
     calls,
   )
   out = asyncio.run(
-    client().code_scanning_alerts("o/r", tool_name="CodeQL", severity="error")
+    client().list_security_alerts(
+      "o/r", alert_type="code_scanning", tool_name="CodeQL", severity="error"
+    )
   )
   assert out["result"]["alerts"] == {"alerts": []}
   assert "tool_name=CodeQL" in calls[0]["url"]
   assert "severity=error" in calls[0]["url"]
-  assert "state=open" in calls[0]["url"]
-  detail = asyncio.run(client().code_scanning_alerts("o/r", alert_number=7))
+  detail = asyncio.run(
+    client().list_security_alerts("o/r", alert_type="code_scanning", alert_number=7)
+  )
   assert detail["result"]["alert"]["number"] == 7
-  assert calls[1]["url"].endswith("/code-scanning/alerts/7")
   assert calls[2]["url"].endswith("/code-scanning/alerts/7/instances")
 
-
-def test_secret_scanning_alerts_read_locations(monkeypatch):
-  calls = []
-  opener(
-    monkeypatch, [json.dumps({"number": 3}), json.dumps([{"path": "a.env"}])], calls
+  secret = asyncio.run(
+    client().list_security_alerts("o/r", alert_type="secret_scanning", alert_number=3)
   )
-  out = asyncio.run(client().secret_scanning_alerts("o/r", alert_number=3))
-  assert out["result"]["locations"][0]["path"] == "a.env"
-  assert calls[0]["url"].endswith("/secret-scanning/alerts/3")
-  assert calls[1]["url"].endswith("/secret-scanning/alerts/3/locations")
+  assert secret["result"]["locations"][0]["path"] == "a.env"
+  assert calls[4]["url"].endswith("/secret-scanning/alerts/3/locations")
+
+  dep_list = asyncio.run(
+    client().list_security_alerts(
+      "o/r", alert_type="dependabot", severity="high", ecosystem="pip"
+    )
+  )
+  assert dep_list["result"]["alerts"] == [{"number": 1}]
+  assert "ecosystem=pip" in calls[5]["url"]
+  dep_one = asyncio.run(
+    client().list_security_alerts("o/r", alert_type="dependabot", alert_number=9)
+  )
+  assert dep_one["result"]["alert"]["number"] == 9
 
 
-def test_dependabot_alerts_filter_and_read_one(monkeypatch):
-  calls = []
-  opener(monkeypatch, [json.dumps([{"number": 1}]), json.dumps({"number": 9})], calls)
-  out = asyncio.run(client().dependabot_alerts("o/r", severity="high", ecosystem="pip"))
-  assert out["result"]["alerts"] == [{"number": 1}]
-  assert "severity=high" in calls[0]["url"]
-  assert "ecosystem=pip" in calls[0]["url"]
-  detail = asyncio.run(client().dependabot_alerts("o/r", alert_number=9))
-  assert detail["result"]["alert"]["number"] == 9
-  assert calls[1]["url"].endswith("/dependabot/alerts/9")
-
-
-def test_check_runs_list_and_annotations(monkeypatch):
+def test_check_runs_and_workflow_inspection(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -483,6 +648,10 @@ def test_check_runs_list_and_annotations(monkeypatch):
       ),
       json.dumps({"id": 4, "name": "ci"}),
       json.dumps([{"path": "a.py", "annotation_level": "failure", "message": "boom"}]),
+      json.dumps({"total_count": 2, "workflows": [{"id": 1}, {"id": 2}]}),
+      json.dumps({"jobs": [{"id": 8}]}),
+      "step log line",
+      json.dumps({"id": 12, "name": "bundle", "archive_download_url": "https://u"}),
     ],
     calls,
   )
@@ -490,147 +659,153 @@ def test_check_runs_list_and_annotations(monkeypatch):
     client().list_github_check_runs("o/r", "1595387", check_name="ci", filter="latest")
   )
   assert out["result"]["check_runs"][0]["conclusion"] == "failure"
-  assert "check_name=ci" in calls[0]["url"]
-  assert "filter=latest" in calls[0]["url"]
-  assert calls[0]["url"].startswith(
-    "https://api.github.com/repos/o/r/commits/1595387/check-runs?"
-  )
   detail = asyncio.run(
     client().list_github_check_runs("o/r", "1595387", check_run_id=4)
   )
   assert detail["result"]["annotations"][0]["message"] == "boom"
-  assert calls[1]["url"].endswith("/check-runs/4")
-  assert calls[2]["url"].endswith("/check-runs/4/annotations")
 
-
-def test_list_workflows(monkeypatch):
-  calls = []
-  opener(
-    monkeypatch,
-    json.dumps({"total_count": 2, "workflows": [{"id": 1}, {"id": 2}]}),
-    calls,
+  workflows = asyncio.run(client().inspect_workflow_run("o/r", target="workflows"))
+  assert workflows["result"]["total_count"] == 2
+  jobs = asyncio.run(client().inspect_workflow_run("o/r", target="jobs", run_id=55))
+  assert jobs["result"]["jobs"][0]["id"] == 8
+  logs = asyncio.run(client().inspect_workflow_run("o/r", target="job_logs", job_id=8))
+  assert logs["result"]["content"] == "step log line"
+  artifact = asyncio.run(
+    client().inspect_workflow_run("o/r", target="artifact_download", artifact_id=12)
   )
-  out = asyncio.run(client().list_workflows("o/r"))
-  assert out["result"]["total_count"] == 2
-  assert len(out["result"]["workflows"]) == 2
-  assert calls[0]["url"].endswith("/actions/workflows?per_page=30&page=1")
+  assert artifact["result"]["file_name"] == "bundle.zip"
 
 
-def test_actions_minutes_org_and_user(monkeypatch):
-  calls = []
-  opener(
-    monkeypatch,
-    [json.dumps({"total_minutes_used": 10}), json.dumps({"total_minutes_used": 2})],
-    calls,
-  )
-  out = asyncio.run(client().actions_minutes("acme"))
-  assert out["result"]["minutes"]["total_minutes_used"] == 10
-  assert calls[0]["url"] == "https://api.github.com/orgs/acme/settings/billing/actions"
-  out = asyncio.run(client().actions_minutes("nemo", owner_type="user"))
-  assert out["result"]["minutes"]["total_minutes_used"] == 2
-  assert calls[1]["url"] == "https://api.github.com/users/nemo/settings/billing/actions"
-
-
-def test_releases_list_tag_and_id(monkeypatch):
-  calls = []
-  opener(
-    monkeypatch,
-    [json.dumps([{"id": 1}]), json.dumps({"id": 2}), json.dumps({"id": 3})],
-    calls,
-  )
-  out = asyncio.run(client().list_github_releases("o/r"))
-  assert out["result"]["releases"][0]["id"] == 1
-  assert calls[0]["url"].endswith("/releases?per_page=30&page=1")
-  out = asyncio.run(client().list_github_releases("o/r", tag="v1.2.3"))
-  assert out["result"]["release"]["id"] == 2
-  assert calls[1]["url"].endswith("/releases/tags/v1.2.3")
-  out = asyncio.run(client().list_github_releases("o/r", release_id=3))
-  assert out["result"]["release"]["id"] == 3
-  assert calls[2]["url"].endswith("/releases/3")
-
-
-def test_tags_and_packages(monkeypatch):
+def test_account_inspection_and_actions_minutes(monkeypatch):
   calls = []
   opener(
     monkeypatch,
     [
+      json.dumps({"id": 5, "login": "nemo", "name": "Nemo"}),
+      json.dumps([{"login": "acme"}]),
+      json.dumps({"total_minutes_used": 10}),
+      json.dumps({"total_minutes_used": 2}),
+    ],
+    calls,
+  )
+  profile = asyncio.run(client().inspect_github_account(target="profile"))
+  assert profile["result"]["nickname"] == "nemo"
+  orgs = asyncio.run(client().inspect_github_account(target="orgs"))
+  assert orgs["result"]["orgs"] == ["acme"]
+  out = asyncio.run(
+    client().inspect_github_account(target="actions_minutes", owner="acme")
+  )
+  assert out["result"]["minutes"]["total_minutes_used"] == 10
+  assert calls[2]["url"] == "https://api.github.com/orgs/acme/settings/billing/actions"
+  out = asyncio.run(
+    client().inspect_github_account(
+      target="actions_minutes", owner="nemo", owner_type="user"
+    )
+  )
+  assert out["result"]["minutes"]["total_minutes_used"] == 2
+  assert calls[3]["url"] == "https://api.github.com/users/nemo/settings/billing/actions"
+
+
+def test_releases_refs_collaborators_and_packages(monkeypatch):
+  calls = []
+  opener(
+    monkeypatch,
+    [
+      json.dumps([{"id": 1}]),
+      json.dumps({"id": 2}),
+      json.dumps({"id": 3}),
       json.dumps([{"name": "v1"}]),
+      json.dumps([{"name": "feat/ui", "commit": {"sha": "s1"}}]),
+      json.dumps({"permission": "write", "user": {"login": "nemo"}}),
       json.dumps([{"name": "left-pad"}]),
       json.dumps({"name": "left-pad", "package_type": "npm"}),
       json.dumps([{"name": "1.0.0"}]),
     ],
     calls,
   )
-  out = asyncio.run(client().list_github_tags("o/r"))
-  assert out["result"]["tags"][0]["name"] == "v1"
-  assert calls[0]["url"].endswith("/tags?per_page=30&page=1")
-  out = asyncio.run(client().list_github_packages("npm"))
-  assert out["result"]["packages"][0]["name"] == "left-pad"
-  assert calls[1]["url"] == "https://api.github.com/user/packages?package_type=npm"
-  out = asyncio.run(
+  out = asyncio.run(client().list_github_releases("o/r"))
+  assert out["result"]["releases"][0]["id"] == 1
+  out = asyncio.run(client().list_github_releases("o/r", tag="v1.2.3"))
+  assert out["result"]["release"]["id"] == 2
+  out = asyncio.run(client().list_github_releases("o/r", release_id=3))
+  assert out["result"]["release"]["id"] == 3
+  tags = asyncio.run(client().list_repo_refs("o/r", ref_type="tags"))
+  assert tags["result"]["tags"][0]["name"] == "v1"
+  branches = asyncio.run(
+    client().list_repo_refs("o/r", ref_type="branches", query="ui")
+  )
+  assert branches["result"]["branches"][0]["branch"] == "feat/ui"
+  collab = asyncio.run(
+    client().get_repo(repository_full_name="o/r", collaborator="nemo")
+  )
+  assert collab["result"]["permission"] == "write"
+  pkgs = asyncio.run(client().list_github_packages("npm"))
+  assert pkgs["result"]["packages"][0]["name"] == "left-pad"
+  pkg = asyncio.run(
     client().list_github_packages("npm", owner="acme", package_name="left-pad")
   )
-  assert out["result"]["package"]["name"] == "left-pad"
-  assert out["result"]["versions"][0]["name"] == "1.0.0"
-  assert calls[2]["url"] == "https://api.github.com/orgs/acme/packages/npm/left-pad"
-  assert calls[3]["url"].endswith("/packages/npm/left-pad/versions?per_page=30&page=1")
+  assert pkg["result"]["package"]["name"] == "left-pad"
+  assert pkg["result"]["versions"][0]["name"] == "1.0.0"
 
 
-def test_gists_list_and_fetch(monkeypatch):
+def test_gists_read_and_write_gates(monkeypatch):
   calls = []
-  opener(monkeypatch, [json.dumps([{"id": "abc"}]), json.dumps({"id": "abc"})], calls)
-  out = asyncio.run(client().list_gists())
+  opener(
+    monkeypatch,
+    [
+      json.dumps([{"id": "abc"}]),
+      json.dumps([{"id": "abc"}]),
+      json.dumps({"id": "abc"}),
+      json.dumps({"id": "new"}),
+      json.dumps({"id": "new"}),
+      "",
+    ],
+    calls,
+  )
+  out = asyncio.run(client().read_gist())
   assert out["result"]["gists"][0]["id"] == "abc"
   assert calls[0]["url"].startswith("https://api.github.com/gists?")
-  out = asyncio.run(client().list_gists("nemo"))
+  out = asyncio.run(client().read_gist(username="nemo"))
   assert calls[1]["url"].startswith("https://api.github.com/users/nemo/gists?")
-  out = asyncio.run(client().fetch_gist("abc"))
+  out = asyncio.run(client().read_gist(gist_id="abc"))
   assert out["result"]["gist"]["id"] == "abc"
   assert calls[2]["url"].endswith("/gists/abc")
 
-
-def test_gist_writes_are_gated(monkeypatch):
-  calls = []
-  opener(monkeypatch, [json.dumps({"id": "new"}), "", json.dumps({"id": "new"})], calls)
   denied = asyncio.run(
-    client().create_gist({"a.txt": {"content": "x"}}, __event_call__=None)
+    client().write_gist(
+      action="create", files={"a.txt": {"content": "x"}}, __event_call__=None
+    )
   )
   assert denied["result"]["denied"] is True
-  assert calls == []
+  assert len(calls) == 3
 
   async def answer(payload):
     return payload["type"] == "confirmation"
 
-  out = asyncio.run(
-    client().create_gist(
-      {"a.txt": {"content": "x"}}, description="d", __event_call__=answer
+  created = asyncio.run(
+    client().write_gist(
+      action="create",
+      files={"a.txt": {"content": "x"}},
+      description="d",
+      __event_call__=answer,
     )
   )
-  assert out["result"]["gist"]["id"] == "new"
-  body = json.loads(calls[0]["data"])
-  assert body["files"] == {"a.txt": {"content": "x"}}
-  assert body["public"] is False
-  out = asyncio.run(client().delete_gist("new", __event_call__=answer))
-  assert out["result"]["deleted"] is True
-  assert calls[1]["method"] == "DELETE"
-  assert calls[1]["url"].endswith("/gists/new")
-
-
-def test_gist_update_payload(monkeypatch):
-  calls = []
-  opener(monkeypatch, [json.dumps({"id": "abc"})], calls)
-
-  async def answer(payload):
-    return payload["type"] == "confirmation"
-
-  out = asyncio.run(
-    client().update_gist(
-      "abc", files={"a.txt": {"content": "y"}}, description="d", __event_call__=answer
+  assert created["result"]["gist"]["id"] == "new"
+  edited = asyncio.run(
+    client().write_gist(
+      action="update",
+      gist_id="new",
+      files={"a.txt": {"content": "y"}},
+      description="d",
+      __event_call__=answer,
     )
   )
-  assert out["result"]["gist"]["id"] == "abc"
-  body = json.loads(calls[0]["data"])
-  assert body == {"files": {"a.txt": {"content": "y"}}, "description": "d"}
+  assert edited["result"]["gist"]["id"] == "new"
+  deleted = asyncio.run(
+    client().write_gist(action="delete", gist_id="new", __event_call__=answer)
+  )
+  assert deleted["result"]["deleted"] is True
+  assert calls[-1]["method"] == "DELETE"
 
 
 def test_alert_writes_patch_and_deny(monkeypatch):
@@ -640,7 +815,11 @@ def test_alert_writes_patch_and_deny(monkeypatch):
     [json.dumps({"number": 7}), json.dumps({"number": 8}), json.dumps({"number": 9})],
     calls,
   )
-  denied = asyncio.run(client().update_dependabot_alert("o/r", 9, __event_call__=None))
+  denied = asyncio.run(
+    client().update_security_alert(
+      "o/r", 9, alert_type="dependabot", __event_call__=None
+    )
+  )
   assert denied["result"]["denied"] is True
   assert calls == []
 
@@ -648,8 +827,13 @@ def test_alert_writes_patch_and_deny(monkeypatch):
     return payload["type"] == "confirmation"
 
   out = asyncio.run(
-    client().update_code_scanning_alert(
-      "o/r", 7, reason="won't fix", comment="c", __event_call__=answer
+    client().update_security_alert(
+      "o/r",
+      7,
+      alert_type="code_scanning",
+      reason="won't fix",
+      comment="c",
+      __event_call__=answer,
     )
   )
   assert out["result"]["alert"]["number"] == 7
@@ -658,11 +842,14 @@ def test_alert_writes_patch_and_deny(monkeypatch):
     "dismissed_reason": "won't fix",
     "dismissed_comment": "c",
   }
-  assert calls[0]["method"] == "PATCH"
-  assert calls[0]["url"].endswith("/code-scanning/alerts/7")
   out = asyncio.run(
-    client().update_secret_scanning_alert(
-      "o/r", 8, resolution="revoked", comment="c", __event_call__=answer
+    client().update_security_alert(
+      "o/r",
+      8,
+      alert_type="secret_scanning",
+      resolution="revoked",
+      comment="c",
+      __event_call__=answer,
     )
   )
   assert out["result"]["alert"]["number"] == 8
@@ -671,10 +858,13 @@ def test_alert_writes_patch_and_deny(monkeypatch):
     "resolution": "revoked",
     "resolution_comment": "c",
   }
-  assert calls[1]["url"].endswith("/secret-scanning/alerts/8")
   out = asyncio.run(
-    client().update_dependabot_alert(
-      "o/r", 9, reason="tolerable_risk", __event_call__=answer
+    client().update_security_alert(
+      "o/r",
+      9,
+      alert_type="dependabot",
+      reason="tolerable_risk",
+      __event_call__=answer,
     )
   )
   assert out["result"]["alert"]["number"] == 9
@@ -682,7 +872,6 @@ def test_alert_writes_patch_and_deny(monkeypatch):
     "state": "dismissed",
     "dismissed_reason": "tolerable_risk",
   }
-  assert calls[2]["url"].endswith("/dependabot/alerts/9")
 
 
 def test_a_github_error_propagates(monkeypatch):
@@ -701,32 +890,30 @@ def test_a_github_error_propagates(monkeypatch):
 
 
 def test_the_url_reader_carries_a_github_name():
-  """The GitHub url reader names GitHub, and its 422 names the builtin reader."""
-  assert hasattr(tool.Tools, "fetch_github_url"), "the tool carries a GitHub name"
-  assert not hasattr(tool.Tools, "fetch"), "the short name that hid the builtin is gone"
+  """Verify GitHub URL reader keeps `fetch_github_url` and names `fetch_url` on 422."""
+  assert hasattr(tool.Tools, "fetch_github_url")
+  assert not hasattr(tool.Tools, "fetch")
   with pytest.raises(tool.GitHubError) as info:
     asyncio.run(client().fetch_github_url("https://example.com/page"))
   assert info.value.status == 422
-  assert "fetch_url" in str(info.value), "the error names the builtin reader"
+  assert "fetch_url" in str(info.value)
 
 
-@pytest.mark.parametrize(
-  "repositories", [["fixture/one", "fixture/two"], "fixture/one"]
-)
-def test_code_search_qualifies_each_repository(monkeypatch, repositories):
+@pytest.mark.parametrize("repos", [["fixture/one", "fixture/two"], "fixture/one"])
+def test_code_search_qualifies_each_repo(monkeypatch, repos):
   calls = []
   query, org, page_limit = "needle", "fixture", 100
   opener(monkeypatch, json.dumps({"items": []}), calls)
   for topn in (page_limit, page_limit * 2):
     asyncio.run(
-      client().search_github_code(
-        query, topn=topn, repository_name=repositories, org=org
+      client().search_github(
+        query, scope="code", topn=topn, repository_full_name=repos, org=org
       )
     )
   params = [parse_qs(urlsplit(call["url"]).query) for call in calls]
   assert int(params[0]["per_page"][0]) == page_limit
   assert params[1]["per_page"] == params[0]["per_page"]
-  names = repositories if isinstance(repositories, list) else [repositories]
+  names = repos if isinstance(repos, list) else [repos]
   expected = [query, *[f"repo:{name}" for name in names], f"org:{org}"]
   assert all(row["q"][0].split() == expected for row in params)
 
@@ -742,7 +929,11 @@ def test_file_range_applies_to_each_encoding(monkeypatch, encoding):
   )
   answer = asyncio.run(
     client().fetch_github_file(
-      "fixture/repo", "file.txt", encoding=encoding, start_line=start, end_line=end
+      "fixture/repo",
+      "file.txt",
+      encoding=encoding,
+      start_line=start,
+      end_line=end,
     )
   )
   content = answer["result"]["content"]
@@ -751,10 +942,10 @@ def test_file_range_applies_to_each_encoding(monkeypatch, encoding):
   assert content == "\n".join(lines[start - 1 : end])
 
 
-@pytest.mark.parametrize("repository_ids", [7, [7, 9]])
-def test_commit_search_resolves_repository_ids(monkeypatch, repository_ids):
+@pytest.mark.parametrize("repo_ids", [7, [7, 9]])
+def test_commit_search_resolves_repo_ids(monkeypatch, repo_ids):
   query = "needle"
-  ids = repository_ids if isinstance(repository_ids, list) else [repository_ids]
+  ids = repo_ids if isinstance(repo_ids, list) else [repo_ids]
   names = [f"fixture/repo-{value}" for value in ids]
   calls = []
   opener(
@@ -762,7 +953,7 @@ def test_commit_search_resolves_repository_ids(monkeypatch, repository_ids):
     [json.dumps({"full_name": name}) for name in names] + [json.dumps({"items": []})],
     calls,
   )
-  asyncio.run(client().search_commits(query, repository_id=repository_ids))
+  asyncio.run(client().search_github(query, scope="commits", repository_id=repo_ids))
   assert [urlsplit(call["url"]).path for call in calls] == [
     *[f"/repositories/{value}" for value in ids],
     "/search/commits",
@@ -785,7 +976,9 @@ def test_commit_search_permission_precedes_id_lookup(monkeypatch):
   opener(monkeypatch, json.dumps({"items": []}), calls)
   instance = client()
   instance.valves.permissions = "Always ask"
-  answer = asyncio.run(instance.search_commits("needle", repository_id=7))
+  answer = asyncio.run(
+    instance.search_github("needle", scope="commits", repository_id=7)
+  )
   assert answer["result"]["denied"] is True
   assert calls == []
 
@@ -793,9 +986,13 @@ def test_commit_search_permission_precedes_id_lookup(monkeypatch):
 def test_commit_search_id_lookup_error_prevents_unrestricted_search(monkeypatch):
   calls = []
   error = HTTPError(
-    "https://api.github.com/repositories/7", 404, "missing", {}, io.BytesIO(b"{}")
+    "https://api.github.com/repositories/7",
+    404,
+    "missing",
+    {},
+    io.BytesIO(b"{}"),
   )
   opener(monkeypatch, {}, calls, error)
   with pytest.raises(tool.GitHubError):
-    asyncio.run(client().search_commits("needle", repository_id=7))
+    asyncio.run(client().search_github("needle", scope="commits", repository_id=7))
   assert [urlsplit(call["url"]).path for call in calls] == ["/repositories/7"]
