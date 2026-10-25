@@ -160,6 +160,8 @@ def test_model_store() -> None:
         "mode",
         "max_input_tokens",
         "max_output_tokens",
+        "rpm",
+        "tpm",
         "tools",
         "reasoning",
         "effort",

@@ -27,7 +27,7 @@ from fastapi.responses import (
 from fastapi.routing import APIRoute
 
 from daedalus import __version__, config, providers, store, updates
-from daedalus.catalog import schedule
+from daedalus.catalog import enrichment, schedule
 from daedalus.config import (
   block_for,
   provider_edit,
@@ -1001,6 +1001,28 @@ def limit_routes(api: APIRouter, seen: Limits) -> None:
     return JSONResponse(seen.view())
 
 
+def model_pace_limit(
+  config: Mapping[str, Any], row: Mapping[str, Any], key: str
+) -> int | float | None:
+  """Return a stored model pace limit unless it came only from a provider-wide block key."""
+  value = row.get(key)
+  if value is None:
+    return None
+  block = block_for(config, row["provider"], row["slug"])
+  if not isinstance(block, Mapping) or key not in block:
+    return value
+  overrides = block.get("models")
+  if isinstance(overrides, Mapping) and any(
+    isinstance(override, Mapping)
+    and key in override
+    and enrichment.matches(str(pattern), row["slug"])
+    for pattern, override in overrides.items()
+  ):
+    return value
+  provider_value = store.positive(block.get(key))
+  return None if provider_value == float(value) else value
+
+
 def pool_routes(
   api: APIRouter,
   penalties: Penalties,
@@ -1068,6 +1090,8 @@ def pool_routes(
       [
         {
           **row,
+          "rpm": model_pace_limit(config, row, "rpm"),
+          "tpm": model_pace_limit(config, row, "tpm"),
           "tier": tiers.get(row["id"]),
           "weight": weights.get(row["id"]),
           "cooldown": Cooldowns.until(row["id"], ends),

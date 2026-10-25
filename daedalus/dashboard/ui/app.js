@@ -1246,7 +1246,13 @@ const yesNo = (on) => statusBadge(on ? t("common.boolean.yes_text") : t("common.
 // The use rates of one model, counted from the request rows when the dialog opens.
 function useStats(m) {
   const served = state.requests.filter((r) => (r.via || r.model) === m.id);
-  if (!served.length) return [];
+  const limits = limitRows()
+    .filter((r) => r.model === m.id && r.kind !== "neurons" && (r.limit > 0 || r.remaining > 0))
+    .map((r) => [t("limits.value.of_text", {
+      remaining: r.remaining.toLocaleString(),
+      limit: r.limit.toLocaleString(),
+    }), t("model.detail.limit_left_label", { unit: limitUnit(r) })]);
+  if (!served.length) return limits;
   const pct = (count, total) => `${Math.round((100 * count) / total)}%`;
   const ok = served.filter((r) => !r.cancelled && String(r.status)[0] === "2").length;
   const races = state.requests.filter((r) => (r.attempts || []).some((a) => a.model === m.id)
@@ -1264,11 +1270,7 @@ function useStats(m) {
     [pct(fell, served.length), t("model.detail.fallbacks_label")],
     [pct(streamed, served.length), t("model.detail.streamed_label")],
     mid == null ? null : [seconds(mid), t("model.detail.first_token_label")],
-    ...limitRows().filter((r) => r.model === m.id && (r.limit > 0 || r.remaining > 0))
-      .map((r) => [t("limits.value.of_text", {
-        remaining: r.remaining.toLocaleString(),
-        limit: r.limit.toLocaleString(),
-      }), t("model.detail.limit_left_label", { unit: limitUnit(r) })]),
+    ...limits,
   ].filter(Boolean);
 }
 
@@ -1307,6 +1309,8 @@ function openModelModal(m) {
   const stats = [
     m.max_input_tokens ? [m.max_input_tokens.toLocaleString(), t("model.detail.input_tokens_label")] : null,
     m.max_output_tokens ? [m.max_output_tokens.toLocaleString(), t("model.detail.output_tokens_label")] : null,
+    m.rpm ? [m.rpm.toLocaleString(), t("model.column.rpm_column")] : null,
+    m.tpm ? [m.tpm.toLocaleString(), t("model.column.tpm_column")] : null,
     m.weight != null ? [m.weight.toFixed(2), t("model.detail.weight_label"), progressMeter(m.weight)] : null,
   ].filter(Boolean).map(([value, label, bar]) =>
     `<div class="stat"><span class="num">${esc(value)}</span><span class="label">${esc(label)}</span>${bar || ""}</div>`)

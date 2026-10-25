@@ -193,3 +193,20 @@ test("a single section search match shows no stray dividers", async ({ page }) =
   });
 });
 
+test("model cards show registered model limits and omit provider-only limits", async ({ page }) => {
+  await open(page, "#/models", 1440, 900);
+  await page.locator('button[aria-label="gemini/gemini-3.8-flash"]').first().click();
+  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#model-modal-body")).toContainText("5");
+  await expect(page.locator("#model-modal-body")).toContainText("RPM");
+  await expect(page.locator("#model-modal-body")).toContainText("250,000");
+  await expect(page.locator("#model-modal-body")).toContainText("TPM");
+  await page.keyboard.press("Escape");
+
+  await page.locator('button[aria-label="groq/openai/gpt-oss-120b"]').first().click();
+  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#model-modal-body")).not.toContainText("RPM");
+  await expect(page.locator("#model-modal-body")).not.toContainText("TPM");
+  await page.keyboard.press("Escape");
+});
+

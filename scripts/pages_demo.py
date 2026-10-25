@@ -1088,6 +1088,8 @@ const DEMO_FIXTURES = __FIXTURES__;
         row.tier = row.mode === "chat" ? take(tiers, slug) || (cap ? cap.tier : null) : null;
         row.max_input_tokens = meta.max_input_tokens ?? (cap ? cap.max_input_tokens : null);
         row.max_output_tokens = meta.max_output_tokens ?? (cap ? cap.max_output_tokens : null);
+        row.rpm = meta.rpm ?? (cap ? cap.rpm : null);
+        row.tpm = meta.tpm ?? (cap ? cap.tpm : null);
         row.tools = meta.tools ?? (cap ? cap.tools : false);
         row.reasoning = meta.supports_reasoning ?? (cap ? cap.reasoning : false);
         row.effort = meta.reasoning_effort ?? (cap ? cap.effort : null);

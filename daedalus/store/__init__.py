@@ -293,6 +293,14 @@ def stored_rows(database: sqlite3.Connection | None = None) -> list[dict[str, An
   ]
 
 
+def whole_or_float(value: object) -> int | float | None:
+  """Return a positive number as int when exact, else float, or None."""
+  found = positive(value)
+  if found is None:
+    return None
+  return int(found) if found.is_integer() else found
+
+
 def model_rows() -> list[dict[str, Any]]:
   """The pages' view of the rows: the source names, limits, efforts, and the tool and reasoning facts."""
   return [
@@ -304,6 +312,8 @@ def model_rows() -> list[dict[str, Any]]:
       "mode": row["mode"] or "chat",
       "max_input_tokens": row["max_input_tokens"],
       "max_output_tokens": row["max_output_tokens"],
+      "rpm": whole_or_float(row["rpm"]),
+      "tpm": whole_or_float(row["tpm"]),
       "tools": row["supports_function_calling"],
       "reasoning": row["supports_reasoning"],
       "effort": row["reasoning_effort"] or None,

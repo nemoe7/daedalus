@@ -4053,6 +4053,8 @@ def test_data(client: TestClient) -> None:
     "mode": "chat",
     "max_input_tokens": 1000,
     "max_output_tokens": None,
+    "rpm": None,
+    "tpm": None,
     "tools": True,
     "reasoning": True,
     "effort": "medium",
@@ -8246,5 +8248,139 @@ probe.filterRail(host);
 assert.deepStrictEqual(navs.map((nav) => nav.hidden), [false, true, true]);
 assert.deepStrictEqual(navs[0].buttons.map((b) => b.hidden), [false, true]);
 assert.strictEqual(empty.hidden, true);
+""",
+  )
+
+
+def test_model_cards_show_registered_db_limits_and_exclude_provider_only_limits(
+  client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """`/ui/api/models` and `openModelModal` surface per-model DB limits and omit provider-only limits."""
+  db_path = tmp_path / "models.sqlite3"
+  store.write_store(
+    [
+      {
+        "id": "gemini/gemini-3.8-flash",
+        "provider": "gemini",
+        "slug": "gemini-3.8-flash",
+        "mode": "chat",
+        "max_input_tokens": 1048576,
+        "rpm": 5,
+        "tpm": 250000,
+      },
+      {
+        "id": "groq/openai/gpt-oss-120b",
+        "provider": "groq",
+        "slug": "openai/gpt-oss-120b",
+        "mode": "chat",
+        "rpm": 30,
+        "tpm": 8000,
+      },
+      {
+        "id": "groq/whisper-large-v3",
+        "provider": "groq",
+        "slug": "whisper-large-v3",
+        "mode": "audio_transcription",
+        "rpm": 20,
+        "tpm": 8000,
+      },
+      {
+        "id": "cloudflare/@cf/google/gemma-4-26b-a4b-it",
+        "provider": "cloudflare",
+        "slug": "@cf/google/gemma-4-26b-a4b-it",
+        "mode": "chat",
+        "rpm": 300,
+      },
+    ],
+    db_path,
+  )
+  monkeypatch.setattr(store, "MODELS_DB", db_path)
+  monkeypatch.setitem(
+    CONFIG,
+    "gemini",
+    {
+      "api_key": "k",
+      "models": {"gemini-3.8-flash": {"rpm": 5, "tpm": 250000}},
+    },
+  )
+  monkeypatch.setitem(
+    CONFIG,
+    "groq",
+    {
+      "api_key": "k",
+      "rpm": 30,
+      "tpm": 8000,
+      "models": {"whisper-*": {"mode": "audio_transcription", "rpm": 20}},
+    },
+  )
+  monkeypatch.setitem(CONFIG, "cloudflare", {"api_key": "k"})
+  res = client.get("/ui/api/models")
+  assert res.status_code == 200
+  by_id = {row["id"]: row for row in res.json()}
+  assert (
+    by_id["gemini/gemini-3.8-flash"]["rpm"] == 5
+    and by_id["gemini/gemini-3.8-flash"]["tpm"] == 250000
+  )
+  assert (
+    by_id["groq/openai/gpt-oss-120b"]["rpm"] is None
+    and by_id["groq/openai/gpt-oss-120b"]["tpm"] is None
+  )
+  assert (
+    by_id["groq/whisper-large-v3"]["rpm"] == 20
+    and by_id["groq/whisper-large-v3"]["tpm"] is None
+  )
+  assert (
+    by_id["cloudflare/@cf/google/gemma-4-26b-a4b-it"]["rpm"] == 300
+    and by_id["cloudflare/@cf/google/gemma-4-26b-a4b-it"]["tpm"] is None
+  )
+
+  run_app_js(
+    "state, openModelModal, useStats",
+    """
+node('model-modal').showModal = () => {};
+probe.state.requests = [];
+probe.state.limits = {
+  providers: [
+    { name: 'groq', items: [{ kind: 'hourly_requests', value: '180', limit: '200', share: 0.9 }] },
+    { name: 'cloudflare', items: [{ kind: 'neurons', value: 9000, limit: 10000, share: 0.9 }] },
+  ],
+  lanes: [
+    {
+      model: 'groq/whisper-large-v3',
+      rows: [{ kind: 'requests', span: 'day', limit: 14400, remaining: 14312 }],
+    },
+    {
+      model: 'cloudflare/@cf/google/gemma-4-26b-a4b-it',
+      rows: [{ kind: 'neurons', span: 'day', limit: 10000, remaining: 9000 }],
+    },
+  ],
+};
+probe.openModelModal({
+  id: 'groq/whisper-large-v3',
+  slug: 'whisper-large-v3',
+  mode: 'audio_transcription',
+  rpm: 20,
+  tpm: null,
+  flags: [],
+  efforts: [],
+});
+let body = node('model-modal-body').innerHTML;
+assert(body.includes('>20<') && body.includes('>RPM<'), body);
+assert(!body.includes('>TPM<') && !body.includes('8,000'), 'provider-only TPM stays out');
+assert(body.includes('14,312 of 14,400'), 'DB lane limit renders even with zero served requests');
+assert(!body.includes('180') && !body.includes('200'), 'provider-only hourly limit stays out');
+
+probe.openModelModal({
+  id: 'cloudflare/@cf/google/gemma-4-26b-a4b-it',
+  slug: '@cf/google/gemma-4-26b-a4b-it',
+  mode: 'chat',
+  rpm: 300,
+  tpm: null,
+  flags: [],
+  efforts: [],
+});
+body = node('model-modal-body').innerHTML;
+assert(body.includes('>300<') && body.includes('>RPM<'), body);
+assert(!body.includes('Neurons') && !body.includes('9,000'), 'provider-only neurons stay out');
 """,
   )
