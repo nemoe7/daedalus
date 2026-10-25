@@ -4132,9 +4132,10 @@ function renderNotifications(data) {
   };
   const modelLabel = (id) => `<span title="${esc(id)}">${modelName(id)}</span>`;
   const item = (kind, at, title, body, attrs = null, href = null) => {
+    const plainBody = String(body || "").replace(/<[^>]*>/g, "");
     const content = `<span class="notification-mark" aria-hidden="true"></span>
       <span class="notification-copy"><span class="notification-head"><b>${title}</b>${timeText(at, { tag: "time", variant: "muted" })}</span>
-      <span class="notification-body">${body}</span></span>`;
+      <span class="notification-body" title="${esc(plainBody)}">${body}</span></span>`;
     if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">${content}</a>`;
     return attrs
       ? actionButton(content, { variant: `notification-item ${kind}`, attrs })

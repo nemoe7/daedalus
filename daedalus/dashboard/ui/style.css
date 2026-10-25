@@ -282,12 +282,12 @@ td.time { white-space: nowrap; }
 .card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; vertical-align: 2px; }
 .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
 /* Notifications read as one phone feed. Exact times remain available on hover. */
-.notification-feed { padding: 0; overflow: hidden; }
-.notification-feed > .more { margin: 0; padding: 16px 20px 20px; border-top: 1px solid var(--line); }
+.notification-feed { width: 100%; max-width: 740px; margin-inline: auto; padding: 0; overflow: hidden; }
+.notification-feed > .more { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); }
 .notification-item {
   appearance: none; width: 100%; box-sizing: border-box; display: grid;
-  grid-template-columns: 8px minmax(0, 1fr); gap: 12px; align-items: start;
-  padding: 14px 20px; border: 0; border-top: 1px solid var(--line);
+  grid-template-columns: 8px minmax(0, 1fr); gap: 10px; align-items: center;
+  min-height: 40px; padding: 8px 16px; border: 0; border-top: 1px solid var(--line);
   border-radius: 0; background: transparent; color: inherit; font: inherit; text-align: left;
 }
 button.notification-item { cursor: pointer; }
@@ -297,17 +297,17 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 @media (hover: hover) {
   button.notification-item:hover, a.notification-item:hover { background: var(--field); }
 }
-.notification-mark { width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--muted); }
+.notification-mark { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
 .notification-item.reset .notification-mark { background: var(--accent); }
 .notification-item.warning .notification-mark { background: var(--warn); }
 .notification-item.rebuild .notification-mark { background: var(--ok); }
 /* The first event opens the card itself: the count strip above it carried no action. */
 .notification-feed > .notification-item:first-child { border-top: 0; }
-.notification-copy { min-width: 0; display: grid; gap: 4px; white-space: normal; }
-.notification-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.notification-head b { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
-.notification-head time { flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
-.notification-body { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.notification-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.notification-head { display: contents; }
+.notification-head b { flex: 0 1 auto; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.notification-head time { order: 2; margin-left: auto; flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
+.notification-body { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
 .health { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
 .health .track { flex: 1; height: 6px; }
 .health .num { font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -1326,8 +1326,14 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   section[data-page="models"] .toolbar {
     padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
   }
-  .notification-item { padding: 14px 16px; }
-  .notification-feed > .more { padding: 16px; }
+  .notification-item { align-items: start; min-height: 44px; padding: 10px 14px; }
+  .notification-mark { margin-top: 5px; }
+  .notification-copy { display: grid; gap: 2px; white-space: normal; }
+  .notification-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .notification-head b { max-width: none; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+  .notification-head time { order: 0; margin-left: 0; }
+  .notification-body { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+  .notification-feed > .more { padding: 12px 14px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }

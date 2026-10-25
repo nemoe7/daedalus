@@ -1540,9 +1540,10 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
 """,
   )
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert ".notification-feed" in css and ".notification-item" in css, (
-    "the shared card lays out notification rows"
-  )
+  assert (
+    ".notification-feed { width: 100%; max-width: 740px;" in css
+    and "min-height: 40px; padding: 8px 16px;" in css
+  ), "the shared card lays out notification rows"
   desk = css.split("@media (max-width: 40em) {", 1)[0]
   for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", desk):
     if "#limit-rows" in selector:
@@ -6388,7 +6389,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
     "#new-key { padding: 3px 3px 8px; }",
     'section[data-page="models"] .toolbar {',
     "border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;",
-    ".notification-item { padding: 14px 16px; }",
+    ".notification-item { align-items: start; min-height: 44px; padding: 10px 14px; }",
     ".toolbar input:focus-visible, .toolbar select:focus-visible,",
   ):
     assert rule in phone, rule

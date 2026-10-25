@@ -117,7 +117,7 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 | Requests | `requests` | `.requests-bar` filter bar above 2-column `.flow` (`table.requests` + `260px` `.legend` above `75em`, `#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`) | Live request table (`table.requests`) with routing legend |
 | Models | `models` | `.pools` strip above `.panel` with sticky `.toolbar` and `table.models` | Search input (`#search`) and pool summary cards |
 | Limits | `limits` | `.editbar` above 2-column `.flow` (`table.limits` + `260px` `#balances`) | Lowest remaining quota progress bar |
-| Notifications | `notifications` | Single-column `.notification-feed` card | Recent provider reset, limit, and catalog rebuild rows |
+| Notifications | `notifications` | Width-capped `740px` `.notification-feed` card (`40px` single-line rows, wrapping details at `<= 40em`) | Recent provider reset, limit, and catalog rebuild rows |
 | Settings | `settings` | 2-column `.settings` (`240px` `.rail` with `minmax(0, 1fr)` track + `.section-pane`) | Active settings category card in `.section-pane` |
 
 ## 7. Core Functional and Domain Components

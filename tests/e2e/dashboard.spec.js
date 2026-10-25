@@ -554,4 +554,32 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
   expect(Math.abs(mobileLimitsBar.btnHeight - desktopLimitsBar.btnHeight)).toBeLessThanOrEqual(1);
   expect(mobileLimitsBar.centerDelta).toBeLessThanOrEqual(1);
   expect(mobileLimitsBar.stampBelow).toBe(true);
+
+  await open(page, "#/notifications", 1280, 900);
+  const desktopNotif = await page.evaluate(() => {
+    const feed = document.getElementById("notification-feed").getBoundingClientRect();
+    const row = document.querySelector("#notification-feed .notification-item");
+    const r = row.getBoundingClientRect();
+    const b = row.querySelector(".notification-head b").getBoundingClientRect();
+    const body = row.querySelector(".notification-body").getBoundingClientRect();
+    const tm = row.querySelector("time").getBoundingClientRect();
+    return {
+      feedW: feed.width,
+      rowH: r.height,
+      inlineOrder: b.right <= body.left + 1 && body.right <= tm.left + 1,
+    };
+  });
+  expect(desktopNotif.feedW).toBeGreaterThanOrEqual(739);
+  expect(desktopNotif.feedW).toBeLessThanOrEqual(741);
+  expect(desktopNotif.rowH).toBeLessThanOrEqual(42);
+  expect(desktopNotif.inlineOrder).toBe(true);
+
+  await open(page, "#/notifications", 390, 844);
+  const mobileNotif = await page.evaluate(() => {
+    const row = document.querySelector("#notification-feed .notification-item");
+    const b = row.querySelector(".notification-head b").getBoundingClientRect();
+    const body = row.querySelector(".notification-body").getBoundingClientRect();
+    return { wrapped: body.top >= b.bottom - 2 };
+  });
+  expect(mobileNotif.wrapped).toBe(true);
 });
