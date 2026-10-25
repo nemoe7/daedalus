@@ -1,4 +1,4 @@
-"""The Kilo Code plugin copies the daedalus limits into the Kilo config."""
+"""The Kilo Code plugin copies daedalus limits into the Kilo config."""
 
 import json
 import os

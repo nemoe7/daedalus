@@ -328,7 +328,7 @@ def test_init_rows() -> None:
 
 
 def test_hook_files() -> None:
-  """The selector lists the Python files of the hooks folder as config paths."""
+  """The selector lists the Python files of hooks folder as config paths."""
   root = hooks.ROOT / "hooks"
   root.mkdir(parents=True, exist_ok=True)
   named = write("listed.py", "def on_answer(value, model, headers):\n  return value\n")

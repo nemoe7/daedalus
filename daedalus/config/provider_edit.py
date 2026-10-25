@@ -1,4 +1,4 @@
-"""Provider file edits from the dashboard form that keep the comments and the key order."""
+"""Provider file edits from the dashboard form that keep comments and the key order."""
 
 import re
 from io import StringIO
@@ -59,7 +59,7 @@ def merged(old: Any, new: Any, flow: bool = False) -> Any:
 
 
 def comment_parts(token: CommentToken | None) -> tuple[str, str]:
-  """The end-of-line comment of a list item, and the lines that follow the item."""
+  """The end-of-line comment of a list item, and lines that follow the item."""
   if token is None:
     return "", ""
   value = token.value
@@ -122,7 +122,7 @@ def fresh(value: Any, flow: bool = False, children: bool = False) -> Any:
 
 
 def merge_text(text: str, document: dict[str, Any]) -> str:
-  """The file text with the values of the form, and its comments kept."""
+  """The file text with values of the form, and its comments kept."""
   writer = round_trip()
   data = writer.load(text) if text.strip() else None
   if not isinstance(data, CommentedMap):

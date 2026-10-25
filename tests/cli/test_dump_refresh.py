@@ -129,7 +129,7 @@ def test_remote_export_rejects_paths_before_changing_output(
 def test_failed_offline_fetch_keeps_existing_export_and_cached_rows(
   tmp_path, monkeypatch
 ):
-  """Retained model rows remain readable but cannot be exported as a fresh fetch."""
+  """Retained model rows stay readable while export rejects stale fetches."""
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   folder = tmp_path / "dump"
   folder.mkdir()

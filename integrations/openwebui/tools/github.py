@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.11
+version: 3.0.12
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -819,7 +819,7 @@ class Tools:
       __event_call__=__event_call__,
     )
 
-  # ═════════════════════════ pull requests & reviews ════════════════════
+  # ═════════════════════════ PRs & reviews ════════════════════
 
   async def fetch_pr(
     self,
@@ -1028,7 +1028,7 @@ class Tools:
     :param base_branch: target base branch
     :param draft: open as draft
     :param head: head as owner:branch for fork PRs
-    :param base: base ref when base_branch is omitted
+    :param base: base ref without base_branch
     :param issue: issue number to convert into a PR
     :param head_repo: fork owner or full name paired with head_branch
     :param maintainer_can_modify: allow maintainer edits
@@ -1664,7 +1664,7 @@ class Tools:
     """Read a GitHub file or directory by path, or a git blob by SHA.
 
     :param repository_full_name: owner/repo
-    :param path: file or directory path inside repo when blob_sha is omitted
+    :param path: file or directory path inside repo without blob_sha
     :param blob_sha: git blob SHA for paged decoded blob reads
     :param ref: branch, tag, or commit when reading by path
     :param encoding: utf-8 or base64 when reading by path
@@ -2296,7 +2296,7 @@ class Tools:
     :param repository_full_name: owner/repo
     :param repository_id: numeric repo ID
     :param repository_url: repo HTML or API URL
-    :param collaborator: username whose permission level should be checked
+    :param collaborator: username to check for repo permission level
     """
 
     async def run():
@@ -2391,7 +2391,7 @@ class Tools:
     :param ref_type: tags or branches
     :param query: optional case-insensitive substring filter
     :param per_page: items per page
-    :param page: page number when cursor is omitted
+    :param page: page number without cursor
     :param cursor: page cursor from previous branches call
     """
     if ref_type not in ("tags", "branches"):

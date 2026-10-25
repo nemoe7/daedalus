@@ -1,4 +1,4 @@
-"""Read the model lists of the providers and keep the models that the config selects."""
+"""Read the model lists of the providers and keep models that config selects."""
 
 import csv
 import hashlib
@@ -64,7 +64,7 @@ _SNAPSHOTS: dict[tuple[str, str], tuple[dict[str, Any], float]] = {}
 
 
 def snapshot_hash(url: str) -> str:
-  """Hash a discovery URL so query credentials are not stored in the snapshot table."""
+  """Hash a discovery URL so snapshot rows omit query credentials."""
   return hashlib.sha256(url.encode("utf-8")).hexdigest()
 
 

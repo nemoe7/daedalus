@@ -168,7 +168,7 @@ def key_of(model: str) -> list[str]:
 
 
 class Cooldowns:
-  """The cooldown end of each model, and the last backoff span, in the model store."""
+  """The cooldown end of each model, and last backoff span, in the model store."""
 
   def __init__(
     self, path: Callable[[], Path], clock: Callable[[], float] = time.time

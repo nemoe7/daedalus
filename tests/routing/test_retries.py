@@ -144,7 +144,7 @@ def test_expiry() -> None:
 
 
 def shipped_hook() -> str:
-  """The shipped Open WebUI hook, copied into the config folder of the test."""
+  """The shipped Open WebUI hook, copied into config folder of the test."""
   folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   target = folder / "owui_auto_reasoning_effort.py"

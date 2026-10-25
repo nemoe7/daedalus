@@ -48,7 +48,7 @@ async def available() -> bool:
 async def compress(
   body: dict[str, Any], model: str
 ) -> tuple[dict[str, Any], int | None]:
-  """The body with shorter messages and the saved tokens, or the same body and None."""
+  """The body with shorter messages and the saved tokens, or same body and None."""
   global _down
   base = base_url()
   if not base:

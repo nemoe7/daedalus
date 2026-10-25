@@ -44,8 +44,8 @@ ENDPOINTS = (
   "settings",
   "login",
 )
-# The provider files of the demo. Its local main stays empty, and the shipped main supplies the
-# cached cloud blocks that the Providers form shows.
+# The provider files of the demo. Its local main stays empty, and the shipped main supplies
+# cached cloud blocks that Providers form shows.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
 # The models of the demo: a captured snapshot of the live catalog, 137 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
@@ -115,7 +115,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   """Answer 1 upstream call as an OpenAI-compatible provider does, with its failures."""
   path = request.url.path
   host = request.url.host
-  # The balance endpoints of the Limits page: the shape of each provider answer.
+  # The balance endpoints of Limits page: the shape of each provider answer.
   if host == "openrouter.ai" and path.endswith("/key"):
     return httpx.Response(
       200,
@@ -141,7 +141,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   native = "/run/" in path
   if native or path.endswith("/audio/transcriptions"):
     text = "A short transcript of the recording."
-    # The native answer wraps the text: the provider reads `result.text`.
+    # The native answer wraps text: the provider reads `result.text`.
     if native or "cloudflare" in request.url.host:
       return httpx.Response(200, json={"result": {"text": text}}, headers=DEMO_HEADERS)
     return httpx.Response(200, json={"text": text}, headers=DEMO_HEADERS)
@@ -358,7 +358,7 @@ DEMO_SHAPES = (
 
 
 def seed_state() -> None:
-  """Set the states that the pages show, after the requests moved the weights."""
+  """Set the states that the pages show, after requests moved weights."""
   penalties, cooldowns = api.PENALTIES, api.COOLDOWNS
   penalties.record_change("cloudflare/@cf/openai/gpt-oss-120b", penalties.fault)
   penalties.highest("5d7e3b6", 3)
@@ -381,7 +381,7 @@ def seed_state() -> None:
 
 
 def seed_requests(client: TestClient, auth: dict[str, str]) -> None:
-  """Run the requests of the demo, 1 per row of the Requests tab."""
+  """Run the requests of the demo, 1 per row of Requests tab."""
   for model, prompt in DEMO_CALLS:
     DOWN.clear()
     LIMITED.clear()
@@ -441,7 +441,7 @@ def capture() -> dict[str, Any]:
       store.migrate()
       store.write_store(json.loads(MODELS_FILE.read_text(encoding="utf-8")))
       seed_saved()
-      # The shipped files read their keys from the environment, which the capture fakes.
+      # The shipped files read their keys from environment, which the capture fakes.
       os.environ.update(dict(DEMO_VALUES))
       config.set_config(config.load_config(provider))
       upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
@@ -452,7 +452,7 @@ def capture() -> dict[str, Any]:
       ).raise_for_status()
       seed_requests(client, auth)
       seed_state()
-      # The Check now button of the Limits page: the balances and the checked time.
+      # The Check now button of Limits page: balances and the checked time.
       client.post(
         "/ui/api/limits", headers={**auth, "Content-Type": "application/json"}
       ).raise_for_status()
@@ -466,7 +466,7 @@ def capture() -> dict[str, Any]:
       os.environ.update(environ)
       upstream.set_client(None)
       config.set_config(None)
-  # The temp folder of the capture never reaches the fixtures.
+  # The temp folder of the capture never reaches fixtures.
   return json.loads(json.dumps(found).replace(str(folder) + os.sep, ""))
 
 
@@ -1389,7 +1389,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       return bad("The demo keeps the shipped file list read-only.", 403);
     if (path === "settings" && method === "PUT") return settings_saved(init);
     if (path === "hooks/file" && method === "DELETE") return hook_dropped(init);
-    // Hook scans name the demo repository. Selected files stay in page memory.
+    // Hook scans name the demo repo. Selected files stay in page memory.
     if (path === "hooks/scan" && method === "POST") {
       const asked = body_of(init);
       return json({
@@ -1679,7 +1679,7 @@ def demo_version() -> str:
 def demo_fixtures(version: str) -> dict[str, Any]:
   """The fixtures of 1 build: the rows the provider files keep, with the version stamps."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
-  # The capture can predate a shipped setting, and a missing default picks the wrong widget: the
+  # The capture can predate a shipped setting, and a missing default selects the wrong widget: the
   # boolean above falls back to a number box. Fill the gaps from the shipped defaults.
   captured = fixtures["settings"].setdefault("defaults", {})
   for group, values in settings.DEFAULTS.items():

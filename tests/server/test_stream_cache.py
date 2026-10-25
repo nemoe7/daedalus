@@ -227,7 +227,7 @@ def delta(**values: object) -> str:
 
 
 async def test_cache_merges_the_deltas() -> None:
-  """The cache joins the text, the reasoning and the tool calls of one stream."""
+  """The cache joins the text, reasoning, and tool calls of one stream."""
   calls = json.dumps(
     {
       "choices": [
@@ -287,7 +287,7 @@ async def test_cache_needs_the_done_marker() -> None:
 
 
 async def test_cache_keeps_the_usage_and_rejects_an_error() -> None:
-  """The last usage lands in the answer, and an error chunk stops the cache."""
+  """The last usage lands in the answer, and an error chunk stops cache."""
   usage = json.dumps(
     {"choices": [], "usage": {"prompt_tokens": 1, "completion_tokens": 2}}
   )

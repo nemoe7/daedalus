@@ -44,7 +44,7 @@ async def test_short_key(guard: FastAPI) -> None:
 
 
 async def test_key_with_a_space(guard: FastAPI) -> None:
-  """The space keeps the token off the master key, and the store holds no key with a space."""
+  """The space keeps the token off the master key, and store holds no key with a space."""
   assert (await get(guard, f"{MASTER} extra")).status_code == 401
 
 

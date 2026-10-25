@@ -5,7 +5,7 @@ downloads its archive, and writes `.py` files under owner/repo/file.py via temp 
 Flat files remain shipped copies. Failed fetches, unreadable archives, refused blocks, or
 failed writes leave existing files untouched.
 
-The lock `hooks.lock.json` rides in the hooks folder and records, by owner/repo/file.py,
+The lock `hooks.lock.json` rides in hooks folder and records, by owner/repo/file.py,
 the sha256, the version, the repo and the commit of each file. `daedalus hooks verify`
 compares the files on disk against that lock.
 """
@@ -55,7 +55,7 @@ def tell(problem: str) -> None:
 
 
 def digest(body: bytes) -> str:
-  """The sha256 of the bytes, as the settings file writes it."""
+  """The sha256 of the bytes, as settings file writes it."""
   return hashlib.sha256(body).hexdigest()
 
 

@@ -30,7 +30,7 @@ POOLS: Final[Mapping[str, int]] = {
   "daedalus/deinos": 3,
   "daedalus/sophos": 4,
 }
-# The pools of the non-chat endpoints, and the catalog mode of their models.
+# The pools of the non-chat endpoints, and catalog mode of their models.
 MEDIA_POOLS: Final[Mapping[str, str]] = {
   "daedalus/graphos": "audio_transcription",
   "daedalus/photos": "image_generation",
@@ -275,7 +275,7 @@ def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
 # The tier rows of the last config, for each model list. A new config object clears it.
 _TIER_CACHE: dict[tuple[str, ...], dict[str, list[str]]] = {}
 _CACHED_CONFIG: list[Mapping[str, Any] | None] = [None]
-# The model lists that the cache keeps, for example with and without the tool filter.
+# The model lists that cache keeps, for example with and without the tool filter.
 CACHE_SIZE: Final = 8
 
 
@@ -299,7 +299,7 @@ def sorted_lines(config: Mapping[str, Any], lines: list[str]) -> dict[str, list[
 
 
 def tier_lines(config: Mapping[str, Any], lines: list[str]) -> dict[str, list[str]]:
-  """The pooled rows of each tier name, from the cache when the config and lines are the same."""
+  """The pooled rows of each tier name, from the cache when config and lines are the same."""
   if _CACHED_CONFIG[0] is not config:
     _TIER_CACHE.clear()
     _CACHED_CONFIG[0] = config

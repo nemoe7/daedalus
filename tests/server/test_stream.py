@@ -119,7 +119,7 @@ def test_provider_count_needs_a_prompt_count() -> None:
 
 
 def test_provider_count_keeps_the_output_count() -> None:
-  """A usage with both counts gives the input, the output and the provider mark."""
+  """A usage with both counts gives the input, output, and provider mark."""
   assert stream.provider_count({"prompt_tokens": 5}) == {"input": 5, "estimate": False}
   assert stream.provider_count({"prompt_tokens": 5, "completion_tokens": 7}) == {
     "input": 5,

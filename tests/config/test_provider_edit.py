@@ -90,7 +90,7 @@ def test_merge_text_gives_a_new_key_a_node() -> None:
 
 
 def test_round_trip_keeps_the_indents_of_a_provider_file() -> None:
-  """The reader gives a commented map back, with the sequence indent of the files."""
+  """The reader gives a commented map back, with the sequence indent of files."""
   found = edit.round_trip()
   assert isinstance(found.load("name: old\n"), CommentedMap)
   assert found.map_indent == 2

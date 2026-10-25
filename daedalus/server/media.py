@@ -70,7 +70,7 @@ def no_models(pool: str) -> str:
 def models_for(
   request: Request, model: str, pool: str | None, content: bytes, vision: bool = False
 ) -> list[str] | Response:
-  """The models to try: the one model, or the pool models by weight after the models that answered this content."""
+  """The models to try: the one model, or pool models by weight after the models that answered this content."""
   if model != pool:
     built = model if model.startswith("daedalus/") else f"daedalus/{model}"
     if (
@@ -461,7 +461,7 @@ async def images(request: Request) -> Response:
 
 
 async def upload(item: UploadFile) -> providers.Upload:
-  """The file name, the bytes and the media type of one uploaded file."""
+  """The file name, bytes, and media type of one uploaded file."""
   media = item.content_type or "application/octet-stream"
   return item.filename or "image", await item.read(), media
 

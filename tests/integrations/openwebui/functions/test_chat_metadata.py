@@ -64,7 +64,7 @@ class Time:
 def test_the_block_goes_in_as_one_system_message_at_the_top(
   monkeypatch: Any,
 ) -> None:
-  """One system message with the block draws above the messages, and the other keys stay."""
+  """One system message with the block draws above the messages, and other keys stay."""
   monkeypatch.setattr(module, "datetime", Clock)
   Clock.value = Time("2026-10-06T09:30:00+08:00", "PST")
   body = {
@@ -165,7 +165,7 @@ def test_a_disabled_valve_leaves_the_body_alone(monkeypatch: Any) -> None:
 
 
 def test_the_valves_draw_a_schema() -> None:
-  """Open WebUI builds the Valves panel from the schema of the Valves class."""
+  """Open WebUI builds the Valves panel from the schema of Valves class."""
   schema = module.Filter.Valves.model_json_schema()
   assert set(schema["properties"]) == {
     "enabled",

@@ -1,4 +1,4 @@
-"""The `daedalus hooks` command: the update, the list and the check of each file."""
+"""The `daedalus hooks` command: the update, list, and check of each file."""
 
 import io
 import json
@@ -118,7 +118,7 @@ def test_update_reports_a_bad_settings_file(
 def test_list_prints_the_block_and_the_state(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-  """`hooks list` prints the version, the scope, the state and the source of each file."""
+  """`hooks list` prints the version, scope, state, and source of each file."""
   (folder / "one.py").write_bytes(BODY)
   (folder / "two.py").write_bytes(PLAIN)
   remote.write_records({"one.py": RECORD})

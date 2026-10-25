@@ -21,7 +21,7 @@ class Pacing:
     self.clock = clock
     self.enabled = True
     self.sent: dict[str, deque[tuple[float, int]]] = {}
-    # The provider config, the requests of each provider in the last hour, and the end of a 429 hold.
+    # The provider config, requests of each provider in the last hour, and end of a 429 hold.
     self.config: Callable[[], Mapping[str, Any]] = dict
     self.hour: dict[str, deque[float]] = {}
     self.spent: dict[str, float] = {}

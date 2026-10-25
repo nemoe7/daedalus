@@ -25,8 +25,8 @@ flowchart TD
   F --> H[The answer goes to the chat]
 ```
 
-1. In the Google Cloud console, make an OAuth client of the type Desktop app, and turn on the Gmail, Calendar, Drive, and Docs APIs.
-2. Do the consent 1 time, with the scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly`, and `documents`. The reply holds the refresh token.
+1. In the Google Cloud console, create a Desktop app OAuth client, and enable the Gmail, Calendar, Drive, and Docs APIs.
+2. Complete consent 1 time with scopes `gmail.readonly`, `gmail.send`, `calendar.readonly`, `calendar.events`, `drive.readonly`, and `documents`. The reply holds the refresh token.
 3. **Valves**: set `google_client_id`, `google_client_secret`, and `google_refresh_token`. Set `permissions` (`Always ask` by default).
 
 | Valve | Default | Meaning |
@@ -47,7 +47,7 @@ The shipped `Always ask` holds every call, reads included, so no mail line and n
 
 `UserValves.mode` accepts `default` and the three permission modes only. Unknown runtime modes require confirmation.
 
-[`tests/integrations/openwebui/tools/test_owui_google_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_google_tool.py) holds the surface, the gate, the token cache, and the error path.
+[`tests/integrations/openwebui/tools/test_owui_google_tool.py`](../../../tests/integrations/openwebui/tools/test_owui_google_tool.py) holds the surface, gate, token cache, and error path.
 
 ## Output limits
 

@@ -180,7 +180,7 @@ def test_provider_file() -> None:
 
 
 def test_file_shadows_names_only_a_shared_block() -> None:
-  """A provider file with a block of its own is not shadowed, and the load logs each shadowed file."""
+  """A provider file with its own block avoids shadowing, and load logs shadowed files."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
     main.write_text("p:\n  api_key: main\n", encoding="utf-8")
@@ -221,7 +221,7 @@ def _log_capture():
 
 
 def test_a_wrong_shape_in_the_main_file_drops_out() -> None:
-  """The loader omits invalid provider values, and the router uses the remaining block."""
+  """The loader omits invalid provider values, and router uses the remaining block."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
     main.write_text(

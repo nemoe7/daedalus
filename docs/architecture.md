@@ -104,7 +104,7 @@ flowchart TD
 | Request type | 1 of 7 types, from the first rule that matches. No match: `general`. |
 | Length | 1 of 4 odds buckets: `short` under 200 characters, `medium` under 800, `long` under 2000, or `very long`. The type scan reads the first 2000 characters. |
 | Conversation | The tier does not go down until the session expires (1 h idle). |
-| Tool call | After the first tool call, the tier is C or higher, and the search stops. |
+| Tool call | After the first tool call, tier is C or higher, and search stops. |
 | Keyword | A `routing.escalation` match in the last user message moves the tier 1 step up. |
 
 The classifier is a copy of the [LiteLLM](https://github.com/BerriAI/litellm) [AutoRouter heuristic v2](https://docs.litellm.ai/blog/heuristic-v2). The latest LiteLLM changelog check covers releases through `v1.107.0-rc.2`. The `routing.threshold` setting gives the odds a tier needs to take a request, and the shipped value is `0.75`.
@@ -216,7 +216,7 @@ Some limits start a cooldown with no 429. The longer of the two stays.
 | `provider/slug` request to a model in a cooldown | HTTP 429 `rate_limit_exceeded`, with no upstream request |
 | Each model of a chain in a cooldown | HTTP 429 `rate_limit_exceeded`. `Retry-After` is the seconds to the first cooldown end. |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
-| Dashboard | Models: the cooldowns and lanes with the time left. Requests: the starting requests. |
+| Dashboard | Models: cooldowns and lanes with the time left. Requests: the starting requests. |
 
 ## Client lanes
 
@@ -281,7 +281,7 @@ sequenceDiagram
 | Expiry | 1 h with no request |
 | Storage | `.daedalus-state/models.sqlite3`, kept after a restart |
 
-Session affinity keeps 1 response style in a conversation. It also lets the conversation use the prompt cache of the provider. The cache is not guaranteed, but it helps when the provider has one. Without session affinity, the styles of different models mix in 1 conversation.
+Session affinity keeps 1 response style in a conversation and reuses any available provider prompt cache. Without session affinity, different model styles mix in 1 conversation.
 
 ## Parallel queries
 
@@ -329,7 +329,7 @@ repeat is a new request with no hook.
 | Next new message | The classifier and the session tier |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |
-| Log | `retry=N`. The Requests row shows the `code` of the hook, such as `rt1`. |
+| Log | `retry=N`. The Requests row shows `code` of the hook, such as `rt1`. |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Other clients, `provider/slug` | No change |
 
@@ -369,7 +369,7 @@ Transcription and images get a pool, because the answer of another model is stil
 
 ## State database
 
-`.daedalus-state/models.sqlite3` holds the model store and the state of the other modules.
+`.daedalus-state/models.sqlite3` holds the model store and state of the other modules.
 
 | Item | Value |
 | --- | --- |

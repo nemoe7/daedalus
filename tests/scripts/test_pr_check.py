@@ -1,4 +1,4 @@
-"""Tests for the pull request contract gate."""
+"""Tests for the PR contract gate."""
 
 from __future__ import annotations
 

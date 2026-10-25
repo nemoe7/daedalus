@@ -272,7 +272,7 @@ def usage(answer: dict) -> dict:
 
 
 def thought_signature(call: dict) -> str | None:
-  """The signature from `extra_content`, in the daedalus or the Google form."""
+  """The signature from `extra_content`, in daedalus or the Google form."""
   extra = call.get("extra_content") or {}
   return extra.get("thought_signature") or (extra.get("google") or {}).get(
     "thought_signature"

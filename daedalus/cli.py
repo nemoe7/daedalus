@@ -149,7 +149,7 @@ def ask_rebuild(url: str) -> bool:
 
 
 def hooks_of() -> tuple[dict[str, Any], Path] | None:
-  """The hooks group of the settings and its folder, or None with the problem printed."""
+  """The hooks group of settings and its folder, or None with the problem printed."""
   try:
     group = settings.load()["hooks"]
   except settings.SettingsError as exc:
@@ -178,14 +178,14 @@ def hooks_update() -> int:
 
 
 def lock_note(record: dict[str, str]) -> str:
-  """The version, the repo and the short commit of 1 lock record."""
+  """The version, repo, and short commit of 1 lock record."""
   version = record.get("version") or "-"
   source = f"{record['repo']}@{record['commit'][:12]}" if record.get("repo") else "-"
   return f"{version} {source}"
 
 
 def hooks_list() -> int:
-  """Print 1 row per hook file: the version, the scope, the state and the source."""
+  """Print 1 row per hook file: the version, scope, state, and source."""
   found = hooks_of()
   if found is None:
     return 2
@@ -205,7 +205,7 @@ def hooks_list() -> int:
 
 
 def hooks_verify() -> int:
-  """Check each hook file against the lock record of the sources and the loader."""
+  """Check each hook file against the lock record of sources and the loader."""
   found = hooks_of()
   if found is None:
     return 2

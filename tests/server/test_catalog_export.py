@@ -160,7 +160,7 @@ async def test_export_keeps_the_guard_until_capture_finishes(monkeypatch, cancel
 
 
 def test_export_refuses_a_snapshot_not_updated_by_the_refresh(monkeypatch):
-  """An old snapshot from a provider without credentials cannot be called fresh."""
+  """Export rejects an old snapshot from a provider without credentials."""
   import sqlite3
 
   url = "https://stale.test/models"

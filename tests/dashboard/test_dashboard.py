@@ -651,7 +651,7 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
 
 
 def test_each_screen_starts_with_a_named_heading() -> None:
-  """The header tabs name each screen, and the document title tracks the active view."""
+  """The header tabs name each screen, and document title tracks the active view."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert "page-title" not in html
@@ -2143,7 +2143,7 @@ def test_the_limits_table_scrolls_inside_its_panel() -> None:
 
 
 def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
-  """The Limits filter bar takes the table column width, and the field names itself."""
+  """The Limits filter bar takes the table column width, and field names itself."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   wide = re.search(r"@media \(min-width: 901px\) \{(.*?)\n\}", css, re.DOTALL)
@@ -7883,7 +7883,7 @@ assert.strictEqual(node('limits-checked').innerHTML, LOCALE['limits.not_checked_
 
 
 def test_the_maintenance_card_lives_in_settings() -> None:
-  """The update check, the rebuild, and the reset live in a Settings section."""
+  """The update check, rebuild, and reset live in a Settings section."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")

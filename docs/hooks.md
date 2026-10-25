@@ -37,7 +37,7 @@ Each item has 1 hook surface and 1 file path. The path starts in the [`config`](
 
 For each surface, the file defines 1 function with the name of the surface.
 
-The first chart follows a chat request. The second shows the catalog build, the dashboard load, and a hook call.
+The first chart follows a chat request. The second shows the catalog build, dashboard load, and a hook call.
 
 ```mermaid
 flowchart LR
@@ -237,7 +237,7 @@ names each Open WebUI turn and writes `rtN` on repeats. It also sets the request
 A hook error does not stop the request. daedalus logs the error, and the value goes on without the changes of that hook. The next hook in the list still runs. These are errors:
 
 - An exception, or a return value that is not a dict or None
-- A file that is not there, does not load, or has no function for the surface
+- A missing file, a load failure, or a surface without a matching function
 - A path outside the [`config`](../config) folder, or an unknown surface
 
 ## Logs
@@ -255,7 +255,7 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. A hook can also keep data in its own file, such as `cheapest_output.json`.
 
 The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
-folder, the sources, and the files that load. Only the update writes a hook file, and it writes to the folder
+folder, sources, and files that load. Only update writes a hook file, and it writes to the folder
 of `hooks.dir`. The Delete button deletes the file, its lock record, and its settings entries.
 
 A hook runs inside the daedalus process, with all its access.
@@ -363,7 +363,7 @@ The Hooks card of the Settings page holds the folder, the sources, and 1 switch 
 
 The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 
-The `×` of the source row deletes the selected source.
+The `×` of source row deletes the selected source.
 
 A hook row of a provider card or of a model entry lists the installed files whose scope fits that
 card. The keyword chips of the Hooks card accept any file of the folder.

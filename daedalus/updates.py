@@ -15,7 +15,7 @@ from daedalus.store.database import connect_read, open_db
 
 logger = logging.getLogger("daedalus.updates")
 
-# The repository the check reads when the settings name none.
+# The repo the check reads when the settings name none.
 DEFAULT_REPO = "nemoe7/daedalus"
 # The idle between two checks, in hours. The schedule tick calls the check at most that often.
 EVERY_HOURS = 6.0
@@ -34,7 +34,7 @@ def channel(version: str) -> str:
 
 
 def repo() -> str:
-  """The repository from the settings, over the default."""
+  """The repo from settings, over the default."""
   from daedalus.config import settings
 
   return settings.load().get("updates", {}).get("repo") or DEFAULT_REPO
@@ -56,7 +56,7 @@ def _tag_rank(tag: str) -> tuple[int, ...]:
 def check(
   repository: str, version: str, fetch: Callable[[str], Any] | None = None
 ) -> dict[str, Any]:
-  """Ask the repository for the version that goes after this build's."""
+  """Ask the repo for the version that goes after this build's."""
   found: dict[str, Any] = {
     "repo": repository,
     "current": version,

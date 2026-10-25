@@ -3,7 +3,7 @@ title: Served model
 author: nemo
 description: Requires daedalus and its served_model.py hook for the served model line above an answer.
 required_open_webui_version: 0.10.0
-version: 1.0.7
+version: 1.0.8
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 
 class Filter:
-  """One status line above the answer body, from the `daedalus` key of the final chunk."""
+  """One status line above the answer body, from `daedalus` key of the final chunk."""
 
   class Valves(BaseModel):
     enabled: bool = Field(default=True, description="Draw the line.")

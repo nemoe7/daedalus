@@ -91,7 +91,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 The 2 old groups, `session_affinity` and `parallel`, also stop the server from starting. The error names the `affinity.mode` that replaces each one.
 
-The shipped file holds the changes from the defaults only. The **Settings** page writes the changed keys only. A cleared field loses its line, and the default applies.
+The shipped file holds changes from defaults only. The **Settings** page writes changed keys only. A cleared field loses its line, and the default applies.
 
 ### Limits
 
@@ -334,7 +334,7 @@ gemini:
 | Other clients | They use `api_key`, and they share 1 set of cooldowns and counts. |
 | Weights, pins, discovery | 1 set for all clients |
 
-To set up 2 clients:
+To configure 2 clients:
 
 1. In **Settings > API keys** on the dashboard, make the keys `kilo` and `owui`. Give each client its key.
 2. In `.env`, set `GEMINI_API_KEY_KILO` and `GEMINI_API_KEY_OWUI`. Or paste the keys in **Client keys** on the Providers page in step 3.

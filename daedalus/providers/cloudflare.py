@@ -128,7 +128,7 @@ class CloudflareProvider(OpenAIProvider):
 
   @classmethod
   def configure(cls, config: dict[str, Any]) -> dict[str, Any]:
-    """The config with the account id filled into its 2 URL templates, from the config, the store or the env.
+    """The config with the account id filled into its 2 URL templates, from the config, store, or env.
 
     Without an account id, a URL template drops out: a request cannot use it.
     """

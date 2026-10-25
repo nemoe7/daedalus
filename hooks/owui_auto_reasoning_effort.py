@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.7
+# version: 1.0.8
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -53,8 +53,8 @@ def _text(content: Any) -> str:
 def _newest(messages: Any, prompt: str) -> str:
   """The newest user turn and model turn in reading order, the model part capped, else the prompt.
 
-  :param messages: the messages of the request
-  :param prompt: the fallback when the messages carry no user turn
+  :param messages: request messages
+  :param prompt: fallback when messages carry no user turn
   """
   if not isinstance(messages, list):
     return prompt or ""
@@ -137,7 +137,7 @@ def on_prompt(
   level: str | None = None,
   **context: Any,
 ) -> None:
-  """Set the reasoning level of an Open WebUI request: the read of the thread, or the step of a repeat.
+  """Set the reasoning level of an Open WebUI request: the read of the thread, or step of a repeat.
 
   A new message takes the level of the read of its newest user turn and model turn, and a value of the
   client keeps the last word. A step of a continuing turn, whose newest message is no user turn, keeps

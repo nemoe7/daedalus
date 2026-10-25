@@ -108,7 +108,7 @@ def test_example() -> None:
 
 
 def test_selection_line() -> None:
-  """The served model line: the tier letter and the slug for `daedalus/auto`, the slug alone for a pool."""
+  """The served model line: the tier letter and the slug for `daedalus/auto`, slug alone for a pool."""
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None
   context = {"pool": "sophos", "served": "kilo/poolside/laguna-s-2.1:free"}

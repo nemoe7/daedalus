@@ -1,4 +1,4 @@
-"""The hook sources: the ref, the archive, the written files and the lock record."""
+"""The hook sources: the ref, archive, written files and lock record."""
 
 import io
 import json

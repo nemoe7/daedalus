@@ -393,7 +393,7 @@ def test_dev_without_source_pulls_the_dev_image(tmp_path: Path) -> None:
 
 
 def test_dev_downloads_from_main_and_pulls(tmp_path: Path) -> None:
-  """The dev marker downloads the files of main, then pulls the dev image."""
+  """The dev marker downloads files of main, then pulls the dev image."""
   folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
   (folder / ".daedalus-dev").write_text("")
   result = run_interactive(folder, env, "y")

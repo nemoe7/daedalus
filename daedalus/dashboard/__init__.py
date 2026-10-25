@@ -1,4 +1,4 @@
-"""The dashboard JSON under `/ui/api`, the recent-request list and the access test."""
+"""The dashboard JSON under `/ui/api`, recent-request list and access test."""
 
 import asyncio
 import hashlib
@@ -219,7 +219,7 @@ FIELDS = (
   "tokens",
 )
 AUTO_TIERS = (4, 3, 2, 1)
-# The modes whose models have weights: chat, and the modes of the media pools.
+# The modes whose models have weights: chat, and modes of the media pools.
 WEIGHTED_MODES = frozenset({"chat", *router.MEDIA_POOLS.values()})
 DAEDALUS_MASTER_KEY = "DAEDALUS_MASTER_KEY"
 DAEDALUS_USERNAME = "DAEDALUS_USERNAME"
@@ -270,7 +270,7 @@ def record(
   for key in ("pool", "routed"):
     if found.get(key):
       found[key] = router.pool_name(found[key])
-  # The seconds of the row count in whole milliseconds, as the clocks of the live list do.
+  # The seconds of the row count in whole milliseconds, as clocks of the live list do.
   row = {
     "at": time.time(),
     "status": status,
@@ -305,7 +305,7 @@ def master() -> str | None:
 
 
 def login() -> tuple[str, str]:
-  """The dashboard username and password from the environment, else `admin` and the master key."""
+  """The dashboard username and password from environment, else `admin` and the master key."""
   username = os.environ.get(DAEDALUS_USERNAME) or USERNAME
   return username, os.environ.get(DAEDALUS_PASSWORD) or master() or ""
 
@@ -437,7 +437,7 @@ def partition(response: Response) -> None:
       break
 
 
-# A new provider file: the name rule, and the text of the file.
+# A new provider file: the name rule, and text of the file.
 NAME = re.compile(r"^[a-z][a-z0-9-]{0,38}$")
 NEW_FILE = "# A new provider file: fill in the tier patterns and the model values.\n"
 NEW_KEY = "api_key: env:{env}_API_KEY\n"
@@ -446,7 +446,7 @@ NEW_BASE = 'api_base: "" # daedalus does not know this provider; set the OpenAI-
 
 
 def config_files() -> tuple[Path, ...]:
-  """The provider files that the Providers tab shows: the main file, then each `{provider}.yml`."""
+  """The provider files that Providers tab shows: the main file, then each `{provider}.yml`."""
   main = FILES[0]
   return (main, *config.provider_files(main))
 
@@ -747,7 +747,7 @@ def members(
   order: tuple[int | None, ...],
   ends: Mapping[str, float],
 ) -> list[dict]:
-  """The member rows of 1 pool: the id, the tier, the weight and the cooldown."""
+  """The member rows of 1 pool: the id, tier, weight, and cooldown."""
   lines = [line for group in groups for line in group]
   weights = penalties.weights(lines)
   return [
@@ -803,7 +803,7 @@ def unlink_file(path: Path, label: str) -> JSONResponse | None:
 def clear_hook_entries(
   name: str, apply: Callable[[dict[str, Any]], None], rebuild: Callable[[], None]
 ) -> JSONResponse | None:
-  """Drop 1 file from the hook entries of the settings: the disabled list, the order, and each surface."""
+  """Drop 1 file from the hook entries of the settings: the disabled list, order, and each surface."""
   group = settings.load(settings.DEFAULT_PATH)["hooks"]
 
   def keep(items: list[str]) -> list[str]:
@@ -831,7 +831,7 @@ def clear_hook_entries(
 
 
 def login_routes(api: APIRouter) -> None:
-  """The login and the logout endpoints, the 1 group without a session."""
+  """The login and the logout endpoints, 1 group without a session."""
 
   @api.post("/login")
   async def log_in(request: Request) -> JSONResponse:
@@ -885,7 +885,7 @@ def login_routes(api: APIRouter) -> None:
 
   @api.get("/login")
   async def login_form(request: Request) -> JSONResponse:
-    """The login hints: the username, the master-key note, the version, and whether a session is live."""
+    """The login hints: the username, master-key note, version, and whether a session is live."""
     return JSONResponse(
       {
         "username": None if os.environ.get(DAEDALUS_USERNAME) else USERNAME,
@@ -913,7 +913,7 @@ def state_routes(
   refresh: Callable[[], Callable[[], object] | None],
   seen: Limits,
 ) -> None:
-  """The state endpoints: the health, the hooks, the reset, the catalog and the notifications."""
+  """The state endpoints: the health, hooks, reset, catalog, and notifications."""
 
   @api.get("/status")
   async def status(request: Request) -> JSONResponse:
@@ -985,7 +985,7 @@ def state_routes(
 
 
 def limit_routes(api: APIRouter, seen: Limits) -> None:
-  """The limit endpoints: the view, and the view after a fresh read."""
+  """The limit endpoints: the view, and view after a fresh read."""
 
   @api.get("/limits")
   async def limit_view(request: Request) -> JSONResponse:
@@ -1166,7 +1166,7 @@ def file_routes(
   apply: Callable[[dict[str, Any]], None],
   rebuild: Callable[[], None],
 ) -> None:
-  """The provider-file endpoints: the files, the keys, the defaults and the saved values."""
+  """The provider-file endpoints: the files, keys, defaults, and saved values."""
 
   @api.get("/files")
   async def files(request: Request) -> JSONResponse:

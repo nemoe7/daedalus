@@ -30,7 +30,7 @@ from daedalus.store.database import open_db
 
 CHECK_SECONDS = 3600.0
 REQUEST_SECONDS = 20.0
-# The lane rows and the balance cards of the last look, so a restart keeps the Limits tab.
+# The lane rows and the balance cards of the last look, so a restart keeps Limits tab.
 SAVED = "view"
 TABLE = (
   "CREATE TABLE IF NOT EXISTS limits (name TEXT PRIMARY KEY, payload TEXT NOT NULL,"
@@ -864,7 +864,7 @@ class Limits:
         self.cooldowns.hold(model, end, "limit")
 
   async def run(self) -> None:
-    """Check the balances at the start and then each hour, until the task stops."""
+    """Check balances at the start and then each hour, until the task stops."""
     while True:
       try:
         await self.check()

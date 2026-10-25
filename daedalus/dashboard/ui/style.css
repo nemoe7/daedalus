@@ -185,7 +185,7 @@ button.line {
   width: 100%; border: 0; border-top: 1px solid var(--line); background: none;
   color: inherit; font: inherit; text-align: left; cursor: pointer;
 }
-/* The 4 numbers above the Overview cards: the value on top, its name below. */
+/* The 4 numbers above Overview cards: the value on top, its name below. */
 .kpis {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
   gap: 14px 20px; padding: 14px 20px; margin-bottom: 16px;
@@ -415,8 +415,7 @@ a.more:hover { color: var(--accent-text); }
   border-radius: var(--radius);
   background: var(--panel); color: var(--text);
 }
-/* The modal arrives and leaves on the page tokens: the box fades and lifts, the backdrop fades.
-   The discrete properties wait for the transition, so the close is seen too. */
+/* Modal arrival and exit follow page tokens: box fades and lifts, backdrop fades, and close stays visible. */
 .modal {
   opacity: 0; transform: translateY(-6px) scale(.98);
   transition: opacity var(--soft) var(--ease), transform var(--soft) var(--ease),
@@ -525,7 +524,7 @@ td.end { text-align: right; }
 }
 /* A collapsed border scrolls away from a sticky head, so the rule rides on an inset shadow. */
 .requests thead th { position: sticky; top: 0; background: var(--panel); z-index: 2; border-bottom: 0; box-shadow: inset 0 -1px 0 var(--line); }
-/* The code legend of the Requests page. A desktop puts it in the column beside the table. */
+/* The code legend of Requests page. A desktop puts it in the column beside the table. */
 .legend { font-size: 12px; color: var(--muted); padding: 14px 16px; }
 .legend h3 { color: var(--text); }
 .legend-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 4px 16px; margin-top: 8px; }
@@ -562,7 +561,7 @@ table.limits td.num .weight { justify-content: flex-end; }
 #limit-rows .weight.left .num { width: auto; font-size: 12px; line-height: 1.15; }
 #limit-rows .weight.left .track { flex: none; width: 100%; }
 .limit-meta { display: none; }
-/* The name takes the free width, as in the Models table. The other columns keep their content width. */
+/* The name takes the free width, as in Models table. The other columns keep their content width. */
 #limit-rows td:not(:first-child) { width: 1%; white-space: nowrap; }
 .keys td:nth-child(2) { white-space: nowrap; }
 .keys td:nth-child(3) { white-space: nowrap; }
@@ -902,7 +901,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
   box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
 }
-/* A closed group of fields: the summary is the row, and the body holds the fields. */
+/* A closed group of fields: the summary is the row, and body holds fields. */
 .fold { border-top: 1px solid var(--line); }
 .fold summary {
   position: relative; display: flex; align-items: center; gap: 6px; padding: 8px 0;
@@ -938,7 +937,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 .settings .field textarea {
   min-height: 0; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px;
 }
-/* The Save bar rides above the form, in the flow. A sticky bar hides the rows that scroll behind it. */
+/* The Save bar rides above the form, in the flow. A sticky bar hides rows that scroll behind it. */
 section[data-page="providers"] > .editbar, section[data-page="settings"] > .editbar,
 section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
   margin-bottom: 16px;
@@ -1140,7 +1139,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 }
 @media (max-width: 720px) {
   header, #app > main { padding-left: 16px; padding-right: 16px; }
-  /* A phone keeps 1 padding all around the page, so the top matches the sides. */
+  /* A phone keeps 1 padding all around the page, so the top matches sides. */
   #app > main { padding-top: 16px; --main-pad-top: 16px; }
   /* The header keeps the brand and Log out. The status chips move to the card below. */
   header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
@@ -1186,7 +1185,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .requests-bar select { flex: 1 1 8rem; }
   /* A phone shows Clear filters only while a filter is on: an inactive button costs a row. */
   section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
-  /* A phone drops the count line: the cards carry the state, and the line only pushes them down. */
+  /* A phone drops the count line: the cards carry the state, and line only pushes them down. */
   .requests-bar .hint { display: none; }
   /* Lay out mobile Models rows as cards with Tier, Tools, Cooldown, and Weight below the name. */
   .only-sm { display: block; }
@@ -1298,7 +1297,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* A card row carries its edge alone. The wrapper behind the cards drops its fill too, so the
      page colour shows once instead of a layer behind every card. */
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
-  /* The first request card keeps the same gap from the bar rule as the Models and Keys cards. */
+  /* The first request card keeps the same gap from the bar rule as Models and Keys cards. */
   .panel:has(> .requests) { margin-top: 0; }
   /* Keep mobile request cells transparent on press so text selection stays clean. */
   .requests tr.request > td, .requests tr.live-row > td {

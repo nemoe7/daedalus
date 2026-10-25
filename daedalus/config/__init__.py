@@ -325,7 +325,7 @@ def sync_defaults(provider_defaults: dict[str, Any]) -> dict[str, Any]:
 
 
 def get_config() -> dict[str, Any]:
-  """Return the config, loading the local files and cached defaults on the first call."""
+  """Return config, loading the local files and cached defaults on the first call."""
   if _config is None:
     return load_config()
   return _config

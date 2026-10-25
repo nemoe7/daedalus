@@ -512,7 +512,7 @@ def test_hooks_dir_names_the_folder() -> None:
 
 
 def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
-  """Hook sources validate repository, path, ref, and update fields."""
+  """Hook sources validate repo, path, ref, and update fields."""
   assert settings.parse("")["hooks"]["sources"] == settings.DEFAULTS["hooks"]["sources"]
   text = (
     "hooks:\n  sources:\n    - repo: owner/name\n"
@@ -665,7 +665,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_updates_repo_names_the_repository() -> None:
-  """`updates.repo` accepts owner/name pairs and rejects invalid repository names."""
+  """`updates.repo` accepts owner/name pairs and rejects invalid repo names."""
   assert settings.parse("")["updates"]["repo"] == settings.DEFAULTS["updates"]["repo"]
   assert (
     settings.parse("updates:\n  repo: mine/daedalus\n")["updates"]["repo"]

@@ -9,7 +9,7 @@ reasoning level. The optional Open WebUI Filter sends controls to this hook.
 | Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt. `on_chunk` on the final chunk |
 | Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level. `usage.daedalus.line` on the chunk |
 | Named by | its own frontmatter block: `surfaces: [on-request, on-prompt, on-chunk]`, `scope: client`, `targets: [OWUI]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
-| Serves | The Open WebUI client, from the `client` scope of its block, and the `x-openwebui-chat-id` header |
+| Serves | The Open WebUI client, from the `client` scope of its block, and `x-openwebui-chat-id` header |
 
 The first chart shows the repeat key of `on_request`. The second shows the level of `on_prompt`.
 

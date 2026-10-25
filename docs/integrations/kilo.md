@@ -7,7 +7,7 @@ The [Kilo loader](https://github.com/Kilo-Org/kilo/blob/6f08110d4dcc36200c084a7b
 | Item | Value |
 | --- | --- |
 | Runs | In Kilo, on the returned `config` hook, for each provider block |
-| Reads | `GET {baseURL}/models` of daedalus, and the key of the block, the Kilo auth store, then `DAEDALUS_API_KEY` |
+| Reads | `GET {baseURL}/models` of daedalus, and the key of the block, Kilo auth store, then `DAEDALUS_API_KEY` |
 | Writes | The fields of the model in the Kilo config in memory. The config file does not change |
 | Fails | Open: a late or a failed read logs 1 line, and the Kilo config keeps its own values |
 

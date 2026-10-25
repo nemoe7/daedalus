@@ -113,7 +113,7 @@ def cache_memory_store(
   keep: Iterable[str] = (),
   fill: Iterable[str] = (),
 ) -> Path:
-  """Store rebuilt model rows in memory when the SQLite file cannot be written."""
+  """Store rebuilt model rows in memory when SQLite rejects writes."""
   del keep, fill
   target = Path(path or MODELS_DB)
   _MEMORY_STORE[str(target)] = (
@@ -302,7 +302,7 @@ def whole_or_float(value: object) -> int | float | None:
 
 
 def model_rows() -> list[dict[str, Any]]:
-  """The pages' view of the rows: the source names, limits, efforts, and the tool and reasoning facts."""
+  """The pages' view of the rows: source names, limits, efforts, and the tool and reasoning facts."""
   return [
     {
       "id": row["id"],

@@ -1038,7 +1038,7 @@ def test_cached_dump_rejects_provider_paths(
 
 
 def test_the_dead_tier_patterns_retire_and_phonellm_leaves() -> None:
-  """The free config drops the patterns the provider dumps proved dead."""
+  """The free config drops patterns the provider dumps proved dead."""
   loaded = config.read_yaml(config.DEFAULT_PATH)
   kilo = loaded["kilo"]["tier"]["TIER-A"]
   for pattern in (

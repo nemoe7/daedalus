@@ -339,7 +339,7 @@ def _check_none_or_bullets(title: str, entries: list[tuple[int, str]]) -> list[F
 def lint_prose_lines(
   lines: list[str], linter: Path | None = None
 ) -> tuple[bool, list[dict[str, object]], int, str]:
-  """Run the repository prose linter on line-anchored text."""
+  """Run the repo prose linter on line-anchored text."""
   target = NEMOIZER if linter is None else linter
   cleaned: list[str] = []
   in_fence = False
@@ -437,7 +437,7 @@ def lint_prose_lines(
 
 
 def run_nemoizer(text: str) -> tuple[bool, str]:
-  """Check prose with the repository linter and return its result."""
+  """Check prose with the repo linter and return its result."""
   ok, violations, _, detail = lint_prose_lines(text.splitlines())
   if not ok:
     return False, detail

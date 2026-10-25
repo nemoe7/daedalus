@@ -82,7 +82,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   # Client metadata that may leave daedalus for a provider.
   "privacy": {"forward_owui_chat_id": False},
   "catalog": {"every": 6.0, "anchor": 6.0},
-  # The hook files: the folder, the GitHub sources, the names that stay out, and the request
+  # The hook files: the folder, GitHub sources, names that stay out, and request
   # hook lists.
   "hooks": {
     "dir": "hooks",
@@ -153,7 +153,7 @@ HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 HOOK_PART = re.compile(r"[A-Za-z0-9._-]{1,100}")
 # The GitHub repo of the update check, as owner/name.
 REPO_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9._-]+")
-# The keys of 1 hook source, and the keys that left the hooks group with the group that replaces them.
+# The keys of 1 hook source, and keys that left the hooks group with the group that replaces them.
 SOURCE_KEYS = ("repo", "path", "ref", "auto_update")
 GONE_KEYS = {
   ("hooks", "remote"): "hooks.sources",
@@ -282,7 +282,7 @@ def dir_name(name: str, value: Any) -> str:
 
 
 def source_list(name: str, value: Any) -> list[dict[str, Any]]:
-  """The hook sources: the GitHub repo, the folder, the ref, and the auto_update flag of each."""
+  """The hook sources: the GitHub repo, folder, ref, and auto_update flag of each."""
   if value in (None, ""):
     return []
   if not isinstance(value, list):

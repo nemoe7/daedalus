@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.6
+# version: 1.0.7
 # surfaces: []
 # author: nemoe7
 # title: Example hook
@@ -20,7 +20,7 @@ A request-level surface, such as `on-request`, goes in the `hooks` group of `con
 
 A `surfaces` list in the block above joins those surfaces with no key there.
 
-Each function is optional. daedalus calls only the functions of the surfaces in the list.
+Each function is optional. daedalus calls only the functions of surfaces in the list.
 
 A function gets a copy. It can change the copy and return None, or it can return a new dict.
 An error goes to the log, and the value goes on without the changes of the hook.
@@ -89,9 +89,9 @@ def on_http(
   headers: dict | None = None,
   pin: tuple[str, str] | None = None,
 ) -> dict:
-  """On `POST /v1/hook/<file>`: the JSON body of the call, and the dict to answer with.
+  """On `POST /v1/hook/<file>`: the JSON body of the call, and dict to answer with.
 
-  The file sits under `hooks`, and its path names it. The route passes the JSON body,
+  The file sits under `hooks`, and its path names it. The route passes JSON body,
   the session `key` of the chat (the bearer token and its first user turn), the first user
   turn as `prompt`, and the request `headers`. It also passes `pin`, the slot and the model
   of the last answer of the chat, when the file names that argument.
@@ -123,7 +123,7 @@ def on_chunk(chunk: dict, model: str, context: dict) -> None:
   `model` is the requested name. `context` holds the fields of the call. `previous` is the model
   of the last session answer, and it is empty on the first.
 
-  `attempts` counts the failures so far. `code` names the retry code, `pool` the landed pool
+  `attempts` counts failures so far. `code` names the retry code, `pool` the landed pool
   and `served` the landed model.
   """
   # Example: mark the last chunk of the answer.

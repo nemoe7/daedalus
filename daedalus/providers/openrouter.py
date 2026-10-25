@@ -17,7 +17,7 @@ class OpenRouterProvider(OpenAIProvider):
   defaults: ClassVar[Mapping[str, str]] = {
     "api_type": "openai",
     "api_base": "https://openrouter.ai/api/v1",
-    # Without the filter, the list shows only the models that make text.
+    # Without the filter, list shows only the models that make text.
     "discovery_url": "https://openrouter.ai/api/v1/models?output_modalities=all",
   }
   stream_usage: ClassVar[bool] = True

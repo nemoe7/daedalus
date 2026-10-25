@@ -1,7 +1,7 @@
 ---
 name: deep-research
 description: Researches a question with checked sources and clear limits.
-version: 0.1.3
+version: 0.1.4
 ---
 
 # Deep Research
@@ -54,7 +54,7 @@ If search or page access is unavailable, state that limit. Use supplied material
 
 - Does the report answer the question within the agreed scope?
 - Does each citation support the nearby claim, including its conditions?
-- Are quotations exact, and are calculations and units checked?
+- Are quotations exact? Are calculations and units verified?
 - Are sources independent where the report claims independent support?
 - Are current facts distinguished from historical facts and estimates?
 - Have you removed unsupported claims or marked them as uncertain?

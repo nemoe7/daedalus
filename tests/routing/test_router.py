@@ -137,7 +137,7 @@ def test_threshold_moves_the_bar() -> None:
 
 
 def test_tier_names() -> None:
-  """Tier 1 is the weakest, and the config letters run the other way."""
+  """Tier 1 is the weakest, and config letters run the other way."""
   assert router.TIER_NAMES == {1: "TIER-D", 2: "TIER-C", 3: "TIER-B", 4: "TIER-A"}
   assert sorted(router.TIER_NAMES.values()) != [
     router.TIER_NAMES[tier] for tier in router.TIERS
@@ -274,7 +274,7 @@ def test_provider_files() -> None:
 
 
 def test_tier_cache() -> None:
-  """The tier rows come from a cache until the config object or the lines change."""
+  """The tier rows come from a cache until the config object or lines change."""
   blocks = {"p": {"api_key": "k", "tier": {"TIER-A": ["a*"], "TIER-D": ["d*"]}}}
   lines = ["p/a1", "p/d1"]
   assert router.candidates(blocks, "TIER-A", lines) == ["p/a1"]
@@ -287,7 +287,7 @@ def test_tier_cache() -> None:
 
 
 def test_model_wait() -> None:
-  """The `timeout` of a model replaces the wait, and the upstream request carries it."""
+  """The `timeout` of a model replaces the wait, and upstream request carries it."""
   models = {"*": {"timeout": 15}, "slow": {"timeout": True}, "off": {"timeout": 0}}
   config = {"p": {"api_key": "k", "api_base": "https://p.test/v1", "models": models}}
   assert router.model_wait(config, "p/fast", 60.0) == 15.0

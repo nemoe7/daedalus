@@ -254,7 +254,7 @@ def resolve(value: Any) -> Path | None:
 
 
 def folder() -> Path:
-  """The folder of the hook files of the settings, resolved to an absolute path."""
+  """The folder of the hook files of settings, resolved to an absolute path."""
   return (ROOT / DIR).resolve()
 
 
@@ -320,9 +320,9 @@ def file_rows() -> list[tuple[str, Path]]:
 
 
 def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
-  """1 row per hook file: the state, the frontmatter and the surfaces that the settings name it at.
+  """1 row per hook file: the state, frontmatter, and surfaces that the settings name it at.
 
-  `named` is the request-hook group of the settings. Its surfaces land in `runs`, less the surfaces
+  `named` is the request-hook group of the settings. Its surfaces land in `runs`, less surfaces
   that the block of the file does not admit. Without `named`, the row holds no `runs` key.
   """
   found: list[dict[str, Any]] = []
@@ -363,7 +363,7 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
 
 
 def hook_files() -> list[str]:
-  """The names of the hook files in the config folder, as paths for the settings group."""
+  """The names of the hook files in config folder, as paths for settings group."""
   return sorted(f"{DIR}/{rel}" for rel, _path in file_rows())
 
 
@@ -456,7 +456,7 @@ def files(config: Mapping[str, Any], model: str, surface: str) -> list[Path]:
 
 
 def request_files(entries: Mapping[str, Any] | None, surface: str) -> list[Path]:
-  """The files of one request-level surface, from the `hooks` group of the settings file."""
+  """The files of one request-level surface, from the `hooks` group of settings file."""
   value = entries.get(surface) if isinstance(entries, Mapping) else None
   if value is None or value == "":
     return []

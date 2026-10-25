@@ -1,4 +1,4 @@
-"""The mermaid blocks of the docs: the default look, and no theme of our own."""
+"""The mermaid blocks of docs: the default look, and no theme of our own."""
 
 import re
 from pathlib import Path

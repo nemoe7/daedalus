@@ -27,7 +27,7 @@ def run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def test_the_vendored_linter_exists() -> None:
-  """The repository copy is the one CI uses. No skill install, no external package."""
+  """The repo copy is the one CI uses. No skill install, no external package."""
   assert LINT.is_file()
 
 
@@ -62,7 +62,7 @@ def test_the_template_uses_the_exact_canonical_format() -> None:
 
 
 def test_an_unfilled_template_is_rejected() -> None:
-  """A pull request that ships the template untouched fails instead of passing."""
+  """A PR that ships the template untouched fails instead of passing."""
   problems = validate_pr_body(TEMPLATE.read_text(encoding="utf-8"))
   assert any("placeholder" in problem.message for problem in problems)
 

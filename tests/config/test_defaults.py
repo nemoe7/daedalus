@@ -1,4 +1,4 @@
-"""The default provider file of the repository fills only the names that the local file lacks."""
+"""The default provider file of the repo fills only the names that the local file lacks."""
 
 import logging
 from pathlib import Path

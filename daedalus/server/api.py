@@ -63,14 +63,14 @@ logger = logging.getLogger("daedalus")
 
 @asynccontextmanager
 async def lifespan(_application: FastAPI) -> AsyncIterator[None]:
-  """Set up logging and the catalog schedule, then stop both parts on shutdown."""
+  """Configure logging and the catalog schedule, then stop both on shutdown."""
   logs.setup_logging()
   if CATALOG_INITIAL and CATALOG_REFRESH:
     schedule.start(CATALOG_REFRESH)
   rebuilds = (
     asyncio.create_task(schedule.run(CATALOG_REFRESH)) if CATALOG_REFRESH else None
   )
-  # The lane rows and the balances of the last run, so the Limits tab is never empty.
+  # The lane rows and the balances of the last run, so Limits tab is never empty.
   LIMITS.restore()
   checks = asyncio.create_task(LIMITS.run()) if LIMIT_CHECKS else None
   prunes = asyncio.create_task(prune_store())
@@ -185,7 +185,7 @@ class Watch:
       task.cancel()
 
 
-# The model paths: the Requests page keeps these calls alone, and not the control calls.
+# The model paths: Requests page keeps these calls alone, and not the control calls.
 MODEL_PATHS = ("/v1/chat/completions", *(route.path for route in media.routes.routes))
 
 
@@ -361,7 +361,7 @@ def first_user_text(messages: object) -> str:
 def session_key(
   token: str, messages: object, headers: Mapping[str, str] | None = None
 ) -> str:
-  """The conversation key from the token and OWUI chat ID, or the first user message."""
+  """The conversation key from the token and OWUI chat ID, or first user message."""
   chat_id = next(
     (
       value.strip()
@@ -921,7 +921,7 @@ async def hook_call(request: Request, file: str) -> Response:
 
 @dataclass
 class Plan:
-  """The plan of 1 chat request: the body, the chain, the pins and the attempts."""
+  """The plan of 1 chat request: the body, chain, pins, and attempts."""
 
   request: Request
   body: dict[str, Any]
@@ -1075,7 +1075,7 @@ async def race_models(
 
 
 async def plan_chat(request: Request, body: Any) -> Plan | Response:
-  """The decided route of 1 chat request: the checks, the hooks and the chain."""
+  """The decided route of 1 chat request: the checks, hooks, and chain."""
   if not isinstance(body, dict) or not isinstance(body.get("model"), str):
     return upstream.error_response(400, "A model is required.", "invalid_request_error")
   model = body["model"]
@@ -1263,7 +1263,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   request.state.tokens = {"input": tokens, "estimate": True}
   attempts: list[dict[str, Any]] = []
   request.state.attempts = attempts
-  # Too-small models leave the tiers before the draw, so they cannot be drawn or pinned.
+  # Undersized models leave tiers before selection, preventing draws and pins.
   raw_groups = found[0]
   sized_groups = [
     [m for m in group if not context.too_large(m, tokens, limits)]
@@ -1372,7 +1372,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     and model != router.RESERVED_MODEL
     and (router.model_setting(config, model, "timeout") is not None)
   )
-  # Pool and auto requests can race chain candidates whenever streaming is allowed on them.
+  # Pool and auto requests can race chain candidates that permit streaming.
   raceable = bool(body.get("stream")) or any(
     router.streams_allowed(config, name) for name in models[: 1 + PARALLEL_COUNT]
   )
@@ -1384,7 +1384,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   # A request that may race reads our own stream from each model, so a non-stream client gets 1
   # buffered body and can race too. A request with no race keeps its plain whole body.
   racing = bool(runners)
-  # Why the racers did or did not start, for the row of the dashboard.
+  # Why racers did or did not start, for the row of the dashboard.
   if not PARALLEL_ENABLED:
     request.state.race = "off"
   elif not found[1]:

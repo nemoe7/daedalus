@@ -1,4 +1,4 @@
-"""The on-catalog hooks change the catalog rows of their provider before the store write."""
+"""The on-catalog hooks change catalog rows of their provider before the store write."""
 
 import logging
 

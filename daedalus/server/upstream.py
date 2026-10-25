@@ -84,7 +84,7 @@ def observe(lane: str, headers: httpx.Headers, body: bytes = b"") -> None:
 
 
 def new_client() -> httpx.AsyncClient:
-  """A client with the timeouts and the pool of the router."""
+  """A client with timeouts and the pool of the router."""
   return httpx.AsyncClient(
     timeout=httpx.Timeout(TIMEOUT_SECONDS, read=WAIT_SECONDS),
     limits=httpx.Limits(
@@ -208,7 +208,7 @@ def failure_text(exc: Exception) -> str:
 
 
 class UpstreamStatus(Exception):
-  """An upstream error status, with the short error text, the headers and the full body."""
+  """An upstream error status, with the short error text, headers, and full body."""
 
   def __init__(
     self,

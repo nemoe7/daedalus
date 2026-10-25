@@ -1,4 +1,4 @@
-"""The vendored tier classifier: the prompt rules, the cohort key and the odds."""
+"""The vendored tier classifier: the prompt rules, cohort key and odds."""
 
 import json
 from dataclasses import replace
@@ -155,7 +155,7 @@ def test_posterior_mean_blends_a_row_with_its_prior() -> None:
 
 
 def test_the_composed_read_of_one_prompt() -> None:
-  """The helpers name the tier, the odds per tier, the type and the cohort."""
+  """The helpers name the tier, odds per tier, type, and cohort."""
   kind = classifier.classify_prompt(CODE)
   found = classifier.predict(CODE, classifier.load_artifact(), kind)
   assert kind is classifier.RequestType.CODE_GENERATION

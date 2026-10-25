@@ -72,7 +72,7 @@ async def test_auto_pool_shows_while_live(client: httpx.AsyncClient) -> None:
 def test_the_tier_the_store_holds_beats_the_on_call_resolution(
   tmp_path, monkeypatch
 ) -> None:
-  """The stored tier of a model beats the tier the config claims, and the claim answers when the store has none."""
+  """The stored tier of a model beats the tier config claims, and claim answers when the store has none."""
   database = tmp_path / "models.sqlite3"
   store.write_store([{"id": "p/one", "tier": "TIER-B"}, {"id": "p/two"}], database)
   monkeypatch.setattr(store, "MODELS_DB", database)

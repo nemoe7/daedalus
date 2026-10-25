@@ -162,7 +162,7 @@ def test_app_name() -> None:
 async def test_the_hook_writes_the_repeat_code(
   client: httpx.AsyncClient, state_folder
 ) -> None:
-  """A repeat runs the hook again with the count, and the row shows the code of the hook."""
+  """A repeat runs the hook again with the count, and row shows code of the hook."""
   api.RETRIES.clear()
   path = state_folder / "hooks" / "retry.py"
   path.parent.mkdir(parents=True, exist_ok=True)

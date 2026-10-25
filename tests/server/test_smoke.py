@@ -261,7 +261,7 @@ async def test_reroute(client: httpx.AsyncClient) -> None:
       assert SEEN[-2]["model"] == "bad", SEEN[-2]
       assert SEEN[-1]["model"] == "gemini-3.5-flash", SEEN[-1]
 
-      # When the last model in the chain fails, the client sees that error.
+      # When the last model in the chain fails, client sees that error.
       config.set_config(
         {
           "gemini": {

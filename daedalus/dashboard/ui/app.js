@@ -541,7 +541,7 @@ function stateChip() {
   return `<span class="chip bad" id="state-unknown" title="${t("state.unknown.hint")}">${t("state.unknown_text")}</span>`;
 }
 
-// The Overview card contains health, sessions, and catalog data. The header displays the state.
+// The Overview card contains health, sessions, and catalog data. The header displays state.
 function renderChips() {
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = stateChip(); });
 }
@@ -1843,10 +1843,10 @@ function hookFormRows(values, path, kind, name) {
 // Return the hook list through an extra path index. Create the list if absent.
 const formHookList = (path) => parentOf([...path, 0], []);
 
-// Label sources with the repository, optional folder, and non-main reference.
+// Label sources with the repo, optional folder, and non-main reference.
 const sourceLabel = (entry) => `${entry.repo || ""}${entry.path ? `/${entry.path}` : ""}${entry.ref && entry.ref !== "main" ? `@${entry.ref}` : ""}`;
 
-// Parse the repository, reference, and folder from source text or a GitHub tree URL.
+// Parse the repo, reference, and folder from source text or a GitHub tree URL.
 function sourceParts(value) {
   const tree = String(value).match(/github\.com\/([^/]+\/[^/]+)\/tree\/([^/]+)\/?(.*)$/);
   if (tree) return { repo: tree[1].replace(/\.git$/, ""), ref: tree[2], path: tree[3].replace(/\/$/, "") };
@@ -1887,7 +1887,7 @@ function hookOrderFiles(surface) {
 const orderedSurfaces = () => HOOK_SURFACES.filter(([surface]) =>
   surface in (state.settings?.defaults?.hooks ?? {}) || hookOrderFiles(surface).length);
 
-// Display one chip per hook surface. The file, not the card, defines the surfaces.
+// Display one chip per hook surface. The file, not the card, defines surfaces.
 function hookSurfacesCell(row) {
   const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
   const named = new Set(row.runs || []);
@@ -3230,7 +3230,7 @@ async function saveYaml() {
   renderFiles();
 }
 
-// Use YAML view for the selected YAML card: the settings file or the provider file.
+// Use YAML view for the selected YAML card: settings file or the provider file.
 const yamlView = () => {
   const key = sectionState($("settings")).key;
   if (key === "yaml") return state.settingsView === "yaml";
@@ -4046,7 +4046,7 @@ function renderNotifications(data) {
   );
 }
 
-// The maintenance card lives in Settings: the update check, the catalog rebuild, and the reset.
+// The maintenance card lives in Settings: the update check, catalog rebuild, and reset.
 function maintenanceCard() {
   const update = state.notifications?.update;
   const stateTitle = t("update.state_title");
@@ -4930,7 +4930,7 @@ $("settings").addEventListener("change", (event) => {
   // The nested providers host handles its own events.
   if (event.composedPath?.().includes($("provider-form"))) return;
   const input = event.target;
-  // The manager writes at once too: the source selection stays in the page, and the 2 boxes save.
+  // The manager writes at once too: the source selection stays in the page, and 2 boxes save.
   if (input.dataset.hookSource !== undefined) {
     state.hooksSource = Number(input.value) || 0;
     return;

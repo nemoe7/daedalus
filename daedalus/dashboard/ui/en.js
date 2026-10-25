@@ -484,7 +484,7 @@ globalThis.DAEDALUS_LOCALE = {
   "settings.hooks.installed.hint": "Files in the hook folder. Each file declares the request stages where it can run. Turn a file off to stop its runs without deleting it.",
   "settings.hooks.installed.label": "Installed hooks",
   "settings.hooks.source.label": "Source",
-  "settings.hooks.sources.hint": "Each source specifies a GitHub repository, folder, and ref.",
+  "settings.hooks.sources.hint": "Each source specifies a GitHub repo, folder, and ref.",
   "settings.hooks.sources.label": "Sources",
   "settings.hooks.summary": "Install hook files and name the folder and surfaces they run at.",
   "settings.hooks.title": "Hooks",

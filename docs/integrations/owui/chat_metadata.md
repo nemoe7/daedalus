@@ -36,7 +36,7 @@ reads the first value of the `Accept-Language` header of the request.
 
 With no Valve and no header, the line reads `unknown`.
 
-A repeat replaces the block of the Filter, so the messages keep 1 of them, at the top. With the
-`enabled` Valve off, the body returns as it came in.
+A repeat replaces the Filter block, so messages keep 1 block at the top. With the
+`enabled` Valve off, body returns unchanged.
 
 See [Open WebUI integration](../owui.md) for the other plugins.

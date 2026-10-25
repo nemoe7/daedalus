@@ -123,7 +123,7 @@ Kilo Code reads token limits only from its config, and it cannot show the routed
 | `stream_options` | Object. `include_usage` adds a usage chunk. Groq and OpenRouter streams drop it when the request does not ask for it. |
 | `tools` | Models that cannot call tools leave the chain. |
 | `messages` with an `image_url` part | Models without `supports_vision` leave the pool chains. An earlier image in the thread counts the same way. Direct `provider/slug` requests stay. |
-| `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in the catalog drops to that value. |
+| `max_tokens`, `max_completion_tokens` | A value above the `max_output_tokens` of the model in catalog drops to that value. |
 | `reasoning_effort` | Only models with `supports_reasoning` true or missing from the catalog. Unset takes the catalog `reasoning_effort`. A value outside the effort list of the catalog row of the model moves to the nearest name of that list. `none` answers only a model that lists `none` alone. |
 | Other fields | Go to the provider. Mistral and Groq get only the message fields that they accept. |
 

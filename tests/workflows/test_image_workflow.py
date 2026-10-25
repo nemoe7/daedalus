@@ -139,7 +139,7 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert "docker/setup-qemu-action" not in content
   assert content.count("platforms: linux/${{ matrix.arch }}") == 2
   assert content.count("push-by-digest=true") == 2
-  # A merge job puts the tags on the manifest list of the 2 digests.
+  # A merge job puts tags on the manifest list of the 2 digests.
   assert content.count("docker buildx imagetools create") == 2
   assert content.count("merge-multiple: true") == 2
   assert "name: digests-dev-${{ matrix.arch }}" in content
@@ -184,7 +184,7 @@ def test_dockerfile_removes_pip_from_the_image() -> None:
 
 
 def _git(repo: Path, *args: str) -> str:
-  """Run one Git command inside a temporary test repository."""
+  """Run one Git command inside a temporary test repo."""
   return subprocess.run(
     ["git", *args],
     cwd=repo,

@@ -26,7 +26,7 @@ NAMES = {
   "pages.yml": "Pages demo",
 }
 
-# The workflows that must answer a pull request, and the ones that must answer main.
+# The workflows that must answer a PR, and the ones that must answer main.
 ON_PULL_REQUEST = (
   "ci.yml",
   "codeql.yml",
@@ -75,7 +75,7 @@ def test_every_workflow_file_has_the_agreed_name() -> None:
 
 
 def test_the_workflows_that_answer_a_pull_request_do() -> None:
-  """A pull request runs the checks, the scans, and the title rule."""
+  """A PR runs the checks, scans, and title rule."""
   for name in ON_PULL_REQUEST:
     event = (
       "pull_request"
@@ -86,7 +86,7 @@ def test_the_workflows_that_answer_a_pull_request_do() -> None:
 
 
 def test_the_workflows_that_answer_main_do() -> None:
-  """A push to main runs the checks and the scans again on the merged tree."""
+  """A push to main runs the checks and scans again on the merged tree."""
   for name in ON_MAIN:
     found = triggers(name)
     assert "push" in found, name
@@ -231,7 +231,7 @@ def test_a_pull_request_ignore_file_decides_its_own_scan() -> None:
 
 
 def test_the_container_scan_uses_hadolint() -> None:
-  """Hadolint lints the Dockerfile, and the pull request check blocks."""
+  """Hadolint lints the Dockerfile, and the PR check blocks."""
   content = (WORKFLOWS / "container-scan.yml").read_text()
   assert "hadolint/hadolint-action" in content
   assert "continue-on-error" not in content
@@ -239,7 +239,7 @@ def test_the_container_scan_uses_hadolint() -> None:
 
 
 def test_the_workflow_security_scan_uses_actionlint_and_zizmor() -> None:
-  """Both tools run, and a config tells zizmor how this repository pins actions."""
+  """Both tools run, and a config tells zizmor how this repo pins actions."""
   content = (WORKFLOWS / "workflow-security.yml").read_text()
   assert "raven-actions/actionlint" in content
   assert "zizmorcore/zizmor-action" in content
@@ -327,7 +327,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
 
 
 def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
-  """One workflow holds the title, the description, the commit, and the version checks."""
+  """One workflow holds the title, description, commit, and version checks."""
   data = load("pr-check.yml")
   assert sorted(data["jobs"]) == ["body", "commits", "title", "versions"]
 
@@ -401,7 +401,7 @@ def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
 
 
 def test_the_ci_workflow_runs_the_prose_linter() -> None:
-  """The CI job checks repository prose and test contracts directly through nemoizer."""
+  """The CI job checks repo prose and test contracts directly through nemoizer."""
   runs = [
     step["run"] for step in load("ci.yml")["jobs"]["ci"]["steps"] if "run" in step
   ]

@@ -41,7 +41,7 @@ def stream_error(text: str) -> ProviderError:
   return ProviderError(f"Upstream stream error: {text}")
 
 
-# One uploaded file: the file name, the bytes and the media type.
+# One uploaded file: the file name, bytes, and media type.
 Upload = tuple[str, bytes, str]
 
 
@@ -457,7 +457,7 @@ class OpenAIProvider:
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
   # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}
-  # The name of the embeddings field that sets the vector size.
+  # The name of embeddings field that sets the vector size.
   dimensions_field: ClassVar[str] = "dimensions"
   # The transcription form fields that the provider accepts, apart from model and file.
   transcribe_fields: ClassVar[tuple[str, ...]] = (
@@ -499,7 +499,7 @@ class OpenAIProvider:
 
   @classmethod
   def configure(cls, config: Mapping[str, Any]) -> dict[str, Any]:
-    """The config with the values that this provider derives. The base class derives none."""
+    """The config with values that this provider derives. The base class derives none."""
     return dict(config)
 
   def __init__(self, name: str, config: Mapping) -> None:
@@ -579,7 +579,7 @@ class OpenAIProvider:
   def transcribe_request(
     self, slug: str, fields: dict[str, Any], audio: tuple[str, bytes, str]
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    """The upstream multipart request, with only the fields that the provider accepts."""
+    """The upstream multipart request, with only fields that the provider accepts."""
     data = {
       key: value for key, value in fields.items() if key in self.transcribe_fields
     }
@@ -595,7 +595,7 @@ class OpenAIProvider:
   def speech_request(
     self, slug: str, payload: dict
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    """The upstream speech request, with only the fields that the provider accepts."""
+    """The upstream speech request, with only fields that the provider accepts."""
     body = {key: value for key, value in payload.items() if key in self.speech_fields}
     return (
       self.base + "/audio/speech",
@@ -610,7 +610,7 @@ class OpenAIProvider:
   def image_request(
     self, slug: str, payload: dict
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    """The upstream image request, with only the fields that the provider accepts."""
+    """The upstream image request, with only fields that the provider accepts."""
     body = {key: value for key, value in payload.items() if key in self.image_fields}
     url = self.base + "/images/generations"
     return url, {"json": {**body, "model": slug}}, self.headers()
@@ -618,7 +618,7 @@ class OpenAIProvider:
   def edit_request(
     self, slug: str, fields: dict[str, Any], images: list[Upload], mask: Upload | None
   ) -> tuple[str, dict[str, Any], dict[str, str]]:
-    """The upstream multipart edit request, with only the fields that the provider accepts."""
+    """The upstream multipart edit request, with only fields that the provider accepts."""
     data = {key: value for key, value in fields.items() if key in self.image_fields}
     name = "image[]" if len(images) > 1 else "image"
     files = [(name, image) for image in images]
@@ -647,7 +647,7 @@ class OpenAIProvider:
     include_usage: bool,
     wait: float | None = None,
   ) -> AsyncIterator[bytes]:
-    """The raw SSE bytes. `sse_data` applies the wait, because it sees the comments."""
+    """The raw SSE bytes. `sse_data` applies the wait, because it sees comments."""
     try:
       async for chunk in response.aiter_bytes():
         if chunk:

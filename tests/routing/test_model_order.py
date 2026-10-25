@@ -1,4 +1,4 @@
-"""Tests for the `order` key of the provider blocks and the models."""
+"""Tests for the `order` key of the provider blocks and models."""
 
 from daedalus.routing import router
 

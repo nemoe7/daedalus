@@ -1,4 +1,4 @@
-"""The declared state schema: the tables, the keys and the column types."""
+"""The declared state schema: the tables, keys, and column types."""
 
 from sqlalchemy import NUMERIC, TEXT, create_engine, text
 
@@ -30,7 +30,7 @@ def test_every_keyed_table_names_a_primary_key() -> None:
 
 
 def test_models_holds_the_id_the_provider_the_slug_and_the_columns() -> None:
-  """The model table is the three fixed columns plus every column of the catalog."""
+  """The model table is the three fixed columns plus every column of catalog."""
   assert [column.name for column in TABLES["models"].columns][:3] == [
     "id",
     "provider",

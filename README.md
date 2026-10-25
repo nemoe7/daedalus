@@ -149,7 +149,7 @@ These commands work in cmd, PowerShell, and bash.
 | [Providers](docs/providers.md) | Supported providers and what each one can do |
 | [Provider keys](docs/provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](docs/deployment.md) | Docker Compose, profiles, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
-| [Open WebUI integration](docs/integrations/owui.md) | The skills, the filters, and the tools of the [`integrations/openwebui`](integrations/openwebui) folder |
+| [Open WebUI integration](docs/integrations/owui.md) | The skills, filters, and tools of the [`integrations/openwebui`](integrations/openwebui) folder |
 | [Dashboard](docs/dashboard.md) | Pages and API keys |
 | [Hooks](docs/hooks.md) | Python files that change catalog rows, requests, and answers. Each shipped file has its own page |
 | [Decisions](docs/adr/) | Architecture decision records |

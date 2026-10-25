@@ -1,4 +1,4 @@
-"""Check the parallel race: the first content wins, and the loser stops."""
+"""Check the parallel race: the first content wins, and loser stops."""
 
 import asyncio
 import json

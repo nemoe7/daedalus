@@ -12,7 +12,7 @@ TOP_TIER = 4
 
 @dataclass
 class Turn:
-  """One chat message: the tier and model of the last answer, and the retry count."""
+  """One chat message: the tier and model of the last answer, and retry count."""
 
   used: float
   tier: int | None = None

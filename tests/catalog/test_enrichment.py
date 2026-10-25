@@ -1,4 +1,4 @@
-"""Catalog enrichment: the LiteLLM pages, the config columns and the overrides."""
+"""Catalog enrichment: the LiteLLM pages, config columns and overrides."""
 
 import logging
 import sqlite3
@@ -187,7 +187,7 @@ def test_modelschemas_entries_asks_for_the_service_name_of_the_provider() -> Non
 
 
 def test_modelschemas_columns_reads_the_flag_and_the_ladder() -> None:
-  """The flag comes from capabilities, the ladder from the reasoning fact, lowest first."""
+  """The flag comes from capabilities, ladder from the reasoning fact, lowest first."""
   rows = {row["rawId"]: row for row in MS_PAGE["models"] if "rawId" in row}
   # a published name outside the vocabulary drops, and the list sorts lowest first
   assert enrichment.modelschemas_columns(rows["a"]) == {
@@ -199,7 +199,7 @@ def test_modelschemas_columns_reads_the_flag_and_the_ladder() -> None:
     "supports_reasoning": True,
     "supported_efforts": ["none", "max"],
   }
-  # mandatory thinking cannot turn off, so the off rung drops
+  # mandatory thinking cannot disable reasoning, so the off rung drops
   assert enrichment.modelschemas_columns(rows["c"]) == {
     "supports_reasoning": True,
     "supported_efforts": ["low"],
@@ -364,7 +364,7 @@ def test_enrich_fills_only_what_the_earlier_sources_left_empty() -> None:
     native={"openrouter/b": {"supported_efforts": ["low"]}},
   )
   by_id = {row["id"]: row for row in rows}
-  # the modelschemas ladder and flag fill the gap the catalog left
+  # the modelschemas ladder and flag fill the gap catalog left
   assert by_id["openrouter/a"]["supported_efforts"] == ["none", "low", "high"]
   assert by_id["openrouter/a"]["supports_reasoning"] is True
   # the native column beats modelschemas
@@ -412,7 +412,7 @@ def test_config_keeps_reasoning_without_native_rows() -> None:
 
 
 def test_enrich_keeps_the_litellm_ladder_over_modelschemas() -> None:
-  """A ladder the catalog holds stays over the one the service names."""
+  """A ladder catalog holds stays over the one the service names."""
   litellm = {
     "data": [{"id": "openrouter/g", "supported_efforts": ["high"]}],
     "has_more": False,

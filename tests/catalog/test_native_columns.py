@@ -107,7 +107,7 @@ def test_openrouter_shape() -> None:
 
 
 def test_openrouter_supported_efforts() -> None:
-  """A gateway row lists the efforts of the model, and the empty list stays out."""
+  """A gateway row lists the efforts of the model, and empty list stays out."""
   row = {
     "max_context_length": 2000,
     "reasoning": {
