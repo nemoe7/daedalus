@@ -126,7 +126,7 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 
 1. **Header Navigation (`header`, `.skip-link`, `.tabs a`, `#nav`)**: Skip link to `#main` plus 6 route links (`Overview` through `Settings`) with `#nav-models`.
 2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in catalog`.
-3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills.
+3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills. Overview snippet rows (`.pool-line`, `#ov-limits`) truncate long model labels on one line with ellipsis.
 4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 75em`), and `#request-clear`.
 5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `75em` (`#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`).
 6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`)**: 4 grouped category cards in `.rail` (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load `.section-pane`. Desktop rail and single-line pane rows use a `40px` height (`44px` at `<= 60em`).

@@ -2265,6 +2265,10 @@ def test_the_short_values_carry_their_full_text() -> None:
     'header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }'
     in css
   ), "the header wraps tabs to row 2 only when items cannot fit on one row"
+  assert (
+    "#ov-limits .line > :first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }"
+    in css
+  ), "Overview Limits snippet rows truncate long model labels on one line"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert (
     '<span><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="nav-models"></span></span>'

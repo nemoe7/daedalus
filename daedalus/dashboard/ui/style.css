@@ -276,6 +276,9 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .panel { overflow-x: auto; }
 .out { color: var(--bad); }
 .balance + .balance { border-top: 1px solid var(--line); }
+#ov-limits .line { gap: 12px; }
+#ov-limits .line > :first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ov-limits .line > :last-child { flex-shrink: 0; white-space: nowrap; }
 .weight.left .num { width: auto; white-space: nowrap; }
 td.time { white-space: nowrap; }
 #requests-sentinel { height: 1px; }

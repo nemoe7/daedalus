@@ -589,13 +589,19 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
     const brand = h.querySelector(".brand").getBoundingClientRect();
     const nav = document.getElementById("nav").getBoundingClientRect();
     const out = document.getElementById("logout").getBoundingClientRect();
+    const ovLimitRows = Array.from(document.querySelectorAll("#ov-limits .line")).map(
+      (el) => Math.round(el.getBoundingClientRect().height),
+    );
     return {
       wrapped: h.dataset.wrapped || "",
       oneRow: Math.abs((brand.top + brand.height / 2) - (nav.top + nav.height / 2)) <= 6
         && brand.right <= nav.left && nav.right <= out.left,
+      maxOvLimitH: Math.max(...ovLimitRows),
     };
   });
-  expect(tabletHeader).toEqual({ wrapped: "", oneRow: true });
+  expect(tabletHeader.wrapped).toBe("");
+  expect(tabletHeader.oneRow).toBe(true);
+  expect(tabletHeader.maxOvLimitH).toBeLessThanOrEqual(32);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("1");
