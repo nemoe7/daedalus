@@ -58,26 +58,58 @@ const stamp = (seconds) => {
 const plural = (number, one, other, values = {}) =>
   t(number === 1 ? one : other, { count: number, ...values });
 
-// Format relative time with localized labels.
-function relative(seconds) {
-  const minutes = (seconds * 1000 - Date.now()) / 60000;
-  const ago = minutes <= 0;
-  const size = ago ? Math.floor(-minutes) : Math.ceil(minutes);
-  if (ago && size === 0) return t("time.just_now_text");
-  const dayMinutes = 60 * 24;
-  if (ago && size >= dayMinutes * 30) return t("time.long_ago_text");
-  if (size < 60) {
-    return ago
-      ? plural(size, "time.minute_ago.one_text", "time.minute_ago.other_text")
-      : plural(size, "time.minute_from_now.one_text", "time.minute_from_now.other_text");
+const mobileTime = () => typeof matchMedia === "function" && matchMedia("(max-width: 720px)").matches;
+
+// Format relative time with localized full and mobile abbreviated labels.
+function relative(seconds, { compact = mobileTime(), now = Date.now() } = {}) {
+  const deltaSeconds = Math.floor((now - seconds * 1000) / 1000);
+  if (deltaSeconds < 0) {
+    const futureMinutes = Math.max(1, Math.ceil(-deltaSeconds / 60));
+    if (futureMinutes < 60) {
+      return compact
+        ? t("time.minute_from_now.compact_text", { count: futureMinutes })
+        : plural(futureMinutes, "time.minute_from_now.one_text", "time.minute_from_now.other_text");
+    }
+    const futureHours = Math.ceil(futureMinutes / 60);
+    return compact
+      ? t("time.hour_from_now.compact_text", { count: futureHours })
+      : plural(futureHours, "time.hour_from_now.one_text", "time.hour_from_now.other_text");
   }
-  if (ago && size >= dayMinutes) {
-    return plural(Math.floor(size / dayMinutes), "time.day_ago.one_text", "time.day_ago.other_text");
+  const minutes = Math.floor(deltaSeconds / 60);
+  if (minutes < 1) return compact ? t("time.just_now.compact_text") : t("time.just_now_text");
+  if (minutes < 60) {
+    return compact
+      ? t("time.minute_ago.compact_text", { count: minutes })
+      : plural(minutes, "time.minute_ago.one_text", "time.minute_ago.other_text");
   }
-  const hours = ago ? Math.floor(size / 60) : Math.ceil(size / 60);
-  return ago
-    ? plural(hours, "time.hour_ago.one_text", "time.hour_ago.other_text")
-    : plural(hours, "time.hour_from_now.one_text", "time.hour_from_now.other_text");
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return compact
+      ? t("time.hour_ago.compact_text", { count: hours })
+      : plural(hours, "time.hour_ago.one_text", "time.hour_ago.other_text");
+  }
+  const days = Math.floor(hours / 24);
+  if (days < 7) {
+    return compact
+      ? t("time.day_ago.compact_text", { count: days })
+      : plural(days, "time.day_ago.one_text", "time.day_ago.other_text");
+  }
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return compact
+      ? t("time.week_ago.compact_text", { count: weeks })
+      : plural(weeks, "time.week_ago.one_text", "time.week_ago.other_text");
+  }
+  if (days < 365) {
+    const months = Math.max(1, Math.floor(days / 30));
+    return compact
+      ? t("time.month_ago.compact_text", { count: months })
+      : plural(months, "time.month_ago.one_text", "time.month_ago.other_text");
+  }
+  const years = Math.max(1, Math.floor(days / 365));
+  return compact
+    ? t("time.year_ago.compact_text", { count: years })
+    : plural(years, "time.year_ago.one_text", "time.year_ago.other_text");
 }
 
 // Render relative time with an exact-time title, leaving layout to the caller.
@@ -4458,7 +4490,21 @@ $("models").addEventListener("click", (event) => {
   if (model) openModelModal(model);
 });
 
+function refreshRelativeTimes() {
+  if (state.status) {
+    renderOverview();
+    renderStatusCard(state.status);
+  }
+  if (state.requests.length) renderRequests(state.requests, undefined, state.liveCount);
+  if (state.live.size) renderLive();
+  if (state.limits) renderLimits(state.limits);
+  if (state.notifications) renderNotifications(state.notifications);
+  if (state.keys.length && $("keys")) renderKeys(state.keys);
+  tickSaveLine();
+}
+
 matchMedia("(max-width: 720px)").addEventListener("change", syncSortFocus);
+matchMedia("(max-width: 720px)").addEventListener("change", refreshRelativeTimes);
 syncSortFocus();
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");

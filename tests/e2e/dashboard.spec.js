@@ -156,7 +156,7 @@ test("a settings write reports in the pane header", async ({ page }) => {
   await input.fill("7");
   await input.press("Enter");
   const line = page.locator(".save-line");
-  await expect(line).toContainText(/Saved (just now|\d+ minutes? ago)/);
+  await expect(line).toContainText(/Saved (just now|a minute ago|\d+ minutes ago)/);
   await expect(line.getByRole("button", { name: "Undo" })).toBeVisible();
 });
 
@@ -271,4 +271,17 @@ test("requests tab omits page buttons and auto-loads older rows on scroll", asyn
   const limits = await page.evaluate(() => window.__requestedLimits);
   expect(limits).toContain(100);
 });
+
+test("relative timestamps use abbreviated forms on mobile and full forms on desktop", async ({ page }) => {
+  await open(page, "#/limits", 390, 844);
+  const mobileChecked = await page.locator("#limits-checked").textContent();
+  expect(mobileChecked).toMatch(/now|\d+(min|h|d|wk|mo|yr) ago/);
+  expect(mobileChecked).not.toMatch(/just now|minutes? ago|hours? ago|yesterday|days ago/);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator("#limits-checked")).toContainText(
+    /just now|a minute ago|\d+ minutes ago|an hour ago|\d+ hours ago|yesterday|\d+ days ago|last week|\d+ weeks ago|last month|\d+ months ago|last year|\d+ years ago/,
+  );
+});
+
 

@@ -2688,17 +2688,36 @@ assert.strictEqual(probe.relative(now + 7200), LOCALE["time.hour_from_now.other_
 assert.strictEqual(probe.relative(now - 600), LOCALE["time.minute_ago.other_text"].replace("{count}", "10"));
 assert.strictEqual(probe.relative(now + 600), LOCALE["time.minute_from_now.other_text"].replace("{count}", "10"));
 assert.strictEqual(probe.relative(now - 10), LOCALE["time.just_now_text"]);
+assert.strictEqual(probe.relative(now - 60), LOCALE["time.minute_ago.one_text"]);
 assert.strictEqual(probe.relative(now - 3600), LOCALE["time.hour_ago.one_text"]);
 assert.strictEqual(probe.relative(now - 23 * 3600),
   LOCALE["time.hour_ago.other_text"].replace("{count}", "23"), 'hours stop below 1 day');
 assert.strictEqual(probe.relative(now - 24 * 3600), LOCALE["time.day_ago.one_text"],
-  '1 day is singular');
+  '1 day uses yesterday');
 assert.strictEqual(probe.relative(now - 2 * 86400),
   LOCALE["time.day_ago.other_text"].replace("{count}", "2"), 'later days are plural');
-assert.strictEqual(probe.relative(now - 29 * 86400),
-  LOCALE["time.day_ago.other_text"].replace("{count}", "29"), 'day labels stop below 30 days');
-assert.strictEqual(probe.relative(now - 30 * 86400), LOCALE["time.long_ago_text"],
-  '30 days uses the old-time label');
+assert.strictEqual(probe.relative(now - 6 * 86400),
+  LOCALE["time.day_ago.other_text"].replace("{count}", "6"), 'day labels stop below 7 days');
+assert.strictEqual(probe.relative(now - 7 * 86400), LOCALE["time.week_ago.one_text"],
+  '7 days uses last week');
+assert.strictEqual(probe.relative(now - 21 * 86400),
+  LOCALE["time.week_ago.other_text"].replace("{count}", "3"), 'weeks are plural below 30 days');
+assert.strictEqual(probe.relative(now - 30 * 86400), LOCALE["time.month_ago.one_text"],
+  '30 days uses last month');
+assert.strictEqual(probe.relative(now - 90 * 86400),
+  LOCALE["time.month_ago.other_text"].replace("{count}", "3"), 'months are plural below 365 days');
+assert.strictEqual(probe.relative(now - 365 * 86400), LOCALE["time.year_ago.one_text"],
+  '365 days uses last year');
+assert.strictEqual(probe.relative(now - 730 * 86400),
+  LOCALE["time.year_ago.other_text"].replace("{count}", "2"), 'years are plural');
+sandbox.matchMedia = () => ({ matches: true, addEventListener: () => {} });
+assert.strictEqual(probe.relative(now - 10), LOCALE["time.just_now.compact_text"]);
+assert.strictEqual(probe.relative(now - 600), LOCALE["time.minute_ago.compact_text"].replace("{count}", "10"));
+assert.strictEqual(probe.relative(now - 7200), LOCALE["time.hour_ago.compact_text"].replace("{count}", "2"));
+assert.strictEqual(probe.relative(now - 86400), LOCALE["time.day_ago.compact_text"].replace("{count}", "1"));
+assert.strictEqual(probe.relative(now - 14 * 86400), LOCALE["time.week_ago.compact_text"].replace("{count}", "2"));
+assert.strictEqual(probe.relative(now - 90 * 86400), LOCALE["time.month_ago.compact_text"].replace("{count}", "3"));
+assert.strictEqual(probe.relative(now - 730 * 86400), LOCALE["time.year_ago.compact_text"].replace("{count}", "2"));
 """
   subprocess.run(["node", "-e", code], check=True)
 
@@ -5458,7 +5477,7 @@ const overviewRequests = node('ov-requests').innerHTML;
 const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');
 const exact = probe.stamp(now - 600);
-assert(overviewRequests.includes(`title="${exact}">10 mins ago</span>`),
+assert(overviewRequests.includes(`title="${exact}">10 minutes ago</span>`),
   'the visible Overview time is relative and its hover keeps the exact stamp');
 assert(!overviewRequests.includes(`>${exact}</span>`), 'the exact stamp is not visible');
 probe.state.limits = null;
