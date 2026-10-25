@@ -5,7 +5,6 @@ globalThis.DAEDALUS_LOCALE = {
   "action.add_key_button": "+ Add key",
   "action.add_pattern_button": "+ Add pattern",
   "action.add_repository_button": "Add source",
-  "action.cancel_button": "Cancel",
   "action.check_now_button": "Check now",
   "action.checking_button": "Checking…",
   "action.clear_filters_button": "Clear filters",

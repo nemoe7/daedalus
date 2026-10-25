@@ -7181,7 +7181,7 @@ assert.strictEqual(probe.actionButton('Select', {
 
   for fragment in (
     'class="primary" type="submit"',
-    'class="ghost" type="submit" value="cancel"',
+    'class="ghost modal-close" type="submit" value="cancel"',
     'class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"',
     'class="tabs scroll-fade" id="nav"',
     'class="sort" type="button"',
@@ -8590,7 +8590,9 @@ def test_nuu_modal_manager_and_delete_confirmations() -> None:
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert page.count('class="ghost modal-close"') == 3
-  assert 'id="modal-cancel"' in page
+  assert page.count('class="modal-actions"') == 1
+  assert 'id="modal-close"' in page
+  assert 'id="modal-cancel"' not in page
   for marker in (
     "confirmDeleteEntry(",
     "restoreModalTrigger(",
@@ -8607,7 +8609,7 @@ const trigger = { focus: () => { restored += 1; } };
 sandbox.document.activeElement = trigger;
 node("modal").open = false;
 node("modal").showModal = function () { this.open = true; };
-node("modal-cancel").focus = () => { cancelFocused += 1; };
+node("modal-close").focus = () => { cancelFocused += 1; };
 node("modal-ok").classList = { toggle: () => {} };
 probe.ask("Delete entry", "Delete \"test\"?", "Delete", true);
 assert.strictEqual(cancelFocused, 1, "confirmation modals focus Cancel");

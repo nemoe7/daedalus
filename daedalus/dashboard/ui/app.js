@@ -253,7 +253,7 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
     box.value = value;
     box.placeholder = placeholder ?? "";
     box.toggleAttribute?.("autofocus", placeholder !== null);
-    $("modal-cancel")?.toggleAttribute?.("autofocus", placeholder === null);
+    $("modal-close")?.toggleAttribute?.("autofocus", placeholder === null);
     const ok = $("modal-ok");
     ok.textContent = confirm;
     ok.classList.toggle("danger", danger);
@@ -264,7 +264,7 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
     if (placeholder !== null) {
       box.focus?.();
       if (value) box.select?.();
-    } else $("modal-cancel")?.focus?.();
+    } else $("modal-close")?.focus?.();
   });
 }
 
@@ -283,7 +283,7 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
     nameBox.value = name;
     nameBox.placeholder = nameLabel;
     nameBox.toggleAttribute?.("autofocus", true);
-    $("modal-cancel")?.toggleAttribute?.("autofocus", false);
+    $("modal-close")?.toggleAttribute?.("autofocus", false);
     const valueBox = $("modal-input2");
     valueBox.value = value;
     valueBox.placeholder = valueLabel;
@@ -313,7 +313,7 @@ function askChoicePair(title, message, choices, placeholder) {
     const choice = $("modal-choice");
     choice.innerHTML = choices.map((key) => `<option value="${esc(key)}">${esc(key)}</option>`).join("");
     $("modal-input")?.toggleAttribute?.("autofocus", false);
-    $("modal-cancel")?.toggleAttribute?.("autofocus", false);
+    $("modal-close")?.toggleAttribute?.("autofocus", false);
     const box = $("modal-input2");
     box.value = "";
     box.placeholder = placeholder ?? "";

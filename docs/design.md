@@ -131,7 +131,7 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 5. **Requests Table and Code Legend (`table.requests`, `.code-legend`)**: 11-column log table paired with a `260px` reference card for routing transition codes (`ctx`, `hlt`, `lmt`, `err`).
 6. **Settings Shell (`.settings-shell`, `.settings-menu`, `.setting-row`)**: 4 grouped category cards (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load the right-hand editor pane. Desktop rail and single-line pane rows use a `40px` height (`44px` below `900px`).
 7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
-8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog has a top-right `x` button, bottom-right actions, `Cancel` autofocus on confirmations, and focus return on `close`.
+8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
 
 ## 8. Motion, Interaction, and States
 
@@ -152,7 +152,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | `loading-bar` | `header::after`, `section[data-page][data-loading="true"]` | Anchors a `2px` bottom-edge `scaleX` bar on `header` after a `200ms` delay (`0.45` static opacity under reduced motion) and sets `aria-busy` in `finally`. |
 | `page-memory` | `state.memory`, `requestPages`, `loadSettings()` | Paints cached views immediately, keys request slices on catalog and head version, and skips DOM redraws when fresh JSON matches memory. |
 | `live-dot` | `.pulse`, `tr.live-row` | Renders a `6px` amber (`var(--orange)`) `aria-hidden="true"` dot with a `1.4s` pulse and zero dimension shift. |
-| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button with hover/press fill, restores trigger focus on `close`, and gates deletions with a confirmation modal. |
+| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button without footer `Cancel`/`Close` buttons, focuses `x` on confirmations, and gates deletions. |
 | `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-inline-end`, `.floating-info-tip` | Applies `12px` / `192px` vertical and inline scroll masks (bottom-only below sticky `thead`) and viewport-clamped `position: fixed` tooltips. |
 
 ### Approved `nuu` Deviations
