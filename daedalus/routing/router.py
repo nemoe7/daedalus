@@ -256,6 +256,54 @@ def by_order(config: Mapping[str, Any], groups: list[list[str]]) -> list[list[st
   return split
 
 
+def model_key(model: str) -> str:
+  """Return the normalized model tail without provider prefixes or free suffixes."""
+  if "/" not in model:
+    return ""
+  tail = model.rpartition("/")[2].lower()
+  for suffix in (":free", "-free"):
+    if tail.endswith(suffix) and len(tail) > len(suffix):
+      tail = tail[: -len(suffix)]
+      break
+  return tail
+
+
+def bucket_map(config: Mapping[str, Any], groups: list[list[str]]) -> dict[str, int]:
+  """Map each candidate to its first `(tier, order)` bucket index."""
+  found: dict[str, int] = {}
+  for index, group in enumerate(by_order(config, groups)):
+    for model in group:
+      found.setdefault(model, index)
+  return found
+
+
+def prefer_same_model(
+  failed: str,
+  remaining: list[str],
+  buckets: Mapping[str, int] | None = None,
+  last_resort: set[str] | frozenset[str] = frozenset(),
+) -> list[str]:
+  """Rank alternate providers of `failed` first inside each `(tier, order)` bucket."""
+  key = model_key(failed)
+  if not key or len(remaining) < 2:
+    return list(remaining)
+  provider = failed.partition("/")[0]
+  bucket_of = buckets or {}
+
+  def rank(item: tuple[int, str]) -> tuple[bool, int, int, int]:
+    pos, candidate = item
+    same = model_key(candidate) == key
+    other_provider = candidate.partition("/")[0] != provider
+    return (
+      candidate in last_resort,
+      bucket_of.get(candidate, 0),
+      0 if same and other_provider else 1 if same else 2,
+      pos,
+    )
+
+  return [candidate for _, candidate in sorted(enumerate(remaining), key=rank)]
+
+
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
   """The seconds with no data from the provider: the `timeout` of the model, or the default."""
   value = model_setting(config, model, "timeout")

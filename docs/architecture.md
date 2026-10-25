@@ -146,7 +146,7 @@ The chain goes up first. A tier above can usually do the same request. The chain
 
 Inside each tier, the models of order 1 go first, then the models of order 2, and so on. The weights and the session model choose a model inside 1 order. A session model of order 2 goes first only when its tier has no model of order 1 left. The media pools use the order too.
 
-The chain skips an order with no model.
+The chain skips an order with no model. On a fallback, another provider with the same model runs first inside each tier and order.
 
 ```mermaid
 flowchart LR

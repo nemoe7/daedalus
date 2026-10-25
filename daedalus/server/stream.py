@@ -4,7 +4,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -202,6 +202,8 @@ async def relay(
   requested: str = "",
   stream_context: dict[str, Any] | None = None,
   hook_files: list[Any] | None = None,
+  buckets: Mapping[str, int] | None = None,
+  last_resort: frozenset[str] = frozenset(),
 ) -> AsyncIterator[bytes]:
   """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
   identifier, sent, tool = None, [], False
@@ -285,6 +287,7 @@ async def relay(
     if tool:
       yield STREAM_FAILED
       return
+    rest = router.prefer_same_model(model, rest, buckets, last_resort)
     prefix = {"role": "assistant", "content": "".join(sent)}
     continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
     tokens, limits = context.input_tokens(continued), store.input_limits()
@@ -321,6 +324,7 @@ async def relay(
           transition_reason = "lmt"
         else:
           transition_reason = "err"
+        rest = router.prefer_same_model(candidate, rest, buckets, last_resort)
         transition_from = candidate
         logger.warning(
           "upstream %s continuation failed: %s", candidate, upstream.failure_text(exc)

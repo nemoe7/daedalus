@@ -936,6 +936,8 @@ class Plan:
   cooled_groups: list[list[str]]
   paced: list[list[str]]
   models: list[str]
+  buckets: dict[str, int]
+  last_resort: frozenset[str]
   old: str | None
   looping: str | None
   first_transition: dict[str, Any] | None
@@ -1407,6 +1409,8 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     cooled_groups=cooled_groups,
     paced=paced,
     models=models,
+    buckets=router.bucket_map(config, paced),
+    last_resort=frozenset(m for m in (old, looping) if m),
     old=old,
     looping=looping,
     first_transition=first_transition,
@@ -1524,6 +1528,9 @@ async def run_chat(plan: Plan) -> Response:
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "err"
+      models[index + 1 :] = router.prefer_same_model(
+        candidate, models[index + 1 :], plan.buckets, plan.last_resort
+      )
       index += 1
       continue
     except upstream.UpstreamStatus as exc:
@@ -1538,6 +1545,9 @@ async def run_chat(plan: Plan) -> Response:
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "lmt" if isinstance(exc, upstream.RateLimitError) else "err"
+      models[index + 1 :] = router.prefer_same_model(
+        candidate, models[index + 1 :], plan.buckets, plan.last_resort
+      )
       index += 1
       continue
     except stream.ATTEMPT_ERRORS as exc:
@@ -1549,6 +1559,9 @@ async def run_chat(plan: Plan) -> Response:
       )
       previous_attempt = (candidate, candidate_pool)
       fallback_reason = "err"
+      models[index + 1 :] = router.prefer_same_model(
+        candidate, models[index + 1 :], plan.buckets, plan.last_resort
+      )
       index += 1
       continue
     rest = [m for m in models[index + 1 :] if m != candidate]
@@ -1606,6 +1619,8 @@ async def run_chat(plan: Plan) -> Response:
           model,
           getattr(request.state, "app", "") or "",
         ),
+        buckets=plan.buckets,
+        last_resort=plan.last_resort,
       ),
       media_type="text/event-stream",
     )

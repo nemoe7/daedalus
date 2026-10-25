@@ -188,11 +188,14 @@ async def attempt(
       )
     models = left
   pooled = model == pool
+  buckets = router.bucket_map(config, [models]) if pooled else {}
   attempts: list[dict[str, Any]] = []
   request.state.attempts, status = attempts, 0
   last_candidate, last_detail = "", ""
   deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
-  for index, candidate in enumerate(models):
+  index = 0
+  while index < len(models):
+    candidate = models[index]
     request.state.fallbacks = str(index)
     dashboard.live_update(request, trying=candidate, fallbacks=index)
     started = time.perf_counter()
@@ -210,6 +213,10 @@ async def attempt(
         )
       # A pool model that cannot take this request is not a fault.
       attempts.append(upstream.note(candidate, "skipped", None, str(exc)))
+      models[index + 1 :] = router.prefer_same_model(
+        candidate, models[index + 1 :], buckets
+      )
+      index += 1
       continue
     if PACING:
       PACING.record(lane(candidate))
@@ -240,6 +247,11 @@ async def attempt(
         attempts[-1]["cooldown"] = COOLDOWNS.start(
           lane(candidate), exc.headers, exc.body
         )
+      if pooled:
+        models[index + 1 :] = router.prefer_same_model(
+          candidate, models[index + 1 :], buckets
+        )
+      index += 1
       continue
     request.state.via = candidate
     dashboard.live_first(request)

@@ -41,3 +41,68 @@ def test_new_config() -> None:
   assert router.by_order(changed, [["cf/small", "groq/fast"]]) == [
     ["cf/small", "groq/fast"]
   ]
+
+
+def test_prefer_same_model_within_tier_and_order_buckets() -> None:
+  """Same-model fallback prefers another provider inside each `(tier, order)` bucket without crossing orders."""
+  cfg = {
+    "openrouter": {"api_key": "k", "order": 1},
+    "groq": {"api_key": "k", "order": 1},
+    "kilo": {"api_key": "k", "order": 1, "models": {"slow/*": {"order": 2}}},
+    "cloudflare": {"api_key": "k", "order": 2},
+  }
+  same_order_groups = [
+    [
+      "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "groq/openai/gpt-oss-120b",
+      "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
+    ]
+  ]
+  buckets = router.bucket_map(cfg, same_order_groups)
+  assert router.prefer_same_model(
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+    ["groq/openai/gpt-oss-120b", "kilo/nvidia/nemotron-3-ultra-550b-a55b:free"],
+    buckets,
+  ) == [
+    "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
+    "groq/openai/gpt-oss-120b",
+  ]
+
+  mixed_order_groups = [
+    [
+      "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+      "groq/openai/gpt-oss-120b",
+      "kilo/slow/nemotron-3-ultra-550b-a55b:free",
+      "cloudflare/@cf/meta/llama-3.3-70b-instruct",
+    ]
+  ]
+  mixed_buckets = router.bucket_map(cfg, mixed_order_groups)
+  assert router.prefer_same_model(
+    "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+    [
+      "groq/openai/gpt-oss-120b",
+      "cloudflare/@cf/meta/llama-3.3-70b-instruct",
+      "kilo/slow/nemotron-3-ultra-550b-a55b:free",
+    ],
+    mixed_buckets,
+  ) == [
+    "groq/openai/gpt-oss-120b",
+    "kilo/slow/nemotron-3-ultra-550b-a55b:free",
+    "cloudflare/@cf/meta/llama-3.3-70b-instruct",
+  ]
+
+  assert router.prefer_same_model(
+    "openrouter/reflection/beam:free",
+    ["groq/openai/gpt-oss-120b", "kilo/reflection/beam-free"],
+    router.bucket_map(
+      cfg,
+      [
+        [
+          "openrouter/reflection/beam:free",
+          "groq/openai/gpt-oss-120b",
+          "kilo/reflection/beam-free",
+        ]
+      ],
+    ),
+    last_resort=frozenset({"kilo/reflection/beam-free"}),
+  ) == ["groq/openai/gpt-oss-120b", "kilo/reflection/beam-free"]
