@@ -6789,11 +6789,17 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
     " > .pane-bar > .back { display: none; }" in phone
   ), "the outer back yields while a provider file is open"
   assert (
-    ".pills [data-drop], .pills [data-add], .pills [data-setting-drop],"
-    " .pills [data-setting-add],\n"
-    "  [data-hook-drop], .section-pane .back, #nav a { min-height: 44px;"
+    "[data-hook-drop], .section-pane .back, #nav a { min-height: 44px;"
     " min-width: 44px; }" in phone
   ), "the phone lifts the boxed controls to the touch floor"
+  assert (
+    '.pills [data-drop]::after, .pills [data-setting-drop]::after { content: "";'
+    " position: absolute; inset: -10px; }" in phone
+  ), "keyword pills stay compact while expanding their delete hit area"
+  assert (
+    '.pills [data-add]::after, .pills [data-setting-add]::after { content: "";'
+    " position: absolute; inset: -7px 0; }" in phone
+  ), "pill add triggers stay compact while expanding their vertical hit area"
   assert "button.hint, .pills" not in phone, (
     "the round icon buttons keep their drawn size on a phone"
   )

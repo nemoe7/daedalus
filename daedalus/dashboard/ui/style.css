@@ -1120,8 +1120,12 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .weight { width: 110px; }
   .undo-text { min-height: 44px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
-  .pills [data-drop], .pills [data-add], .pills [data-setting-drop], .pills [data-setting-add],
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
+  .pills { gap: 8px 6px; }
+  .pills [data-drop], .pills [data-setting-drop],
+  .pills [data-add], .pills [data-setting-add] { position: relative; }
+  .pills [data-drop]::after, .pills [data-setting-drop]::after { content: ""; position: absolute; inset: -10px; }
+  .pills [data-add]::after, .pills [data-setting-add]::after { content: ""; position: absolute; inset: -7px 0; }
   .modal-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
   /* A value row on a touch screen gives its field the 44 px floor. */
   section[data-page="settings"] .field input:not(.switch) { min-height: 44px; }

@@ -183,7 +183,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | --- | --- | --- | --- |
 | Wide Desktop (`> 75em` / `> 1200px`) | Full-width `header` and centered `main` (`32px` min gutter) | Single-row header with `.tabs` and `#status` chips | 4-column `.kpis`, 2-column `Requests`, `Limits`, and `Settings` (`240px` `.rail`) |
 | Narrow Desktop (`<= 75em` / `<= 1200px`) | Centered `main` (`32px` min gutter) | `#status` hides so `.tabs` stay on 1 row | Keeps 2-column desktop layouts above `60em` |
-| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | Header stacks `.tabs` into a scrollable strip | `2x2` `.kpis`, `Requests` folds to cards, `Limits` stacks `100%` wide, and `Settings` uses drill-down (`44px` touch floor) |
+| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | Header stacks `.tabs` into a scrollable strip | `2x2` `.kpis`, `Requests` folds to cards, `Limits` stacks `100%` wide, `Settings` drills down (`44px` floor), and `.pill` chips stay compact with `::after` targets |
 | Phone (`<= 40em` / `<= 640px`) | `16px` gutter and `76px` bottom clearance | Scrollable `.tabs` strip with `44px` targets | Horizontal `.pools` strip, `Models` / `Keys` / `Limits` fold to cards, `.model-stats` and `#balances` use 1 column, and timestamps use `nuu` compact units |
 | Landscape Short Height (`max-height: 30em` / `<= 480px`) | Outer `main` scroll unlocked | Compact header and `16px` `.login` top offset | `Settings`, `Providers`, `Requests`, and `Limits` scroll in `main`, and `.modal` caps height at `calc(100dvh - 32px)` |
 
