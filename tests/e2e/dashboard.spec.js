@@ -170,7 +170,7 @@ test("an empty model filter says so", async ({ page }) => {
 
 test("a single section search match shows no stray dividers", async ({ page }) => {
   await open(page, "#/settings", 390, 844);
-  await page.locator("#settings-search").fill("Routing");
+  await page.locator("#settings-search").fill("Personalization");
   const state = await page.evaluate(() => {
     const navs = [...document.querySelectorAll("#settings > .rail > .sections")];
     const visibleNavs = navs.filter((nav) => getComputedStyle(nav).display !== "none");
@@ -284,4 +284,26 @@ test("relative timestamps use abbreviated forms on mobile and full forms on desk
   );
 });
 
+test("section search matches section content and config keys and highlights matches", async ({ page }) => {
+  await open(page, "#/settings", 1280, 900);
+  await expect(page.locator("#settings-search")).toBeVisible();
 
+  await page.locator("#settings-search").fill("Headroom");
+  const optButton = page.locator('#settings > .rail > .sections button[data-section="optimization"]');
+  await expect(optButton).toBeVisible();
+  await expect(optButton.locator(".rail-match mark.search-hit")).toHaveText("Headroom");
+  await expect(page.locator('#settings .card[data-section="optimization"]')).toBeVisible();
+  await expect(page.locator('#settings .card[data-section="optimization"] mark.search-hit').first()).toHaveText("Headroom");
+
+  await page.locator("#settings-search").fill("forward_owui_chat_id");
+  const privButton = page.locator('#settings > .rail > .sections button[data-section="privacy"]');
+  await expect(privButton).toBeVisible();
+  await expect(page.locator('#settings .card[data-section="privacy"]')).toBeVisible();
+  const keyBadge = page.locator('#settings .card[data-section="privacy"] .config-key-hit');
+  await expect(keyBadge).toContainText("privacy.forward_owui_chat_id");
+  await expect(keyBadge.locator("mark.search-hit")).toHaveText("forward_owui_chat_id");
+
+  await page.locator("#settings-search").fill("");
+  await expect(page.locator("#settings mark.search-hit")).toHaveCount(0);
+  await expect(page.locator("#settings .config-key-hit")).toHaveCount(0);
+});

@@ -2009,12 +2009,12 @@ function hooksManager() {
       <tbody>${list}</tbody></table></div>
       ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
         variant: "ghost", attrs: { "data-hooks-update": true },
-      })}`)}
-    <div class="field stack info" id="hooks-order">${hookOrderRows()}</div>
+      })}`, "hooks.disabled")}
+    <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
       <span class="input"><input type="text" id="set-hooks-dir" aria-haspopup="dialog" aria-controls="modal" data-value="${t("settings.hooks.folder.label")}"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
-        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`)}
+        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`, "hooks.dir")}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
         ${actionButton(`${icon("plus")} ${t("action.add_repository_button")}`, {
@@ -2028,7 +2028,7 @@ function hooksManager() {
             title: t("hook.action.delete_source_title", { name: selected }),
           },
         }) : ""}</div>${panel}
-      <div class="sub" id="hooks-note" role="status"></div>`)}`;
+      <div class="sub" id="hooks-note" role="status"></div>`, "hooks.sources")}`;
 }
 
 async function dropHookFile(button) {
@@ -2192,8 +2192,9 @@ function labelSpan(label, hint) {
   return `<span><b>${esc(label)}</b>${button}<small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
 }
 
-function field(label, hint, body) {
-  return `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
+function field(label, hint, body, configKey = "") {
+  const base = `<div class="field stack info">${labelSpan(label, hint)}${body}</div>`;
+  return configKey ? base.replace('<div class="field stack info">', `<div class="field stack info" data-config-key="${esc(configKey)}">`) : base;
 }
 
 // Track the selected section and whether the phone displays its detail or list.
@@ -2244,7 +2245,10 @@ const chip = (key) => chipFor("settings", key);
 function sectionList(id, items, active, opts = {}) {
   // The reference groups its lists into stacked cards, one card per group.
   const groups = opts.groups ?? [items];
-  const navs = groups.map((group) => `<nav class="sections" aria-label="${t("common.sections_label")}">${group.map(([key, label]) => actionButton(`${chipFor(id, key)}<span>${esc(label)}</span>`, {
+  const renderCopy = (label) => (id === "settings"
+    ? `<span class="rail-copy"><span class="rail-label" data-label="${esc(label)}">${esc(label)}</span><small class="rail-match" hidden></small></span>`
+    : `<span>${esc(label)}</span>`);
+  const navs = groups.map((group) => `<nav class="sections" aria-label="${t("common.sections_label")}">${group.map(([key, label]) => actionButton(`${chipFor(id, key)}${renderCopy(label)}`, {
     variant: key === active ? "on" : "",
     attrs: {
       "data-section": key,
@@ -2257,17 +2261,179 @@ function sectionList(id, items, active, opts = {}) {
   return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
 
-// Hide the rail rows and empty groups that the search text excludes.
+const PROVIDER_SEARCH_KEYS = [
+  "api_key", "api_base", "account_id", "discovery_url", "discovery_match",
+  "tier", "order", "rpm", "tpm", "hourly_requests", "client_keys",
+  "models", "exclude", "hooks", "pool", "mode", "reasoning_effort",
+];
+
+function highlightText(raw, query) {
+  const text = String(raw ?? "");
+  const needle = (query ?? "").trim().toLowerCase();
+  if (!needle) return esc(text);
+  const lower = text.toLowerCase();
+  if (!lower.includes(needle)) return esc(text);
+  let out = "";
+  let from = 0;
+  while (from < text.length) {
+    const at = lower.indexOf(needle, from);
+    if (at < 0) {
+      out += esc(text.slice(from));
+      break;
+    }
+    out += esc(text.slice(from, at));
+    out += `<mark class="search-hit">${esc(text.slice(at, at + needle.length))}</mark>`;
+    from = at + needle.length;
+  }
+  return out;
+}
+
+function highlightSnippet(raw, query, radius = 20) {
+  const text = String(raw ?? "").replace(/\s+/g, " ").trim();
+  const needle = (query ?? "").trim().toLowerCase();
+  const at = needle ? text.toLowerCase().indexOf(needle) : -1;
+  if (at < 0) return esc(text);
+  const start = Math.max(0, at - radius);
+  const end = Math.min(text.length, at + needle.length + radius);
+  return `${start > 0 ? "\u2026" : ""}${highlightText(text.slice(start, end), query)}${end < text.length ? "\u2026" : ""}`;
+}
+
+function sectionSearchTerms(host, key) {
+  if (host.id !== "settings" || !key) return [];
+  const terms = [key];
+  if (SECTION_SUMMARIES[key]) terms.push(SECTION_SUMMARIES[key]);
+  const groupDef = SETTINGS.find(([group]) => group === key);
+  if (groupDef) {
+    for (const [fieldKey, label, unit, hint] of groupDef[2]) {
+      terms.push(`${key}.${fieldKey}`, fieldKey, label);
+      if (hint) terms.push(hint);
+      for (const [optVal, optLabel] of CHOICES[fieldKey] ?? []) terms.push(optVal, optLabel);
+      if (state.settings) {
+        if (unit === "list") terms.push(...listValue(key, fieldKey));
+        else {
+          const cur = setting(key, fieldKey);
+          if (cur != null && cur !== "") terms.push(String(cur));
+        }
+      }
+    }
+  }
+  if (key === "hooks") {
+    terms.push(
+      "hooks.dir", "dir", "hooks.sources", "sources", "hooks.disabled", "disabled", "hooks.order", "order",
+      t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"),
+      t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"),
+      t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"),
+    );
+    for (const [surface, label] of HOOK_SURFACES) terms.push(`hooks.${surface}`, surface, label);
+    for (const row of state.settings?.hook_rows ?? []) {
+      if (row.name) terms.push(row.name);
+      if (row.title) terms.push(row.title);
+    }
+    if (state.settings) {
+      for (const src of settingList("hooks", "sources")) {
+        if (src && typeof src === "object") terms.push(src.repo || "", src.path || "", src.ref || "");
+      }
+    }
+  } else if (key === "providers") {
+    terms.push(...PROVIDER_SEARCH_KEYS);
+    for (const file of state.files ?? []) if (file?.path) terms.push(file.path, fileName(file.path));
+    for (const form of state.forms ?? []) if (form && typeof form === "object") terms.push(...Object.keys(form));
+  } else if (key === "keys") {
+    for (const row of state.keys ?? []) if (row?.name) terms.push(row.name, row.prefix || "");
+  } else if (key === "yaml") {
+    const yamlText = $("settings-editor")?.value ?? state.settings?.text ?? "";
+    if (yamlText) terms.push(...yamlText.split("\n"));
+  }
+  const card = host.querySelector?.(`:scope > .section-pane > [data-section="${key}"]`);
+  if (card?.textContent) terms.push(card.textContent);
+  return terms.filter(Boolean);
+}
+
+function highlightSectionPane(host, rawQuery) {
+  if (host.id !== "settings" || !host.querySelectorAll) return;
+  const needle = (rawQuery ?? "").trim().toLowerCase();
+  for (const card of host.querySelectorAll(":scope > .section-pane > [data-section]")) {
+    if (!card.querySelectorAll) continue;
+    for (const leaf of card.querySelectorAll("b, th, .pill > span:first-child, .sub, .field.info > span > small[role='tooltip']")) {
+      const children = leaf.children ? [...leaf.children] : [];
+      if (children.some((child) => child.tagName !== "MARK")) continue;
+      if (leaf.dataset.rawText === undefined) leaf.dataset.rawText = leaf.textContent ?? "";
+      const raw = leaf.dataset.rawText;
+      if (needle && raw.toLowerCase().includes(needle)) leaf.innerHTML = highlightText(raw, rawQuery);
+      else if (leaf.innerHTML !== esc(raw)) leaf.textContent = raw;
+    }
+    for (const row of card.querySelectorAll(".field")) {
+      const cfgKey = row.dataset?.configKey ?? "";
+      const labelHost = row.querySelector?.(":scope > span:first-child") ?? null;
+      let badge = labelHost?.querySelector?.(":scope > .config-key-hit") ?? null;
+      const keyHit = Boolean(needle && cfgKey && cfgKey.toLowerCase().includes(needle));
+      if (keyHit && labelHost && typeof document !== "undefined" && document.createElement) {
+        if (!badge) {
+          badge = document.createElement("code");
+          badge.className = "config-key-hit";
+          labelHost.appendChild(badge);
+        }
+        badge.innerHTML = highlightText(cfgKey, rawQuery);
+      } else if (badge) {
+        badge.remove();
+      }
+      let controlHit = false;
+      if (needle && row.querySelectorAll) {
+        for (const ctrl of row.querySelectorAll("input, select")) {
+          const vals = [ctrl.value, ctrl.placeholder, ...(ctrl.options ? [...ctrl.options].map((o) => o.textContent) : [])];
+          if (vals.some((v) => String(v ?? "").toLowerCase().includes(needle))) {
+            controlHit = true;
+            break;
+          }
+        }
+      }
+      const markHit = Boolean(needle && row.querySelector?.("mark.search-hit"));
+      row.classList?.toggle?.("search-row-hit", Boolean(needle && (keyHit || controlHit || markHit)));
+    }
+  }
+}
+
+// Filter rail rows by title, section content, and config keys, then highlight matches.
 function filterRail(host) {
   const navs = host.querySelectorAll(":scope > .rail > .sections");
   if (!navs.length) return;
-  const query = (state.settingsSearch ?? "").trim().toLowerCase();
+  const rawQuery = (state.settingsSearch ?? "").trim();
+  const query = rawQuery.toLowerCase();
   let shown = 0;
+  let firstVisibleKey = "";
+  let activeVisible = false;
+  const activeKey = host.id === "settings" ? sectionState(host).key : "";
   for (const nav of navs) {
     let groupShown = 0;
     for (const button of nav.querySelectorAll("button")) {
-      const hit = !query || button.textContent.toLowerCase().includes(query);
+      const key = button.dataset?.section ?? "";
+      const labelNode = button.querySelector?.(".rail-label") ?? null;
+      const matchNode = button.querySelector?.(".rail-match") ?? null;
+      const rawLabel = labelNode?.dataset?.label ?? labelNode?.textContent ?? button.textContent ?? "";
+      const titleHit = !query || rawLabel.toLowerCase().includes(query);
+      let matchedTerm = "";
+      if (!titleHit && query) {
+        matchedTerm = sectionSearchTerms(host, key).find((term) => String(term).toLowerCase().includes(query)) ?? "";
+      }
+      const hit = titleHit || Boolean(matchedTerm);
       button.hidden = !hit;
+      if (labelNode) {
+        if (query && titleHit) labelNode.innerHTML = highlightText(rawLabel, rawQuery);
+        else labelNode.textContent = rawLabel;
+      }
+      if (matchNode) {
+        if (query && !titleHit && matchedTerm) {
+          matchNode.hidden = false;
+          matchNode.innerHTML = highlightSnippet(matchedTerm, rawQuery);
+        } else {
+          matchNode.hidden = true;
+          matchNode.innerHTML = "";
+        }
+      }
+      if (hit) {
+        if (!firstVisibleKey && key) firstVisibleKey = key;
+        if (key && key === activeKey) activeVisible = true;
+      }
       groupShown += Number(hit);
     }
     nav.hidden = groupShown === 0;
@@ -2275,6 +2441,10 @@ function filterRail(host) {
   }
   const empty = host.querySelector(":scope > .rail > .rail-empty");
   if (empty) empty.hidden = shown > 0;
+  if (host.id === "settings" && query && !activeVisible && firstVisibleKey && !phoneSection()) {
+    selectSection(host, firstVisibleKey, false);
+  }
+  highlightSectionPane(host, rawQuery);
 }
 
 // Name the back button for its destination.
@@ -2376,9 +2546,12 @@ function selectSection(host, key, open = sectionState(host).open) {
       else outer.removeAttribute("aria-current");
     }
   }
-  // A phone drill page is titled by the section it opens, under the back label.
-  const label = [...host.querySelectorAll(":scope > .rail > .sections button")]
-    .find((button) => button.dataset.section === key)?.querySelector(":scope > span:not(.tile)")?.textContent ?? key;
+  // Title each phone drill page from its opened section below back navigation.
+  const activeButton = [...host.querySelectorAll(":scope > .rail > .sections button")]
+    .find((button) => button.dataset.section === key);
+  const label = activeButton?.querySelector?.(".rail-label")?.dataset?.label
+    ?? activeButton?.querySelector?.(":scope > span:not(.tile)")?.textContent
+    ?? key;
   if (host.id === "settings") {
     const title = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-title]");
     if (title) {
@@ -3259,17 +3432,18 @@ function renderSettings() {
   const card = ([group, title, fields]) => `
     <div class="card">${fields.map(([key, label, unit, hint]) => {
       const id = `set-${group}-${key}`;
+      const cfgKey = `${group}.${key}`;
       if (isSwitch(group, key)) {
         // Place the label and hint before the right-aligned switch.
-        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
+        return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
           <input type="checkbox" role="switch" class="switch" id="${id}" ${setting(group, key) ? "checked" : ""}></label>`;
       }
       if (unit === "choice") {
-        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
+        return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
           <select id="${id}">${CHOICES[key].map(([name, text]) => `<option value="${name}"${setting(group, key) === name ? " selected" : ""}>${text}</option>`).join("")}</select></label>`;
       }
       if (unit === "name") {
-        return `<label class="field info" for="${id}">${labelSpan(label, hint)}
+        return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
           <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
             aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" spellcheck="false"
             value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
@@ -3278,14 +3452,14 @@ function renderSettings() {
         const values = listValue(group, key);
         return field(label, hint, `
           <div class="pills" id="${id}" aria-label="${esc(label)}">${values
-            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div>`);
+            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div>`, cfgKey);
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
-      return `<label class="field info" for="${id}">${labelSpan(label, hint)}
+      return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
         <span class="input"><input type="number" readonly aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"
-          min="${MINIMA[`${group}.${key}`] ?? 0}" id="${id}" value="${value ?? ""}"
-          step="${DECIMALS.has(`${group}.${key}`) ? "any" : "1"}" ${MAXIMA[`${group}.${key}`] ? `max="${MAXIMA[`${group}.${key}`]}"` : ""}
+          min="${MINIMA[cfgKey] ?? 0}" id="${id}" value="${value ?? ""}"
+          step="${DECIMALS.has(cfgKey) ? "any" : "1"}" ${MAXIMA[cfgKey] ? `max="${MAXIMA[cfgKey]}"` : ""}
           placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // List groups in the rail and put their cards in the pane.
@@ -3322,6 +3496,14 @@ function renderSettings() {
     slot.remove();
   }
   selectSection($("settings"), active);
+  renderFiles();
+  renderForm();
+  $("settings-editor").value = typed ?? state.settings.text;
+  // Use the rendered file's mode to select visible rows.
+  showAffinityRows(setting("affinity", "mode"));
+  showSwitchRows();
+  // The rebuild wipes the injected table bodies, so redraw them.
+  renderKeys(state.keys ?? []);
   const railSearch = $("settings-search");
   if (railSearch) {
     railSearch.value = state.settingsSearch ?? "";
@@ -3331,14 +3513,6 @@ function renderSettings() {
     });
     filterRail($("settings"));
   }
-  renderFiles();
-  renderForm();
-  $("settings-editor").value = typed ?? state.settings.text;
-  // Use the rendered file's mode to select visible rows.
-  showAffinityRows(setting("affinity", "mode"));
-  showSwitchRows();
-  // The rebuild wipes the injected table bodies, so redraw them.
-  renderKeys(state.keys ?? []);
   renderSettingsSave();
   placeUndo();
   fitSectionPane();

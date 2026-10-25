@@ -8426,3 +8426,60 @@ assert(body.includes('>300<') && body.includes('>RPM<'), body);
 assert(!body.includes('Neurons') && !body.includes('9,000'), 'provider-only neurons stay out');
 """,
   )
+
+
+def test_section_search_matches_content_and_config_keys_with_highlights() -> None:
+  """Section search indexes section content and config keys and wraps matches safely."""
+  run_app_js(
+    "state, highlightText, highlightSnippet, sectionSearchTerms, filterRail",
+    """
+assert.strictEqual(
+  probe.highlightText('Forward <OWUI> chat ID', 'owui'),
+  'Forward &lt;<mark class="search-hit">OWUI</mark>&gt; chat ID',
+);
+assert(probe.highlightSnippet('privacy.forward_owui_chat_id', 'owui')
+  .includes('<mark class="search-hit">owui</mark>'));
+
+const host = {
+  id: 'settings',
+  querySelector: () => null,
+  querySelectorAll: () => [],
+};
+const privacyTerms = probe.sectionSearchTerms(host, 'privacy');
+assert(privacyTerms.includes('privacy.forward_owui_chat_id'), 'config key indexed');
+assert(privacyTerms.some((term) => term.includes('Forward OWUI chat ID')), 'field label indexed');
+const optTerms = probe.sectionSearchTerms(host, 'optimization');
+assert(optTerms.some((term) => term.includes('Headroom')), 'section content indexed');
+
+const makeButton = (section, label) => {
+  const labelNode = { dataset: { label }, textContent: label, innerHTML: label };
+  const matchNode = { hidden: true, innerHTML: '' };
+  return {
+    dataset: { section },
+    textContent: label,
+    hidden: false,
+    labelNode,
+    matchNode,
+    querySelector: (sel) => (sel === '.rail-label' ? labelNode : sel === '.rail-match' ? matchNode : null),
+  };
+};
+const nav = {
+  hidden: false,
+  buttons: [makeButton('routing', 'Routing'), makeButton('privacy', 'Privacy')],
+  querySelectorAll: () => nav.buttons,
+};
+const empty = { hidden: true };
+const settingsHost = {
+  id: 'settings',
+  dataset: {},
+  querySelectorAll: (sel) => (sel === ':scope > .rail > .sections' ? [nav] : []),
+  querySelector: (sel) => (sel === ':scope > .rail > .rail-empty' ? empty : null),
+};
+sandbox.matchMedia = () => ({ matches: true, addEventListener: () => {} });
+probe.state.settingsSearch = 'forward_owui_chat_id';
+probe.filterRail(settingsHost);
+assert.deepStrictEqual(nav.buttons.map((b) => b.hidden), [true, false]);
+assert.strictEqual(nav.buttons[1].matchNode.hidden, false);
+assert(nav.buttons[1].matchNode.innerHTML.includes('<mark class="search-hit">forward_owui_chat_id</mark>'));
+""",
+  )
