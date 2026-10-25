@@ -153,7 +153,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | `page-memory` | `state.memory`, `requestPages`, `loadSettings()` | Paints cached views immediately, keys request slices on catalog and head version, and skips DOM redraws when fresh JSON matches memory. |
 | `live-dot` | `.pulse`, `tr.live-row` | Renders a `6px` amber (`var(--orange)`) `aria-hidden="true"` dot with a `1.4s` pulse and zero dimension shift. |
 | `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button with hover/press fill, restores trigger focus on `close`, and gates deletions with a confirmation modal. |
-| `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-end`, `.floating-info-tip` | Applies `12px` / `192px` scroll-driven masks (bottom-only below sticky headers) and viewport-clamped `position: fixed` tooltips (`min(320px, calc(100vw - 16px))`). |
+| `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-inline-end`, `.floating-info-tip` | Applies `12px` / `192px` vertical and inline scroll masks (bottom-only below sticky `thead`) and viewport-clamped `position: fixed` tooltips. |
 
 ### Approved `nuu` Deviations
 

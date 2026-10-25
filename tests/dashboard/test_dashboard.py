@@ -8683,3 +8683,14 @@ def test_modal_close_icon_button_rest_hover_and_active() -> None:
   )
   assert ".ghost.modal-close:hover {" in css
   assert ".ghost.modal-close:active {" in css
+
+
+def test_table_panels_apply_inline_scroll_edge_fade() -> None:
+  """Scrolling table panels combine inline scroll(self inline) fades with bottom vertical fade."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "@property --edge-inline-start {" in css
+  assert "@property --edge-inline-end {" in css
+  assert (
+    "animation-timeline: scroll(self), scroll(self inline), scroll(self inline);" in css
+  )
+  assert "mask-composite: intersect;" in css
