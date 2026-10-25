@@ -399,9 +399,12 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
     const mainStyle = getComputedStyle(main);
     const contentWidth = main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight);
     const wide = document.querySelector('section[data-page="limits"] .column.wide').getBoundingClientRect();
-    return { contentWidth, wideWidth: wide.width };
+    const searchRect = document.querySelector("#limits-search").getBoundingClientRect();
+    const checkRect = document.querySelector(".limits-check-stack").getBoundingClientRect();
+    return { contentWidth, wideWidth: wide.width, searchRight: searchRect.right, checkLeft: checkRect.left };
   });
   expect(limitsAt640.wideWidth).toBeGreaterThanOrEqual(limitsAt640.contentWidth - 2);
+  expect(limitsAt640.checkLeft).toBeGreaterThanOrEqual(limitsAt640.searchRight);
 });
 
 const TOUCH_TARGET_FLOOR_PX = 44;

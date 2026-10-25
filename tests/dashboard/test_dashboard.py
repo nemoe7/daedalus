@@ -7867,6 +7867,7 @@ def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
   locale = (root / "daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
   assert '"limits.checked_text": "Checked {time}"' in locale
   assert 'class="limits-check-stack"' in page
+  assert page.index('id="limits-search"') < page.index('class="limits-check-stack"')
   stack = page.split('class="limits-check-stack">', 1)[1].split("</div>", 1)[0]
   assert stack.index('id="limits-check"') < stack.index('id="limits-checked"')
   assert 'call("limits", { method: "POST", spinner: false })' in app

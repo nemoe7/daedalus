@@ -947,8 +947,8 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 .editbar input[type="search"] { min-width: 12rem; }
 section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
 .limits-check-stack {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 2px; max-height: 39px; margin-block: -4px;
+  display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
+  gap: 2px; max-height: 39px; margin-block: -4px; margin-left: auto;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 #limits-check { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
