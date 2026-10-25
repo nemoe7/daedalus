@@ -5294,7 +5294,11 @@ const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
   fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
-  + "\\nglobalThis.__probe = { state, renderRequestTable, requestMatches };\\n";
+  + "\\nglobalThis.__probe = {"
+  + " state, renderRequestTable, requestMatches,"
+  + " checkRequestsScroll, resetRequestsScroll, REQUESTS_PAGE, REQUESTS_STEP"
+  + " };\\n";
+const html = fs.readFileSync('daedalus/dashboard/ui/index.html', 'utf8');
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', value: '', textContent: '', hidden: false,
@@ -5302,12 +5306,19 @@ const node = (id) => {
     classList: { added: [], add(name) { this.added.push(name); }, remove(name) {}, toggle: () => {} } });
   return nodes.get(id);
 };
+let requestedUrls = [];
 const sandbox = {
   matchMedia: () => ({ matches: false, addEventListener: () => {} }),
   document: { hidden: false, documentElement: { dataset: {} }, getElementById: node,
     querySelector: () => ({ firstChild: { textContent: 'R' } }), querySelectorAll: () => [],
     addEventListener: () => {} },
   navigator: {}, location: { hash: '' }, window: { addEventListener: () => {}, matchMedia: () => ({ matches: false }) },
+  setTimeout: () => 0, clearTimeout: () => {},
+  sessionStorage: { getItem: () => null }, localStorage: { getItem: () => null },
+  fetch: async (url) => {
+    requestedUrls.push(String(url));
+    return { ok: true, status: 200, headers: { get: () => null }, json: async () => [] };
+  },
   getSelection: () => ({ isCollapsed: true }), console: { error: () => {} }, $: node,
 };
 vm.createContext(sandbox);
@@ -5315,6 +5326,10 @@ vm.runInContext(src, sandbox);
 const LOCALE = sandbox.DAEDALUS_LOCALE;
 const assert = require('assert');
 const probe = sandbox.__probe;
+assert(!html.includes('id="requests-pager"'), 'index.html omits the requests pager');
+assert(!html.includes('id="requests-prev"'), 'index.html omits the previous page button');
+assert(!html.includes('id="requests-next"'), 'index.html omits the next page button');
+assert(html.includes('id="requests-sentinel"'), 'index.html carries the scroll sentinel');
 const now = Math.floor(Date.now() / 1000);
 probe.state.requests = [
   { at: now, model: 'p/big', via: 'p/big', app: 'OWUI', session: 's1', status: 200 },
@@ -5326,10 +5341,6 @@ const rows = () => (node('requests').innerHTML.match(/class="request/g) || []).l
 probe.renderRequestTable();
 assert.strictEqual(rows(), 3, 'no filter shows every kept row');
 assert.strictEqual(node('request-count').textContent, '', 'the top-right bar omits the total requests count');
-assert.strictEqual(node('requests-page').textContent, '1\u20133 of 3 requests', 'the pager counts the shown page');
-assert.strictEqual(node('requests-pager').hidden, false, 'the pager renders when rows exist');
-assert.strictEqual(node('requests-prev').disabled, true, 'the first page disables previous');
-assert.strictEqual(node('requests-next').disabled, true, 'a single page disables next');
 assert.strictEqual(node('requests').classList.added.filter((n) => n === 'drawn').length, 1,
   'the first data of the table arrives once');
 assert.strictEqual(node('request-count').classList.added.filter((n) => n === 'bump').length, 0,
@@ -5366,18 +5377,30 @@ assert.strictEqual(probe.requestMatches({ status: 200, at: now }, { live: true }
 probe.state.requests = Array.from({ length: 13 }, (_, i) => ({
   at: now - i, model: `p/m${i + 1}`, via: `p/m${i + 1}`, app: 'OWUI', session: `s${i + 1}`, status: 200,
 }));
-probe.state.requestPage = 1;
+probe.resetRequestsScroll();
 probe.renderRequestTable();
-assert.strictEqual(rows(), 10, 'page 1 renders 10 requests');
-assert.strictEqual(node('requests-page').textContent, '1\u201310 of 13 requests', 'page 1 range');
-assert.strictEqual(node('requests-prev').disabled, true, 'page 1 disables prev');
-assert.strictEqual(node('requests-next').disabled, false, 'page 1 enables next');
-probe.state.requestPage = 2;
-probe.renderRequestTable();
-assert.strictEqual(rows(), 3, 'page 2 renders remaining 3 requests');
-assert.strictEqual(node('requests-page').textContent, '11\u201313 of 13 requests', 'page 2 range');
-assert.strictEqual(node('requests-prev').disabled, false, 'page 2 enables prev');
-assert.strictEqual(node('requests-next').disabled, true, 'page 2 disables next');
+assert.strictEqual(rows(), probe.REQUESTS_PAGE, 'initial slice renders REQUESTS_PAGE rows');
+assert.strictEqual(probe.checkRequestsScroll({ scrollTop: 0, clientHeight: 200, scrollHeight: 600 }), false,
+  'scrolling near the top keeps the initial slice');
+assert.strictEqual(rows(), probe.REQUESTS_PAGE, 'slice stays unchanged above threshold');
+assert.strictEqual(probe.checkRequestsScroll({ scrollTop: 320, clientHeight: 200, scrollHeight: 600 }), true,
+  'scrolling near the bottom auto-loads the next slice');
+assert.strictEqual(rows(), 13, 'auto-scroll reveals the remaining rows');
+assert(node('requests').innerHTML.includes('p/m13'), 'oldest row renders without page buttons');
+
+probe.state.requests = Array.from({ length: probe.REQUESTS_STEP }, (_, i) => ({
+  at: now - i, model: `p/b${i + 1}`, via: `p/b${i + 1}`, app: 'OWUI', session: `b${i + 1}`, status: 200,
+}));
+probe.state.requestFetched = probe.REQUESTS_STEP;
+probe.state.requestLimit = probe.REQUESTS_STEP;
+probe.state.requestShown = probe.REQUESTS_STEP;
+requestedUrls = [];
+assert.strictEqual(probe.checkRequestsScroll({ scrollTop: 900, clientHeight: 200, scrollHeight: 1180 }), true,
+  'scrolling past the fetched batch requests older server history');
+assert.strictEqual(probe.state.requestLimit, probe.REQUESTS_STEP * 2,
+  'requestLimit advances by REQUESTS_STEP');
+assert(requestedUrls.some((u) => u.includes(`requests?limit=${probe.REQUESTS_STEP * 2}`)),
+  'refreshFast fetches the expanded history limit');
 """
   subprocess.run(["node", "-e", code], check=True)
 

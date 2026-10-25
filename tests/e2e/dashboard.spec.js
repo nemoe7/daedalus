@@ -210,3 +210,65 @@ test("model cards show registered model limits and omit provider-only limits", a
   await page.keyboard.press("Escape");
 });
 
+test("requests tab omits page buttons and auto-loads older rows on scroll", async ({ page }) => {
+  await open(page, "#/requests", 390, 560);
+  await expect(page.locator("#requests-pager")).toHaveCount(0);
+  await expect(page.locator("#requests-prev")).toHaveCount(0);
+  await expect(page.locator("#requests-next")).toHaveCount(0);
+  await expect(page.locator("#more-requests")).toHaveCount(0);
+
+  await page.evaluate(() => {
+    const now = Math.floor(Date.now() / 1000);
+    const allRows = Array.from({ length: 65 }, (_, i) => ({
+      at: now - i,
+      status: 200,
+      seconds: 0.4,
+      app: "OWUI",
+      session: `s${i + 1}`,
+      key: "master",
+      model: `demo/m${i + 1}`,
+      via: `demo/m${i + 1}`,
+      ttft: "0.120s",
+      stream: true,
+      fallbacks: "0",
+      tokens: { input: 100, output: 50, estimate: false },
+      attempts: [{ model: `demo/m${i + 1}`, result: "answered", error: "", seconds: 0.12 }],
+    }));
+    window.__requestedLimits = [];
+    const baseFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.includes("ui/api/requests")) {
+        const limit = Number(new URL(url, location.origin).searchParams.get("limit") || 50);
+        window.__requestedLimits.push(limit);
+        return Promise.resolve(
+          new Response(JSON.stringify(allRows.slice(0, limit)), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return baseFetch(input, init);
+    };
+  });
+  await page.locator("#live-toggle").click();
+  await page.locator("#live-toggle").click();
+
+  await expect(page.locator("#requests tr.request")).toHaveCount(10);
+
+  for (let step = 0; step < 8; step += 1) {
+    await page.evaluate(() => {
+      const main = document.querySelector("#app > main");
+      if (main) {
+        main.scrollTop = main.scrollHeight;
+        main.dispatchEvent(new Event("scroll"));
+      }
+    });
+    await page.waitForTimeout(80);
+  }
+
+  await expect.poll(() => page.locator("#requests tr.request").count()).toBeGreaterThan(50);
+  const limits = await page.evaluate(() => window.__requestedLimits);
+  expect(limits).toContain(100);
+});
+

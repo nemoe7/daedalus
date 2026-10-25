@@ -90,7 +90,7 @@ const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, fileOpen: false,
   providerReturnKey: "", saved: [], timers: [],
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
-  pools: [], requests: [], requestPage: 1, requestLimit: REQUESTS_STEP, requestFetched: 0, keys: [], catalog: {},
+  pools: [], requests: [], requestShown: REQUESTS_PAGE, requestLimit: REQUESTS_STEP, requestFetched: 0, requestLoading: false, keys: [], catalog: {},
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
@@ -1039,33 +1039,84 @@ function requestMatches(r, { live = false } = {}) {
   return true;
 }
 
+const activeRequestsScroller = () => (
+  matchMedia("(min-width: 961px)").matches
+    ? document.querySelector('section[data-page="requests"] .panel:not(.editbar)')
+    : document.querySelector("#app > main")
+);
+
+const canFetchMoreRequests = () =>
+  state.requestFetched >= state.requestLimit && state.requestLimit < REQUESTS_KEPT;
+
+function resetRequestsScroll() {
+  state.requestShown = REQUESTS_PAGE;
+  for (const box of [
+    document.querySelector('section[data-page="requests"] .panel:not(.editbar)'),
+    document.querySelector("#app > main"),
+  ]) {
+    if (box) box.scrollTop = 0;
+  }
+}
+
+let requestsFillQueued = false;
+function queueRequestsFill() {
+  if (requestsFillQueued || typeof requestAnimationFrame !== "function") return;
+  if (shownPage !== "requests") return;
+  requestsFillQueued = true;
+  requestAnimationFrame(() => {
+    requestsFillQueued = false;
+    if (shownPage !== "requests") return;
+    const rows = state.requests.filter((r) => requestMatches(r));
+    if ((state.requestShown || REQUESTS_PAGE) >= rows.length && !canFetchMoreRequests()) return;
+    const host = activeRequestsScroller();
+    if (host && host.clientHeight > 0 && host.scrollHeight <= host.clientHeight + 2) {
+      loadMoreRequests();
+    }
+  });
+}
+
+function loadMoreRequests() {
+  const rows = state.requests.filter((r) => requestMatches(r));
+  const shown = Math.max(REQUESTS_PAGE, state.requestShown || REQUESTS_PAGE);
+  if (shown < rows.length) {
+    state.requestShown = Math.min(rows.length, shown + REQUESTS_PAGE);
+    renderRequestTable();
+    return true;
+  }
+  if (!state.requestLoading && canFetchMoreRequests()) {
+    state.requestLoading = true;
+    state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
+    state.requestShown = shown + REQUESTS_PAGE;
+    Promise.resolve(guarded(refreshFast)).finally(() => {
+      state.requestLoading = false;
+      queueRequestsFill();
+    });
+    return true;
+  }
+  return false;
+}
+
+function checkRequestsScroll(target = null) {
+  const box = target === document ? document.scrollingElement : (target || activeRequestsScroller());
+  if (!box || typeof box.scrollHeight !== "number" || typeof box.clientHeight !== "number") return false;
+  if (box.scrollHeight - (box.scrollTop || 0) - box.clientHeight > 160) return false;
+  return loadMoreRequests();
+}
+
 // Render filtered history and count both retained and live requests.
 function renderRequestTable() {
   const rows = state.requests.filter((r) => requestMatches(r));
   const live = [...state.live.values()].filter((r) => requestMatches(r, { live: true })).length;
   const total = state.requests.length + live;
-  const pages = Math.max(1, Math.ceil(rows.length / REQUESTS_PAGE));
-  state.requestPage = Math.min(Math.max(1, state.requestPage || 1), pages);
-  const start = (state.requestPage - 1) * REQUESTS_PAGE;
-  const pageRows = rows.slice(start, start + REQUESTS_PAGE);
+  const shown = Math.max(REQUESTS_PAGE, state.requestShown || REQUESTS_PAGE);
+  state.requestShown = shown;
+  const pageRows = rows.slice(0, shown);
   renderRequests(pageRows, total && !rows.length && !live
     ? t("request.empty.filter_text")
     : t("request.empty.none_text"), live);
   // Preserve the button space so the count hint does not move.
   $("request-clear").classList.toggle("off",
     !state.requestSearch && state.requestStatus === "all" && !state.requestHours);
-  const canLoadMore = state.requestFetched >= state.requestLimit
-    && state.requestLimit < REQUESTS_KEPT;
-  $("more-requests").hidden = !canLoadMore;
-  $("requests-pager").hidden = !rows.length && !canLoadMore;
-  $("requests-prev").disabled = state.requestPage <= 1;
-  $("requests-next").disabled = state.requestPage >= pages && !canLoadMore;
-  $("requests-page").textContent = rows.length
-    ? t("request.count.shown_text", {
-      shown: `${start + 1}\u2013${start + pageRows.length}`,
-      total: count(rows.length, "request"),
-    })
-    : "";
   const hint = $("request-count");
   hint.textContent = live ? t("request.count.in_flight_text", { count: live }) : "";
   // Pulse the hint when the displayed live count changes.
@@ -1075,6 +1126,7 @@ function renderRequestTable() {
     void hint.offsetWidth;
     hint.classList.add("bump");
   }
+  queueRequestsFill();
 }
 
 function renderRequests(rows, empty = t("request.empty.none_text"), live = 0) {
@@ -4035,47 +4087,22 @@ $("settings").addEventListener("click", async (event) => {
     await refreshKeys();
   });
 });
-$("more-requests").addEventListener("click", () => {
-  state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
-  guarded(refreshFast);
-});
-$("requests-prev").addEventListener("click", () => {
-  if (state.requestPage > 1) {
-    state.requestPage -= 1;
-    renderRequestTable();
-  }
-});
-$("requests-next").addEventListener("click", () => {
-  const rows = state.requests.filter((r) => requestMatches(r));
-  const pages = Math.max(1, Math.ceil(rows.length / REQUESTS_PAGE));
-  if (state.requestPage < pages) {
-    state.requestPage += 1;
-    renderRequestTable();
-    return;
-  }
-  if (state.requestFetched >= state.requestLimit && state.requestLimit < REQUESTS_KEPT) {
-    state.requestPage += 1;
-    state.requestLimit = Math.min(state.requestLimit + REQUESTS_STEP, REQUESTS_KEPT);
-    guarded(refreshFast);
-  }
-});
-
 // Apply Requests filters without a server call.
 $("request-search").addEventListener("input", () => {
   state.requestSearch = $("request-search").value.trim().toLowerCase();
-  state.requestPage = 1;
+  resetRequestsScroll();
   requestHash();
   renderRequestTable();
 });
 $("request-status").addEventListener("change", () => {
   state.requestStatus = $("request-status").value;
-  state.requestPage = 1;
+  resetRequestsScroll();
   requestHash();
   renderRequestTable();
 });
 $("request-hours").addEventListener("change", () => {
   state.requestHours = Number($("request-hours").value) || 0;
-  state.requestPage = 1;
+  resetRequestsScroll();
   requestHash();
   renderRequestTable();
 });
@@ -4097,7 +4124,7 @@ $("request-clear").addEventListener("click", () => {
   state.requestSearch = "";
   state.requestStatus = "all";
   state.requestHours = 0;
-  state.requestPage = 1;
+  resetRequestsScroll();
   requestHash();
   renderRequestTable();
 });
@@ -4188,7 +4215,7 @@ function applyRequestFilters(query) {
   state.requestSearch = asked.trim().toLowerCase();
   state.requestStatus = ["all", "ok", "bad"].includes(params.get("status")) ? params.get("status") : "all";
   state.requestHours = [0, 1, 24].includes(Number(params.get("hours"))) ? Number(params.get("hours")) : 0;
-  state.requestPage = 1;
+  resetRequestsScroll();
   $("request-search").value = asked;
   $("request-status").value = state.requestStatus;
   $("request-hours").value = String(state.requestHours);
@@ -4295,8 +4322,21 @@ document.addEventListener("scroll", (event) => {
   const scroller = event.target;
   if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
   if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
+  if (
+    shownPage === "requests" && (
+      scroller === document
+      || scroller === document.scrollingElement
+      || scroller.matches?.('#app > main, section[data-page="requests"] .panel:not(.editbar)')
+    )
+  ) {
+    checkRequestsScroll(scroller);
+  }
   placeInfoTip(document.querySelector(".field.info .hint:hover, .fold summary .hint:hover") || document.activeElement);
 }, true);
+window.addEventListener("scroll", () => {
+  if (shownPage === "requests") checkRequestsScroll(document.scrollingElement);
+}, { passive: true });
+window.addEventListener("resize", queueRequestsFill);
 
 // The strip breathes its own clipped edges: fades only, no chevrons.
 const nav = $("nav");
@@ -4403,6 +4443,7 @@ function showPage() {
   document.title = t("page.title", { page: PAGE_LABELS[page] });
   fitSectionPane();
   markCardScrollEdges();
+  if (page === "requests") queueRequestsFill();
 }
 
 window.addEventListener("hashchange", showPage);

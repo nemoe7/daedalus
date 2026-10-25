@@ -17,8 +17,8 @@
           "html": "components-2.html"
         },
         {
-          "label": "3. Filter Toolbar, Live Toggle & Pager",
-          "sub": ".requests-bar, #live-toggle, and .requests-pager",
+          "label": "3. Filter Toolbar & Live Toggle",
+          "sub": ".requests-bar and #live-toggle",
           "html": "components-3.html"
         },
         {
