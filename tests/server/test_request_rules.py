@@ -125,6 +125,49 @@ def test_beam_tool_limit() -> None:
   ]
 
 
+async def test_inkling_requires_supported_harness(client: httpx.AsyncClient) -> None:
+  """Inkling models leave pool chains and reject direct calls unless headers name a supported harness."""
+  config_now = config.get_config()
+  body = {"messages": [{"role": "user", "content": "hi"}]}
+  plain = api.chain("daedalus/sophos", body, config_now)[0][0]
+  assert "openrouter/thinkingmachines/inkling:free" not in plain
+  assert "openrouter/thinkingmachines/inkling-small:free" not in plain
+  owui = api.chain(
+    "daedalus/sophos",
+    body,
+    config_now,
+    headers={"HTTP-Referer": "https://openwebui.com", "X-Title": "Open WebUI"},
+  )[0][0]
+  assert "openrouter/thinkingmachines/inkling:free" not in owui
+  for harness_headers in (
+    {"HTTP-Referer": "https://claude.ai", "X-Title": "Claude Code"},
+    {"HTTP-Referer": "https://nousresearch.com", "X-OpenRouter-Title": "Hermes Agent"},
+    {"HTTP-Referer": "https://kilocode.ai"},
+    {"HTTP-Referer": "https://agent.example", "X-OpenRouter-Categories": "cli-agent"},
+    {"User-Agent": "claude-cli/1.0"},
+  ):
+    allowed = api.chain("daedalus/sophos", body, config_now, headers=harness_headers)[
+      0
+    ][0]
+    assert "openrouter/thinkingmachines/inkling:free" in allowed, harness_headers
+    assert "openrouter/thinkingmachines/inkling-small:free" in allowed, harness_headers
+  SEEN.clear()
+  denied = await client.post(
+    "/v1/chat/completions",
+    json={"model": "openrouter/thinkingmachines/inkling:free", **body},
+  )
+  assert denied.status_code == 403, denied.text
+  assert "agentic harness" in denied.json()["error"]["message"]
+  assert SEEN == []
+  served = await client.post(
+    "/v1/chat/completions",
+    json={"model": "openrouter/thinkingmachines/inkling:free", **body},
+    headers={"HTTP-Referer": "https://claude.ai", "X-Title": "Claude Code"},
+  )
+  assert served.status_code == 200, served.text
+  assert [host for host, _ in SEEN] == ["or.test"]
+
+
 @pytest.fixture(scope="module", autouse=True)
 def catalog():
   config.set_config(
@@ -136,6 +179,17 @@ def catalog():
         "api_key": "k",
         "order": 1,
         "tier": {"TIER-A": ["reflection/beam-free", "other/coder"]},
+      },
+      "openrouter": {
+        "api_base": "https://or.test/v1",
+        "api_key": "k",
+        "order": 1,
+        "tier": {
+          "TIER-A": [
+            "thinkingmachines/inkling:free",
+            "thinkingmachines/inkling-small:free",
+          ]
+        },
       },
       "v": {
         "api_base": "https://v.test/v1",
@@ -157,6 +211,8 @@ def catalog():
       {"id": "a/plain", "supports_reasoning": False, "reasoning_effort": "high"},
       {"id": "kilo/reflection/beam-free", "supports_function_calling": True},
       {"id": "kilo/other/coder", "supports_function_calling": True},
+      {"id": "openrouter/thinkingmachines/inkling:free"},
+      {"id": "openrouter/thinkingmachines/inkling-small:free"},
       {"id": "v/eye", "supports_vision": True},
       {"id": "v/blind", "supports_vision": False},
       {"id": "v/unknown"},

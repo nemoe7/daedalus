@@ -11,6 +11,7 @@ import sqlite3
 import time
 from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager, suppress
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
@@ -312,13 +313,31 @@ def over_beam_tools(model: str, tools: object) -> bool:
   )
 
 
-def request_lines(body: dict[str, Any]) -> list[str]:
-  """Return the chat models that support the tools and images of this request."""
+def is_inkling(model: str) -> bool:
+  """Tell if `model` belongs to the `thinkingmachines/inkling` model family."""
+  return "/thinkingmachines/inkling" in f"/{model.lower()}"
+
+
+REQUEST_HEADERS: ContextVar[Mapping[str, str] | None] = ContextVar(
+  "request_headers", default=None
+)
+
+
+def request_lines(
+  body: dict[str, Any], headers: Mapping[str, str] | None = None
+) -> list[str]:
+  """Return the chat models that support the tools, images, and harness of this request."""
   tools = body.get("tools")
+  active_headers = REQUEST_HEADERS.get() if headers is None else headers
+  harness = upstream.supported_harness(active_headers)
   models = store.read_models(
     tools_only=bool(tools), vision_only=has_image(body.get("messages"))
   )
-  return [model for model in models if not over_beam_tools(model, tools)]
+  return [
+    model
+    for model in models
+    if not over_beam_tools(model, tools) and (harness or not is_inkling(model))
+  ]
 
 
 def used_tools(messages: list) -> bool:
@@ -459,7 +478,11 @@ def pool_info(members: list[dict[str, int | bool]]) -> dict[str, int | bool]:
 
 
 def chain(
-  model: str, body: dict[str, Any], config: dict[str, Any], key: str = ""
+  model: str,
+  body: dict[str, Any],
+  config: dict[str, Any],
+  key: str = "",
+  headers: Mapping[str, str] | None = None,
 ) -> tuple[list[list[str]], str | None] | None:
   """The tier groups to try and the pin slot for one request, or None for an unknown name."""
   if model in router.POOLS:
@@ -485,14 +508,18 @@ def chain(
   else:
     return None
   # A request with tools or images skips the models that cannot take it, and no log shows it.
-  return router.chain_groups(config, request_lines(body), order), slot
+  return router.chain_groups(config, request_lines(body, headers), order), slot
 
 
 def retry_chain(
-  turn: retries.Turn, model: str, body: dict[str, Any], config: dict[str, Any]
+  turn: retries.Turn,
+  model: str,
+  body: dict[str, Any],
+  config: dict[str, Any],
+  headers: Mapping[str, str] | None = None,
 ) -> tuple[list[list[str]], str]:
   """The chain of a try again: the same pool for a pool request, and 1 tier up for `daedalus/auto`."""
-  lines = request_lines(body)
+  lines = request_lines(body, headers)
   if model in router.POOLS:
     order, slot = router.fallback_order(router.POOLS[model]), model
   else:
@@ -1127,16 +1154,20 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
         code = written if isinstance(written, str) and written else None
     if isinstance(request_values.get("body"), dict):
       body = request_values["body"]
-  if turn is not None and turn.count:
-    request.state.code = code
-    found = (
-      retry_chain(turn, model, body, config)
-      if model == router.RESERVED_MODEL or model in router.POOLS
-      else chain(model, body, config, key)
-    )
-    request.state.retry = str(turn.count)
-  else:
-    found = chain(model, body, config, key)
+  header_token = REQUEST_HEADERS.set(request.headers)
+  try:
+    if turn is not None and turn.count:
+      request.state.code = code
+      found = (
+        retry_chain(turn, model, body, config)
+        if model == router.RESERVED_MODEL or model in router.POOLS
+        else chain(model, body, config, key)
+      )
+      request.state.retry = str(turn.count)
+    else:
+      found = chain(model, body, config, key)
+  finally:
+    REQUEST_HEADERS.reset(header_token)
   if found is None:
     return upstream.error_response(
       400, "Unknown provider or pool.", "invalid_request_error"
@@ -1144,10 +1175,32 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   # The Models page is the source of truth: a name it does not list never reaches a provider.
   if found[1] is None and not router.listed(model):
     return upstream.unknown_model(model)
+  if (
+    found[1] is None
+    and is_inkling(model)
+    and not upstream.supported_harness(request.headers)
+  ):
+    return upstream.error_response(
+      403,
+      f"{model} requires a supported agentic harness listed on https://openrouter.ai/apps.",
+      "permission_error",
+    )
   # The tools filter can empty a pool: say why, before the request reaches an upstream.
   if body.get("tools") and found[1] and not any(found[0]):
     return upstream.error_response(
       400, "No model of this pool takes tools.", "invalid_request_error"
+    )
+  if (
+    found[1]
+    and not any(found[0])
+    and not upstream.supported_harness(request.headers)
+    and len(request_lines(body, headers={"X-OpenRouter-Categories": "cli-agent"}))
+    > len(request_lines(body, headers=request.headers))
+  ):
+    return upstream.error_response(
+      403,
+      "No model of this pool supports this calling harness.",
+      "permission_error",
     )
   name = model.partition("/")[0]
   if name in config and not router.keyed(config, model):

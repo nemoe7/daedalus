@@ -280,6 +280,52 @@ def test_mapped_provider_behaviors_keep_safe_lines() -> None:
   behavior = upstream.mapped_behavior(429, {}, mistral_capacity)
   assert isinstance(behavior, providers.UpstreamOverload), behavior
   assert behavior.safe_line == "The upstream provider is temporarily overloaded."
+  kilo_tools = json.dumps(
+    {
+      "error": {
+        "message": "Invalid value for 'tools': maximum number of items is 128.",
+        "type": "AI_APICallError",
+        "param": {"tools": ["fn"]},
+      },
+      "providerMetadata": {
+        "gateway": {
+          "routing": {
+            "originalModelId": "reflection/beam-free",
+            "resolvedProvider": "reflection",
+            "canonicalSlug": "reflection/beam",
+            "providerRequestId": "req_secret_123",
+          }
+        }
+      },
+    }
+  ).encode()
+  behavior = upstream.mapped_behavior(400, {}, kilo_tools)
+  assert isinstance(behavior, upstream.GatewayError), behavior
+  assert behavior.safe_line == (
+    "Upstream reflection rejected the request: "
+    "Invalid value for 'tools': maximum number of items is 128."
+  )
+  assert "req_secret_123" not in behavior.safe_line
+  assert "providerMetadata" not in behavior.safe_line
+  openrouter_raw = json.dumps(
+    {
+      "error": {
+        "message": "Provider returned error",
+        "code": 400,
+        "metadata": {
+          "raw": '{"code":400,"msg":"bad request","request_id":"req_or_456"}',
+          "provider_name": "AtlasCloud",
+          "is_byok": False,
+        },
+      },
+      "user_id": "user_secret_789",
+    }
+  ).encode()
+  behavior = upstream.mapped_behavior(400, {}, openrouter_raw)
+  assert isinstance(behavior, upstream.GatewayError), behavior
+  assert behavior.safe_line == "Upstream AtlasCloud returned an error: bad request"
+  assert "user_secret_789" not in behavior.safe_line
+  assert "req_or_456" not in behavior.safe_line
   assert (
     upstream.mapped_behavior(418, {}, b'{"error": {"message": "something new"}}')
     is None
@@ -325,3 +371,34 @@ def test_overloaded_stream_chunks_raise_the_overload_behavior() -> None:
   with pytest.raises(providers.ProviderError) as plain:
     stream.has_content(json.dumps({"error": {"message": "boom"}}))
   assert "Upstream stream error: boom" in str(plain.value)
+
+
+def test_rejected_logs_safe_gateway_summary_without_raw_metadata(caplog) -> None:
+  """Structured gateway rejections log the safe summary line instead of raw metadata or user IDs."""
+  raw = json.dumps(
+    {
+      "error": {
+        "message": "Provider returned error",
+        "code": 400,
+        "metadata": {
+          "raw": '{"code":400,"msg":"bad request","request_id":"req_or_456"}',
+          "provider_name": "AtlasCloud",
+        },
+      },
+      "user_id": "user_secret_789",
+    }
+  ).encode()
+  response = httpx.Response(400, content=raw)
+  with caplog.at_level("WARNING"):
+    err = upstream.rejected(
+      "openrouter/qwen/qwen3-coder-next:free",
+      response,
+      time.perf_counter(),
+      raw,
+    )
+  assert (
+    upstream.status_line(err) == "Upstream AtlasCloud returned an error: bad request"
+  )
+  assert "Upstream AtlasCloud returned an error: bad request" in caplog.text
+  assert "user_secret_789" not in caplog.text
+  assert "req_or_456" not in caplog.text

@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 
 from daedalus import providers, store
 from daedalus.providers import hooks
-from daedalus.providers.base import error_detail, error_text
+from daedalus.providers.base import error_detail, error_text, hide_inputs
 from daedalus.routing import limits, loops, router
 from daedalus.server.logs import elapsed
 
@@ -291,6 +291,88 @@ class HarnessGate:
     return self.message
 
 
+class GatewayError:
+  """A structured gateway or upstream error with a clean, redacted note line."""
+
+  def __init__(self, message: str) -> None:
+    self.message = message
+
+  @property
+  def safe_line(self) -> str:
+    return self.message
+
+
+def inner_error_text(raw_meta: Any) -> str:
+  """Return the clean error text inside a gateway `metadata.raw` field, or an empty string."""
+  parsed: Any = raw_meta
+  if isinstance(raw_meta, str):
+    stripped = raw_meta.strip()
+    if not stripped:
+      return ""
+    try:
+      parsed = json.loads(stripped)
+    except ValueError:
+      if stripped.startswith(("{", "[")):
+        return ""
+      return " ".join(hide_inputs(stripped).split())[:500]
+  if not isinstance(parsed, dict):
+    return ""
+  nested = parsed.get("error")
+  candidates = (
+    nested.get("message") if isinstance(nested, dict) else None,
+    nested if isinstance(nested, str) else None,
+    parsed.get("message"),
+    parsed.get("msg"),
+    parsed.get("detail"),
+  )
+  found = next(
+    (item.strip() for item in candidates if isinstance(item, str) and item.strip()), ""
+  )
+  return " ".join(hide_inputs(found).split())[:500] if found else ""
+
+
+def gateway_error(
+  payload: Any, error: Any, meta: dict[str, Any], text: str
+) -> GatewayError | None:
+  """Build a clean `GatewayError` for structured Kilo or OpenRouter payloads, or return None."""
+  if not isinstance(payload, dict):
+    return None
+  provider_meta = payload.get("providerMetadata")
+  gateway = provider_meta.get("gateway") if isinstance(provider_meta, dict) else None
+  routing = gateway.get("routing") if isinstance(gateway, dict) else None
+  resolved = routing.get("resolvedProvider") if isinstance(routing, dict) else None
+  error_type = error.get("type") if isinstance(error, dict) else None
+  if isinstance(provider_meta, dict) or error_type == "AI_APICallError":
+    clean = " ".join(text.split()) or "The upstream provider rejected the request."
+    if isinstance(resolved, str) and resolved.strip():
+      name = hide_inputs(resolved.strip())
+      if name.lower() not in clean.lower():
+        return GatewayError(f"Upstream {name} rejected the request: {clean}")
+    return GatewayError(clean)
+  low = text.strip().lower()
+  if (
+    "provider_name" not in meta
+    and "raw" not in meta
+    and low != "provider returned error"
+    and "user_id" not in payload
+  ):
+    return None
+  provider_name = meta.get("provider_name")
+  name = (
+    hide_inputs(provider_name.strip())
+    if isinstance(provider_name, str) and provider_name.strip()
+    else ""
+  )
+  inner = inner_error_text(meta.get("raw"))
+  outer = " ".join(text.split()) if low not in ("", "provider returned error") else ""
+  detail = inner or outer
+  if name and detail:
+    return GatewayError(f"Upstream {name} returned an error: {detail}")
+  if name:
+    return GatewayError(f"Upstream {name} returned an error.")
+  return GatewayError(detail or "The upstream provider returned an error.")
+
+
 def epoch_seconds(value: str) -> float:
   """One reset header value as epoch seconds, reading millisecond values down."""
   found = float(value)
@@ -314,7 +396,14 @@ def retry_delay(payload: Any, headers: Mapping[str, str], text: str) -> float | 
 
 def mapped_behavior(
   status: int, headers: Mapping[str, str], raw: bytes
-) -> RateLimited | DailyCap | HarnessGate | providers.UpstreamOverload | None:
+) -> (
+  RateLimited
+  | DailyCap
+  | HarnessGate
+  | GatewayError
+  | providers.UpstreamOverload
+  | None
+):
   """Map one upstream error body to a known behavior. Return None when no rule matches."""
   text = error_text(raw)
   low = text.lower()
@@ -350,7 +439,7 @@ def mapped_behavior(
     or "rate limit" in low
   ):
     return RateLimited(retry_delay(payload, headers, text))
-  return None
+  return gateway_error(payload, error, meta, text)
 
 
 def status_error(
@@ -535,15 +624,144 @@ async def read_body(response: httpx.Response, wait: float) -> bytes:
   return b"".join(parts)
 
 
+HARNESS_REFERERS = (
+  "aider.chat",
+  "all-hands.dev",
+  "claude.ai",
+  "cline.bot",
+  "codegpt.co",
+  "codeium.com",
+  "continue.dev",
+  "cursor.com",
+  "dify.ai",
+  "geniusplugin.vercel.app",
+  "github.com/deepseek-ai/deepseek-harness",
+  "github.com/hkuds/nanobot",
+  "github.com/oguzbilgic/kern-ai",
+  "goose-docs.ai",
+  "kilocode.ai",
+  "letta.com",
+  "mimo.xiaomi.com/coder",
+  "nousresearch.com",
+  "omp.sh",
+  "openai.com/codex",
+  "openclaw.ai",
+  "opencode.ai",
+  "pi.dev",
+  "proto.erp.ai",
+  "roocode.com",
+  "strix.ai",
+  "tryaura.dev",
+  "windsurf.com",
+  "zcode.z.ai",
+  "zed.dev",
+)
+
+HARNESS_TITLES = frozenset(
+  {
+    "aider",
+    "aura",
+    "claude-code",
+    "cline",
+    "codegpt",
+    "codex",
+    "continue",
+    "cursor",
+    "deepseek-harness",
+    "dify",
+    "goose",
+    "hermes-agent",
+    "kern-agent",
+    "kilo-code",
+    "letta",
+    "mimocode",
+    "nanobot",
+    "omp",
+    "openclaw",
+    "opencode",
+    "openhands",
+    "pi",
+    "proto-agent",
+    "roo-code",
+    "strix",
+    "windsurf",
+    "zcode",
+    "zed",
+    "zed-editor",
+  }
+)
+
+HARNESS_CATEGORIES = frozenset(
+  {
+    "cli-agent",
+    "cloud-agent",
+    "ide-extension",
+    "native-app-builder",
+    "personal-agent",
+    "programming-app",
+  }
+)
+
+HARNESS_AGENTS = (
+  "aider",
+  "claude-cli",
+  "claude-code",
+  "cline",
+  "codex-cli",
+  "goose",
+  "hermes-agent",
+  "kilo-code",
+  "openclaw",
+  "opencode",
+  "openhands",
+  "roo-code",
+)
+
+
+def supported_harness(headers: Mapping[str, str] | None) -> bool:
+  """Tell if `headers` identify a supported agentic harness listed on `https://openrouter.ai/apps`."""
+  if not headers:
+    return False
+  low = {
+    key.lower(): value.strip()
+    for key, value in headers.items()
+    if isinstance(key, str) and isinstance(value, str)
+  }
+  referer = (low.get("http-referer") or low.get("referer") or "").lower()
+  if referer:
+    cleaned = re.sub(r"^https?://(www\.)?", "", referer).rstrip("/")
+    for domain in HARNESS_REFERERS:
+      if cleaned == domain or cleaned.startswith((f"{domain}/", f"{domain}?")):
+        return True
+  title = low.get("x-openrouter-title") or low.get("x-title") or ""
+  if title:
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    if slug in HARNESS_TITLES:
+      return True
+  categories = low.get("x-openrouter-categories") or low.get("x-categories") or ""
+  if categories:
+    items = {item.strip().lower() for item in categories.split(",") if item.strip()}
+    if items & HARNESS_CATEGORIES:
+      return True
+  agent = low.get("user-agent", "").lower()
+  return bool(
+    agent
+    and any(
+      token in agent
+      for token in tuple(f"{prefix}/" for prefix in HARNESS_AGENTS) + HARNESS_AGENTS
+    )
+  )
+
+
 def rejected(
   candidate: str, response: httpx.Response, started: float, raw: bytes
 ) -> UpstreamStatus:
-  """Log an upstream error status, and return the error to raise."""
+  """Log an upstream error status safely, and return the error to raise."""
   status = response.status_code
-  logger.warning(
-    "upstream %s %d %s: %s", candidate, status, elapsed(started), error_text(raw)
-  )
-  return status_error(status, error_detail(raw, DETAIL_LIMIT), response.headers, raw)
+  error = status_error(status, error_detail(raw, DETAIL_LIMIT), response.headers, raw)
+  summary = error.behavior.safe_line if error.behavior else error_text(raw)
+  logger.warning("upstream %s %d %s: %s", candidate, status, elapsed(started), summary)
+  return error
 
 
 async def post(
