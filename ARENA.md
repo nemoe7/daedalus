@@ -74,14 +74,14 @@
 - Cite code, diffs and tool output by path and line instead of repeating.
 - Continue after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
-- ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
+- Break larger tasks into smaller ones, and NEVER combine tasks unless they share the exact same scope. ALWAYS take the smallest open task; a user-stated priority outranks size. Re-sort on arrivals; NEVER use arrival order.
 - Work while tasks remain; end when verified and stopped.
 - Before each push, run repo checks detached, NEVER inline; push only on pass; inline = skipped gate at any speed.
 - Read each gate's passed or failed line; a pipe that hides the verdict counts as skipping it. The wait scopes the next task.
 - After pushing, watch latest PR head to conclusion via `gh pr checks <PR> --watch`; replace superseded watches, keep working, read latest verdict before turn end.
 - Fresh-push check list may stay empty ≤30s: wait once briefly, then watch; NEVER hand-poll.
 - Stop and report HTTP 401 or any other command/API error; pending checks are not command errors.
-- An empty or absent list proves nothing; failed checks keep work open.
+- Empty/absent list proves nothing; failed checks = open work; PR checks = ALWAYS priority 1 over queued tasks.
 - Before turn end with a pushed branch, check open PR CI.
 - Skills specialize defaults and NEVER weaken a requirement or convention; use one only for its domain.
 - Report changes, findings, checks, results, useful files, decisions, open issues, assumptions, limitations. Open with result; skip task restatement; prefer numbered lists; skipped work + add-when in ≤3 short lines.

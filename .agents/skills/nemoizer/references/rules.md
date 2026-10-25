@@ -88,7 +88,7 @@ Tags: `punctuation`, `comma`, `blocking`
 
 Aliases: `serial-comma`, `oxford-comma`
 
-This rule triggers when a three-item list omits the comma before `and` or `or`.
+This rule triggers when a three-item list omits the comma before `and` or `or`, or mixes `/` and `or` in the same series.
 
 ```text
 Check red, green and blue.

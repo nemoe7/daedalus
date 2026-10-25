@@ -1,8 +1,8 @@
-# Recipe: Loading bar — Render a subtle 2px edge loading bar after a 200ms delay with `aria-busy="true"` on the loading region, compositor-only `transform`/`opacity` motion, and a static `prefers-reduced-motion` fallback; use a loud bar only when requested.
+# Recipe: Loading bar — Render a subtle 2px edge loading bar after a 200ms delay with `aria-busy="true"` on the loading region, compositor-only `transform`/`opacity` motion, a fixed-slot spinner or pulsing dot for inline controls awaiting a fetch, and a static `prefers-reduced-motion` fallback; use a loud bar only when requested.
 
 ## Rules
 
-- Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; use an in-flow loud `<progress>` bar only when requested.
+- Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; for a button or compact control awaiting a fetch, render either a `16px` compositor-rotated spinner or a `6px` pulsing dot inside the existing glyph slot with `aria-busy="true"` and locked dimensions (`NUA309`, `NUL005`); use an in-flow loud `<progress>` bar only when requested.
 - Delay visual appearance by `200ms` (`150–300ms`) so fast operations complete without flashing a transient indicator.
 - Set `aria-busy="true"` on the region whose content is being updated (`section`, `article`, or `main`) while loading and reset to `aria-busy="false"` in `finally`; never put `role="progressbar"` on a decorative edge pseudo-element.
 - Grow the bar from left to right with `transform-origin: left center` and `transform: scaleX(...)` instead of a pulsing sweep. Animate only compositor properties (`transform` and `opacity`), never `width`, `left`, or `margin`, so layout never reflows during loading.
@@ -64,6 +64,58 @@ async function loadPanel(panel, task) {
   } finally {
     delete panel.dataset.loading;
     panel.setAttribute('aria-busy', 'false');
+  }
+}
+```
+
+## Inline button or compact control loading (spinner or pulsing dot)
+
+```css
+.btn .ico-slot {
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+.btn[aria-busy="true"] .spinner {
+  width: 16px;
+  height: 16px;
+  animation: nuu-spin 0.8s linear infinite;
+}
+
+.btn[aria-busy="true"] .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes nuu-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn[aria-busy="true"] .spinner,
+  .btn[aria-busy="true"] .dot {
+    animation: none;
+  }
+}
+```
+
+```js
+async function runButtonFetch(button, task) {
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  try {
+    return await task();
+  } finally {
+    button.setAttribute('aria-busy', 'false');
+    button.disabled = false;
   }
 }
 ```

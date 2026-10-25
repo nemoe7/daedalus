@@ -350,6 +350,56 @@ class SourcePage(HTMLParser):
         )
 
 
+def _has_custom_focus_ring(clean_css: str) -> bool:
+  for rule_match in re.finditer(r"([^{}@]+)\{([^{}]*)\}", clean_css):
+    selector, body = rule_match[1], rule_match[2]
+    if not re.search(r":focus(?:-visible|-within)?\b", selector) or ":not(" in selector:
+      continue
+    for decl in body.split(";"):
+      if ":" not in decl:
+        continue
+      prop, val = (part.strip().lower() for part in decl.split(":", 1))
+      val_clean = re.sub(r"\s*!important\s*$", "", val).strip()
+      if prop in {"outline", "box-shadow"} and val_clean not in {
+        "",
+        "none",
+        "0",
+        "0px",
+      }:
+        return True
+      if prop in {"border", "border-color"} and val_clean not in {
+        "",
+        "none",
+        "0",
+        "0px",
+        "transparent",
+      }:
+        return True
+  return False
+
+
+def _has_design_doc(root: Path) -> bool:
+  cur = Path(root).resolve()
+  if cur.is_file():
+    cur = cur.parent
+  while True:
+    docs_dir = cur / "docs"
+    if (docs_dir / "design.md").is_file() or (
+      docs_dir.is_dir()
+      and any(p.is_file() and not p.is_symlink() for p in docs_dir.rglob("design.md"))
+    ):
+      return True
+    if (
+      (cur / ".git").exists()
+      or cur.parent == cur
+      or cur == Path("/tmp")
+      or cur.parent == Path("/tmp")
+    ):
+      break
+    cur = cur.parent
+  return False
+
+
 def lint(root):
   findings, coverage, marks, suppressions, deviations = [], [], [], [], []
   for path in files(root, {".html", ".css", ".js", ".jsx", ".ts", ".tsx"}):
@@ -381,21 +431,22 @@ def lint(root):
         text,
         flags=re.DOTALL,
       )
-      for match in re.finditer(
-        r"outline\s*:\s*(?:none|0(?:px)?)\s*(?:!important\s*)?[;}]", clean
-      ):
-        current.append(
-          {
-            "rule": "NUL003",
-            "path": str(path),
-            "line": text.count("\n", 0, match.start()) + 1,
-            "column": 1,
-            "severity": "review",
-            "status": "source_candidate",
-            "evidence": match[0],
-            "criterion": "2.4.7",
-          }
-        )
+      if not _has_custom_focus_ring(clean):
+        for match in re.finditer(
+          r"outline\s*:\s*(?:none|0(?:px)?)\s*(?:!important\s*)?[;}]", clean
+        ):
+          current.append(
+            {
+              "rule": "NUL003",
+              "path": str(path),
+              "line": text.count("\n", 0, match.start()) + 1,
+              "column": 1,
+              "severity": "review",
+              "status": "source_candidate",
+              "evidence": match[0],
+              "criterion": "2.4.7",
+            }
+          )
       for rule_match in re.finditer(r"([^{}@]+)\{([^{}]*)\}", clean):
         selector_text = rule_match[1]
         if not re.search(
@@ -427,11 +478,7 @@ def lint(root):
       if finding["rule"] not in ignored:
         findings.append(finding)
   docs_dir = root / "docs"
-  has_design_doc = (docs_dir / "design.md").is_file() or (
-    docs_dir.is_dir()
-    and any(p.is_file() and not p.is_symlink() for p in docs_dir.rglob("design.md"))
-  )
-  if not has_design_doc:
+  if not _has_design_doc(root):
     findings.append(
       {
         "rule": "NUL004",

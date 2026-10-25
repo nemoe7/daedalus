@@ -967,6 +967,107 @@ def _overlay_svg_and_nodes(
   return "".join(parts)
 
 
+def parse_crop(spec) -> tuple[int, int, int, int] | str:
+  if isinstance(spec, str) and spec.strip().lower() == "auto":
+    return "auto"
+  if isinstance(spec, (tuple, list)) and len(spec) == 4:
+    cx, cy, cw, ch = (int(v) for v in spec)
+  else:
+    parts = [p.strip() for p in str(spec).split(",") if p.strip()]
+    if len(parts) != 4:
+      raise ValueError(f"crop requires x,y,w,h or auto: {spec}")
+    cx, cy, cw, ch = (int(p) for p in parts)
+  if cw <= 0 or ch <= 0:
+    raise ValueError("crop width and height must be positive")
+  return cx, cy, cw, ch
+
+
+def _resolve_annotations_and_crop(
+  width: int,
+  height: int,
+  boxes,
+  arrows,
+  labels,
+  callouts,
+  parsed_crop: tuple[int, int, int, int] | str | None,
+  scale: int,
+):
+  font_px = max(11, 6 * scale + 1)
+  badge_size = max(20, 12 * scale)
+  r = badge_size // 2
+  adjusted_callouts = []
+  for cx, cy, number, color, label in callouts:
+    nx, ny = int(cx), int(cy)
+    pill_w = badge_size + (
+      6 + int(len(str(label)) * font_px * 0.62) + 20 if label else 0
+    )
+    for bx, by, bw, bh, _ in boxes:
+      if bh <= 120 and bx <= nx <= bx + bw and by <= ny <= by + bh:
+        if by + bh + r + 8 <= height - r - 2:
+          ny = by + bh + r + 8
+        elif by - r - 8 >= r + 2:
+          ny = by - r - 8
+        nx = max(r + 2, bx + r)
+        break
+    nx = max(r + 2, min(nx, max(r + 2, width - pill_w + r - 2)))
+    ny = max(r + 2, min(ny, max(r + 2, height - r - 2)))
+    adjusted_callouts.append((nx, ny, number, color, label))
+
+  if parsed_crop is None:
+    return adjusted_callouts, None
+
+  if parsed_crop == "auto":
+    min_x, min_y, max_x, max_y = width, height, 0, 0
+    for bx, by, bw, bh, _ in boxes:
+      min_x, min_y = min(min_x, bx), min(min_y, by)
+      max_x, max_y = max(max_x, bx + bw), max(max_y, by + bh)
+    for x1, y1, x2, y2, _ in arrows:
+      min_x, min_y = min(min_x, x1, x2), min(min_y, y1, y2)
+      max_x, max_y = max(max_x, x1, x2), max(max_y, y1, y2)
+    for lx, ly, ltxt, _ in labels:
+      lw = int(len(str(ltxt)) * font_px * 0.62) + 20
+      min_x, min_y = min(min_x, lx), min(min_y, ly)
+      max_x, max_y = max(max_x, lx + lw), max(max_y, ly + badge_size)
+    for cx, cy, _, _, label in adjusted_callouts:
+      pill_w = badge_size + (
+        6 + int(len(str(label)) * font_px * 0.62) + 20 if label else 0
+      )
+      min_x, min_y = min(min_x, cx - r), min(min_y, cy - r)
+      max_x, max_y = max(max_x, cx - r + pill_w), max(max_y, cy + r)
+    if max_x <= min_x or max_y <= min_y:
+      return adjusted_callouts, (0, 0, width, height)
+    pad = 16
+    cx0 = max(0, min_x - pad)
+    cy0 = max(0, min_y - pad)
+    cx1 = min(width, max_x + pad)
+    cy1 = min(height, max_y + pad)
+    return adjusted_callouts, (cx0, cy0, max(1, cx1 - cx0), max(1, cy1 - cy0))
+
+  cx, cy, cw, ch = parsed_crop
+  cx0, cy0 = max(0, cx), max(0, cy)
+  cx1, cy1 = min(width, cx + cw), min(height, cy + ch)
+  for bx, by, bw, bh, _ in boxes:
+    if bw <= cw and (bx < cx0 or bx + bw > cx1):
+      cx0 = max(0, min(cx0, bx - 8))
+      cx1 = min(width, max(cx1, bx + bw + 8))
+    if bh <= ch and (by < cy0 or by + bh > cy1):
+      cy0 = max(0, min(cy0, by - 8))
+      cy1 = min(height, max(cy1, by + bh + 8))
+  clamped_callouts = []
+  for qx, qy, number, color, label in adjusted_callouts:
+    pill_w = badge_size + (
+      6 + int(len(str(label)) * font_px * 0.62) + 20 if label else 0
+    )
+    if qy + r > cy1:
+      cy1 = min(height, max(cy1, qy + r + 8))
+    if qy - r < cy0:
+      cy0 = max(0, min(cy0, qy - r - 8))
+    qx = max(cx0 + r + 2, min(qx, max(cx0 + r + 2, cx1 - pill_w + r - 2)))
+    qy = max(cy0 + r + 2, min(qy, max(cy0 + r + 2, cy1 - r - 2)))
+    clamped_callouts.append((qx, qy, number, color, label))
+  return clamped_callouts, (cx0, cy0, max(1, cx1 - cx0), max(1, cy1 - cy0))
+
+
 def annotate_image(
   input_path: Path,
   output_path: Path,
@@ -978,6 +1079,7 @@ def annotate_image(
   scale: int | None = None,
   project: Path | None = None,
   renderer: str = "auto",
+  crop=None,
 ):
   src = Path(input_path).resolve()
   dst = Path(output_path).resolve()
@@ -1018,10 +1120,22 @@ def annotate_image(
   all_callouts = [
     parse_callout(item) for item in [*(spec.get("callouts") or []), *(callouts or [])]
   ]
-  if not (all_boxes or all_labels or all_arrows or all_callouts):
+  raw_crop = crop if crop is not None else spec.get("crop")
+  parsed_crop = parse_crop(raw_crop) if raw_crop is not None else None
+  if not (all_boxes or all_labels or all_arrows or all_callouts or parsed_crop):
     raise ValueError("annotate requires at least one box, label, arrow, or callout")
   raw_bytes = src.read_bytes()
   width, height, rgba = decode_png(raw_bytes)
+  all_callouts, resolved_crop = _resolve_annotations_and_crop(
+    width,
+    height,
+    all_boxes,
+    all_arrows,
+    all_labels,
+    all_callouts,
+    parsed_crop,
+    resolved_scale,
+  )
   typography = resolve_project_typography(project or src.parent)
   overlay_html = _overlay_svg_and_nodes(
     width, height, all_boxes, all_arrows, all_labels, all_callouts, resolved_scale
@@ -1043,6 +1157,10 @@ def annotate_image(
     )
     if _chromium_render_png(html_doc, width, height, dst):
       used_renderer = "chromium"
+      if resolved_crop is not None:
+        cw_in, ch_in, c_rgba = decode_png(dst.read_bytes())
+        width, height, c_rgba = crop_rgba(cw_in, ch_in, c_rgba, *resolved_crop)
+        dst.write_bytes(encode_png(width, height, c_rgba))
   if used_renderer == "bitmap":
     for x, y, w, h, color in all_boxes:
       draw_box(rgba, width, height, x, y, w, h, color, thickness=max(2, resolved_scale))
@@ -1054,6 +1172,8 @@ def annotate_image(
       draw_callout(
         rgba, width, height, x, y, number, color, label, scale=resolved_scale
       )
+    if resolved_crop is not None:
+      width, height, rgba = crop_rgba(width, height, rgba, *resolved_crop)
     encoded = encode_png(width, height, rgba)
     with dst.open("xb") as stream:
       stream.write(encoded)
@@ -1063,6 +1183,7 @@ def annotate_image(
     "output": str(dst),
     "width": width,
     "height": height,
+    "crop": list(resolved_crop) if resolved_crop is not None else None,
     "scale": resolved_scale,
     "renderer": used_renderer,
     "font_family": typography["font_sans"],
@@ -1986,6 +2107,7 @@ def main(argv: list[str] | None = None) -> int:
   parser.add_argument("-l", "--label", action="append", default=[])
   parser.add_argument("-a", "--arrow", action="append", default=[])
   parser.add_argument("-c", "--callout", action="append", default=[])
+  parser.add_argument("-C", "--crop")
   parser.add_argument("-s", "--spec", type=Path)
   parser.add_argument("-S", "--scale", type=int)
   parser.add_argument("-p", "--project", type=Path)
@@ -2001,6 +2123,7 @@ def main(argv: list[str] | None = None) -> int:
       spec_path=args.spec,
       scale=args.scale,
       project=args.project,
+      crop=args.crop,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0

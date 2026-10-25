@@ -41,7 +41,7 @@ Do not rewrite exclusion markers or the rotation table; apply only unsuppressed 
 - Use any comment syntax for `nonemo: <id>`; scanning reads text, not syntax.
 - Apply an exclusion only to a known matching rule ID.
 - With `nemoizer collect` or `--ignores`, print every nonemo marker: path, line, rule ID, scope, and text; with `nemoizer audit` or `--audit`, print every `nonemo` marker and manual-review finding.
-- Format audit reports with [references/audit-report.md](references/audit-report.md), one section per file (`Rule | Before | After | Verdict | Reason`), rule-applied `After` even when `Verdict` is `keep`, no empty sections, and 0 in Counts.
+- Review target prose manually against the Prose rules alongside `nemoizer audit`, and format audit reports with [references/audit-report.md](references/audit-report.md), one section per file (`Rule | Before | After | Verdict | Reason`), rule-applied `After` even when `Verdict` is `keep`, no empty sections, and 0 in Counts.
 
 
 Run rotations and serial-comma checks (`NMO`), semicolon/sentence/nominalization/manual-review style checks (`STE`), human-prose checks (`HMN`), paragraph checks (`NMP`), and test reviews (`NMT`) by default.
@@ -77,7 +77,7 @@ Limit sentences to 20 words for unclassified prose, 25 for explicit description 
 - Put one instruction per sentence unless simultaneous actions require one sentence.
 - Rewrite noun clusters over three words when the technical term and its meaning survive.
 - Keep one topic per paragraph within four sentences or the stricter project limit.
-- Use the serial (Oxford) comma in lists of three or more items.
+- Use the serial (Oxford) comma in lists of three or more items, and do not mix `/` and `or` in one series.
 - List three or more steps or conditions, preserving their order and grouping.
 - Define uncommon technical terms when needed, and use them consistently.
 - Prefer simple tenses unless compound forms carry confidence or current relevance that must survive.

@@ -129,6 +129,17 @@ def is_toolbar_or_header_bar(element: dict, height: float) -> bool:
   return 0 < height <= 64 and justify == "space-between"
 
 
+def _clean_bounds(bounds: dict) -> dict | None:
+  if not isinstance(bounds, dict) or ("width" not in bounds and "height" not in bounds):
+    return None
+  return {
+    "x": round(float(bounds.get("x", 0) or 0), 2),
+    "y": round(float(bounds.get("y", 0) or 0), 2),
+    "width": round(float(bounds.get("width", 0) or 0), 2),
+    "height": round(float(bounds.get("height", 0) or 0), 2),
+  }
+
+
 def check_density(report: dict) -> list[dict]:
   """Return whitespace and layout-density findings (NUM205, NUM206, NUM207, NUM208)."""
   findings: list[dict] = []
@@ -136,6 +147,8 @@ def check_density(report: dict) -> list[dict]:
   for element in report.get("elements", []):
     selector = element.get("selector", "?")
     bounds = element.get("bounds") or {}
+    clean_b = _clean_bounds(bounds)
+    b_extra = {"bounds": clean_b} if clean_b is not None else {}
     width = float(bounds.get("width", element.get("width", 0)) or 0)
     height = float(bounds.get("height", element.get("height", 0)) or 0)
     if (
@@ -160,6 +173,7 @@ def check_density(report: dict) -> list[dict]:
               f"{selector}: ink ratio is {ratio:.2f} (< {MIN_INK_RATIO:g})"
               f" across {width:g} px"
             ),
+            **b_extra,
           }
         )
     gap = float(
@@ -174,6 +188,7 @@ def check_density(report: dict) -> list[dict]:
           "rule": "NUM206",
           "selector": selector,
           "evidence": f"{selector}: sibling gap is {gap:g} px (> {MAX_SIBLING_GAP:g} px)",
+          **b_extra,
         }
       )
     tag = str(element.get("tag") or "").lower()
@@ -190,6 +205,7 @@ def check_density(report: dict) -> list[dict]:
           "evidence": (
             f"{selector}: control width is {width:g} px (> {MAX_CONTROL_WIDTH:g} px)"
           ),
+          **b_extra,
         }
       )
     icon_only = bool(element.get("icon_only", element.get("iconOnly")))
@@ -201,6 +217,7 @@ def check_density(report: dict) -> list[dict]:
           "evidence": (
             f"{selector}: icon-only button is {width:g}x{height:g} px (not symmetric)"
           ),
+          **b_extra,
         }
       )
     values = element.get("values") or {}
@@ -230,6 +247,7 @@ def check_density(report: dict) -> list[dict]:
           "rule": "NUM209",
           "selector": selector,
           "evidence": f"{selector}: non-scrolling container clips child content",
+          **b_extra,
         }
       )
     overlap_target = element.get("sibling_overlap", element.get("siblingOverlap"))
@@ -239,6 +257,7 @@ def check_density(report: dict) -> list[dict]:
           "rule": "NUM210",
           "selector": selector,
           "evidence": f"{selector}: overlaps sibling {overlap_target}",
+          **b_extra,
         }
       )
   for pair in report.get("overlaps") or []:

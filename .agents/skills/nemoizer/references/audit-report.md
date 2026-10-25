@@ -7,4 +7,4 @@
 
 | Rule | Before | After | Verdict | Reason |
 | --- | --- | --- | --- | --- |
-| `<id>: <desc>` | Before | After (rule applied, even when `Verdict` is `keep`) | `<fix \| keep \| remove>` | Reason |
+| `<id or prose rule>: <desc>` | Before | After (rule applied, even when `Verdict` is `keep`) | `<fix \| keep \| remove>` | Reason |

@@ -1168,6 +1168,13 @@ SERIAL_COMMA_RE = re.compile(
   r"\b([A-Za-z0-9_'-]+), ([A-Za-z0-9_'-]+) (?:and|or) "
   r"([A-Za-z0-9_'-]+)(?=[.!?:;)]|\s|$)"
 )
+MIXED_SLASH_OR_RE = re.compile(
+  r"\b([A-Za-z0-9_'-]+) / ([A-Za-z0-9_'-]+),? (?:and|or) "
+  r"([A-Za-z0-9_'-]+)(?=[.!?:;)]|\s|$)|"
+  r"\b([A-Za-z0-9_'-]+) (?:and|or) ([A-Za-z0-9_'-]+) / "
+  r"([A-Za-z0-9_'-]+)(?=[.!?:;)]|\s|$)",
+  re.IGNORECASE,
+)
 CLAUSE_OPENERS = {
   "when",
   "if",
@@ -1260,21 +1267,28 @@ def prose_ellipsis(text):
   return prose_block_matches(text, lambda clean: list(ELLIPSIS_RE.finditer(clean)))
 
 
-def prose_serial_commas(text):
-  return prose_block_matches(
-    text,
-    lambda clean: [
-      match
-      for match in SERIAL_COMMA_RE.finditer(
-        re.sub(r"\[[^\]]*\]\([^)]*\)", lambda item: " " * len(item[0]), clean)
-      )
-      if not (
-        {match.group(1).lower(), match.group(2).lower(), match.group(3).lower()}
-        & CLAUSE_OPENERS
-      )
-      and not clean[: match.start()].rstrip().lower().endswith("to")
-    ],
+def _serial_comma_hits(clean):
+  stripped = re.sub(r"\[[^\]]*\]\([^)]*\)", lambda item: " " * len(item[0]), clean)
+  hits = [
+    match
+    for match in SERIAL_COMMA_RE.finditer(stripped)
+    if not (
+      {match.group(1).lower(), match.group(2).lower(), match.group(3).lower()}
+      & CLAUSE_OPENERS
+    )
+    and not clean[: match.start()].rstrip().lower().endswith("to")
+  ]
+  hits.extend(
+    match
+    for match in MIXED_SLASH_OR_RE.finditer(stripped)
+    if not ({word.lower() for word in match.groups() if word} & CLAUSE_OPENERS)
   )
+  hits.sort(key=lambda match: match.start())
+  return hits
+
+
+def prose_serial_commas(text):
+  return prose_block_matches(text, _serial_comma_hits)
 
 
 def prose_semicolons(text):

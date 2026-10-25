@@ -222,6 +222,15 @@ async function a11yChecks(page) {
       const box = element.getBoundingClientRect();
       return box.width > 0 && box.height > 0;
     }
+    function boundsOf(element) {
+      const box = element.getBoundingClientRect();
+      return {
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        width: Math.round(box.width),
+        height: Math.round(box.height),
+      };
+    }
     function parseRgba(value) {
       const match = String(value || '').match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,/\s]+([\d.]+))?\s*\)/i);
       if (!match) return null;
@@ -457,6 +466,7 @@ async function a11yChecks(page) {
               severity: 'review',
               criterion: '2.4.7',
               selector: selectorFor(control),
+              bounds: boundsOf(control),
               evidence: `Interactive control ${selectorFor(control)} shows focus outline (${fStyle.outlineWidth} ${fStyle.outlineStyle}) on pointer focus before keyboard navigation`,
             });
           }
@@ -477,13 +487,29 @@ async function a11yChecks(page) {
       const isTooltip = node.getAttribute('role') === 'tooltip';
       const halo = isTooltip
         ? 0
-        : Math.max(0, (parseFloat(style.outlineWidth) || 0) + (parseFloat(style.outlineOffset) || 0));
+        : style.outlineStyle === 'none'
+          ? 0
+          : Math.max(0, (parseFloat(style.outlineWidth) || 0) + (parseFloat(style.outlineOffset) || 0));
       if (!isTooltip && halo <= 0) continue;
       let anc = node.parentElement;
       while (anc && anc !== document.body && anc !== document.documentElement) {
         const aStyle = getComputedStyle(anc);
         const ox = aStyle.overflowX;
         const oy = aStyle.overflowY;
+        const isScrollable = ['auto', 'scroll'].includes(ox) || ['auto', 'scroll'].includes(oy);
+        if (!isTooltip && isScrollable) {
+          const sRect = anc.getBoundingClientRect();
+          if (
+            rect.bottom <= sRect.top + 0.5 ||
+            rect.top >= sRect.bottom - 0.5 ||
+            rect.right <= sRect.left + 0.5 ||
+            rect.left >= sRect.right - 0.5 ||
+            (anc.scrollTop > 0 && rect.top < sRect.top) ||
+            (anc.scrollLeft > 0 && rect.left < sRect.left)
+          ) {
+            break;
+          }
+        }
         const clips = isTooltip
           ? ['hidden', 'clip', 'auto', 'scroll'].includes(ox) || ['hidden', 'clip', 'auto', 'scroll'].includes(oy)
           : ['hidden', 'clip'].includes(ox) || ['hidden', 'clip'].includes(oy);
@@ -500,6 +526,7 @@ async function a11yChecks(page) {
               severity: 'review',
               criterion: '2.4.11',
               selector: selectorFor(node),
+              bounds: boundsOf(node),
               evidence: `${isTooltip ? 'Tooltip' : 'Focus halo'} on ${selectorFor(node)} is clipped by ${selectorFor(anc)}`,
             });
             break;

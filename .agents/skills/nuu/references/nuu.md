@@ -39,7 +39,7 @@ Suppress a source-lint finding on a line with `nonuu: <ID>` (for example, `<!-- 
 | `NUA307` | Rendered `a11y` | Interactive control that renders a visible focus outline on pointer focus before keyboard navigation |
 | `NUA308` | Rendered `a11y` | Interactive control focus ring, shadow, or tooltip clipped by an overflow or mask ancestor |
 
-## Optional Recipes
+## Recipes (Mandatory in Audits When Applicable)
 
 - [references/recipes/offline-fonts.md](recipes/offline-fonts.md): bundled and offline fonts without reload jitter.
 - [references/recipes/scroll-edge-fade.md](recipes/scroll-edge-fade.md): scroll-driven CSS edge-fade mask (`@supports (animation-timeline: scroll(self))`).

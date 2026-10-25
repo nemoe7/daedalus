@@ -26,7 +26,7 @@
 
 ## Deviations
 
-| Component / Property or Recipe | Before | After | Reason | Marker (User-Approved Only) |
+| Component, Property, or Recipe | Before | After | Reason | Marker (User-Approved Only) |
 | --- | --- | --- | --- | --- |
 | `<selector> (<property or recipe>)` | Before | After | Intentional product or layout reason | `nuu-deviation: <id>: <reason>` (agents MUST NEVER add without user approval) |
 
