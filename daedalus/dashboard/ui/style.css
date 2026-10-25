@@ -697,14 +697,14 @@ section[data-page="providers"], section[data-page="settings"] {
   .sections button:hover { background: var(--field); }
 }
 .sections button.on { background: var(--field); border-left-color: var(--accent); }
-.rail-search { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 12px; color: var(--muted);
+.rail-search { display: flex; align-items: center; gap: 8px; width: 100%; max-width: 100%; min-width: 0; min-height: 40px; padding: 8px 12px; overflow: hidden; color: var(--muted);
   background: var(--panel); border: 1px solid var(--control-line); border-radius: var(--radius); }
 .rail-search:focus-within { border-color: var(--accent); }
 :root[data-keyboard-nav="true"] .rail-search:has(input:focus-visible) { outline: 2px solid var(--accent-text); outline-offset: -2px; }
 :root[data-keyboard-nav="true"] .rail-search input:focus-visible { outline-color: transparent; }
 .rail-search svg { width: 15px; height: 15px; flex: none; }
-.rail-search input, .rail-search input[type="search"] { flex: 1; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; }
-.rail-copy { display: grid; gap: 2px; min-width: 0; }
+.rail-search input, .rail-search input[type="search"] { flex: 1 1 0; width: 0; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; }
+.rail-copy { display: grid; flex: 1 1 0; gap: 2px; min-width: 0; }
 .rail-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rail-match {
   display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -714,11 +714,6 @@ section[data-page="providers"], section[data-page="settings"] {
 mark.search-hit {
   background: color-mix(in srgb, var(--accent) 24%, transparent);
   color: var(--text); padding: 0 2px; border-radius: 4px;
-}
-.config-key-hit {
-  grid-column: 1 / -1; justify-self: start; font: 12px/16px var(--mono);
-  color: var(--muted); background: var(--field); border: 1px solid var(--line);
-  border-radius: 4px; padding: 0 6px;
 }
 .field.search-row-hit { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .rail > .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
@@ -1054,10 +1049,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   }
   section[data-page="providers"] > .settings,
   section[data-page="settings"] > .settings {
-    flex: 1 1 auto; min-height: 0;
+    flex: 1 1 auto; flex-wrap: nowrap; min-height: 0;
   }
   header { position: sticky; top: 0; z-index: 4; }
-  .rail { position: sticky; top: 0; }
+  .rail { position: sticky; top: 0; flex: 0 0 240px; width: 240px; max-width: 240px; overflow: hidden; }
   /* A desktop drill page heads the pane with the bar, and the list keeps the summary. */
   .pane-bar { display: none; }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar,

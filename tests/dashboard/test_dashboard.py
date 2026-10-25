@@ -8479,7 +8479,7 @@ const makeButton = (section, label) => {
 };
 const nav = {
   hidden: false,
-  buttons: [makeButton('routing', 'Routing'), makeButton('privacy', 'Privacy')],
+  buttons: [makeButton('routing', 'Routing'), makeButton('privacy', 'Privacy'), makeButton('yaml', 'YAML')],
   querySelectorAll: () => nav.buttons,
 };
 const empty = { hidden: true };
@@ -8490,11 +8490,14 @@ const settingsHost = {
   querySelector: (sel) => (sel === ':scope > .rail > .rail-empty' ? empty : null),
 };
 sandbox.matchMedia = () => ({ matches: true, addEventListener: () => {} });
+probe.state.settings = { text: 'privacy: { forward_owui_chat_id: false }', defaults: {} };
 probe.state.settingsSearch = 'forward_owui_chat_id';
 probe.filterRail(settingsHost);
-assert.deepStrictEqual(nav.buttons.map((b) => b.hidden), [true, false]);
-assert.strictEqual(nav.buttons[1].matchNode.hidden, false);
-assert(nav.buttons[1].matchNode.innerHTML.includes('<mark class="search-hit">forward_owui_chat_id</mark>'));
+assert.deepStrictEqual(nav.buttons.map((b) => b.hidden), [true, false, false]);
+assert.strictEqual(nav.buttons[1].matchNode.hidden, true, 'UI section hides config key in rail');
+assert.strictEqual(nav.buttons[1].matchNode.innerHTML, '');
+assert.strictEqual(nav.buttons[2].matchNode.hidden, false, 'YAML section shows config key snippet');
+assert(nav.buttons[2].matchNode.innerHTML.includes('<mark class="search-hit">forward_owui_chat_id</mark>'));
 """,
   )
 

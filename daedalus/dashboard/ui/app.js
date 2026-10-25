@@ -2400,17 +2400,17 @@ function highlightSnippet(raw, query, radius = 20) {
   return `${start > 0 ? "\u2026" : ""}${highlightText(text.slice(start, end), query)}${end < text.length ? "\u2026" : ""}`;
 }
 
-function sectionSearchTerms(host, key) {
+function sectionVisibleSearchTerms(host, key) {
   if (host.id !== "settings" || !key) return [];
-  const terms = [key];
+  const terms = [];
   if (SECTION_SUMMARIES[key]) terms.push(SECTION_SUMMARIES[key]);
   const groupDef = SETTINGS.find(([group]) => group === key);
   if (groupDef) {
     for (const [fieldKey, label, unit, hint] of groupDef[2]) {
-      terms.push(`${key}.${fieldKey}`, fieldKey, label);
+      terms.push(label);
       if (hint) terms.push(hint);
-      for (const [optVal, optLabel] of CHOICES[fieldKey] ?? []) terms.push(optVal, optLabel);
-      if (state.settings) {
+      for (const [, optLabel] of CHOICES[fieldKey] ?? []) terms.push(optLabel);
+      if (state.settings?.defaults?.[key]) {
         if (unit === "list") terms.push(...listValue(key, fieldKey));
         else {
           const cur = setting(key, fieldKey);
@@ -2421,33 +2421,50 @@ function sectionSearchTerms(host, key) {
   }
   if (key === "hooks") {
     terms.push(
-      "hooks.dir", "dir", "hooks.sources", "sources", "hooks.disabled", "disabled", "hooks.order", "order",
       t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"),
       t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"),
       t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"),
     );
-    for (const [surface, label] of HOOK_SURFACES) terms.push(`hooks.${surface}`, surface, label);
+    for (const [, label] of HOOK_SURFACES) terms.push(label);
     for (const row of state.settings?.hook_rows ?? []) {
       if (row.name) terms.push(row.name);
       if (row.title) terms.push(row.title);
     }
-    if (state.settings) {
+    if (state.settings?.defaults?.hooks) {
       for (const src of settingList("hooks", "sources")) {
         if (src && typeof src === "object") terms.push(src.repo || "", src.path || "", src.ref || "");
       }
     }
   } else if (key === "providers") {
-    terms.push(...PROVIDER_SEARCH_KEYS);
     for (const file of state.files ?? []) if (file?.path) terms.push(file.path, fileName(file.path));
     for (const form of state.forms ?? []) if (form && typeof form === "object") terms.push(...Object.keys(form));
   } else if (key === "keys") {
     for (const row of state.keys ?? []) if (row?.name) terms.push(row.name, row.prefix || "");
   } else if (key === "yaml") {
-    const yamlText = $("settings-editor")?.value ?? state.settings?.text ?? "";
+    const yamlText = $("settings-editor")?.value || state.settings?.text || "";
     if (yamlText) terms.push(...yamlText.split("\n"));
   }
   const card = host.querySelector?.(`:scope > .section-pane > [data-section="${key}"]`);
   if (card?.textContent) terms.push(card.textContent);
+  return terms.filter(Boolean);
+}
+
+function sectionSearchTerms(host, key) {
+  if (host.id !== "settings" || !key) return [];
+  const terms = [key, ...sectionVisibleSearchTerms(host, key)];
+  const groupDef = SETTINGS.find(([group]) => group === key);
+  if (groupDef) {
+    for (const [fieldKey, , , ,] of groupDef[2]) {
+      terms.push(`${key}.${fieldKey}`, fieldKey);
+      for (const [optVal] of CHOICES[fieldKey] ?? []) terms.push(optVal);
+    }
+  }
+  if (key === "hooks") {
+    terms.push("hooks.dir", "dir", "hooks.sources", "sources", "hooks.disabled", "disabled", "hooks.order", "order");
+    for (const [surface] of HOOK_SURFACES) terms.push(`hooks.${surface}`, surface);
+  } else if (key === "providers") {
+    terms.push(...PROVIDER_SEARCH_KEYS);
+  }
   return terms.filter(Boolean);
 }
 
@@ -2466,19 +2483,7 @@ function highlightSectionPane(host, rawQuery) {
     }
     for (const row of card.querySelectorAll(".field")) {
       const cfgKey = row.dataset?.configKey ?? "";
-      const labelHost = row.querySelector?.(":scope > span:first-child") ?? null;
-      let badge = labelHost?.querySelector?.(":scope > .config-key-hit") ?? null;
       const keyHit = Boolean(needle && cfgKey && cfgKey.toLowerCase().includes(needle));
-      if (keyHit && labelHost && typeof document !== "undefined" && document.createElement) {
-        if (!badge) {
-          badge = document.createElement("code");
-          badge.className = "config-key-hit";
-          labelHost.appendChild(badge);
-        }
-        badge.innerHTML = highlightText(cfgKey, rawQuery);
-      } else if (badge) {
-        badge.remove();
-      }
       let controlHit = false;
       if (needle && row.querySelectorAll) {
         for (const ctrl of row.querySelectorAll("input, select")) {
@@ -2513,20 +2518,24 @@ function filterRail(host) {
       const matchNode = button.querySelector?.(".rail-match") ?? null;
       const rawLabel = labelNode?.dataset?.label ?? labelNode?.textContent ?? button.textContent ?? "";
       const titleHit = !query || rawLabel.toLowerCase().includes(query);
-      let matchedTerm = "";
+      let visibleMatch = "";
+      let keyMatch = false;
       if (!titleHit && query) {
-        matchedTerm = sectionSearchTerms(host, key).find((term) => String(term).toLowerCase().includes(query)) ?? "";
+        visibleMatch = sectionVisibleSearchTerms(host, key).find((term) => String(term).toLowerCase().includes(query)) ?? "";
+        if (!visibleMatch) {
+          keyMatch = sectionSearchTerms(host, key).some((term) => String(term).toLowerCase().includes(query));
+        }
       }
-      const hit = titleHit || Boolean(matchedTerm);
+      const hit = titleHit || Boolean(visibleMatch) || keyMatch;
       button.hidden = !hit;
       if (labelNode) {
         if (query && titleHit) labelNode.innerHTML = highlightText(rawLabel, rawQuery);
         else labelNode.textContent = rawLabel;
       }
       if (matchNode) {
-        if (query && !titleHit && matchedTerm) {
+        if (query && !titleHit && visibleMatch) {
           matchNode.hidden = false;
-          matchNode.innerHTML = highlightSnippet(matchedTerm, rawQuery);
+          matchNode.innerHTML = highlightSnippet(visibleMatch, rawQuery);
         } else {
           matchNode.hidden = true;
           matchNode.innerHTML = "";

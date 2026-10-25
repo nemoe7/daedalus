@@ -297,15 +297,18 @@ test("section search matches section content and config keys and highlights matc
 
   await page.locator("#settings-search").fill("forward_owui_chat_id");
   const privButton = page.locator('#settings > .rail > .sections button[data-section="privacy"]');
+  const yamlButton = page.locator('#settings > .rail > .sections button[data-section="yaml"]');
   await expect(privButton).toBeVisible();
+  await expect(yamlButton).toBeVisible();
+  await expect(privButton.locator(".rail-match")).toBeHidden();
+  await expect(yamlButton.locator(".rail-match mark.search-hit")).toHaveText("forward_owui_chat_id");
   await expect(page.locator('#settings .card[data-section="privacy"]')).toBeVisible();
-  const keyBadge = page.locator('#settings .card[data-section="privacy"] .config-key-hit');
-  await expect(keyBadge).toContainText("privacy.forward_owui_chat_id");
-  await expect(keyBadge.locator("mark.search-hit")).toHaveText("forward_owui_chat_id");
+  await expect(page.locator('#settings .card[data-section="privacy"] .field[data-config-key="privacy.forward_owui_chat_id"]')).toHaveClass(/search-row-hit/);
+  await expect(page.locator("#settings .config-key-hit")).toHaveCount(0);
 
   await page.locator("#settings-search").fill("");
   await expect(page.locator("#settings mark.search-hit")).toHaveCount(0);
-  await expect(page.locator("#settings .config-key-hit")).toHaveCount(0);
+  await expect(page.locator("#settings .search-row-hit")).toHaveCount(0);
 });
 
 test("time format defaults to 24h and updates stamps when switched to 12h in Settings", async ({ page }) => {
