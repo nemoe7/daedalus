@@ -398,10 +398,11 @@ function renderOverview() {
     : "-";
   draw("ov-kpis", [
     kpi(state.live.size, t("overview.kpi.in_flight_label")),
-    kpi(share, t("overview.kpi.success_label", { requests: count(state.requests.length, "request") })),
+    kpi(share, t("overview.kpi.success_label")),
     kpi(left, t("overview.kpi.limit_left_label")),
     kpi(state.models.length || 0, t("overview.kpi.catalog_models_label")),
   ].join(""));
+  syncKpiWrap();
   draw("ov-requests", state.requests.slice(0, 5).map((r) => line(
     `<span class="status ${statusClass(r)}">${statusCell(r)}</span> <span title="${esc(r.via || r.model || "")}">${r.via || r.model ? modelName(r.via || r.model) : "-"}</span>`,
     timeText(r.at),
@@ -4761,15 +4762,42 @@ function syncHeaderWrap() {
     delete header.dataset.wrapped;
   }
 }
+function syncKpiWrap() {
+  if (typeof getComputedStyle !== "function" || $("app")?.hidden) return;
+  const kpis = $("ov-kpis");
+  const items = Array.from(kpis?.children || []);
+  if (!kpis?.dataset || items.length < 2) return;
+  const ks = getComputedStyle(kpis);
+  const pad = (parseFloat(ks.paddingLeft) || 0) + (parseFloat(ks.paddingRight) || 0);
+  const available = (kpis.clientWidth || 0) - pad;
+  if (available <= 0) return;
+  const colGap = parseFloat(ks.columnGap || ks.gap) || 0;
+  const colWidth = (available - (items.length - 1) * colGap) / items.length;
+  const maxNeed = items.reduce((widest, item) => {
+    const kids = Array.from(item.children || []);
+    const itemW = kids.length
+      ? Math.max(...kids.map((el) => el.scrollWidth || el.offsetWidth || 0))
+      : item.scrollWidth || item.offsetWidth || 0;
+    return Math.max(widest, itemW);
+  }, 0);
+  if (Math.ceil(maxNeed) > Math.floor(colWidth)) {
+    if (kpis.dataset.wrapped !== "1") kpis.dataset.wrapped = "1";
+  } else if ("wrapped" in kpis.dataset) {
+    delete kpis.dataset.wrapped;
+  }
+}
 function markNavEdges() {
   syncHeaderWrap();
+  syncKpiWrap();
   markScrollEdges(nav);
 }
 if (typeof ResizeObserver === "function") {
   const headerObserver = new ResizeObserver(() => markNavEdges());
   const headerEl = document.querySelector?.("#app > header");
+  const kpisEl = $("ov-kpis");
   if (headerEl) headerObserver.observe(headerEl);
   if (nav) headerObserver.observe(nav);
+  if (kpisEl) headerObserver.observe(kpisEl);
 }
 nav.addEventListener("scroll", markNavEdges, { passive: true });
 // Replace the history entry so phone back leaves the app instead of retracing tabs.

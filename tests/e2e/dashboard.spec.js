@@ -592,19 +592,28 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
     const ovLimitRows = Array.from(document.querySelectorAll("#ov-limits .line")).map(
       (el) => Math.round(el.getBoundingClientRect().height),
     );
+    const kpiHost = document.getElementById("ov-kpis");
+    const kpiRects = Array.from(kpiHost.children).map((el) => el.getBoundingClientRect());
+    const kpisOneRow = kpiRects.length === 4
+      && kpiRects.every((r) => Math.abs(r.top - kpiRects[0].top) <= 2 && Math.abs(r.width - kpiRects[0].width) <= 2);
     return {
       wrapped: h.dataset.wrapped || "",
       oneRow: Math.abs((brand.top + brand.height / 2) - (nav.top + nav.height / 2)) <= 6
         && brand.right <= nav.left && nav.right <= out.left,
       maxOvLimitH: Math.max(...ovLimitRows),
+      kpiWrapped: kpiHost.dataset.wrapped || "",
+      kpisOneRow,
     };
   });
   expect(tabletHeader.wrapped).toBe("");
   expect(tabletHeader.oneRow).toBe(true);
   expect(tabletHeader.maxOvLimitH).toBeLessThanOrEqual(32);
+  expect(tabletHeader.kpiWrapped).toBe("");
+  expect(tabletHeader.kpisOneRow).toBe(true);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("1");
+  await expect.poll(() => page.evaluate(() => document.getElementById("ov-kpis").dataset.wrapped || "")).toBe("1");
   const phoneHeaderRows = await page.evaluate(() => {
     const brand = document.querySelector("#app > header .brand").getBoundingClientRect();
     const nav = document.getElementById("nav").getBoundingClientRect();
@@ -614,4 +623,5 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
 
   await page.setViewportSize({ width: 768, height: 900 });
   await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("");
+  await expect.poll(() => page.evaluate(() => document.getElementById("ov-kpis").dataset.wrapped || "")).toBe("");
 });

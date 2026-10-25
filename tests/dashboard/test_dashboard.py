@@ -2492,6 +2492,39 @@ assert.strictEqual(header.dataset.wrapped, undefined, "unwraps back to one row a
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_overview_kpis_wrap_only_when_items_exceed_equal_column_width() -> None:
+  """syncKpiWrap keeps 4 equal columns until any KPI exceeds a column track."""
+  code = _app_js_vm(
+    """
+el("app").hidden = false;
+const makeItem = (w) => ({
+  children: [
+    { scrollWidth: 40, offsetWidth: 40 },
+    { scrollWidth: w, offsetWidth: w },
+  ],
+});
+const kpis = el("ov-kpis");
+kpis.dataset = {};
+kpis.clientWidth = 702;
+kpis.children = [makeItem(84), makeItem(78), makeItem(128), makeItem(102)];
+const prevCS = sandbox.getComputedStyle;
+sandbox.getComputedStyle = (node) => {
+  if (node === kpis) return { paddingLeft: "20px", paddingRight: "20px", columnGap: "20px", gap: "14px 20px" };
+  return prevCS ? prevCS(node) : { display: "block" };
+};
+sandbox.syncKpiWrap();
+assert.strictEqual(kpis.dataset.wrapped, undefined, "4 equal columns fit at 702px");
+kpis.clientWidth = 600;
+sandbox.syncKpiWrap();
+assert.strictEqual(kpis.dataset.wrapped, "1", "wraps to 2x2 when 128px exceeds column width");
+kpis.clientWidth = 702;
+sandbox.syncKpiWrap();
+assert.strictEqual(kpis.dataset.wrapped, undefined, "unwraps back to 1 row at 702px");
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_provider_back_controls_have_room_and_a_touch_target() -> None:
   """Back controls have a measured gap, padded glyph, and phone touch target."""
   root = Path(__file__).resolve().parents[2]
@@ -5516,19 +5549,17 @@ probe.state.pools = [];
 probe.state.limits = { providers: [], lanes: [{ rows: [{ limit: 100, remaining: 25 }] }] };
 probe.renderOverview();
 const kpis = node('ov-kpis').innerHTML;
-const successText = LOCALE["overview.kpi.success_label"].replace("{requests}",
-  LOCALE["request.count.other_text"].replace("{count}", "7"));
 assert.strictEqual((kpis.match(/class="kpi"/g) || []).length, 4, 'the strip holds 4 numbers');
 assert(kpis.includes('<b>2</b><small>' + LOCALE["overview.kpi.in_flight_label"]
   + '</small>'), 'the strip counts the live requests');
-assert(kpis.includes(successText + '</small>'), 'the strip names the success share');
-assert(kpis.includes('<b>86%</b>'), '6 answered of 7 reads 86 percent');
+assert(kpis.includes('<b>86%</b><small>' + LOCALE["overview.kpi.success_label"]
+  + '</small>'), 'the strip names the success share');
 assert(kpis.includes('<b>25%</b><small>' + LOCALE["overview.kpi.limit_left_label"]
   + '</small>'), 'the strip takes the lowest limit left');
 assert(kpis.includes('<b>3</b><small>' + LOCALE["overview.kpi.catalog_models_label"]
   + '</small>'), 'the strip counts the catalog');
 assert.strictEqual(LOCALE["overview.kpi.catalog_models_label"], "Models in catalog");
-assert.strictEqual(LOCALE["overview.kpi.success_label"], "Success rate · {requests}");
+assert.strictEqual(LOCALE["overview.kpi.success_label"], "Success rate");
 const overviewRequests = node('ov-requests').innerHTML;
 const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');

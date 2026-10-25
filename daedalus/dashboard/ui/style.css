@@ -221,12 +221,13 @@ button.line {
 }
 /* The 4 numbers above Overview cards: the value on top, its name below. */
 .kpis {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px 20px; padding: 14px 20px; margin-bottom: 16px;
 }
-.kpi { display: grid; gap: 2px; min-width: 0; }
-.kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
-.kpi small { color: var(--muted); font-size: 12px; }
+.kpis[data-wrapped="1"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.kpi { display: grid; justify-items: start; gap: 2px; min-width: 0; }
+.kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi small { color: var(--muted); font-size: 12px; white-space: nowrap; }
 /* nuu-deviation: NUM201: compact inline badges and pills preserve operator table density */
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
@@ -1103,8 +1104,6 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .sections.slide { animation: slide-back var(--soft) var(--ease); }
   /* The Providers drill page names itself, so the section title under it leaves the screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }
-  /* A tablet reads the 4 figures as 2 rows of 2, not 3 plus 1. */
-  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .rail, .section-pane { flex: 1 1 100%; }
   /* A phone row carries a chevron at its right edge, and a selection opens the section as its own page. */
@@ -1203,6 +1202,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
      The 4 numbers of the strip stay above it, in 2 rows of 2, so the health line never leaves the page. */
   .kpis { grid-template-columns: 1fr 1fr; gap: 10px 14px; padding: 12px 14px; }
+  .kpis .kpi small { white-space: normal; }
   /* A phone swipes the pool strip sideways in 1 row, so the table keeps the first screen. */
   .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
   .pools > .pool { flex: 0 0 144px; scroll-snap-align: start; }

@@ -283,7 +283,7 @@ globalThis.DAEDALUS_LOCALE = {
   "overview.kpi.catalog_models_label": "Models in catalog",
   "overview.kpi.in_flight_label": "In flight now",
   "overview.kpi.limit_left_label": "Lowest remaining limit",
-  "overview.kpi.success_label": "Success rate · {requests}",
+  "overview.kpi.success_label": "Success rate",
   "page.title": "daedalus · {page}",
   "provider.account_id.hint": "The Cloudflare account used in URL templates.",
   "provider.account_id.label": "Account ID",

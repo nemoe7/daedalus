@@ -125,7 +125,7 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/ui/index.html` builds all views from 8 shared component families. See [Component Visual Catalog](design-visuals/components.md) for annotated visual boards.
 
 1. **Header Navigation (`header`, `.skip-link`, `.tabs a`, `#nav`)**: Skip link to `#main` plus 6 route links (`Overview` through `Settings`) with `#nav-models`.
-2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in catalog`.
+2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in catalog`. `syncKpiWrap()` keeps all 4 columns on one row until any value or caption exceeds a column track, then sets `.kpis[data-wrapped="1"]` (`2x2`).
 3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills. Overview snippet rows (`.pool-line`, `#ov-limits`) truncate long model labels on one line with ellipsis.
 4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 75em`), and `#request-clear`.
 5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `75em` (`#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`).
@@ -183,7 +183,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | --- | --- | --- | --- |
 | Wide Desktop (`> 75em` / `> 1200px`) | Full-width `header` and centered `main` (`32px` min gutter) | Single-row header with `.tabs` and `#status` chips | 4-column `.kpis`, 2-column `Requests`, `Limits`, and `Settings` (`240px` `.rail`) |
 | Narrow Desktop (`<= 75em` / `<= 1200px`) | Centered `main` (`32px` min gutter) | `#status` hides so `.tabs` stay on 1 row | Keeps 2-column desktop layouts above `60em` |
-| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | Header stacks `.tabs` into a scrollable strip | `2x2` `.kpis`, `Requests` folds to cards, `Limits` stacks `100%` wide, `Settings` drills down (`44px` floor), and `.pill` chips stay compact with `::after` targets |
+| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | `header` keeps 1 row until overflow (`header[data-wrapped="1"]`) | `.kpis` keeps 4 equal columns until collision, `Requests` keeps its table above `40em`, `Limits` stacks `100%` wide, and `Settings` drills down (`44px` floor) |
 | Phone (`<= 40em` / `<= 640px`) | `16px` gutter and `76px` bottom clearance | Scrollable `.tabs` strip with `44px` targets | Horizontal `.pools` strip, card folds, `16px` `.notification-item` inline padding, symmetric `3px 3px 8px` filter bars, and compact time units |
 | Landscape Short Height (`max-height: 30em` / `<= 480px`) | Outer `main` scroll unlocked | Compact header and `16px` `.login` top offset | `Settings`, `Providers`, `Requests`, and `Limits` scroll in `main`, and `.modal` caps height at `calc(100dvh - 32px)` |
 
