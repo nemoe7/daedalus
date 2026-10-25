@@ -513,4 +513,45 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
       bb: "1px",
     });
   }
+
+  await open(page, "#/limits", 1280, 900);
+  const desktopLimitsBar = await page.evaluate(() => {
+    const bar = document.querySelector('section[data-page="limits"] > .editbar').getBoundingClientRect();
+    const input = document.querySelector("#limits-search").getBoundingClientRect();
+    const btn = document.querySelector("#limits-check").getBoundingClientRect();
+    const stamp = document.querySelector("#limits-checked").getBoundingClientRect();
+    return {
+      padLeft: input.left - bar.left - 1,
+      padTop: input.top - bar.top - 1,
+      padBottom: bar.bottom - input.bottom - 1,
+      btnHeight: btn.height,
+      centerDelta: Math.abs((btn.left + btn.width / 2) - (stamp.left + stamp.width / 2)),
+      stampBelow: stamp.top >= btn.bottom,
+    };
+  });
+  expect(Math.abs(desktopLimitsBar.padLeft - desktopLimitsBar.padTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(desktopLimitsBar.padBottom - desktopLimitsBar.padTop)).toBeLessThanOrEqual(1);
+  expect(desktopLimitsBar.centerDelta).toBeLessThanOrEqual(1);
+  expect(desktopLimitsBar.stampBelow).toBe(true);
+
+  await open(page, "#/limits", 390, 844);
+  const mobileLimitsBar = await page.evaluate(() => {
+    const bar = document.querySelector('section[data-page="limits"] > .editbar').getBoundingClientRect();
+    const input = document.querySelector("#limits-search").getBoundingClientRect();
+    const btn = document.querySelector("#limits-check").getBoundingClientRect();
+    const stamp = document.querySelector("#limits-checked").getBoundingClientRect();
+    return {
+      padLeft: input.left - bar.left - 1,
+      padTop: input.top - bar.top - 1,
+      padBottom: bar.bottom - input.bottom - 1,
+      btnHeight: btn.height,
+      centerDelta: Math.abs((btn.left + btn.width / 2) - (stamp.left + stamp.width / 2)),
+      stampBelow: stamp.top >= btn.bottom,
+    };
+  });
+  expect(Math.abs(mobileLimitsBar.padLeft - mobileLimitsBar.padTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileLimitsBar.padBottom - mobileLimitsBar.padTop)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mobileLimitsBar.btnHeight - desktopLimitsBar.btnHeight)).toBeLessThanOrEqual(1);
+  expect(mobileLimitsBar.centerDelta).toBeLessThanOrEqual(1);
+  expect(mobileLimitsBar.stampBelow).toBe(true);
 });

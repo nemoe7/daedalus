@@ -7883,6 +7883,8 @@ def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
     "#limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }"
     in css
   )
+  assert "align-items: center; justify-content: center;" in css
+  assert "#limits-check { min-height: 0; padding: 2px 12px; }" in css
   run_app_js(
     "renderLimits, timeText",
     """

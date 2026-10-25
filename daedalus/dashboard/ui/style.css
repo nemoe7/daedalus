@@ -944,19 +944,19 @@ section[data-page="models"] > .editbar, section[data-page="limits"] > .editbar {
 .live-toggle[aria-pressed="false"] { border-color: var(--accent); color: var(--accent-text); }
 /* The Limits filter keeps a readable width beside the check button. */
 .editbar input[type="search"] { min-width: 12rem; }
-section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
+section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 .limits-check-stack {
-  display: flex; flex-direction: column; align-items: flex-end; justify-content: center;
-  gap: 2px; max-height: 39px; margin-block: -4px; margin-left: auto;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; max-height: 39px; margin-block: 0; margin-left: auto; text-align: center;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-#limits-check { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
+#limits-check { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
 #limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }
 #update-check.checking svg, [data-hooks-update].checking svg { animation: spin .7s linear infinite; }
 #limits-checked { margin-left: 0; font-size: 11px; line-height: 1; white-space: nowrap; }
 /* A narrow card wraps a long label instead of cutting it. */
 .balance .line > :first-child { white-space: normal; }
-.editbar { display: flex; align-items: center; gap: 12px; padding: 12px 16px; flex-wrap: wrap; }
+.editbar { display: flex; align-items: center; gap: 12px; padding: 12px; flex-wrap: wrap; }
 .message { font-size: 13px; color: var(--muted); }
 .message:empty { display: none; }
 /* The status line of a write, with its Undo. It stays out of the way until a write lands. */
@@ -1195,7 +1195,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .chips .ghost { min-height: 44px; }
   /* Enforce a 44px touch height across sort headers, live toggles, and filter controls. */
   .sort { min-width: 44px; }
-  .sort, .line.rebuild, .live-toggle, .legend-open, section[data-page="limits"] > .editbar .ghost,
+  .sort, .line.rebuild, .live-toggle, .legend-open, section[data-page="limits"] > .editbar > .ghost,
   input[type="search"], #settings-search { min-height: 44px; }
   .rail-search { min-height: 44px; padding-block: 0; }
   /* The phone card: a health row, then 1 line for each value. It fills the width, with no chip row.
@@ -1205,8 +1205,10 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .pools { display: flex; overflow-x: auto; gap: 10px; padding-bottom: 6px; scroll-snap-type: x mandatory; }
   .pools > .pool { flex: 0 0 144px; scroll-snap-align: start; }
   .kpi b { font-size: 18px; }
-  .editbar { gap: 8px; padding: 8px 10px; }
+  .editbar { gap: 8px; padding: 8px; }
   .editbar .primary, .editbar .ghost { padding: 5px 12px; }
+  #limits-check { min-height: 0; padding: 2px 12px; }
+  #limits-check::after { content: ""; position: absolute; inset: -9px 0; }
   /* A phone keeps every control at the 44px target size. */
   .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
   .tab { min-height: 44px; }
@@ -1322,7 +1324,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   /* Keep #new-key on its bottom divider and turn the Models toolbar into a rounded card. */
   #new-key { padding: 3px 3px 8px; }
   section[data-page="models"] .toolbar {
-    padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
+    padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
   }
   .notification-item { padding: 14px 16px; }
   .notification-feed > .more { padding: 16px; }
