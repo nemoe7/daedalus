@@ -57,7 +57,7 @@ async def client(tmp_path: Path):
       }
     }
   )
-  store.write_store([{"id": "p/a", "supports_reasoning": 1}])
+  store.write_store([{"id": "p/a", "name": "Alpha", "supports_reasoning": 1}])
   api.PENALTIES.clear()
   api.COOLDOWNS.clear()
   api.PACING.clear()
@@ -107,7 +107,7 @@ async def test_the_line_carries_the_routed_reasoning(
   client: httpx.AsyncClient,
 ) -> None:
   """The reasoning hook overrides the line, and a reasoning of none leaves it bare."""
-  for asked, wanted in (("high", "p/a · high"), ("none", "p/a")):
+  for asked, wanted in (("high", "Alpha · high"), ("none", "Alpha")):
     answer = await client.post(
       "/v1/chat/completions",
       json={**BODY, "stream": True, "reasoning_effort": asked},
@@ -125,8 +125,8 @@ async def test_the_line_follows_the_installed_files(
   both = [f"hooks/{name}" for name in REAL_HOOKS]
   cases = (
     (["served_model.py"], both[1:], None),
-    (["owui_auto_reasoning_effort.py"], both[:1], "p/a"),
-    ([], both, "p/a · high"),
+    (["owui_auto_reasoning_effort.py"], both[:1], "Alpha"),
+    ([], both, "Alpha · high"),
   )
   for off, paths, wanted in cases:
     hooks.set_installed("hooks", off)
@@ -159,7 +159,7 @@ async def test_the_client_scope_gates_the_line_on_the_request(
   )
   assert answer.status_code == 200, answer.text
   # The name order of the folder puts the served model hook last, so the line holds no effort.
-  assert [selection["line"] for selection in lines(answer.text)] == ["p/a"]
+  assert [selection["line"] for selection in lines(answer.text)] == ["Alpha"]
   other = await client.post("/v1/chat/completions", json=body)
   assert other.status_code == 200, other.text
   assert lines(other.text) == []

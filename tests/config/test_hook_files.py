@@ -107,8 +107,10 @@ def test_example() -> None:
   )
 
 
-def test_selection_line() -> None:
-  """The served model line: the tier letter and the slug for `daedalus/auto`, slug alone for a pool."""
+def test_selection_line(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+  """The served model line uses the catalog display name without a tier prefix, falling back to slug."""
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.db")
+  store.write_store([{"id": "kilo/poolside/laguna-s-2.1:free", "name": "Laguna S 2.1"}])
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None
   context = {"pool": "sophos", "served": "kilo/poolside/laguna-s-2.1:free"}
@@ -116,18 +118,28 @@ def test_selection_line() -> None:
     {"choices": [{"finish_reason": "stop"}]}, "daedalus/auto", context
   )
   assert auto["usage"]["daedalus"] == {
-    "line": "A \u00b7 kilo/poolside/laguna-s-2.1:free",
+    "line": "Laguna S 2.1",
     "model": "kilo/poolside/laguna-s-2.1:free",
     "pool": "sophos",
   }
   pool = module.on_chunk(
     {"choices": [{"finish_reason": "stop"}]}, "daedalus/koinos", context
   )
-  assert pool["usage"]["daedalus"]["line"] == "kilo/poolside/laguna-s-2.1:free"
+  assert pool["usage"]["daedalus"]["line"] == "Laguna S 2.1"
+  unnamed = module.on_chunk(
+    {"choices": [{"finish_reason": "stop"}]},
+    "daedalus/auto",
+    {"pool": "sophos", "served": "kilo/unknown-slug"},
+  )
+  assert unnamed["usage"]["daedalus"]["line"] == "unknown-slug"
 
 
-def test_selection_on_every_answer() -> None:
-  """A repeated model draws too, and the first answer and a retry draw."""
+def test_selection_on_every_answer(
+  monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+  """A repeated model draws too, and the first answer and a retry draw without a tier prefix."""
+  monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.db")
+  store.write_store([{"id": "kilo/x", "name": "Model X"}])
   module = hooks.load(FOLDER / "served_model.py")
   assert module is not None
   stop = {"choices": [{"finish_reason": "stop"}]}
@@ -136,20 +148,20 @@ def test_selection_on_every_answer() -> None:
     "daedalus/auto",
     {"previous": "kilo/x", "served": "kilo/x", "pool": "koinos"},
   )
-  assert repeat["usage"]["daedalus"]["line"] == "C \u00b7 kilo/x"
+  assert repeat["usage"]["daedalus"]["line"] == "Model X"
   assert "usage" not in module.on_chunk(
     {"choices": [{"delta": {}}]}, "daedalus/auto", {"previous": "", "served": "kilo/x"}
   )
   first = module.on_chunk(
     dict(stop), "daedalus/auto", {"previous": "", "served": "kilo/x", "pool": "koinos"}
   )
-  assert first["usage"]["daedalus"]["line"] == "C \u00b7 kilo/x"
+  assert first["usage"]["daedalus"]["line"] == "Model X"
   retry = module.on_chunk(
     dict(stop),
     "daedalus/auto",
     {"previous": "kilo/x", "served": "kilo/x", "code": "rt1", "pool": "deinos"},
   )
-  assert retry["usage"]["daedalus"]["line"] == "B \u00b7 kilo/x"
+  assert retry["usage"]["daedalus"]["line"] == "Model X"
 
 
 def test_a_request_point_runs_each_named_file() -> None:

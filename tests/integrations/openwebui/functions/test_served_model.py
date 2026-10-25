@@ -143,11 +143,47 @@ def test_the_always_valve_draws_every_line() -> None:
 def test_the_valves_draw_a_schema() -> None:
   """Open WebUI builds the Valves panel from the schema of Valves class."""
   schema = module.Filter.Valves.model_json_schema()
-  assert set(schema["properties"]) == {"enabled", "prefix", "when"}
+  assert set(schema["properties"]) == {
+    "enabled",
+    "prefix",
+    "append_provider",
+    "when",
+  }
   assert schema["properties"]["when"]["enum"] == ["always", "on change"]
   description = schema["properties"]["enabled"]["description"]
   assert isinstance(description, str) and description.strip()
-  assert module.Filter().valves.when == "always"
+  valves = module.Filter().valves
+  assert valves.when == "always"
+  assert valves.append_provider is False
+
+
+def test_append_provider_valve_appends_provider_when_enabled() -> None:
+  """The `append_provider` Valve appends the provider from `usage.daedalus.model`."""
+  seen: list[dict[str, Any]] = []
+
+  async def emit(event: dict[str, Any]) -> None:
+    seen.append(event)
+
+  plugin = module.Filter()
+  first = {
+    "usage": {
+      "daedalus": {"line": "Laguna S 2.1", "model": "kilo/poolside/laguna-s-2.1"}
+    }
+  }
+  second = {
+    "usage": {
+      "daedalus": {"line": "Laguna S 2.1", "model": "openrouter/poolside/laguna-s-2.1"}
+    }
+  }
+  run(plugin.stream(first, __event_emitter__=emit, __metadata__={"message_id": "m1"}))
+  plugin.valves.append_provider = True
+  run(plugin.stream(first, __event_emitter__=emit, __metadata__={"message_id": "m2"}))
+  run(plugin.stream(second, __event_emitter__=emit, __metadata__={"message_id": "m2"}))
+  assert [event["data"]["description"] for event in seen] == [
+    "Laguna S 2.1",
+    "Laguna S 2.1 \u00b7 kilo",
+    "Laguna S 2.1 \u00b7 openrouter",
+  ], seen
 
 
 def test_tracking_caches_keep_the_bound_without_evicting_on_updates() -> None:

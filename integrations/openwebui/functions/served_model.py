@@ -13,6 +13,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+DOT = " · "
+
 
 class Filter:
   """One status line above the answer body, from `daedalus` key of the final chunk."""
@@ -21,6 +23,9 @@ class Filter:
     enabled: bool = Field(default=True, description="Draw the line.")
     prefix: str = Field(
       default="", description="Text before the line, for example `served`."
+    )
+    append_provider: bool = Field(
+      default=False, description="Append the provider name to the line."
     )
     when: Literal["always", "on change"] = Field(
       default="always",
@@ -66,9 +71,16 @@ class Filter:
         if isinstance(__metadata__, dict):
           chat = str(__metadata__.get("chat_id") or "")
           message = str(__metadata__.get("message_id") or "")
-        name = str(served.get("model") or line)
+        model = str(served.get("model") or "")
+        name = model or line
+        provider, slash, _ = model.partition("/")
+        shown = (
+          f"{line}{DOT}{provider}"
+          if getattr(self.valves, "append_provider", False) and slash and provider
+          else line
+        )
         # The lines of 1 message ride in its own list: a repeat of its last line adds no row.
-        if message and self._keep(self.lines, message, line) == line:
+        if message and self._keep(self.lines, message, shown) == shown:
           return event
         if self.valves.when == "on change" and not self._changed(chat, name):
           return event
@@ -76,7 +88,7 @@ class Filter:
           {
             "type": "status",
             "data": {
-              "description": f"{getattr(self.valves, 'prefix', '')}{line}",
+              "description": f"{getattr(self.valves, 'prefix', '')}{shown}",
               "done": True,
             },
           }

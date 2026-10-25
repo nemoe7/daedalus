@@ -75,7 +75,7 @@ Without valid sensitivity controls, the hook uses the existing routing threshold
 ## The served line
 
 The [served model hook](served_model.md) writes the line of the final chunk first.
-Then `on_chunk` of this file puts the routed effort at its end, such as `kilo/laguna-s-2.1:free · high`. An
+Then `on_chunk` of this file puts the routed effort at its end, such as `Laguna S 2.1 · high`. An
 effort of `none` leaves the line alone, and this file alone draws no line.
 
 The files of a surface run in list order, and an installed file joins in name order. This name sorts
