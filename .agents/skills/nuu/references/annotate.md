@@ -13,3 +13,28 @@
 | `--spec <json>` | `-s` | JSON file with `boxes`, `labels`, `arrows`, `callouts`, and optional `scale` |
 | `--scale <1-6>` | `-S` | Integer font and badge scale factor (default `2`) |
 | `--json` | `-j` | Emit machine-readable JSON output |
+
+## `nuu.toml` Configuration
+
+`annotate`, `board`, `doctor`, and browser wireframe captures auto-discover `nuu.toml` in `--project` (or via `NUU_CONFIG`):
+
+```toml
+[fonts]
+sans = '"Basel Grotesk", system-ui, sans-serif'
+mono = '"Basel Grotesk Mono", ui-monospace, monospace'
+files = ["assets/Basel_Grotesk_Regular.woff2"]
+
+[annotate]
+scale = 2
+renderer = "auto"
+
+[board]
+columns = 2
+scale = 2
+wireframe = false
+
+[audit]
+widths = [360, 768, 1280]
+wireframe = false
+```
+

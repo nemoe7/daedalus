@@ -835,7 +835,7 @@ async function run() {
             await page.screenshot({path: row.screenshot, fullPage: true, timeout});
             if (request.wireframe) {
               row.wireframe_screenshot = path.join(output, `${width}-${scheme}-${motion}-wireframe.png`);
-              await renderWireframe(page, row.wireframe_screenshot, timeout, request.selector);
+              await renderWireframe(page, row.wireframe_screenshot, timeout, request.selector, request.typography);
             }
             row.status = 'captured';
           } catch (error) {
