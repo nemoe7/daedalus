@@ -5523,6 +5523,8 @@ assert(kpis.includes('<b>25%</b><small>' + LOCALE["overview.kpi.limit_left_label
   + '</small>'), 'the strip takes the lowest limit left');
 assert(kpis.includes('<b>3</b><small>' + LOCALE["overview.kpi.catalog_models_label"]
   + '</small>'), 'the strip counts the catalog');
+assert.strictEqual(LOCALE["overview.kpi.catalog_models_label"], "Models in catalog");
+assert.strictEqual(LOCALE["overview.kpi.success_label"], "Success rate · {requests}");
 const overviewRequests = node('ov-requests').innerHTML;
 const rows = (overviewRequests.match(/class="line"/g) || []).length;
 assert.strictEqual(rows, 5, 'the request card holds 5 rows, not 10');

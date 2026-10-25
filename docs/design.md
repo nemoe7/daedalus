@@ -125,7 +125,7 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/ui/index.html` builds all views from 8 shared component families. See [Component Visual Catalog](design-visuals/components.md) for annotated visual boards.
 
 1. **Header Navigation (`header`, `.skip-link`, `.tabs a`, `#nav`)**: Skip link to `#main` plus 6 route links (`Overview` through `Settings`) with `#nav-models`.
-2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in the catalog`.
+2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in catalog`.
 3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills.
 4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 75em`), and `#request-clear`.
 5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `75em` (`#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`).
