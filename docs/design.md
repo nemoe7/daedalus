@@ -106,7 +106,7 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 ### Shell and Container
 
 - **Root container (`#app`)**: Full-viewport column (`100dvh`) with centered `main` (`padding-inline: max(32px, calc((100% - 1116px) / 2))` on desktop, `16px` at `<= 40em`).
-- **Top bar (`header`)**: Sticky header (`border-bottom: 1px solid var(--line)`) with `.brand` left, `.tabs` centered, and `#status` plus `#logout` right (`#status` hides at `<= 75em`).
+- **Top bar (`header`)**: Sticky header (`border-bottom: 1px solid var(--line)`) with `.brand` left, `.tabs` centered, and `#status` plus `#logout` right (`#status` hides at `<= 75em`). `syncHeaderWrap()` keeps all three regions on one row until their intrinsic inline width exceeds `header`, then sets `header[data-wrapped="1"]` to move `.tabs` onto row 2 (`"brand chips" "tabs tabs"`).
 - **View switching**: Only the active `section[data-page]` is visible (`hidden` removed). The header tab (`aria-current="page"`) names the active view without a redundant `<h1>` title block.
 
 ### View Grids

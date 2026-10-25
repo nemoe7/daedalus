@@ -616,6 +616,7 @@ function stateChip() {
 // The Overview card contains health, sessions, and catalog data. The header displays state.
 function renderChips() {
   document.querySelectorAll("[data-status]").forEach((host) => { host.innerHTML = stateChip(); });
+  syncHeaderWrap();
 }
 
 function setStateKnown(value) {
@@ -1597,6 +1598,7 @@ function renderModels() {
   markPools();
   // Count catalog rows, not routable models from the status response.
   $("nav-models").textContent = state.models.length || "";
+  markNavEdges();
   const query = $("search").value.trim().toLowerCase();
   const rows = sortModels(state.models.filter((m) =>
     (state.tier === "All" || tierLetter(m.tier) === state.tier)
@@ -4280,6 +4282,7 @@ async function start() {
   $("login").hidden = true;
   $("app").hidden = false;
   // Size panes after the app becomes visible. Hidden panes have no height.
+  markNavEdges();
   fitSectionPane();
   markCardScrollEdges();
   setStateKnown(null);
@@ -4726,8 +4729,47 @@ window.addEventListener("resize", queueRequestsFill);
 
 // The strip breathes its own clipped edges: fades only, no chevrons.
 const nav = $("nav");
+function syncHeaderWrap() {
+  if (typeof getComputedStyle !== "function" || $("app")?.hidden) return;
+  const header = document.querySelector?.("#app > header");
+  const brand = header?.querySelector?.(".brand");
+  const chips = header?.querySelector?.(".chips");
+  if (!header?.dataset || !brand || !nav || !chips) return;
+  const hs = getComputedStyle(header);
+  const pad = (parseFloat(hs.paddingLeft) || 0) + (parseFloat(hs.paddingRight) || 0);
+  const available = (header.clientWidth || 0) - pad;
+  if (available <= 0) return;
+  const colGap = parseFloat(hs.columnGap) || 0;
+  const bs = getComputedStyle(brand);
+  const brandGap = parseFloat(bs.columnGap || bs.gap) || 0;
+  const brandKids = Array.from(brand.children || []).filter(
+    (el) => !el.hidden && getComputedStyle(el).display !== "none",
+  );
+  const brandW = brandKids.reduce((sum, el) => sum + Math.max(el.offsetWidth || 0, el.scrollWidth || 0), 0)
+    + Math.max(0, brandKids.length - 1) * brandGap;
+  const cs = getComputedStyle(chips);
+  const chipsGap = parseFloat(cs.columnGap || cs.gap) || 0;
+  const chipKids = Array.from(chips.children || []).filter(
+    (el) => !el.hidden && getComputedStyle(el).display !== "none" && (el.offsetWidth || el.scrollWidth),
+  );
+  const chipsW = chipKids.reduce((sum, el) => sum + Math.max(el.offsetWidth || 0, el.scrollWidth || 0), 0)
+    + Math.max(0, chipKids.length - 1) * chipsGap;
+  const needed = brandW + (nav.scrollWidth || 0) + chipsW + 2 * colGap;
+  if (Math.ceil(needed) > Math.floor(available)) {
+    if (header.dataset.wrapped !== "1") header.dataset.wrapped = "1";
+  } else if ("wrapped" in header.dataset) {
+    delete header.dataset.wrapped;
+  }
+}
 function markNavEdges() {
+  syncHeaderWrap();
   markScrollEdges(nav);
+}
+if (typeof ResizeObserver === "function") {
+  const headerObserver = new ResizeObserver(() => markNavEdges());
+  const headerEl = document.querySelector?.("#app > header");
+  if (headerEl) headerObserver.observe(headerEl);
+  if (nav) headerObserver.observe(nav);
 }
 nav.addEventListener("scroll", markNavEdges, { passive: true });
 // Replace the history entry so phone back leaves the app instead of retracing tabs.

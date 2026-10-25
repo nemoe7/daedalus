@@ -174,6 +174,7 @@ header {
   display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
 }
+header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; }
 .brand span { color: var(--accent-text); }
 .brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
@@ -1093,7 +1094,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 }
 
 @media (max-width: 60em) {
-  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; column-gap: 16px; }
+  header { column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
   .section-pane.slide { animation: slide-in var(--soft) var(--ease); }
   .sections.slide { animation: slide-back var(--soft) var(--ease); }
@@ -1190,8 +1191,6 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   header, #app > main { padding-left: 16px; padding-right: 16px; }
   /* A phone keeps 1 padding all around the page, so the top matches sides. */
   #app > main { padding-top: 16px; --main-pad-top: 16px; }
-  /* The header keeps the brand and Log out. The status chips move to the card below. */
-  header { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
   .chips .ghost { min-height: 44px; }
   /* Enforce a 44px touch height across sort headers, live toggles, and filter controls. */
   .sort { min-width: 44px; }

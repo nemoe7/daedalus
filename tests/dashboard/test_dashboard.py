@@ -2261,6 +2261,10 @@ def test_the_short_values_carry_their_full_text() -> None:
     "grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr);"
     in css
   ), "the desktop header balances outer tracks around the centered tab bar"
+  assert (
+    'header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }'
+    in css
+  ), "the header wraps tabs to row 2 only when items cannot fit on one row"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert (
     '<span><span data-i18n="nav.models_link">nav.models_link</span><span class="count" id="nav-models"></span></span>'
@@ -2424,8 +2428,10 @@ def test_active_controls_have_no_resting_shadows() -> None:
 def test_narrow_navigation_scrolls_in_one_row() -> None:
   """Narrow headers keep one row of links and scroll it without a hard cut."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "@media (max-width: 60em) {\n  header { column-gap: 16px; }" in css
   assert (
-    "@media (max-width: 60em) {\n  header { grid-template-columns: 1fr auto;" in css
+    'header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }'
+    in css
   )
   assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
   assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
@@ -2436,6 +2442,50 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
     'main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty))'
     " #settings > .section-pane > .pane-bar > .pane-title { display: none; }" in narrow
   )
+
+
+def test_header_wraps_only_when_items_exceed_available_width() -> None:
+  """syncHeaderWrap wraps tabs to row 2 only when brand, tabs, and chips overflow."""
+  code = _app_js_vm(
+    """
+el("app").hidden = false;
+const brandIcon = { hidden: false, offsetWidth: 28, scrollWidth: 28 };
+const brandText = { hidden: false, offsetWidth: 80, scrollWidth: 80 };
+const brand = { children: [brandIcon, brandText], _gap: "8px" };
+const statusChip = { hidden: true, offsetWidth: 0, scrollWidth: 0 };
+const logoutBtn = { hidden: false, offsetWidth: 66, scrollWidth: 66 };
+const chips = { children: [statusChip, logoutBtn], _gap: "12px" };
+const header = {
+  clientWidth: 768,
+  dataset: {},
+  _pad: "24px",
+  _colGap: "16px",
+  querySelector(sel) {
+    if (sel === ".brand") return brand;
+    if (sel === ".chips") return chips;
+    return null;
+  },
+};
+nav.scrollWidth = 480;
+const origQS = sandbox.document.querySelector;
+sandbox.document.querySelector = (sel) => (sel === "#app > header" ? header : origQS(sel));
+sandbox.getComputedStyle = (node) => {
+  if (node === header) return { paddingLeft: header._pad, paddingRight: header._pad, columnGap: header._colGap };
+  if (node === brand) return { columnGap: brand._gap, gap: brand._gap, display: "flex" };
+  if (node === chips) return { columnGap: chips._gap, gap: chips._gap, display: "flex" };
+  return { display: node.hidden ? "none" : "block" };
+};
+sandbox.syncHeaderWrap();
+assert.strictEqual(header.dataset.wrapped, undefined, "fits on one row at 768px");
+header.clientWidth = 720;
+sandbox.syncHeaderWrap();
+assert.strictEqual(header.dataset.wrapped, "1", "wraps to row 2 at 720px");
+header.clientWidth = 768;
+sandbox.syncHeaderWrap();
+assert.strictEqual(header.dataset.wrapped, undefined, "unwraps back to one row at 768px");
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_provider_back_controls_have_room_and_a_touch_target() -> None:

@@ -582,4 +582,30 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
     return { wrapped: body.top >= b.bottom - 2 };
   });
   expect(mobileNotif.wrapped).toBe(true);
+
+  await open(page, "#/", 768, 900);
+  const tabletHeader = await page.evaluate(() => {
+    const h = document.querySelector("#app > header");
+    const brand = h.querySelector(".brand").getBoundingClientRect();
+    const nav = document.getElementById("nav").getBoundingClientRect();
+    const out = document.getElementById("logout").getBoundingClientRect();
+    return {
+      wrapped: h.dataset.wrapped || "",
+      oneRow: Math.abs((brand.top + brand.height / 2) - (nav.top + nav.height / 2)) <= 6
+        && brand.right <= nav.left && nav.right <= out.left,
+    };
+  });
+  expect(tabletHeader).toEqual({ wrapped: "", oneRow: true });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("1");
+  const phoneHeaderRows = await page.evaluate(() => {
+    const brand = document.querySelector("#app > header .brand").getBoundingClientRect();
+    const nav = document.getElementById("nav").getBoundingClientRect();
+    return nav.top >= brand.bottom - 2;
+  });
+  expect(phoneHeaderRows).toBe(true);
+
+  await page.setViewportSize({ width: 768, height: 900 });
+  await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("");
 });
