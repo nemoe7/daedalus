@@ -3303,7 +3303,17 @@ def open_link(renderer,tokens,index,options,env):
 	token=tokens[index];href=token.attrGet('href')or''
 	if href and not href.startswith('#'):token.attrSet('target','_blank');token.attrSet('rel','noopener noreferrer')
 	return renderer.renderToken(tokens,index,options,env)
+LOCAL_MARKDOWN_IMAGE=re.compile('\\.(?:gif|png|jpe?g|webp)$',re.IGNORECASE)
+WIREFRAME_IMAGE=re.compile('-wireframe\\.(?:png|gif|jpe?g|webp)$',re.IGNORECASE)
+def normalize_markdown_image_src(source):
+	clean=str(source or'').strip()
+	if not clean or clean.startswith(('/','#','//'))or re.match('^[a-zA-Z][a-zA-Z0-9+.-]*:',clean):return source
+	target=clean.split('?',1)[0].split('#',1)[0]
+	if LOCAL_MARKDOWN_IMAGE.search(target):from urllib.parse import quote;return f"/api/report-image?path={quote(target,safe='')}"
+	return source
 def render_image(renderer,tokens,index,options,env):
+	src=tokens[index].attrGet('src')
+	if src:tokens[index].attrSet('src',normalize_markdown_image_src(src))
 	pending=list(tokens[index].children or[])
 	while pending:
 		token=pending.pop()
@@ -3381,7 +3391,7 @@ PARAGRAPH=re.compile('<p>.*?</p>',re.DOTALL)
 PARAGRAPH_BREAK=re.compile('<br\\s*/?>')
 def drop_paragraph_breaks(rendered):return PARAGRAPH.sub(lambda match:PARAGRAPH_BREAK.sub('',match.group(0)),rendered)
 def sized_image(match,validate):
-	alt,source,width,height=match.groups()
+	alt,source,width,height=match.groups();source=normalize_markdown_image_src(source)
 	if not validate(source):return None
 	size=f' width="{width}"'+(f' height="{height}"'if height else'');return f'<img src="{html.escape(source,quote=True)}" alt="{html.escape(alt,quote=True)}"{size} />'
 def highlight_markdown(parser):
@@ -3902,7 +3912,7 @@ IMAGE_IN_MARKDOWN=re.compile('!\\[([^\\]\\n]*)\\]\\(\\s*(<[^>]+>|[^)\\s]+)([^)\\
 def resolve_report_image(path_arg,root=None):
 	clean=str(path_arg or'').strip()
 	if not clean:raise ValueError('Report image path is required')
-	if clean.lower().endswith('-wireframe.png'):raise ValueError(f"Wireframe image {clean} (*-wireframe.png) is for agent inspection only and cannot be served in reports")
+	if WIREFRAME_IMAGE.search(clean):raise ValueError(f"Wireframe image {clean} (*-wireframe.*) is for agent inspection only and cannot be served in reports")
 	start=Path(root).resolve()if root is not None else _outline_repo_root();base=next((parent for parent in(start,*start.parents)if(parent/'.git').exists()),start);raw_path=Path(clean);candidate=raw_path.resolve()if raw_path.is_absolute()else(base/raw_path).resolve()
 	if not candidate.is_file()and not raw_path.is_absolute():
 		for search_dir in(start,base/'arena-state'/'reports'):
@@ -3929,7 +3939,7 @@ def embed_report_images(markdown,report_dir):
 		if source.startswith('//')or re.match('[a-zA-Z][a-zA-Z0-9+.-]*:',source):return f"Publication skips remote image {source}. Fetch it locally, then embed it with arena-preview image-data-uri."
 		path=Path(source)
 		if not path.is_absolute():path=report_dir/path
-		if path.name.lower().endswith('-wireframe.png')or source.lower().endswith('-wireframe.png'):raise ValueError(f"Wireframe image {source} (*-wireframe.png) is for agent inspection only and cannot be embedded in reports")
+		if WIREFRAME_IMAGE.search(path.name)or WIREFRAME_IMAGE.search(source):raise ValueError(f"Wireframe image {source} (*-wireframe.*) is for agent inspection only and cannot be embedded in reports")
 		try:mime,encoded=image_payload(path)
 		except ValueError as error:raise ValueError(f"Publication skips local image {source}: {error}. Run arena-preview image-data-uri for the helper.")from error
 		return f"![{alt}](data:{mime};base64,{encoded}{suffix})"

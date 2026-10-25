@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 DEFAULT_SHEET = Path(__file__).resolve().parent.parent / "references" / "style.css"
-DEFAULT_SCALE = 8
+DEFAULT_SCALE = 4
 MIN_INK_RATIO = 0.75
 MAX_SIBLING_GAP = 320.0
 MAX_CONTROL_WIDTH = 480.0

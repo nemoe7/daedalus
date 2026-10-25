@@ -24,10 +24,12 @@
   /* Type: one family, three weights, a short ramp */
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --size-10: 10px;
   --size-12: 12px;
   --size-13: 13px;
   --size-14: 14px;
   --size-15: 15px;
+  --size-16: 16px;
   --size-20: 20px;
   --size-28: 28px;
   --eyebrow: 11px;
@@ -35,13 +37,13 @@
   --weight-medium: 600;
   --weight-strong: 800;
 
-  /* Space: one 8 px scale, and the sizes built on it */
-  --space-1: 8px;
-  --space-2: 16px;
-  --space-3: 24px;
-  --space-4: 32px;
-  --row: 40px;
-  --radius: 10px;
+  /* Space: one 4 px default scale (8 px when opted in), and the sizes built on it */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --row: 32px;
+  --radius: 6px;
   --shadow: none;
   --column: 1280px;
   --gutter: var(--space-4);
@@ -52,6 +54,15 @@
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --fast: 160ms;
   --slow: 220ms;
+}
+
+:root[data-scale="8"] {
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --row: 40px;
+  --radius: 10px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -238,6 +249,42 @@ body {
   background: var(--field);
   color: var(--text);
   transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.close-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--row);
+  height: var(--row);
+  padding: var(--space-2);
+  margin: calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) calc(-1 * var(--space-2)) 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.close-button::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .close-button:hover {
+    border-color: var(--line);
+    background: var(--surface-2);
+    color: var(--text);
+  }
+}
+
+.close-button:active {
+  border-color: var(--line);
+  background: var(--surface-2);
+  color: var(--accent);
 }
 
 .button--accent {

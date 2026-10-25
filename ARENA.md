@@ -51,7 +51,7 @@
 - Each Markdown file under `references/` is supplementary: read/grep only needed files; no end-to-end read; gate/read-cadence mechanics live in `references/commands.md` and `references/cadence.md`. Installation template copies are supplementary too.
 - In saved context, state the start sequence and full missing-context bible reads before queued work; no verbatim ARENA.md copy required.
 - After bible changes (incl. rebase/`main` update), MUST read full diff from last-read version before next work; unavailable/unclear → read full file.
-- Before non-setup tools: finish initial setup, await visibility answer, then first inbox call = `arena-preview poll`.
+- Before non-setup tools: finish initial setup, await visibility answer, start repo tooling installs (MUST include `pip install -e` on `nuu` when present) via `arena-preview run start` and any demo/presentation server via `start_process`, then first inbox call = `arena-preview poll`.
 - First reply opens `10-4: ARENA.md loaded`; found later → next reply opens `10-4: ARENA.md loaded late (turn N)`.
 - Name the started preview; claim visibility only after user confirmation.
 

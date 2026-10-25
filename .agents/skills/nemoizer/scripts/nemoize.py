@@ -81,11 +81,13 @@ except ImportError:
 
 from prose import (
   COMMENT_BLOCK_CAP,
-  COMMENT_SUFFIXES,
-  SPECIAL_CODE_NAMES,
   comment_blocks,
+  is_code_file,
+  is_env_file,
+  is_workflow_yaml,
   prose_spans,
   slash_comments,
+  workflow_name_spans,
 )
 
 # (name, avoided pattern, plain word).
@@ -103,10 +105,26 @@ NEMOIZER_MODIFIED_NOUNS = (
 )
 KEEP_LOWER = {"nemoizer"}
 ROTATIONS = (
-  ("pick", r"(?<![A-Za-z0-9])pick\w*(?![A-Za-z0-9])", "select"),
-  ("transmit", r"(?<![A-Za-z0-9])transmit\w*(?![A-Za-z0-9])", "send"),
-  ("kind", r"(?<![A-Za-z0-9])kinds?(?![A-Za-z0-9])", "type"),
-  ("repository", r"(?<![A-Za-z0-9])repositor(?:y|ies)(?![A-Za-z0-9])", "repo"),
+  (
+    "pick",
+    r"(?<![A-Za-z0-9_$.\/-])pick\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
+    "select",
+  ),
+  (
+    "transmit",
+    r"(?<![A-Za-z0-9_$.\/-])transmit\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
+    "send",
+  ),
+  (
+    "kind",
+    r"(?<![A-Za-z0-9_$.\/-])kinds?(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
+    "type",
+  ),
+  (
+    "repository",
+    r"(?<![A-Za-z0-9_$.\/-])repositor(?:y|ies)(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
+    "repo",
+  ),
   ("pull request", r"(?<![A-Za-z0-9])pull[ \t]+requests?(?![A-Za-z0-9])", "PR"),
   (
     "nemoizer",
@@ -617,20 +635,71 @@ def collapse_list_articles(line):
   )
 
 
-def rotate(line, suppressed=frozenset()):
-  """Swap each matched word for its plain word, and take the exception words first."""
+PROTECTED_ROTATE_SPAN = re.compile(
+  r"(`+)(?:(?!\1).)+?\1"
+  r"|\$\{\{.*?\}\}"
+  r"|:(?:param|type|ivar|vartype|keyword)\s+[A-Za-z0-9_]+\s*:"
+  r"|^\s*(?:-\s+)?[A-Za-z0-9_.-]+\s*:(?=\s|$)"
+)
+
+
+def mask_protected_spans(line):
+  """Replace inline code spans, workflow expressions, YAML keys, and :param <ident>: with spaces."""
+  return PROTECTED_ROTATE_SPAN.sub(lambda match: " " * len(match.group(0)), line)
+
+
+def _prose_line_map(path, text):
+  """Map 1-based physical line numbers to extracted prose text for code files."""
+  mapping = {}
+  try:
+    spans = prose_spans(path, text)
+  except (
+    SyntaxError,
+    tokenize.TokenError,
+    subprocess.SubprocessError,
+    OSError,
+    ValueError,
+    RuntimeError,
+  ):
+    return mapping
+  for span_text, first, last in spans:
+    span_lines = span_text.splitlines()
+    if len(span_lines) == last - first + 1:
+      for offset, part in enumerate(span_lines):
+        mapping.setdefault(first + offset, []).append(part)
+    else:
+      for ln in range(first, last + 1):
+        mapping.setdefault(ln, []).append(span_text)
+  return {ln: "\n".join(parts) for ln, parts in mapping.items()}
+
+
+def _rotate_segment(segment, suppressed):
   for name, pattern, use in ROTATIONS:
     if RULE_IDS[name] in suppressed:
       continue
-    line = re.sub(
+    segment = re.sub(
       pattern,
       lambda match, name=name, use=use: plain(match.group(0), name, use),
-      line,
+      segment,
       flags=re.IGNORECASE,
     )
   if PROSE_RULE_IDS["curly_quote"] not in suppressed:
-    line = line.translate(CURLY_QUOTES)
-  return line
+    segment = segment.translate(CURLY_QUOTES)
+  return segment
+
+
+def rotate(line, suppressed=frozenset()):
+  """Swap each matched word for its plain word, and take the exception words first."""
+  out = []
+  cursor = 0
+  for match in PROTECTED_ROTATE_SPAN.finditer(line):
+    if match.start() > cursor:
+      out.append(_rotate_segment(line[cursor : match.start()], suppressed))
+    out.append(match.group(0))
+    cursor = match.end()
+  if cursor < len(line):
+    out.append(_rotate_segment(line[cursor:], suppressed))
+  return "".join(out)
 
 
 def format_finding(path, line, code, message, source_line=None, status=None):
@@ -670,7 +739,10 @@ def scan(targets, ignores):
     lines = text.splitlines()
     file_ids, line_ids, found = exclusions(path, lines)
     marks.extend(found)
-    if path.suffix.lower() == ".jsonc":
+    is_code = is_code_file(path)
+    prose_map = _prose_line_map(path, text) if is_code else None
+    suffix_lower = path.suffix.lower()
+    if suffix_lower == ".jsonc":
       comment_map = {}
       for comment_text, first, _ in slash_comments(text):
         for offset, comment_line in enumerate(comment_text.splitlines()):
@@ -678,18 +750,34 @@ def scan(targets, ignores):
       line_pairs = sorted(
         (number, "\n".join(parts)) for number, parts in comment_map.items()
       )
+    elif (
+      suffix_lower in {".sql", ".dbml", ".j2", ".jinja", ".jinja2"} or is_env_file(path)
+    ) and prose_map is not None:
+      line_pairs = sorted(prose_map.items())
     else:
       line_pairs = list(enumerate(lines, 1))
     for number, line in line_pairs:
       if TABLE_ROW.match(line.strip()):
         continue
       excluded = file_ids | line_ids[number - 1]
-      visible = MARKER.sub(lambda match: " " * len(match[0]), line)
+      visible = mask_protected_spans(
+        MARKER.sub(lambda match: " " * len(match[0]), line)
+      )
+      prose_visible = None
+      if is_code and prose_map is not None:
+        raw_prose = prose_map.get(number)
+        if raw_prose is not None:
+          prose_visible = mask_protected_spans(
+            MARKER.sub(lambda match: " " * len(match[0]), raw_prose)
+          )
       for name, pattern, use in ROTATIONS:
         code = RULE_IDS[name]
         if suppressed(code, excluded, name):
           continue
-        for word in sorted(set(re.findall(pattern, visible, flags=re.IGNORECASE))):
+        target_line = prose_visible if (is_code and code == "NMO901") else visible
+        if not target_line:
+          continue
+        for word in sorted(set(re.findall(pattern, target_line, flags=re.IGNORECASE))):
           if name in KEEP_LOWER and word == use:
             continue
           findings.append(format_finding(path, number, code, f"{word} -> {use}", line))
@@ -710,6 +798,8 @@ def format_paths(targets, ignores, out=None):
       continue
     lines = text.split("\n")
     file_ids, line_ids, _ = exclusions(path, lines)
+    is_code = is_code_file(path)
+    prose_map = _prose_line_map(path, text) if is_code else None
     the_cap = ACTIVE_CONFIG.get("the_density_cap", THE_DENSITY_CAP)
     min_the = ACTIVE_CONFIG.get("min_the_count", MIN_THE_COUNT)
     block_lines = {}
@@ -725,7 +815,9 @@ def format_paths(targets, ignores, out=None):
       if TABLE_ROW.match(line.strip()):
         rewritten.append(line)
         continue
-      suppressed = file_ids | line_ids[number - 1]
+      suppressed = set(file_ids | line_ids[number - 1])
+      if is_code and prose_map is not None and number not in prose_map:
+        suppressed.add("NMO901")
       collapse_the = number in dense_lines and "NMO902" not in suppressed
       parts, start = [], 0
       for marker in MARKER.finditer(line):
@@ -1161,7 +1253,7 @@ PHRASAL_VERB_RE = re.compile(
 )
 ELLIPSIS_RE = re.compile(
   r",\s+(?:and|or)\s+(?:is|are|was|were|has|have|had)\b|"
-  r"\b(?:the|a|an)\s+[a-z]{3,}\s+is\s+[a-z]{3,}ed\s+and\s+[a-z]{3,}ed\b",
+  r"\b(?:the|a|an|this|that|these|those|its|their|our|your)\s+[a-z]{3,}\s+is\s+([a-z]{3,}ed)\s+and\s+([a-z]{3,}ed)\b",
   re.IGNORECASE,
 )
 SERIAL_COMMA_RE = re.compile(
@@ -1264,7 +1356,21 @@ def prose_phrasal_verbs(text):
 
 
 def prose_ellipsis(text):
-  return prose_block_matches(text, lambda clean: list(ELLIPSIS_RE.finditer(clean)))
+  return prose_block_matches(
+    text,
+    lambda clean: [
+      match
+      for match in ELLIPSIS_RE.finditer(clean)
+      if not (
+        match.group(1)
+        and match.group(2)
+        and (
+          match.group(1).lower() in PASSIVE_STATE_ADJECTIVES
+          or match.group(2).lower() in PASSIVE_STATE_ADJECTIVES
+        )
+      )
+    ],
+  )
 
 
 def _serial_comma_hits(clean):
@@ -1615,14 +1721,46 @@ def prose_self_narration(text):
   )
 
 
+LIST_DETERMINER = r"(?:the|its|their|our|your|this|that|these|those)"
+LIST_ITEM_TAIL = (
+  r"(?:(?:[ \t]+(?!(?:the|its|their|our|your|this|that|these|those|and|or)\b)"
+  r"[A-Za-z0-9_'/-]+){1,5}|[ \t]{2,})"
+)
+LIST_ITEM_PATTERN = rf"\b{LIST_DETERMINER}{LIST_ITEM_TAIL}"
+MIXED_DETERMINER_LIST_RE = re.compile(
+  rf"{LIST_ITEM_PATTERN}(?:,[ \t]+{LIST_ITEM_PATTERN})+"
+  rf"(?:,?[ \t]+(?:and|or)[ \t]+{LIST_ITEM_PATTERN}|,[ \t]+{LIST_ITEM_PATTERN})",
+  re.IGNORECASE,
+)
+LEADING_DETERMINER_RE = re.compile(
+  rf"(?:^|,[ \t]+(?:(?:and|or)[ \t]+)?|[ \t]+(?:and|or)[ \t]+)({LIST_DETERMINER})\b",
+  re.IGNORECASE,
+)
+
+
+def _mixed_list_the_discount(clean):
+  """Return the number of leading 'the' hits discounted by 3+ item mixed-determiner lists."""
+  discount = 0
+  for match in MIXED_DETERMINER_LIST_RE.finditer(clean):
+    determiners = [
+      det.group(1).lower() for det in LEADING_DETERMINER_RE.finditer(match.group(0))
+    ]
+    if len(determiners) >= 3 and any(d != "the" for d in determiners):
+      the_count = sum(1 for d in determiners if d == "the")
+      if the_count > 1:
+        discount += the_count - 1
+  return discount
+
+
 def prose_the_density(text, cap=THE_DENSITY_CAP, min_the=MIN_THE_COUNT):
   """Find prose blocks where 'the' appears at least min_the times and >= cap% of words."""
   rows = []
   for start_line, _, clean, _ in prose_blocks(text):
     words = re.findall(r"[A-Za-z0-9_'-]+", clean)
     hits = list(re.finditer(r"\bthe\b", clean, re.IGNORECASE))
-    if len(hits) >= min_the and words:
-      density = round(len(hits) * 100 / len(words))
+    effective_hits = max(0, len(hits) - _mixed_list_the_discount(clean))
+    if effective_hits >= min_the and words and hits:
+      density = round(effective_hits * 100 / len(words))
       if density >= cap:
         rows.append((start_line, hits[0].start() + 1, density))
   return rows
@@ -1640,7 +1778,7 @@ LINE_PROSE_RULE_IDS = {
 }
 
 
-def prose_review(path, text, context, paragraph_cap):
+def prose_review(path, text, context, paragraph_cap, min_the_override=None):
   """Return unsuppressed measurable candidates for one explicit text scope."""
   lines = text.splitlines()
   file_ids, line_ids, _ = exclusions(path, lines)
@@ -1777,7 +1915,11 @@ def prose_review(path, text, context, paragraph_cap):
         )
   code = PROSE_RULE_IDS["the_density"]
   the_cap = ACTIVE_CONFIG.get("the_density_cap", THE_DENSITY_CAP)
-  min_the = ACTIVE_CONFIG.get("min_the_count", MIN_THE_COUNT)
+  min_the = (
+    min_the_override
+    if min_the_override is not None
+    else ACTIVE_CONFIG.get("min_the_count", MIN_THE_COUNT)
+  )
   if not suppressed(code, file_ids):
     for number, column, density in prose_the_density(
       text, cap=the_cap, min_the=min_the
@@ -1803,16 +1945,22 @@ def source_prose(path, text, context, paragraph_cap):
     path.name in {"README.md", "CHANGELOG.md", "INSTALL.md"} or "docs" in path.parts
   ):
     context = "description"
-  if path.suffix in COMMENT_SUFFIXES or path.name in SPECIAL_CODE_NAMES:
+  code_file = is_code_file(path)
+  if code_file:
     spans = prose_spans(path, text)
   elif path.suffix in {".json", ".webmanifest", ".csv", ".lock"}:
     spans = []
   else:
     spans = [(text, 1, len(text.splitlines()))]
+  wf_lines = (
+    {ln for _, ln, _ in workflow_name_spans(text)}
+    if is_workflow_yaml(path, text)
+    else set()
+  )
   lines = text.splitlines()
   file_ids, line_ids, _ = exclusions(path, lines)
   findings = []
-  if path.suffix in COMMENT_SUFFIXES or path.name in SPECIAL_CODE_NAMES:
+  if code_file:
     code = PROSE_RULE_IDS["comment_block"]
     comment_cap = ACTIVE_CONFIG.get("comment_block_cap", COMMENT_BLOCK_CAP)
     if not suppressed(code, file_ids):
@@ -1836,7 +1984,10 @@ def source_prose(path, text, context, paragraph_cap):
     span_blocks = {}
     for start_line, _, _, line_numbers in prose_blocks(cleaned_span):
       span_blocks.setdefault(start_line, set()).update(line_numbers)
-    for row in prose_review(path, cleaned_span, context, paragraph_cap):
+    span_min_the = 1 if (first == last and first in wf_lines) else None
+    for row in prose_review(
+      path, cleaned_span, context, paragraph_cap, min_the_override=span_min_the
+    ):
       local_line = row["line"]
       if len(value.splitlines()) > last - first + 1:
         row["line"] = first

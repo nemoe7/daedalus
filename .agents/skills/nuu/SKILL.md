@@ -9,7 +9,7 @@ license: MIT
 ## Shared workflow
 
 - Install this skill's package with `pip install -e <skill>` or `uv pip install -e <skill>` (`uv tool install -e <skill>`) and run `nuu` directly; preserve an existing design record (`docs/design.md`), or use `references/style.css` (`-P house`).
-- Search the catalog (`nuu search`) and verify assets (`nuu assets`), then run static checks (`nuu lint`, `nuu extract`) before rendered checks (`nuu inspect`, `flow`, `a11y`, `audit`, `live`) at project widths plus `1280` and `360` px.
+- Search the catalog (`nuu search`), verify assets (`nuu assets`), and run static checks (`nuu lint`, `nuu extract`). Run rendered checks (`nuu inspect`, `flow`, `walk`, `a11y`, `audit`, `live`) and `nuu walk` walkthroughs at project widths plus `1280` and `360` px.
 - Retain screenshots, measurements (`measure.py`), flow results, and annotated composite boards (`nuu annotate` / `nuu board`), audit the page against every applicable recipe in `references/recipes/*.md`, separating automated findings (including missing `docs/design.md`) from visual judgment, naming each UI or recipe deviation from `nuu` with its reason, and naming unrun checks. Mark an accepted deviation with `nuu-deviation: <id>: <reason>` ONLY after explicit user approval, NEVER automatically.
 - Keep live edits read-only unless authorized (`-Z`), repair only the requested scope, and update `docs/design.md` with linked visual references in the same change.
 - Format audit and verification reports with [references/audit-report.md](references/audit-report.md) (`Status`, `Counts`, `Unrun Checks`, numbered `Automated Findings` with rule text and one cropped image each, numbered `Visual Judgments` with one cropped image each, `Deviations`, then `Captures`), omit empty Unrun Checks and report sections, state 0 in Counts, and use `-W` (`--wireframe`) for agent inspection only and NEVER commit wireframe files (`*-wireframe.png`) or embed them in reports.
@@ -37,7 +37,7 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 5. Four sizes from the sheet, three weights, one eyebrow size, and a tabular face for IDs, and MUST bundle and load custom fonts via [references/recipes/offline-fonts.md](references/recipes/offline-fonts.md) without reload jitter.
 
-6. Every gap lands on the 8 px scale. Rows are 40 px, panels take a 10 px radius and no shadow, icon-only buttons are symmetric, and a touch target is at least 44 px.
+6. Every gap lands on the 4 px scale, or the 8 px scale when opted in. Rows are 32 px (40 px on 8 px), and panels take a 6 px radius (10 px on 8 px) with no shadow. Icon-only buttons are symmetric, and a touch target is at least 44 px.
 
 7. The sheet names 75em, 60em, and 40em for width, plus 30em for short-height landscape. Choose each breakpoint where the content breaks. A dimension outside the list gets no behaviour of its own.
 
@@ -55,7 +55,7 @@ Apply this skill to a page, a component, or an interface change. The sheet is th
 
 14. Enable touch input (`hasTouch` and `isMobile`) when auditing or inspecting mobile viewports (`width <= 768` px or `height <= 480` px) so `@media (pointer: coarse)` rules apply.
 
-15. Place a Lucide `x` exit button at the top right of a container, and place other action buttons at the bottom right.
+15. Place a borderless, transparent Lucide `x` exit button at the top right of a container, aligned to the title baseline and content edge with a negative-margin hit box inside container padding, that shows a surface background and text-color shift on hover and active, and place other action buttons at the bottom right.
 
 16. Combine min/max range sliders onto one shared track, and set discrete integer step snap points on integer sliders.
 

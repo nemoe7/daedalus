@@ -2,7 +2,7 @@
 
 `scripts/walk.py` (`nuu walk`) drives an app's demo mode in a real browser with fixed data and fixed clocks. Each `@step(device)` presses one control, asserts one effect, writes one screenshot, and fails if a new console error appears.
 
-A second mode (`--views`) saves the named view PNGs that `nuu board` embeds, so a board shows the real page rather than a mock. Run the walk before a release, never in CI, and keep its output out of Git.
+A second mode (`--views`) saves the named view PNGs that `nuu board` embeds, so a board shows the real page rather than a mock. Run the walk during `nuu` audits and before a release, never in CI, and keep its output out of Git.
 
 ```python
 from walk import Demo, Walker, capture_views, step

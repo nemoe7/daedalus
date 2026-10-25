@@ -5,7 +5,7 @@ Route every modal through one native `<dialog>` element opened with `showModal()
 ## Rules
 
 - Open the shared `<dialog>` with `showModal()`, never `show()` or the `open` attribute, and never place `tabindex` on `<dialog>`.
-- Wire `aria-labelledby` to `#modal-title`, place the symmetric Lucide `x` exit button at the top right (`Clause 6`, `Clause 15`), and place action buttons at the bottom right inside `<form method="dialog">`.
+- Wire `aria-labelledby` to `#modal-title`, place the borderless, transparent Lucide `x` exit button at the top right (`Clause 6`, `Clause 15`) aligned to the title and content edge with a negative-margin hit box and hover/active surface and color feedback, and place action buttons at the bottom right inside `<form method="dialog">`.
 - Put `autofocus` on the first meaningful control or safe non-destructive button (`Cancel`), never on the top-right `x` exit button, and suppress the initial `:focus-visible` ring on open until keyboard navigation (`Tab` or arrow keys).
 - Gate every delete action behind a confirmation modal that warns about the deletion and puts `autofocus` on `Cancel`.
 - Store `document.activeElement` before opening and restore focus to the invoking trigger on `close`.

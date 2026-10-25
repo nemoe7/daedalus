@@ -38,7 +38,6 @@ from measure import check as check_measurements
 from measure import main as measure_main
 from walk import main as walk_main
 
-VERSION = "0.1.16"
 NAMED_BREAKPOINTS = ("75em", "60em", "40em", "30em")
 DEVICE_BREAKPOINTS = NAMED_BREAKPOINTS
 MEDIA_BREAKPOINT_RE = re.compile(
@@ -48,57 +47,129 @@ MEDIA_BREAKPOINT_RE = re.compile(
 HOME = Path(__file__).resolve().parent.parent
 CATALOG = HOME / "data" / "vendor" / "ui-ux-pro-max"
 WIDTHS = (1280, 360)
-SKIP = {".git", ".venv", "node_modules", "dist", "build", "__pycache__"}
+SKIP = {
+  ".agents",
+  ".git",
+  ".hg",
+  ".svn",
+  ".venv",
+  "venv",
+  "node_modules",
+  "dist",
+  "build",
+  "arena-state",
+  "__pycache__",
+  ".pytest_cache",
+  ".ruff_cache",
+}
+RULE_CODE_RE = re.compile(r"\b(?:NUL|NUI|NUB|NUM|NUA)\d{3}\b")
+
+
+def _load_version(home: Path = HOME) -> str:
+  pyproject = home / "pyproject.toml"
+  if pyproject.is_file():
+    try:
+      data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+      ver = data.get("project", {}).get("version")
+      if isinstance(ver, str) and ver.strip():
+        return ver.strip()
+    except (OSError, tomllib.TOMLDecodeError):
+      pass
+  try:
+    from importlib.metadata import version
+
+    return version("nuu")
+  except Exception:
+    return "0.0.0"
+
+
+def _clean_md(text: str) -> str:
+  cleaned = text.replace("`", "").strip().rstrip(".")
+  cleaned = re.sub(r"^(?:,\s*)?(?:or|and)\s+", "", cleaned, flags=re.IGNORECASE).strip()
+  if cleaned and cleaned[0].islower():
+    cleaned = cleaned[0].upper() + cleaned[1:]
+  return cleaned
+
+
+def load_rule_descriptions(home: Path = HOME) -> dict[str, str]:
+  descriptions: dict[str, str] = {}
+  nuu_md = home / "references" / "nuu.md"
+  if nuu_md.is_file():
+    for raw_line in nuu_md.read_text(encoding="utf-8").splitlines():
+      line = raw_line.strip()
+      if not (line.startswith("|") and line.endswith("|")):
+        continue
+      cells = [cell.strip() for cell in line.strip("|").split("|")]
+      if len(cells) < 3:
+        continue
+      code_cell, condition_cell = cells[0].replace("`", ""), cells[2]
+      codes_in_cell = RULE_CODE_RE.findall(code_cell)
+      if not codes_in_cell:
+        continue
+      if len(codes_in_cell) == 1:
+        descriptions[codes_in_cell[0]] = _clean_md(condition_cell)
+        continue
+      tagged = list(
+        re.finditer(
+          r"(.*?)\(\s*`?((?:NUL|NUI|NUB|NUM|NUA)\d{3})`?\s*\)", condition_cell
+        )
+      )
+      if tagged:
+        for match in tagged:
+          phrase = match.group(1).strip().lstrip(",").strip()
+          descriptions[match.group(2)] = _clean_md(phrase)
+        continue
+      range_match = re.match(
+        r"^([A-Z]{3})(\d{3})\s*[–-]\s*[A-Z]{3}(\d{3})$", code_cell.strip()
+      )
+      if range_match:
+        prefix, start_n, end_n = (
+          range_match.group(1),
+          int(range_match.group(2)),
+          int(range_match.group(3)),
+        )
+        expanded = [f"{prefix}{n:03d}" for n in range(start_n, end_n + 1)]
+        parts = [
+          _clean_md(p)
+          for p in re.split(r",\s+or\s+|,\s+|\s+or\s+", condition_cell)
+          if p.strip()
+        ]
+        if len(parts) == len(expanded):
+          for code, part in zip(expanded, parts):
+            descriptions[code] = part
+  skill_md = home / "SKILL.md"
+  if skill_md.is_file():
+    clauses: dict[int, str] = {}
+    for raw_line in skill_md.read_text(encoding="utf-8").splitlines():
+      clause_match = re.match(r"^(\d+)\.\s+(.+)$", raw_line.strip())
+      if not clause_match:
+        continue
+      num = int(clause_match.group(1))
+      body = clause_match.group(2).strip()
+      clauses.setdefault(num, body)
+      first_sentence = re.sub(r"\s+via\s+\[.*$", "", body.split(". ")[0])
+      clean_sentence = _clean_md(re.sub(r"\s*\([^)]*\)", "", first_sentence))
+      for code in RULE_CODE_RE.findall(body):
+        descriptions.setdefault(code, clean_sentence)
+    if 1 in clauses:
+      sentences = [s.strip() for s in clauses[1].split(". ") if s.strip()]
+      if len(sentences) >= 2:
+        descriptions.setdefault("NUI001", _clean_md(sentences[1]))
+        descriptions.setdefault("NUI002", _clean_md(sentences[0]))
+    if 2 in clauses:
+      descriptions.setdefault("NUI003", _clean_md(clauses[2]))
+  return descriptions
+
+
+VERSION = _load_version()
+RULE_DESCRIPTIONS = load_rule_descriptions()
 KNOWN_NUU_RULES = {
   *(f"NUL00{i}" for i in range(1, 6)),
   *(f"NUI00{i}" for i in range(1, 4)),
+  *(f"NUB10{i}" for i in range(1, 5)),
   *(f"NUM{i}" for i in range(201, 211)),
   *(f"NUA{i}" for i in range(301, 310)),
-}
-RULE_DESCRIPTIONS = {
-  "NUL001": "Every <img> element must carry an explicit alt attribute.",
-  "NUL002": (
-    "Every form control (<input>, <select>, <textarea>) must have an accessible "
-    "name via <label>, aria-label, aria-labelledby, or title."
-  ),
-  "NUL003": (
-    "CSS rules must not suppress focus outlines with outline: none or outline: 0 "
-    "without a replacement focus indicator."
-  ),
-  "NUL004": (
-    "Every repository must maintain docs/design.md recording house-style "
-    "decisions and visual references."
-  ),
-  "NUL005": (
-    "Interactive state rules (:hover, :focus, :active, :disabled, [aria-busy]) "
-    "must not alter geometry (width, height, padding, border-width, font-size, line-height)."
-  ),
-  "NUI001": "Inline SVG icons require a companion license file in the repository.",
-  "NUI002": "Inline <svg> icons must follow the Lucide -> Simple Icons -> Phosphor icon ladder.",
-  "NUI003": "Inline SVG icons in one source file must use a single consistent icon size.",
-  "NUB101": "Interactive controls must meet the minimum 24x24 CSS px target size (WCAG 2.5.8).",
-  "NUB102": "Pages must not produce horizontal document overflow at audited viewport widths.",
-  "NUB103": "Visible text must meet WCAG AA contrast ratios (4.5:1 normal text, 3:1 large text).",
-  "NUB104": "Sibling elements must not unintentionally overlap in rendered layout.",
-  "NUM201": "Font sizes must match a named step on the house typographic scale.",
-  "NUM202": "Line-height ratios must fall within the house reading band for the element role.",
-  "NUM203": "Font weights must use approved house tokens (400, 500, 600, 700).",
-  "NUM204": "Prose line measure must stay within 60-75 characters (45-80 ch bounds).",
-  "NUM205": "Spacing, padding, and gaps must align to the 4 px / 8 px house spatial grid.",
-  "NUM206": "Border radii must match the house radius tokens.",
-  "NUM207": "Resolved colors must match declared house surface, text, border, or semantic tokens.",
-  "NUM208": "Rendered controls must be >= 24x24 px on desktop and >= 44x44 px on touch viewports.",
-  "NUM209": "Card density must stay within <= 4 data points per card, <= 3 cards per row, and >= 16 px gaps.",
-  "NUM210": "Above-the-fold viewport budget must keep >= 25% open background and <= 4 component groups.",
-  "NUA301": "Rendered pages must not overflow horizontally at house breakpoints.",
-  "NUA302": "Rendered text must satisfy WCAG AA contrast thresholds.",
-  "NUA303": "Interactive targets must be >= 24x24 px at desktop widths and >= 44x44 px at 360 px mobile width.",
-  "NUA304": "Rendered controls and images must expose non-empty accessible names.",
-  "NUA305": "Document heading levels (<h1>-<h6>) must not skip hierarchy levels.",
-  "NUA306": "Pages must expose a <main> landmark and a non-empty <title>.",
-  "NUA307": "Visible sibling elements must not collide or overlap in rendered layout.",
-  "NUA308": "Clipped text elements must provide a title or aria-label when truncated.",
-  "NUA309": "Modal dialogs and drawers must trap focus and expose an accessible close control.",
+  *RULE_DESCRIPTIONS,
 }
 NONUU_MARKER_RE = re.compile(r"\bnonuu:[ \t]*(.*?)(?=-->|\*/|;|\s|$|\bnonuu:)")
 DEVIATION_MARKER_RE = re.compile(
@@ -787,6 +858,9 @@ def browser(args):
       )
     if result.get("findings"):
       result["status"] = "findings"
+  for finding in result.get("findings", []):
+    if isinstance(finding, dict):
+      enrich_finding_rule(finding)
   return result
 
 
