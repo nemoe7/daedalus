@@ -486,4 +486,31 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
   expect(trashBox.width).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR_PX);
   expect(trashBox.height).toBeGreaterThanOrEqual(TOUCH_TARGET_FLOOR_PX);
   expect(Math.abs(trashBox.width - trashBox.height)).toBeLessThanOrEqual(SYMMETRY_TOLERANCE_PX);
+
+  for (const [route, sel] of [
+    ["#/models", 'section[data-page="models"] .toolbar'],
+    ["#/requests", 'section[data-page="requests"] .requests-bar'],
+    ["#/limits", 'section[data-page="limits"] > .editbar'],
+  ]) {
+    await open(page, route, 390, 844);
+    const card = await page.locator(sel).evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        tl: s.borderTopLeftRadius,
+        tr: s.borderTopRightRadius,
+        bl: s.borderBottomLeftRadius,
+        br: s.borderBottomRightRadius,
+        bt: s.borderTopWidth,
+        bb: s.borderBottomWidth,
+      };
+    });
+    expect(card).toEqual({
+      tl: "10px",
+      tr: "10px",
+      bl: "10px",
+      br: "10px",
+      bt: "1px",
+      bb: "1px",
+    });
+  }
 });

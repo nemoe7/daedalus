@@ -5667,11 +5667,14 @@ def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   ).read_text(encoding="utf-8")
   phone = re.search(r"@media \(max-width: 40em\) \{(.*?)\n\}", css, re.DOTALL)
   assert phone, "the phone media query holds the bar rules"
-  bar = re.search(
+  assert not re.search(
     r'section\[data-page="requests"\] \.requests-bar \{([^}]*)\}', phone.group(1)
+  ), "the requests bar keeps its shared rounded editbar card on mobile"
+  models_bar = re.search(
+    r'section\[data-page="models"\] \.toolbar \{([^}]*)\}', phone.group(1)
   )
-  assert bar and "padding: 3px 3px 8px;" in bar.group(1), (
-    "the requests bar keeps the same room over its rule as the keys and models bars"
+  assert models_bar and "border-radius: var(--radius);" in models_bar.group(1), (
+    "the mobile models toolbar renders as a rounded card"
   )
   panel = re.search(r"\.panel:has\(> \.requests\) \{([^}]*)\}", phone.group(1))
   assert panel and "margin-top: 0;" in panel.group(1), (
@@ -6382,9 +6385,9 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
       " padding: 0; border: 0; width: auto; }"
     ),
     ".keys tr > td:nth-child(4) { grid-column: 1; grid-row: 2; align-items: center; }",
-    'section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }',
     "#new-key { padding: 3px 3px 8px; }",
-    '[data-page="models"] .toolbar { padding: 3px 3px 8px; }',
+    'section[data-page="models"] .toolbar {',
+    "border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;",
     ".notification-item { padding: 14px 16px; }",
     ".toolbar input:focus-visible, .toolbar select:focus-visible,",
   ):

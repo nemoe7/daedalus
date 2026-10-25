@@ -1173,11 +1173,7 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   section[data-page="requests"] > .flow > .column:not(.wide) { flex: none; width: 100%; min-height: 0; }
   section[data-page="requests"] .legend { align-self: stretch; }
   .panel:has(> .requests) { overflow-x: auto; }
-  .requests-bar {
-    flex-wrap: wrap; background: transparent; border: 0; border-bottom: 1px solid var(--line);
-    border-radius: 0; padding: 0;
-  }
-  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
+  .requests-bar { flex-wrap: wrap; }
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
   .requests-bar input[type=search] { flex: 1 1 10rem; min-width: 0; }
   .requests-bar .live-toggle, .requests-bar .legend-open { flex: 0 0 auto; }
@@ -1223,8 +1219,6 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .field.info .hint { display: grid; place-items: center; }
   .fold summary .hint { width: 22px; height: 22px; font-size: 12px; }
   .field.info small { display: none; }
-  /* Reserve 3px corner clearance and 8px bottom space inside the mobile Requests bar. */
-  section[data-page="requests"] .requests-bar { padding: 3px 3px 8px; }
   /* A ring that draws outside a flush control is cut by the panel edge, so a phone draws it inside. */
   .toolbar input:focus-visible, .toolbar select:focus-visible,
   .requests-bar input:focus-visible, .requests-bar select:focus-visible { outline-offset: -2px; }
@@ -1325,10 +1319,11 @@ section[data-page="limits"] > .editbar .ghost { padding: 3px 12px; }
   .models .cell-value { min-width: 0; text-align: left; }
   .models td.name .cell-value { display: block; }
   .models .weight { width: auto; }
-  /* The form row and the Models bar ride on the page rail, with their bottom padding. The 3px of
-     room at the top left corner keeps the panel corner off the field and off its focus ring. */
+  /* Keep #new-key on its bottom divider and turn the Models toolbar into a rounded card. */
   #new-key { padding: 3px 3px 8px; }
-  [data-page="models"] .toolbar { padding: 3px 3px 8px; }
+  section[data-page="models"] .toolbar {
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
+  }
   .notification-item { padding: 14px 16px; }
   .notification-feed > .more { padding: 16px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
