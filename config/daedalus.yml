@@ -5,7 +5,7 @@
 # privacy: # nonemo: NMP101
 #   forward_owui_chat_id: false
 
-# The hook files of the repo. The Settings page lists them and takes the selected 1s.
+# The hook files of the repo. The Settings page lists them and takes the selected 1s. # nonemo: NMO902
 hooks:
   sources:
     - repo: nemoe7/daedalus
