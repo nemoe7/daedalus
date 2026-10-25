@@ -26,7 +26,8 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      # The script is stdlib plus the test client, and the page shows this version.
+      # pages_demo.py renders static pages with stdlib modules and FastAPI TestClient.
+      # DEMO_VERSION stamps demo.<run_number> in the rendered UI.
       - uses: astral-sh/setup-uv@v10.3.2
         with:
           version: "0.13.5"
