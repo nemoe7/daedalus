@@ -11,6 +11,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
 | `survey [-i, --smallest-image] [<json>]` | Show the instructions, questions, and ordered JSON schema, or print the smallest repo image path with `-i, --smallest-image`. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
 | `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
+| `agents [<path>]` | List `AGENTS.md` paths from the repository root through the target directory or file path |
 | `note list [-p, --page N] [-s, --page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |
 | `note show <id>` | Reread a stored note by its six or full characters; a short ID that matches several notes prints every match |
 | `key` | Print the recorded agent key, host and stamp; breaks while the preview server is not up, and a later session recovers the key after acknowledging the quiet note |
@@ -20,7 +21,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `worktree start [-g, --gate <gate-name>] [-a, --allow <glob>] <name> <destination>` | Create a detached task worktree outside the root, beside a named root gate when one runs |
 | `worktree collect <name>` | Print the allowed detached-worktree patch after a green root gate |
 | `ack <markdown>` | Omit IDs only when exactly one non-quiet note or report answer is pending. Supply one Markdown text. With multiple pending items, supply the ID |
-| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `-i, --id`, `-t, --title`, `-T, --type`, and repeatable `-d, --detail` to create its linked task atomically |
+| `ack <id> <markdown>` | Answer one delivered ID with a rendered reply; single-quote inline text. Add `-i, --id`, `-t, --title`, `-T, --type`, `-S, --scope <scope>`, and repeatable `-d, --detail` to create its linked task atomically |
 | `task list [-f, --full]` | List upcoming task IDs, order, status, report links, set type marks and each linked report answer with its stamp and text. With `-f`, include finished tasks. Use task ID for details |
 | `task show ID` | Print one stored task: its title, status, order, primary type when set, report link, blocked mark and every detail |
 | `task set ID TITLE [DETAIL ...]` | Add or update a task; every task carries at least one detail, and reject a write that leaves none; one task holds one job, so several jobs mean several tasks rather than one task with many details; `-m, --msg-id` is optional and only a note-born or report-born task carries it; `-u, --unblocked` clears a report wait. |
@@ -40,6 +41,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `report state` | Print publication, owner view stamp, staleness and answer visibility for one report or all |
 | `rename <id> <new-id>` | Rename one stored note, report answer, report or task in place, so its answers, order and stamps survive |
 | `state clear` | Empty every state table in place; preserve the agent key, refresh the save file to match, and keep a running server's recorded port |
+| `GET / POST /api/board` | Read or update the multi-session board (`action`: `sync`, `allow`, `revoke`, `set-main`, `heartbeat`, `post`, `wake`, or `clear`) |
 
 - Every command except `init` and `serve` breaks with a restart line while no preview answers, so the agent starts the server first.
 - Use complete IDs in CLI calls; cite their first six characters in prose.
@@ -56,3 +58,17 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 Refer to a note in prose by the first six characters of its ID. Use the full ID in CLI calls. Check a note reference against the ID returned by `read` before sending it.
 
 When an acknowledgement refers to a report or task, use `ack` and put its exact full ID in inline backticks; the six-character shortening applies to note IDs only. Use IDs unique across notes, reports and tasks so the client can link them; `publish` and `task` refuse an ID the other holds.
+
+## Multi-session board (`/api/board`)
+
+`GET /api/board` returns the current `allowlist`, `main_session_id`, `sessions`, `entries`, and `wake_stamps`. `POST /api/board` accepts JSON with `action` set to `sync`, `allow`, `revoke`, `set-main`, `heartbeat`, `post`, `wake`, or `clear`.
+
+```bash
+curl -s -X POST http://127.0.0.1:8000/api/board \
+  -H 'Content-Type: application/json' \
+  -d '{"action":"post","session_id":"<sid>","to":"<target>","payload":{"text":"hi"}}'
+```
+
+- Only allowlisted sessions can post entries, send file attachments, or update heartbeats (`allow` and `revoke` manage the allowlist).
+- `set-main` designates the main session (`main_session_id`); worker sessions hand off findings to the main session instead of committing or pushing.
+- `wake` records a wake stamp for the target session or all polling sessions, which wakes `arena-preview poll` (`BOARD WAKE`) without arming `skip_poll`.

@@ -1,6 +1,8 @@
-# Relative Timestamps Recipe
+# Recipe: Relative timestamps
 
-Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested.
+Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested. Keep the surrounding text face, and add `font-variant-numeric: tabular-nums` where stamps stack in a column.
+
+![Relative Timestamps Dark-Mode Example](../examples/relative-timestamps.png)
 
 | Unit | Singular (1) | Plural (2+) | Abbreviated |
 | --- | --- | --- | --- |
@@ -12,6 +14,8 @@ Format relative timestamps with the singular, plural, and abbreviated forms belo
 | week | last week | X weeks ago | Xwk ago |
 | month | last month | X months ago | Xmo ago |
 | year | last year | X years ago | Xyr ago |
+
+Use the abbreviated column on a phone, or wherever the stamp shares a line with a name. Use the full form where the line has room. A `title` carries the full form when the visible text is abbreviated.
 
 ## Reference implementation
 

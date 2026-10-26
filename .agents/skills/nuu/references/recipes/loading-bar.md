@@ -1,8 +1,13 @@
-# Recipe: Loading bar — Render a subtle 2px edge loading bar after a 200ms delay with `aria-busy="true"` on the loading region, compositor-only `transform`/`opacity` motion, a fixed-slot spinner or pulsing dot for inline controls awaiting a fetch, and a static `prefers-reduced-motion` fallback; use a loud bar only when requested.
+# Recipe: Loading bar and fixed-slot control loading
+
+Render a subtle `2px` edge loading bar after a `200ms` delay with `aria-busy="true"` on the loading region, compositor-only `transform`/`opacity` motion, and a fixed `16x16 px` indicator slot (`8x8 px` `.dot` or `14x14 px` `.btn-spinner`) centered with the label inside inline controls so switching between idle and loading causes `0 px` width or height shift (`NUA309`, `NUL005`).
+
+![Loading Bar Dark-Mode Example](../examples/loading-bar.png)
 
 ## Rules
 
-- Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; for a button or compact control awaiting a fetch, render either a `16px` compositor-rotated spinner or a `6px` pulsing dot inside the existing glyph slot with `aria-busy="true"` and locked dimensions (`NUA309`, `NUL005`); use an in-flow loud `<progress>` bar only when requested.
+- Keep a fixed `16x16 px` indicator slot (`8x8 px` `.dot` or `14x14 px` `.btn-spinner`) centered with the label inside controls so switching between idle and loading (`aria-busy="true"`) causes `0 px` width or height shift (`NUA309`, `NUL005`).
+- Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; use an in-flow loud `<progress>` bar only when requested.
 - Delay visual appearance by `200ms` (`150–300ms`) so fast operations complete without flashing a transient indicator.
 - Set `aria-busy="true"` on the region whose content is being updated (`section`, `article`, or `main`) while loading and reset to `aria-busy="false"` in `finally`; never put `role="progressbar"` on a decorative edge pseudo-element.
 - Grow the bar from left to right with `transform-origin: left center` and `transform: scaleX(...)` instead of a pulsing sweep. Animate only compositor properties (`transform` and `opacity`), never `width`, `left`, or `margin`, so layout never reflows during loading.
@@ -68,9 +73,16 @@ async function loadPanel(panel, task) {
 }
 ```
 
-## Inline button or compact control loading (spinner or pulsing dot)
+## Inline button or compact control loading (fixed `16x16 px` slot)
 
 ```css
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
 .btn .ico-slot {
   display: inline-grid;
   place-items: center;
@@ -79,15 +91,15 @@ async function loadPanel(panel, task) {
   flex: none;
 }
 
-.btn[aria-busy="true"] .spinner {
-  width: 16px;
-  height: 16px;
+.btn[aria-busy="true"] .btn-spinner {
+  width: 14px;
+  height: 14px;
   animation: nuu-spin 0.8s linear infinite;
 }
 
 .btn[aria-busy="true"] .dot {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: currentColor;
   animation: pulse 1.4s ease-in-out infinite;
@@ -100,7 +112,7 @@ async function loadPanel(panel, task) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn[aria-busy="true"] .spinner,
+  .btn[aria-busy="true"] .btn-spinner,
   .btn[aria-busy="true"] .dot {
     animation: none;
   }

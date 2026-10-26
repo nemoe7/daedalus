@@ -19,29 +19,32 @@
   --warn: #8a5a00;
   --ok: #1c7a3f;
   --focus: #2b53d6;
-  --scrollbar-thumb: #c8c8d0;
+  --scrollbar-thumb: #302e2c;
 
-  /* Type: one family, three weights, a short ramp */
+  /* Type: one family, four weights, a seven-step ramp */
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
-  --size-10: 10px;
+  --size-11: 11px;
   --size-12: 12px;
-  --size-13: 13px;
   --size-14: 14px;
-  --size-15: 15px;
   --size-16: 16px;
-  --size-20: 20px;
+  --size-18: 18px;
+  --size-22: 22px;
   --size-28: 28px;
   --eyebrow: 11px;
   --weight-regular: 400;
-  --weight-medium: 600;
-  --weight-strong: 800;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-strong: 700;
 
   /* Space: one 4 px default scale (8 px when opted in), and the sizes built on it */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
   --row: 32px;
   --radius: 6px;
   --shadow: none;
@@ -52,7 +55,7 @@
 
   /* Motion: one curve, one band */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --fast: 160ms;
+  --fast: 150ms;
   --slow: 220ms;
 }
 
@@ -102,7 +105,7 @@
   --warn: #8a5a00;
   --ok: #1c7a3f;
   --focus: #2b53d6;
-  --scrollbar-thumb: #c8c8d0;
+  --scrollbar-thumb: #302e2c;
 }
 
 :root[data-theme="dark"] {
@@ -145,7 +148,7 @@ body {
   margin: 0;
   color: var(--muted);
   font-size: var(--eyebrow);
-  font-weight: var(--weight-medium);
+  font-weight: var(--weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -159,8 +162,8 @@ body {
 
 .panel-title {
   margin: 0;
-  font-size: var(--size-20);
-  font-weight: var(--weight-medium);
+  font-size: var(--size-22);
+  font-weight: var(--weight-semibold);
 }
 
 .body {
@@ -169,7 +172,7 @@ body {
 
 .meta {
   color: var(--muted);
-  font-size: var(--size-13);
+  font-size: var(--size-12);
 }
 
 .id,
@@ -177,18 +180,18 @@ body {
 .age {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--size-13);
+  font-size: var(--size-12);
 }
 
 /* Breakpoints: em, so layouts follow the reader's browser font size.
-   40em = 640px, 60em = 960px, 75em = 1200px width, and 30em = 480px max-height at a 16px initial size. */
+   30em = 480px, 60em = 960px, 68em = 1088px width, and 24em = 384px max-height at a 16px initial size. */
 .page {
   max-width: var(--column);
   margin: 0 auto;
   padding: 0 var(--gutter);
 }
 
-@media (max-width: 75em) {
+@media (max-width: 68em) {
   .page {
     padding: 0 var(--space-3);
   }
@@ -200,7 +203,7 @@ body {
   }
 }
 
-@media (max-width: 40em) {
+@media (max-width: 30em) {
   .page {
     padding: 0 var(--space-2);
   }
@@ -214,7 +217,7 @@ body {
   }
 }
 
-@media (max-height: 30em) {
+@media (max-height: 24em) {
   .page {
     padding: 0 var(--space-2);
   }
@@ -222,8 +225,8 @@ body {
 
 /* Controls */
 .button {
-  min-height: var(--touch);
-  min-width: var(--touch);
+  min-height: var(--row);
+  min-width: var(--row);
   padding: 0 var(--space-2);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -238,10 +241,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--touch);
-  height: var(--touch);
-  min-width: var(--touch);
-  min-height: var(--touch);
+  width: var(--row);
+  height: var(--row);
+  min-width: var(--row);
+  min-height: var(--row);
   aspect-ratio: 1;
   padding: 0;
   border: 1px solid var(--line);
@@ -305,7 +308,7 @@ body {
 
 :focus-visible {
   outline: var(--focus-ring) solid var(--focus);
-  outline-offset: 0;
+  outline-offset: 2px;
 }
 
 :root:not([data-keyboard-nav="true"]) :focus-visible {
@@ -322,8 +325,10 @@ body {
   border-bottom: 1px solid var(--line);
 }
 
-.row:hover {
-  background: var(--surface);
+@media (hover: hover) and (pointer: fine) {
+  .row:hover {
+    background: var(--surface);
+  }
 }
 
 .panel {
@@ -363,7 +368,7 @@ body {
   border-radius: var(--radius);
   background: var(--surface-2);
   color: var(--text);
-  font-size: var(--size-13);
+  font-size: var(--size-12);
 }
 
 .pill::before {
@@ -444,7 +449,12 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: var(--space-1);
+  border-radius: var(--space-2);
+}
+
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover,
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:active {
+  background: var(--focus);
 }
 
 ::-webkit-scrollbar-button {

@@ -1,83 +1,101 @@
 # Examples
 
-One pair per clause. The left panel is correct, the right panel is incorrect, and each pair comes from one stylesheet with one deliberate difference. A vision-capable model reads the images; a text model reads the clause and `style.css`.
+One dark-mode UI pair per visual clause, recipe, and audit rule. The left card (`PASS`) follows the house sheet and recipes; the right card (`FAIL`) shows the corresponding anti-pattern.
 
-The files sit in `examples/` beside this page.
+The image files sit in `examples/` beside this page.
 
-## 1. One glyph, one path
+## 1. One glyph ladder, one grid
 
-Correct: one lucide chevron on its 24 px grid, stroked at 2, and a word where no glyph exists. Incorrect: a second icon set, filled, and a missing glyph drawn as a box.
+Pass: Lucide chevron on its `24x24` grid (`stroke-width="2"`) and a plain text label when no glyph exists. Fail: a filled non-provider wedge and a missing-glyph box (`NUI001`).
 
 ![Clause 1](examples/one-glyph-one-path.png)
 
 ## 2. One icon size per surface
 
-Correct: every glyph at 18 px, so the buttons keep one height and one baseline. Incorrect: 14, 18, and 24 px on one row.
+Pass: every toolbar glyph at `16x16 px` (`20x20 px` for standalone hero icons only) so buttons keep one height and baseline. Fail: mixed `14`, `18`, and `24 px` icons on one row (`NUI003`).
 
 ![Clause 2](examples/one-icon-size-per-surface.png)
 
 ## 3. Colour is named by its job
 
-Correct: the same pixels asked for by role. Incorrect: the same pixels frozen as hex literals, which dark mode leaves behind.
+Pass: semantic role tokens (`--bg`, `--surface`, `--accent`, `--text`). Fail: hardcoded hex literals inside component rules (`NUL002`).
 
 ![Clause 3](examples/colour-by-role.png)
 
 ## 4. One role set feeds both schemes
 
-Correct: one component resolving in light and dark, with System as a real choice. Incorrect: two hand-made palettes that drift until the dark card loses its label.
+Pass: `:root` + `@media (prefers-color-scheme: dark)` + `:root[data-theme]` with a 3-way theme selector (`System`, `Light`, `Dark`) and centered Lucide `monitor`, `sun`, and `moon` glyphs. Fail: a binary toggle that overrides the OS preference.
 
 ![Clause 4](examples/one-role-set-both-schemes.png)
 
-## 5. A short type ramp in one family
+## 5. Seven-step type ramp and bundled fonts
 
-Correct: four sizes from the ramp, three weights, and a tabular ID. Incorrect: sizes that appear nowhere, a weight the family does not pair, and a proportional ID.
+Pass: `11, 12, 14, 16, 18, 22, and 28 px` sizes, weights `400, 500, 600, 700`, `11 px` uppercase `.eyebrow`, and tabular monospace IDs (`NUM202`). Fail: off-ramp `15 px` body, weight `800`, and proportional IDs.
 
 ![Clause 5](examples/short-type-ramp.png)
 
-## 6. One spacing scale
+## 6. Four-pixel spacing scale and concentric radii
 
-Correct: every gap on the 8 px scale, a 40 px row, a 10 px radius, no shadow, a 44 px target. Incorrect: three off-scale sizes and a shadow.
+Pass: `4 px` scale (`4, 8, 12, 16, 24, 32, 48 px`), `32 px` row, `6 px` radius, no box-shadow, and `32x32 px` symmetric icon buttons (`>= 24x24 px` floor, `NUA303`). Fail: off-scale `13 px` gap, `9 px` radius, drop shadow, and `18x18 px` icon button.
 
 ![Clause 6](examples/one-spacing-scale.png)
 
-## 7. Named breakpoints
+## 7. Compact named breakpoints
 
-Correct: 75em, 60em, and 40em width plus 30em max-height with one deliberate change each. Incorrect: a 742 px width with its own behaviour, and a table that overflows at 360 px.
+Pass: `68em` (`1088px`), `60em` (`960px`), and `30em` (`480px`) width plus `24em` (`384px`) max-height in `em` with `0 px` horizontal overflow (`NUB101`). Fail: arbitrary pixel breakpoints and clipped mobile tables.
 
 ![Clause 7](examples/three-named-breakpoints.png)
 
 ## 8. One motion curve
 
-Correct: the same curve and band on every transition, and the end state under reduced motion. Incorrect: a second curve at 400 ms that ignores the preference.
+Pass: `cubic-bezier(0.22, 1, 0.36, 1)` over `100-150 ms` for hover/press and `160-220 ms` for panels with vendored GSAP and `prefers-reduced-motion: reduce`. Fail: a `450 ms` overshoot spring that ignores reduced motion (`NUA306`).
 
 ![Clause 8](examples/one-motion-curve.png)
 
-## 9. Every state is drawn
+![Clause 8 Animated](examples/one-motion-curve.gif)
 
-Correct: default, hover, focus, active, disabled, and loading on one control, plus empty, failed, and offline on the list. Incorrect: two states, with hover bound to a touch surface.
+## 9. Every control and list state is drawn
+
+Pass: default, hover, `:focus-visible` (`2 px` solid `var(--focus)` with `2 px` offset), active, disabled, and fixed-slot loading (`NUA304`, `NUA307`, `NUA309`). Fail: `outline: none` and hover rules that grow control dimensions (`NUL003`, `NUL005`).
 
 ![Clause 9](examples/every-state-drawn.png)
 
-## 10. A write shows its row at once
+## 10. Optimistic writes and page memory (`recipes/page-memory.md`)
 
-Correct: the pending row appears before the reply, and one retry keeps one row. Incorrect: a frozen form, then a duplicate row after the retry.
+Pass: immediate pending row reconciled under the same ID, with tab/filter/draft state persisted in URL query parameters or `localStorage`. Fail: frozen form, duplicate row on retry, and lost view state on reload.
 
 ![Clause 10](examples/write-shows-its-row.png)
 
-## 11. The design document lives in each repository
+## 12. Measure across house viewports before landing
 
-Correct: `docs/design.md` in the repository, edited in the same change. Incorrect: one copy that ships with the skill and describes no page.
-
-![Clause 11](examples/design-document-per-repository.png)
-
-## 12. Measure before landing
-
-Correct: a measured row at 1280 and 360, with the values beside the sheet. Incorrect: one width, read by eye.
+Pass: computed padding, gap, font size, and contrast verified at `1920x957`, `1080x2437`, `958x958`, `411x799`, and `855x325`. Fail: single desktop width checked by eye.
 
 ![Clause 12](examples/measure-before-landing.png)
 
-## 13. A new pattern needs an entry and a shot
+## 13. A new pattern ships with its spec entry and viewport shots
 
-Correct: the pattern, both widths, and the screenshots in one pull request. Incorrect: a pattern that shipped on one page and appears nowhere else.
+Pass: `docs/design.md` entry, recipe, and all five house viewport screenshots in one PR. Fail: one-off page widget missing from `docs/design.md`.
 
 ![Clause 13](examples/new-pattern-entry-and-shot.png)
+
+## Recipe and Audit-Rule Examples
+
+- **Modal `.close-button` and confirmation (`recipes/modal-manager.md`):**
+  ![Modal Close Button](examples/modal-close-button.png)
+  ![Modal Autofocus](examples/modal-autofocus.png)
+  ![Modal Close States](examples/modal-close-states.png)
+- **Range sliders (`recipes/range-sliders.md`):**
+  ![Range Sliders](examples/range-sliders.png)
+- **Relative timestamps (`recipes/relative-timestamps.md`):**
+  ![Relative Timestamps](examples/relative-timestamps.png)
+- **Fixed-slot loading (`recipes/loading-bar.md`):**
+  ![Loading Bar](examples/loading-bar.png)
+- **Scrollbars (`recipes/scrollbars.md`):**
+  ![Scrollbars](examples/scrollbars.png)
+- **Overflow and anti-clipping (`recipes/overflow-and-clipping.md`):**
+  ![Overflow and Clipping](examples/overflow-and-clipping.png)
+- **Live dot (`recipes/live-dot.md`):**
+  ![Live Dot](examples/live-dot.png)
+- **Measure and density rules (`NUM201`–`NUM208`):**
+  ![NUM201-NUM204](examples/rule-num201-204.png)
+  ![NUM205-NUM208](examples/rule-num205-208.png)

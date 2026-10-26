@@ -35,5 +35,6 @@ test-helpers = []
 [lint]
 select = ["ALL"]
 ignore = []
+nmu100_max_words = 6
 
 [lint.per-file-ignores]

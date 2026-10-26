@@ -1,0 +1,27 @@
+# Dedicated nuu skill configuration (skills/refs/nuu/nuu.toml).
+# Uses nuu's own house stylesheet and tokens (references/style.css).
+
+[design]
+path = "SKILL.md"
+
+[fonts]
+sans = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif'
+mono = '"Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace'
+files = []
+
+[annotate]
+scale = 2
+renderer = "auto"
+
+[board]
+stylesheet = "references/style.css"
+columns = 2
+scale = 2
+wireframe = false
+
+[audit]
+named_breakpoints = ["68em", "60em", "30em", "24em"]
+viewports = ["1920x957", "1080x2437", "958x958", "855x325", "411x799"]
+widths = [1920, 1080, 958, 855, 411]
+report_widths = [1920, 411]
+wireframe = false

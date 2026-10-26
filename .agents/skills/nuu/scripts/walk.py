@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -215,6 +216,12 @@ def build_parser() -> argparse.ArgumentParser:
     default=Path("/tmp/walk"),
     help="Directory where step or view PNGs are written.",
   )
+  parser.add_argument(
+    "-x",
+    "--executable",
+    default=os.environ.get("CHROMIUM_PATH") or None,
+    help="Optional browser executable path (defaults to CHROMIUM_PATH if set).",
+  )
   return parser
 
 
@@ -229,11 +236,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     return 1
 
   args.out.mkdir(parents=True, exist_ok=True)
+  launch_opts: dict[str, Any] = {"headless": True}
+  if args.executable:
+    launch_opts["executable_path"] = str(args.executable)
   with sync_playwright() as pw:
-    browser = pw.chromium.launch(headless=True)
+    browser = pw.chromium.launch(**launch_opts)
     try:
       if args.views:
-        context = browser.new_context(viewport={"width": 1280, "height": 800})
+        context = browser.new_context(
+          viewport={"width": 1280, "height": 800},
+          color_scheme="dark",
+        )
         page = context.new_page()
         walker = Walker(page, demo)
         custom_capture = getattr(module, "capture_views", None) if module else None
@@ -249,7 +262,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
       def make_page(viewport: tuple[int, int]) -> Any:
         ctx = browser.new_context(
-          viewport={"width": viewport[0], "height": viewport[1]}
+          viewport={"width": viewport[0], "height": viewport[1]},
+          color_scheme="dark",
         )
         return ctx.new_page()
 

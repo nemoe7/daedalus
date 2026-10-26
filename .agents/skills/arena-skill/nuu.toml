@@ -1,0 +1,26 @@
+# Dedicated arena-skill preview configuration (skills/refs/arena-skill/nuu.toml).
+
+[design]
+path = "SKILL.md"
+
+[fonts]
+sans = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif'
+mono = '"Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace'
+files = []
+
+[annotate]
+scale = 2
+renderer = "auto"
+
+[board]
+stylesheet = "assets/style.css"
+columns = 2
+scale = 2
+wireframe = false
+
+[audit]
+named_breakpoints = ["68em", "60em", "30em", "24em"]
+viewports = ["1372x883", "855x325", "411x799"]
+widths = [1372, 855, 411]
+report_widths = [1372, 411]
+wireframe = false

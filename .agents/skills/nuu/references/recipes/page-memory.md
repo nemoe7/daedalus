@@ -1,20 +1,29 @@
-# Recipe: Page memory
+# Recipe: Page memory and optimistic writes
 
-Three memories live in a `Map` or a field on page state, none in storage. A list, report, or detail page keys on the content version, such as the branch tip or `updated_at` stamp, so a stale key misses on its own and switching back to an unchanged view paints immediately without refetching. A settings answer paints at once before the loading bar shows, and a fresh read replaces it only when it differs; an optimistic write applies its pending state immediately and reconciles with the server receipt under the same ID. A Reload button passes `fresh`.
+Show optimistic write rows immediately, key in-memory page caches on content version (`branch tip` or `updated_at`), and persist active view state (selected tab, filter, sort, scroll position, and unsent draft text) in URL query parameters or `localStorage` so reloads and tab switches never lose context.
 
-A test counts requests and asserts that a known paint lands before its answer.
+![Page Memory Dark-Mode Example](../examples/write-shows-its-row.png)
+
+## Rules
+
+- Every write shows its pending row or state immediately with a client-generated request ID, reconciles in place when the server replies, and reuses the same ID on retry so duplicate rows never appear.
+- Key list, report, and detail caches in a `Map` on the content version (`repo/ref/tip/cursor` or `updated_at`) so unchanged views paint immediately and stale keys miss automatically; pass `fresh: true` only on explicit Reload.
+- Persist view state (selected tab, search/filter query, sort order, and unsent form drafts) in URL query parameters (`?tab=...`) or `localStorage`, and restore it before first paint on reload.
+
+## Reference implementation
 
 ```js
 const COMMIT_PAGES = 60;
 const commitPages = new Map();
-// the key names the repo, the ref, the tip, and the cursor, so a moved tip misses
+
 function commitKey(cursor) {
   const s = state.repo?.status || {};
   const ref = selectedArena(s);
   const tip = ref ? (s.tips || {})[ref] : (s.head || "").split("\t")[0];
   return tip ? `${state.repo.id}/${ref || "HEAD"}/${tip}/${cursor || ""}` : "";
 }
-async function commitPage(url, cursor, fresh) {
+
+async function commitPage(url, cursor, fresh = false) {
   const key = commitKey(cursor);
   if (key && !fresh && commitPages.has(key)) return commitPages.get(key);
   const data = await api(url);
@@ -24,13 +33,22 @@ async function commitPage(url, cursor, fresh) {
   return data;
 }
 
-// paint the known answer, read the fresh one, and re-render only on a difference
-const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-async function renderSettings() {
-  const known = state.settings;
-  if (known) render();
-  state.settings = await api("/api/settings");
-  if (known && same(known, state.settings)) return;
+// Optimistic write with idempotent retry under one client ID
+async function submitItem(text, clientId = crypto.randomUUID()) {
+  let row = state.items.find(item => item.clientId === clientId);
+  if (!row) {
+    row = { clientId, text, status: "saving" };
+    state.items.unshift(row);
+  } else {
+    row.status = "saving";
+  }
+  render();
+  try {
+    const saved = await api("/api/items", { method: "POST", body: { clientId, text } });
+    Object.assign(row, saved, { status: "ok" });
+  } catch (err) {
+    row.status = "failed";
+  }
   render();
 }
 ```

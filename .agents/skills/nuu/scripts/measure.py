@@ -29,8 +29,9 @@ from pathlib import Path
 DEFAULT_SHEET = Path(__file__).resolve().parent.parent / "references" / "style.css"
 DEFAULT_SCALE = 4
 MIN_INK_RATIO = 0.75
+MAIN_MIN_INK_RATIO = 0.40
 MAX_SIBLING_GAP = 320.0
-MAX_CONTROL_WIDTH = 480.0
+MAX_ROW_SLACK = 24.0
 TOOLBAR_TAGS = {"header", "nav", "footer"}
 TOOLBAR_ROLES = {"banner", "toolbar", "navigation", "menubar", "tablist"}
 TOOLBAR_NAME_RE = re.compile(
@@ -48,7 +49,10 @@ STRETCH_EXEMPT_INPUTS = {
 }
 PX = re.compile(r"^(-?\d+(?:\.\d+)?)px$")
 CUSTOM_PROPERTY = re.compile(r"--([a-z0-9-]+)\s*:\s*([^;]+);")
-TYPE_PROPERTIES = ("font-size", "line-height", "letter-spacing")
+TYPE_PROPERTIES = ("font-size", "letter-spacing")
+SPACING_PROPERTIES = ("padding", "margin", "gap", "row-gap", "column-gap")
+LAYOUT_PROPERTIES = ("border-radius",)
+RADIUS_SIZES = {4.0, 6.0, 10.0, 9999.0}
 
 
 def parse_sheet(text: str) -> dict[str, str]:
@@ -78,14 +82,12 @@ def on_scale(value: float, scale: float) -> bool:
   return math.isclose(value / scale, round(value / scale), abs_tol=1e-9)
 
 
-SPACING_PROPERTIES = ("padding", "margin", "gap", "row-gap", "column-gap")
-
-
 def off_scale(name: str, value: str, tokens: dict[str, str], scale: float) -> bool:
   """True when a px value is neither zero, on the scale, nor a size the sheet names for it.
 
   A spacing property reads the scale alone. A type size names a font size, and never
-  excuses a padding. Any other property may also take a layout size the sheet names.
+  excuses a padding. A layout property such as border-radius may take a size the sheet names.
+  Fluid box dimensions (width, height, line-height, outline-width) are not scale tokens.
   """
   match = PX.match(value.strip())
   if not match:
@@ -95,7 +97,11 @@ def off_scale(name: str, value: str, tokens: dict[str, str], scale: float) -> bo
     return False
   if name.startswith(SPACING_PROPERTIES):
     return True
-  return number not in named_sizes(tokens, ramp=name in TYPE_PROPERTIES)
+  if name in TYPE_PROPERTIES:
+    return number not in named_sizes(tokens, ramp=True)
+  if name.startswith(LAYOUT_PROPERTIES):
+    return number not in (named_sizes(tokens, ramp=False) | RADIUS_SIZES)
+  return False
 
 
 def check(
@@ -109,6 +115,18 @@ def check(
       if off_scale(name, str(value), tokens, scale):
         findings.append(f"{selector}: {name} is {value}, off the {scale:g} px scale")
   return findings
+
+
+def is_main_landmark(element: dict) -> bool:
+  """Return whether an element is a <main> or [role='main'] landmark."""
+  tag = str(element.get("tag") or "").lower()
+  if tag == "main":
+    return True
+  role = str(element.get("role") or "").lower()
+  if role == "main":
+    return True
+  selector = str(element.get("selector") or "").strip().lower()
+  return bool(re.match(r"^main(?=$|[.#\[:\s])", selector))
 
 
 def is_toolbar_or_header_bar(element: dict, height: float) -> bool:
@@ -163,14 +181,15 @@ def check_density(report: dict) -> list[dict]:
           raw_ratio = float(raw_ink) / width
       if raw_ratio is None:
         raw_ratio = None
-      if raw_ratio is not None and float(raw_ratio) < MIN_INK_RATIO:
+      min_ratio = MAIN_MIN_INK_RATIO if is_main_landmark(element) else MIN_INK_RATIO
+      if raw_ratio is not None and float(raw_ratio) < min_ratio:
         ratio = float(raw_ratio)
         findings.append(
           {
             "rule": "NUM205",
             "selector": selector,
             "evidence": (
-              f"{selector}: ink ratio is {ratio:.2f} (< {MIN_INK_RATIO:g})"
+              f"{selector}: ink ratio is {ratio:.2f} (< {min_ratio:.2f})"
               f" across {width:g} px"
             ),
             **b_extra,
@@ -195,16 +214,15 @@ def check_density(report: dict) -> list[dict]:
     input_type = str(
       element.get("input_type") or element.get("inputType") or "text"
     ).lower()
+    slack = float(element.get("row_slack", element.get("rowSlack", 0)) or 0)
     if (
       tag == "select" or (tag == "input" and input_type not in STRETCH_EXEMPT_INPUTS)
-    ) and width > MAX_CONTROL_WIDTH:
+    ) and slack > MAX_ROW_SLACK:
       findings.append(
         {
           "rule": "NUM207",
           "selector": selector,
-          "evidence": (
-            f"{selector}: control width is {width:g} px (> {MAX_CONTROL_WIDTH:g} px)"
-          ),
+          "evidence": (f"{selector}: input ends {slack:g} px before its row edge"),
           **b_extra,
         }
       )
@@ -323,7 +341,8 @@ def main(argv: list[str] | None = None) -> int:
   )
 
   density_command = commands.add_parser(
-    "density", help="Check row/card ink ratio, sibling gaps, and control width caps"
+    "density",
+    help="Check row/card ink ratio, sibling gaps, and form inputs that leave row space unused",
   )
   density_command.add_argument("report", type=Path)
   density_command.add_argument(

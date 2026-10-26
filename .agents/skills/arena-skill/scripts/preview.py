@@ -33,6 +33,7 @@ VIOLATION_NOTES="type NOT IN ('', 'survey', 'state-backup')"
 PENDING_SUBMISSIONS='acknowledged_at IS NULL AND seq IN (SELECT MAX(seq) FROM submissions GROUP BY report_id)'
 REPLY_REFERENCE=re.compile('^RE:\\s*([a-zA-Z0-9_-]{1,80}(?:/[a-zA-Z0-9_-]{1,80})?)(?:\\s|$)',re.IGNORECASE)
 MAX_REPORT=2000000
+MAX_FIELDS=24
 WS_TICK_SECONDS=.25
 WS_HEARTBEAT_SECONDS=10
 WS_IDLE_SECONDS=35
@@ -43,8 +44,8 @@ WORKSPACE_SKIP={'.arena','.cache','.git','.local','.mypy_cache','.next','.nox','
 FETCH_LEASE=timedelta(minutes=5)
 UPLOAD_DIR='uploads'
 FETCH_DIR='downloads'
-def read_set_files(root=None):
-	base=Path(root or Path.cwd()).resolve();cached=READ_SET_CACHE.get(base)
+def read_set_files(root=None,worker=False):
+	base=Path(root or Path.cwd()).resolve();cache_key=base,bool(worker);cached=READ_SET_CACHE.get(cache_key)
 	if cached is not None:return list(cached)
 	files=[]
 	if(base/'ARENA.md').is_file():files.append('ARENA.md')
@@ -53,8 +54,27 @@ def read_set_files(root=None):
 		if'AGENTS.md'in filenames:files.append((Path(dirpath)/'AGENTS.md').relative_to(base).as_posix())
 	for name in('.agents/skills/arena-skill/SKILL.md','skills/arena-skill/SKILL.md'):
 		if(base/name).is_file():files.append(name);break
-	READ_SET_CACHE[base]=tuple(files);return list(files)
-def workspace_usage(root=None):
+	if worker:
+		for name in('.agents/skills/arena-skill/WORKER.md','skills/arena-skill/WORKER.md'):
+			if(base/name).is_file():files.append(name);break
+	READ_SET_CACHE[cache_key]=tuple(files);return list(files)
+def state_dir_usage(state_dir=None):
+	root=Path(state_dir if state_dir is not None else resolve_state_dir());categories={'database':{'bytes':0,'files':0},'backups':{'bytes':0,'files':0},'uploads':{'bytes':0,'files':0},'downloads':{'bytes':0,'files':0},'runs':{'bytes':0,'files':0},'reports':{'bytes':0,'files':0},'other':{'bytes':0,'files':0}};total_bytes=0;total_files=0
+	if not root.is_dir():return{'bytes':0,'files':0,'categories':categories}
+	for(dirpath,_,filenames)in os.walk(root,followlinks=False):
+		rel_parts=Path(dirpath).relative_to(root).parts;top=rel_parts[0]if rel_parts else''
+		for name in filenames:
+			target=Path(dirpath)/name
+			try:size=target.stat().st_size
+			except OSError:continue
+			total_bytes+=size;total_files+=1
+			if not top and(name.startswith('state.sqlite3')or name=='display_tz'):bucket='database'
+			elif top in{'backups','uploads','downloads','runs'}:bucket=top
+			elif not top and name.endswith('.md'):bucket='reports'
+			else:bucket='other'
+			categories[bucket]['bytes']+=size;categories[bucket]['files']+=1
+	return{'bytes':total_bytes,'files':total_files,'categories':categories}
+def workspace_usage(root=None,state_dir=None):
 	root=Path(root or Path.cwd());total=0;count=0
 	for(dirpath,dirnames,filenames)in os.walk(root,followlinks=False):
 		dirnames[:]=[name for name in dirnames if name not in WORKSPACE_SKIP]
@@ -62,7 +82,7 @@ def workspace_usage(root=None):
 			try:total+=(Path(dirpath)/name).stat().st_size
 			except OSError:continue
 			count+=1
-	return{'bytes':total,'files':count,'documented_cap_bytes':SNAPSHOT_CAP_BYTES,'download_cap_bytes':None}
+	target_state=Path(state_dir)if state_dir is not None else root/'arena-state';return{'bytes':total,'files':count,'documented_cap_bytes':SNAPSHOT_CAP_BYTES,'download_cap_bytes':None,'arena_state':state_dir_usage(target_state)}
 FENCE=re.compile('^ {0,3}(`{3,}|~{3,})')
 CHOICE=re.compile('^\\s*[-*]\\s+\\(([ xX]?)\\)\\s+(\\S.*?)\\s*$')
 CHECKBOX=re.compile('^\\s*[-*]\\s+\\[([ xX]?)\\]\\s+(\\S.*?)\\s*$')
@@ -74,16 +94,25 @@ TASK_REMINDER='{remaining} tasks left.'
 def fill_reminder(tail,remaining):
 	if'{remaining}'in tail and remaining==0:return None
 	count=f"{remaining} task"if remaining==1 else f"{remaining} tasks";return tail.replace('{remaining} tasks',count)
-def reminder_tail(cursor,remaining,stale=0,unpushed=0):
+PRIVATE_BATCH_CAP=3
+REPO_PRIVATE_META='repo_private'
+def unpushed_reminder_text(unpushed,private=False):
+	if not unpushed:return''
+	prefix=f"{unpushed} commit/s unpushed."
+	if private:
+		if unpushed>=PRIVATE_BATCH_CAP:return f"{prefix} Batch cap ({PRIVATE_BATCH_CAP}) reached, so push now."
+		return f"{prefix} Private repo: push small batches (<={PRIVATE_BATCH_CAP}), and never starve pushes."
+	return f"{prefix} ALWAYS push. NEVER delay for batch."
+def reminder_tail(cursor,remaining,stale=0,unpushed=0,private=False):
 	for step in range(len(REMINDERS)):
 		tail=fill_reminder(REMINDERS[(cursor+step)%len(REMINDERS)],remaining)
 		if tail:
 			if tail=='Unpublish stale reports.'and stale:return f"Unpublish {stale} stale report{'s'if stale!=1 else''}."
-			if tail=='Always push.'and unpushed:return f"{unpushed} commit/s unpushed. ALWAYS push. NEVER delay for batch."
+			if tail=='Always push.'and unpushed:return unpushed_reminder_text(unpushed,private=private)
 			return tail
 	return REMINDERS[cursor%len(REMINDERS)]
 REMINDER_CHAR_CAP=88
-REMINDERS='Bible absent? MUST read ARENA.md, all AGENTS.md, arena-skill SKILL.md fully first.','`task list` first; update as work changes.','Smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Docs: terse, clear.','Questions: ASAP, in reports.','Publish reports.','Never end turn with unblocked tasks.','Unpublish stale reports.','End turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Before push: rebase `origin/main`; empty checks mean it moved.','Before pushed-turn end: check PR CI; read verdict on a later call, never loop.','Run `arena-preview`, not full path.','NEVER spam `run logs`.','`bash` starts at repo root; `cd` into it is redundant.'
+REMINDERS='Bible absent? MUST read ARENA.md, root AGENTS.md, arena-skill SKILL.md fully first.','`task list` first; update as work changes.','Smallest open task next.','Always push.','`ask_user` on GH_TOKEN failure.','Docs: terse, clear.','Questions: ASAP, in reports.','Publish reports.','Never end turn with unblocked tasks.','Unpublish stale reports.','End turn with `poll`.','Grep-verify each edit.',TASK_REMINDER,'Before push: rebase `origin/main`; empty checks mean it moved.','Before pushed-turn end: check PR CI; read verdict on a later call, never loop.','Run `arena-preview`, not full path.','NEVER spam `run logs`.','`bash` starts at repo root; `cd` into it is redundant.'
 REMINDER_CURSOR='reminder_cursor'
 POLLS_SINCE_MESSAGE='polls_since_message'
 GATE_THRESHOLD=6
@@ -132,7 +161,16 @@ def clear_skip_poll(db):db.execute('DELETE FROM meta WHERE key = ?',(SKIP_POLL_M
 def reset_poll_count(db):
 	if gate_pending_count(db)==1:db.execute("INSERT OR REPLACE INTO meta VALUES (?, '0')",(POLLS_SINCE_MESSAGE,))
 def meta_number(db,key):row=db.execute('SELECT value FROM meta WHERE key = ?',(key,)).fetchone();value=str(row[0])if row else'';return int(value)if value.isdigit()else 0
-def gate_pending_count(db):return db.execute(f"SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND blocking = 1) + (SELECT count(*) FROM submissions WHERE {PENDING_SUBMISSIONS})").fetchone()[0]
+def pending_board_entries_for_db(db,session_id=''):
+	row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone()
+	if not row or not row[0]:return[]
+	try:raw=json.loads(str(row[0]))
+	except Exception:return[]
+	if not isinstance(raw,dict):return[]
+	sid=board_session_id(session_id or raw.get('local_session_id')or workspace_branch())
+	if not sid:return[]
+	norm=normalize_board_state(raw,session_id=sid);return[entry for entry in norm.get('entries')or[]if isinstance(entry,dict)and entry.get('mention_target')==sid and not entry.get('acknowledged_at')]
+def gate_pending_count(db):base=db.execute(f"SELECT (SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND blocking = 1) + (SELECT count(*) FROM submissions WHERE {PENDING_SUBMISSIONS})").fetchone()[0];return base+len(pending_board_entries_for_db(db))
 def pr_state_warning(line):
 	def payload(text):
 		if text.startswith('@'):
@@ -518,13 +556,12 @@ def note_text(text):
 	return text
 CLAUSE_ACK=re.compile('([\\w./-]+\\.md):([0-9]+):\\s*\\S')
 def clause_ack_error(text,root=None):
-	base=Path(root or Path.cwd());files=read_set_files(base)
-	if not files:base=Path.cwd();files=read_set_files(base)
-	paths={Path(path).name:base/path for path in files}
+	base=Path(root or Path.cwd());files=read_set_files(base,worker=True)
+	if not files:base=Path.cwd();files=read_set_files(base,worker=True)
 	for match in CLAUSE_ACK.finditer(text or''):
-		path=paths.get(Path(match.group(1)).name)
-		if path is None or not path.is_file():continue
-		if int(match.group(2))<=len(path.read_text(encoding='utf-8').splitlines()):return''
+		cited=re.sub('^(?:\\./)+','',match.group(1));cited_name=Path(cited).name;line_no=int(match.group(2));candidates=[base/path for path in files if(path==cited or path.endswith(f"/{cited}")if'/'in cited else Path(path).name==cited_name)]
+		for path in candidates:
+			if line_no>0 and path.is_file()and line_no<=len(path.read_text(encoding='utf-8').splitlines()):return''
 	return'An ack of a violation note must name the clause as `file:ln: clause`, for example `ARENA.md:41: MUST read the bible`. The note stays pending.'
 def when(value):
 	try:datetime.fromisoformat(str(value))
@@ -748,7 +785,7 @@ def render_inline(markdown):
 	except ImportError:return html.escape(markdown)
 	parser=MarkdownIt('commonmark',{'html':False}).enable(['strikethrough']);highlight_markdown(parser);parser.add_render_rule('link_open',open_link);return parser.renderInline(markdown)
 def field_html(question):
-	prompt=html.escape(question['prompt'],quote=True);name=html.escape(question['id'],quote=True);body=f'<div class="question" data-field="{name}"';body+=f' data-type="{question["type"]}">';body+=f'<small class="question-id">Question ID: <code>{name}</code></small>'
+	prompt=html.escape(question['prompt'],quote=True);name=html.escape(question['id'],quote=True);body=f'<div class="question" id="report-question-{name}" data-field="{name}"';body+=f' data-type="{question["type"]}">';body+=f'<small class="question-id">Question ID: <code>{name}</code></small>'
 	if question['type']=='text':return f'{body}<textarea class="answer-text" rows="2" placeholder="Answer" aria-label="{prompt}"></textarea></div>'
 	control='radio'if question['type']=='choice'else'checkbox';group=f'<div class="options" role="group" aria-label="{prompt}">'
 	for option in question['options']:
@@ -938,8 +975,9 @@ def attachment_line(record):
 	if not record.get('present'):return line+' (missing)'
 	size=record.get('size');return line+(f" ({format_size(size)})"if isinstance(size,int)else'')
 def format_pending_record(item):
-	type=item.get('type')or'note';display_type='answer'if type=='report'else type;header='`'+str(item.get('id',''))[:6]+'`'
+	type=item.get('type')or'note';display_type='answer'if type=='report'else type;raw_id=str(item.get('id',''));header='`'+(raw_id if type=='board'else raw_id[:6])+'`'
 	if display_type!='note':header+=f" {display_type}"
+	if type=='board'and item.get('board_id'):header+=f" ({item['board_id']})"
 	if item.get('quiet')and not item.get('blocking'):header+=' quiet (no ack required)'
 	if item.get('report_id'):header+=f" report {item['report_id']}"
 	lines=[header];text=item.get('text')or''
@@ -1017,6 +1055,8 @@ def format_fetch_job(job):
 	return'\n'.join(parts)
 def format_import_receipt(receipt):notes=receipt.get('notes',0);answers=receipt.get('answers',0);reports=receipt.get('reports',0);tasks=receipt.get('tasks',0);return f"Imported notes {notes}, answers {answers}, reports {reports}, tasks {tasks}; the live state was replaced"
 def format_clear_state(counts):parts=[f"{k} {v}"for(k,v)in counts.items()];return'Cleared '+', '.join(parts)if parts else'Cleared'
+def format_state_usage(usage):total=f"State usage: {usage['bytes']} bytes in {usage['files']} files";cats=usage.get('categories')or{};details=[f"  {name}: {info['bytes']} bytes ({info['files']} files)"for(name,info)in cats.items()if info.get('files')];return'\n'.join([total,*details])
+def format_clean_state(receipt):prefix='Would remove'if receipt.get('dry_run')else'Removed';head=f"{prefix} {receipt['removed_files']} file(s) ({receipt['removed_bytes']} bytes); remaining {receipt['usage']['bytes']} bytes in {receipt['usage']['files']} files";paths=[f"  {path}"for path in receipt.get('paths')or()];return'\n'.join([head,*paths])
 def _state_record_category(record):
 	if'markdown'in record:return'reports'
 	if'title'in record:return'tasks'
@@ -1061,6 +1101,7 @@ def require_survey(store):
 	except(HTTPException,OSError,UnicodeDecodeError,ValueError):return
 	if isinstance(payload,dict)and payload.get('results')is None:raise ValueError("Survey unanswered. Run `arena-preview survey '<json>'` before polling.")
 def print_read(store):
+	for notice in store.take_board_notifications():print(notice,flush=True)
 	listing=store.read();print(format_read(listing),flush=True)
 	if listing['pending']:store.mark_seen([item['id']for item in listing['pending']]);store.mark_reports_agent_seen([item.get('report_id')for item in listing['pending']])
 POLL_INTERVAL=1
@@ -1081,12 +1122,26 @@ def read_set_slot(moment=None):
 	moment=moment or datetime.now(DISPLAY_ZONE or timezone.utc)
 	if moment.tzinfo is None:moment=moment.replace(tzinfo=timezone.utc)
 	minute=moment.minute//READ_SET_INTERVAL_MINUTES*READ_SET_INTERVAL_MINUTES;return moment.replace(minute=minute,second=0,microsecond=0).isoformat()
-def read_set_paths(root=None):
-	root=Path(root or resolve_repo_root()).resolve();agents=[]
-	for(dirpath,dirnames,filenames)in os.walk(root,followlinks=False):
-		dirnames[:]=sorted(name for name in dirnames if name not in WORKSPACE_SKIP)
-		if'AGENTS.md'in filenames:agents.append(Path(dirpath)/'AGENTS.md')
-	skill=root/'.agents'/'skills'/'arena-skill'/'SKILL.md';return[path for path in[root/'ARENA.md',*sorted(agents),skill]if path.is_file()]
+def read_set_paths(root=None,worker=False):
+	root=Path(root or resolve_repo_root()).resolve();skill=root/'.agents'/'skills'/'arena-skill'/'SKILL.md';candidates=[root/'ARENA.md',root/'AGENTS.md',skill]
+	if worker:
+		for rel in('.agents/skills/arena-skill/WORKER.md','skills/arena-skill/WORKER.md'):
+			candidate=root/rel
+			if candidate.is_file():candidates.append(candidate);break
+	return[path for path in candidates if path.is_file()]
+def resolve_agents_chain(target=None,root=None):
+	default_root=Path(root or resolve_repo_root()).resolve();raw=Path(target)if target is not None else default_root;resolved=(raw if raw.is_absolute()else default_root/raw).resolve()
+	if not resolved.is_dir()and(resolved.is_file()or resolved.suffix):resolved=resolved.parent
+	base=default_root
+	if root is None and not resolved.is_relative_to(default_root):
+		for candidate in reversed([resolved,*resolved.parents]):
+			if any((candidate/marker).exists()for marker in('.git','ARENA.md','AGENTS.md')):base=candidate;break
+	try:rel=resolved.relative_to(base)
+	except ValueError as error:raise ValueError('Target path must be inside the repository root')from error
+	current=base;chain=[current]
+	for part in rel.parts:current=current/part;chain.append(current)
+	return base,[directory/'AGENTS.md'for directory in chain if(directory/'AGENTS.md').is_file()]
+def agents_paths(target=None,root=None):return resolve_agents_chain(target=target,root=root)[1]
 INERT_COMMANDS='cd','mkdir','[','test','export','set','unset','true',':','source','.','trap','shopt','umask'
 def unquote_commands(line):
 	kept=[];quote='';index=0;text=str(line or'').replace('\r','\n')
@@ -1259,7 +1314,7 @@ def read_set_input_warning(line,root=None,cwd=None):
 	protected=None;incoming=set();piece=[]
 	def paths(words):
 		nonlocal protected
-		if protected is None:protected={path.resolve():path.relative_to(base).as_posix()for path in read_set_paths(base)}
+		if protected is None:skill=base/'.agents'/'skills'/'arena-skill'/'SKILL.md';candidates=[*(base/rel for rel in read_set_files(base)),*([skill]if skill.is_file()else[])];protected={path.resolve():path.relative_to(base).as_posix()for path in candidates if path.is_file()}
 		found=set()
 		for word in words:
 			candidate=(here/Path(word).expanduser()).resolve()
@@ -1548,6 +1603,25 @@ def guard_task_runs(state_dir,task_id=None,action='change'):
 	if not held:return
 	labels='; '.join(f"{identifier}: {', '.join(names)}"for(identifier,names)in sorted(held));raise ValueError(f"Cannot {action}; live task run(s): {labels}")
 PUSH_GUARDED_TASK_TYPES='code','docs'
+def is_private_repo(repo_root,store=None):
+	if store is not None:
+		try:cached=store.meta_value(REPO_PRIVATE_META)
+		except Exception:cached=None
+		if cached in('0','1'):return cached=='1'
+	if repo_root is None:return False
+	root=Path(repo_root)
+	if not(root/'.git').exists():return False
+	origin_proc=subprocess.run(['git','config','--get','remote.origin.url'],cwd=root,capture_output=True,text=True,check=False);origin_url=origin_proc.stdout.strip()if origin_proc.returncode==0 else''
+	if'github.com'not in origin_url:return False
+	try:gh_proc=subprocess.run(['gh','repo','view','--json','isPrivate','--jq','.isPrivate'],cwd=root,capture_output=True,text=True,timeout=3,check=False)
+	except(OSError,subprocess.SubprocessError):return False
+	verdict=gh_proc.stdout.strip().lower()if gh_proc.returncode==0 else''
+	if verdict not in('true','false'):return False
+	private=verdict=='true'
+	if store is not None:
+		try:store.set_meta(REPO_PRIVATE_META,'1'if private else'0')
+		except Exception:pass
+	return private
 def unpushed_commit_count(repo_root):
 	if repo_root is None:return 0
 	root=Path(repo_root)
@@ -1569,7 +1643,9 @@ def guard_task_push(repo_root,task_id,task_type):
 	branch_proc=subprocess.run(['git','rev-parse','--abbrev-ref','HEAD'],cwd=root,capture_output=True,text=True,check=False);branch=branch_proc.stdout.strip()if branch_proc.returncode==0 else''
 	if not branch or branch=='HEAD':return
 	remote_proc=subprocess.run(['git','rev-parse','--verify',f"refs/remotes/origin/{branch}"],cwd=root,capture_output=True,text=True,check=False);head_proc=subprocess.run(['git','rev-parse','--verify','HEAD'],cwd=root,capture_output=True,text=True,check=False)
-	if remote_proc.returncode==0 and head_proc.returncode==0 and remote_proc.stdout.strip()!=head_proc.stdout.strip():raise ValueError(f"FINISH BLOCKED: commit and push verified changes before marking {task_id} finished.")
+	if remote_proc.returncode==0 and head_proc.returncode==0 and remote_proc.stdout.strip()!=head_proc.stdout.strip():
+		if is_private_repo(root)and unpushed_commit_count(root)<PRIVATE_BATCH_CAP:return
+		raise ValueError(f"FINISH BLOCKED: commit and push verified changes before marking {task_id} finished.")
 def skip_poll_ready(store):return store.skip_poll_requested()and not live_runs(store.path.parent)
 def run_notices(state_dir,show_running=False,out=None):
 	out=sys.stdout if out is None else out;runs=Path(state_dir)/'runs'
@@ -1924,6 +2000,12 @@ def poll_inbox(store,sleeper=None):
 			if run_notices(store.path.parent):clear_poll_repeat(store);print('DO NOT END TURN. POLL AGAIN.',flush=True);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
 			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: UNBLOCKED TASK {names}. Start a worktree with: arena-preview worktree start --gate <gate> <name> <destination>.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);return 0
+			board_woken=bool(store.take_board_wake());board_notices=store.take_board_notifications()
+			if board_woken or board_notices:
+				clear_poll_repeat(store);print('BOARD WAKE: session woken from the multi-session board. Read board entries and continue work before polling again.',flush=True)
+				for notice in board_notices:print(notice,flush=True)
+				for entry in store.take_unseen_board_entries():payload=entry.get('payload');body_text=json.dumps(payload,ensure_ascii=False)if isinstance(payload,dict)else str(payload or'');file_obj=entry.get('file')if isinstance(entry.get('file'),dict)else None;file_path=file_obj.get('staged_path')or file_obj.get('name')or''if file_obj else'';file_suffix=f" [file: {file_path}]"if file_path else'';head=f"[board {entry.get('id','')}] {entry.get('session_id','')} -> {entry.get('to','*')}";print(f"{head}: {body_text}{file_suffix}",flush=True)
+				print(format_read(listing),flush=True);return 0
 			if skip_poll_ready(store):store.take_skip_poll();store.mark_turn_ended();print('SKIP: owner pressed Skip poll. End the turn, no second poll.',flush=True);print(format_read(listing),flush=True);return 0
 			if not announced_running:announced_running=True;run_notices(store.path.parent,show_running=True)
 			if index+1<POLL_MAX_LOOPS:
@@ -1950,10 +2032,288 @@ AUTOSAVE_HISTORY='userscript-autosave-history'
 AUTOSAVE_RECEIPTS='userscript-autosave-receipts'
 AUTOSAVE_OFFER_META='userscript-autosave-offered'
 FORCE_SAVE_META='userscript-force-save'
+BOARD_STATE_META='board-state'
+MAX_BOARD_FILE_BYTES=524288
+MAX_BOARD_BYTES=8388608
+MAX_BOARD_ENTRIES=100
 CLEARED_META='state-explicitly-cleared'
 BACKUP_DIR='backups'
 LATEST_BACKUP='state-latest.ndjson'
 PREVIOUS_BACKUP='state-previous.ndjson'
+def board_session_id(branch_or_root=None):
+	if isinstance(branch_or_root,Path)or branch_or_root is None:raw=workspace_branch(branch_or_root or Path.cwd())
+	else:raw=str(branch_or_root)
+	clean=raw.strip();return clean.removeprefix('arena/')
+def stage_board_file(state_dir,sender_id,file_obj):
+	if not isinstance(file_obj,dict):raise TypeError('Board file must be an object')
+	raw_name=str(file_obj.get('name')or'').strip().replace('\\','/');parts=[part for part in raw_name.split('/')if part and part!='.']
+	if not parts or any(part=='..'for part in parts)or raw_name.startswith('/'):raise ValueError('Invalid board file name')
+	clean_name='/'.join(parts);encoding=str(file_obj.get('encoding')or'utf-8').strip().lower()
+	if encoding not in{'utf-8','base64'}:raise ValueError('Board file encoding must be utf-8 or base64')
+	content=str(file_obj.get('content')or'')
+	try:raw_bytes=base64.b64decode(content,validate=True)if encoding=='base64'else content.encode('utf-8')
+	except Exception as error:raise ValueError('Invalid board file content')from error
+	if len(raw_bytes)>MAX_BOARD_FILE_BYTES:raise ValueError('Board file exceeds 512 KB limit')
+	digest=hashlib.sha256(raw_bytes).hexdigest();expected=str(file_obj.get('sha256')or'').strip().lower()
+	if expected and expected!=digest:raise ValueError('Board file SHA-256 mismatch')
+	safe_sender=re.sub('[^A-Za-z0-9._-]+','-',board_session_id(sender_id or'session')or'session').strip('-')or'session';target=Path(state_dir)/'board-files'/safe_sender/clean_name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw_bytes);return{'name':clean_name,'encoding':encoding,'content':content,'size':len(raw_bytes),'sha256':digest,'staged_path':str(target.relative_to(Path(state_dir)))}
+GREEK_LETTERS='alpha','beta','gamma','delta','epsilon','zeta','eta','theta','iota','kappa','lambda','mu','nu','xi','omicron','pi','rho','sigma','tau','upsilon','phi','chi','psi','omega'
+WORKER_ID_RE=re.compile('^[A-Za-z0-9_-]{1,6}$')
+def clean_board_repo(repo='',fallback_sid=''):
+	text=str(repo or'').strip()
+	if'/'in text:text=text.rsplit('/',1)[-1].strip()
+	if text:return text
+	sid=board_session_id(fallback_sid)
+	if'-'in sid:
+		tail=sid.split('-',1)[1].strip()
+		if tail:return tail
+	return''
+def clean_worker_id(raw_value,*,required=False):
+	text=str(raw_value or'').strip()
+	if text.lower().startswith('worker-'):text=text[7:].strip()
+	if not text:
+		if required:raise ValueError('Worker identifier must be 1 to 6 characters')
+		return''
+	if text in GREEK_LETTERS:return text
+	if not WORKER_ID_RE.match(text):raise ValueError('Worker identifier must be 1 to 6 characters')
+	return text
+def is_legacy_hex_worker_id(session_id,worker_id):
+	wid=str(worker_id or'').strip().lower()
+	if not wid or wid in GREEK_LETTERS:return False
+	sid=board_session_id(session_id);head=sid.split('-')[0]if'-'in sid else sid;token=re.sub('[^A-Za-z0-9]+','',head)[:6].lower();return bool(token and wid==token)
+def default_worker_id(session_id,repo='',index=1):
+	if 1<=index<len(GREEK_LETTERS):return GREEK_LETTERS[index]
+	sid=board_session_id(session_id)
+	if repo and sid.endswith(f"-{repo}")and len(sid)>len(repo)+1:sid=sid[:-(len(repo)+1)]
+	token=re.sub('[^A-Za-z0-9]+','',sid.split('-')[0]if'-'in sid else sid)[:6];return token or'beta'
+def format_board_role_id(role,repo='',worker_id='',multi_repo=False,fallback_sid=''):
+	_=multi_repo;clean_repo=clean_board_repo(repo,fallback_sid)
+	if role=='main':return f"{clean_repo}-alpha"if clean_repo else'alpha'
+	if role=='worker':wid=clean_worker_id(worker_id)if worker_id else default_worker_id(fallback_sid,clean_repo);return f"{clean_repo}-{wid}"if clean_repo else wid
+	return str(fallback_sid or'')
+def resolve_board_target(target,sessions,allowed=(),main_sid=''):
+	clean=board_session_id(target)
+	if not clean:return''
+	for row in sessions or():
+		if row.get('session_id')==clean or row.get('board_id')==clean:return row['session_id']
+	for row in sessions or():
+		wid=row.get('worker_id')or'';row_repo=clean_board_repo(row.get('repo')or'',row.get('session_id')or'')
+		if wid and clean in{wid,f"worker-{wid}",f"{row_repo}-{wid}"if row_repo else wid,f"worker-{wid}-{row_repo}"if row_repo else f"worker-{wid}"}:return row['session_id']
+		if row.get('role')=='main'and clean in{f"{row_repo}-alpha"if row_repo else'alpha',f"main-{row_repo}"if row_repo else'main'}:return row['session_id']
+	if clean in{'alpha','main'}or clean.startswith('main-')or clean.endswith('-alpha'):
+		if main_sid:return main_sid
+		if allowed:return allowed[0]
+	return clean
+def normalize_board_mentions(text,sessions,allowed=(),main_sid='',from_sid='',to_sid=''):
+	raw=str(text or'')
+	if'@'not in raw:return raw
+	known_sids={str(r.get('session_id')or'')for r in sessions or()if isinstance(r,dict)and r.get('session_id')};known_sids.update(str(s)for s in allowed or()if s)
+	def _repl(match):
+		prefix,token=match.group(1),match.group(2);cand=resolve_board_target(token,sessions,allowed=allowed,main_sid=main_sid)
+		if cand==from_sid and to_sid and to_sid!='*'and to_sid!=from_sid and to_sid in known_sids:cand=to_sid
+		if cand and cand in known_sids:return f"{prefix}@{cand}"
+		return match.group(0)
+	return re.sub('(^|(?<=\\s))@([A-Za-z0-9_/-]{1,64})\\b',_repl,raw)
+def resolve_board_ack_sender(raw_sender,sessions,allowed=(),main_sid='',from_sid='',to_sid=''):
+	clean=str(raw_sender or'').strip()
+	if not clean:return None
+	resolved=resolve_board_target(clean,sessions,allowed=allowed,main_sid=main_sid)
+	if resolved==from_sid and to_sid and to_sid!='*'and to_sid!=from_sid:resolved=to_sid
+	return resolved or clean
+def apply_task_op_to_list(task_list,op):
+	items=[dict(row)for row in task_list or[]if isinstance(row,dict)];op_name=str(op.get('op')or op.get('operation')or'set').strip().lower()
+	if op_name=='clear':return[]
+	if op_name=='replace':raw_tasks=op.get('tasks')if isinstance(op.get('tasks'),list)else[];return[dict(row)for row in raw_tasks if isinstance(row,dict)and row.get('id')]
+	if op_name in{'remove','delete'}:target_id=str(op.get('task_id')or op.get('id')or'').strip();return[row for row in items if str(row.get('id')or'')!=target_id]
+	if op_name=='reorder':
+		order_ids=op.get('order_ids')
+		if isinstance(order_ids,list)and order_ids:
+			by_id={str(row.get('id')or''):row for row in items if row.get('id')};reordered=[]
+			for(idx,tid)in enumerate(order_ids,start=1):
+				key=str(tid or'')
+				if key in by_id:entry=dict(by_id.pop(key));entry['order']=idx;reordered.append(entry)
+			for entry in items:
+				key=str(entry.get('id')or'')
+				if key in by_id:copy=dict(by_id.pop(key));copy['order']=len(reordered)+1;reordered.append(copy)
+			return reordered
+		target_id=str(op.get('task_id')or op.get('id')or'').strip();target_order=int(op.get('order')or 1);chosen=next((row for row in items if str(row.get('id')or'')==target_id),None)
+		if chosen is None:return items
+		rest=[row for row in items if str(row.get('id')or'')!=target_id];idx=max(0,min(len(rest),target_order-1));rest.insert(idx,dict(chosen))
+		for(i,row)in enumerate(rest,start=1):row['order']=i
+		return rest
+	target_id=str(op.get('task_id')or op.get('id')or'').strip()
+	if not target_id:return items
+	status='finished'if op_name=='finish'else str(op.get('status')or'').strip().lower();existing=next((row for row in items if str(row.get('id')or'')==target_id),None);details_in=op.get('details')
+	if isinstance(details_in,str):details_in=[details_in]
+	elif not isinstance(details_in,list):details_in=None
+	if existing is None:record={'id':target_id,'title':str(op.get('title')or target_id),'status':status if status in{'upcoming','finished'}else'upcoming','type':str(op.get('task_type')or op.get('type')or'code'),'details':[str(x)for x in details_in or[]],'order':int(op.get('order')or len(items)+1),'report_id':op.get('report_id'),'updated_at':str(op.get('at')or clip_stamp(now()))};items.append(record)
+	else:
+		if op.get('title'):existing['title']=str(op.get('title'))
+		if status in{'upcoming','finished'}:existing['status']=status
+		if op.get('task_type')or op.get('type'):existing['type']=str(op.get('task_type')or op.get('type'))
+		if details_in is not None:
+			if op.get('append'):existing['details']=[*(existing.get('details')or[]),*[str(x)for x in details_in]]
+			else:existing['details']=[str(x)for x in details_in]
+		if op.get('order')is not None:existing['order']=int(op.get('order'))
+		if'report_id'in op:existing['report_id']=op.get('report_id')
+		existing['updated_at']=str(op.get('at')or clip_stamp(now()))
+	return items
+def apply_report_op_to_list(report_list,op):
+	items=[dict(row)for row in report_list or[]if isinstance(row,dict)];op_name=str(op.get('op')or op.get('operation')or'answer').strip().lower();target_id=str(op.get('report_id')or op.get('id')or'').strip()
+	if not target_id:return items
+	if op_name in{'unpublish','remove','delete'}:return[row for row in items if str(row.get('id')or'')!=target_id]
+	if op_name in{'answer','submit'}:
+		sub_id=str(op.get('submission_id')or op.get('note_id')or'').strip();sub_at=str(op.get('at')or clip_stamp(now()))
+		for row in items:
+			if str(row.get('id')or'')==target_id:
+				row['answered']=True;row['needs_answer']=False;row['latest_answers']=dict(op.get('answers'))if isinstance(op.get('answers'),dict)else{}
+				if sub_id:row['latest_answer_id']=sub_id
+				row['latest_answer_at']=sub_at
+	return items
+BOARD_SESSION_TTL_SECONDS=180
+def board_stamp_epoch(value):
+	text=str(value or'').strip()
+	if not text:return None
+	m=re.match('^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?)',text)
+	if m:text=m.group(1)
+	try:
+		if text.endswith('Z'):text=text[:-1]+'+00:00'
+		dt=datetime.fromisoformat(text)
+		if dt.tzinfo is not None:dt=dt.astimezone(timezone.utc).replace(tzinfo=None)
+		return dt.replace(tzinfo=timezone.utc).timestamp()
+	except Exception:return None
+def normalize_board_state(raw,session_id='',repo='',branch='',polling=False):
+	data=raw if isinstance(raw,dict)else{};sid=board_session_id(session_id or branch);linked_repos=[]
+	for item in data.get('linked_repos')if isinstance(data.get('linked_repos'),list)else[]:
+		slug=clean_board_repo(item)
+		if slug and slug not in linked_repos:linked_repos.append(slug)
+	multi_repo=bool(data.get('multi_repo')or linked_repos);removed_sessions=[]
+	for item in data.get('removed_sessions')if isinstance(data.get('removed_sessions'),list)else[]:
+		norm_rem=board_session_id(item)
+		if norm_rem and norm_rem!=sid and norm_rem not in removed_sessions:removed_sessions.append(norm_rem)
+	removed_set=set(removed_sessions);raw_worker_ids=data.get('worker_ids')if isinstance(data.get('worker_ids'),dict)else{};worker_ids={}
+	for(k,v)in raw_worker_ids.items():
+		norm_k=board_session_id(k)
+		try:clean_v=clean_worker_id(v)
+		except ValueError:clean_v=''
+		if norm_k and norm_k not in removed_set and clean_v and not is_legacy_hex_worker_id(norm_k,clean_v):worker_ids[norm_k]=clean_v
+	raw_worker_tasks=data.get('worker_tasks')if isinstance(data.get('worker_tasks'),dict)else{};worker_tasks={}
+	for(k,v)in raw_worker_tasks.items():
+		norm_k=board_session_id(k)
+		if norm_k and norm_k not in removed_set and isinstance(v,list):worker_tasks[norm_k]=[dict(row)for row in v if isinstance(row,dict)and row.get('id')]
+	raw_task_ops=data.get('task_ops')[-MAX_BOARD_ENTRIES:]if isinstance(data.get('task_ops'),list)else[];task_ops=[dict(row)for row in raw_task_ops if isinstance(row,dict)and row.get('id')and row.get('target')];raw_worker_reports=data.get('worker_reports')if isinstance(data.get('worker_reports'),dict)else{};worker_reports={}
+	for(k,v)in raw_worker_reports.items():
+		norm_k=board_session_id(k)
+		if norm_k and norm_k not in removed_set and isinstance(v,list):worker_reports[norm_k]=[dict(row)for row in v if isinstance(row,dict)and row.get('id')]
+	raw_report_ops=data.get('report_ops')[-MAX_BOARD_ENTRIES:]if isinstance(data.get('report_ops'),list)else[];report_ops=[dict(row)for row in raw_report_ops if isinstance(row,dict)and row.get('id')and row.get('target')];allowed=[]
+	for item in data.get('allowed_sessions')if isinstance(data.get('allowed_sessions'),list)else[]:
+		norm=board_session_id(item)
+		if norm and norm not in removed_set and norm not in allowed:allowed.append(norm)
+	raw_sessions_list=data.get('sessions')if isinstance(data.get('sessions'),list)else[]
+	for row in raw_sessions_list:
+		if not isinstance(row,dict):continue
+		row_sid=board_session_id(row.get('session_id')or row.get('branch')or'')
+		if not row_sid or row_sid in removed_set or sid and row_sid==sid:continue
+		if row_sid.startswith('probe-')and row_sid not in allowed:
+			removed_set.add(row_sid)
+			if row_sid not in removed_sessions:removed_sessions.append(row_sid)
+			allowed=[item for item in allowed if item!=row_sid];worker_ids.pop(row_sid,None);worker_tasks.pop(row_sid,None);worker_reports.pop(row_sid,None)
+	main_sid=board_session_id(data.get('main_session_id')or'')
+	if main_sid and(main_sid not in allowed or main_sid in removed_set):main_sid=''
+	if main_sid in worker_ids:worker_ids.pop(main_sid,None)
+	wakes={board_session_id(k):v for(k,v)in data.get('wakes',{}).items()if board_session_id(k)and board_session_id(k)not in removed_set and isinstance(v,(int,float,str))}if isinstance(data.get('wakes'),dict)else{};sessions=[];seen_sids=set()
+	for row in raw_sessions_list:
+		if not isinstance(row,dict):continue
+		row_sid=board_session_id(row.get('session_id')or row.get('branch')or'')
+		if not row_sid or row_sid in seen_sids or row_sid in removed_set or row_sid.startswith('probe-')and row_sid not in allowed:continue
+		seen_sids.add(row_sid)
+		if row.get('worker_id')and row_sid!=main_sid and row.get('role')!='main'and row_sid not in worker_ids:
+			try:
+				delegated=clean_worker_id(row.get('worker_id'))
+				if delegated and not is_legacy_hex_worker_id(row_sid,delegated):worker_ids[row_sid]=delegated
+			except ValueError:pass
+		is_self=bool(sid and row_sid==sid);wake_pending=row_sid in allowed and bool(wakes.get(row_sid));row_disc=False if is_self else bool(row.get('disconnected')or row.get('status')=='disconnected');row_polling=(bool(polling)if is_self else bool(row.get('polling')or row.get('status')=='polling'))and not wake_pending and not row_disc;row_repo=str(row.get('repo')or(repo if is_self else''));row_role='main'if main_sid==row_sid or not main_sid and row_sid in allowed else'worker'if row_sid in allowed else'blocked';row_wid=worker_ids.get(row_sid)or default_worker_id(row_sid,row_repo)if row_role=='worker'else'';s_entry={'session_id':row_sid,'board_id':format_board_role_id(row_role,repo=row_repo,worker_id=row_wid,multi_repo=multi_repo,fallback_sid=row_sid),'worker_id':row_wid,'repo':row_repo,'branch':str(row.get('branch')or(branch if is_self else f"arena/{row_sid}")),'status':'disconnected'if row_disc else'polling'if row_polling else'active','polling':row_polling,'disconnected':row_disc,'updated_at':str(row.get('updated_at')or clip_stamp(now())),'allowed':row_sid in allowed,'role':row_role}
+		if isinstance(row.get('survey'),dict):s_entry['survey']=dict(row['survey'])
+		for status_key in('polling_since','waiting_for_gates','checking_pr','calls_since_message','gate_threshold','agent_seen_at','turn_ended_at','agent_call_ended_at'):
+			if status_key in row and row[status_key]is not None:s_entry[status_key]=row[status_key]
+		sessions.append(s_entry)
+	if sid and sid not in seen_sids:seen_sids.add(sid);self_polling=bool(polling)and not(sid in allowed and bool(wakes.get(sid)));self_repo=str(repo or'');self_role='main'if main_sid==sid or not main_sid and sid in allowed else'worker'if sid in allowed else'blocked';self_wid=worker_ids.get(sid)or default_worker_id(sid,self_repo)if self_role=='worker'else'';sessions.insert(0,{'session_id':sid,'board_id':format_board_role_id(self_role,repo=self_repo,worker_id=self_wid,multi_repo=multi_repo,fallback_sid=sid),'worker_id':self_wid,'repo':self_repo,'branch':str(branch or f"arena/{sid}"),'status':'polling'if self_polling else'active','polling':self_polling,'updated_at':clip_stamp(now()),'allowed':sid in allowed,'role':self_role})
+	for allowed_sid in allowed:
+		if allowed_sid not in seen_sids:seen_sids.add(allowed_sid);allowed_repo=clean_board_repo('',allowed_sid)or str(repo or'');allowed_role='main'if main_sid==allowed_sid or not main_sid else'worker';allowed_wid=worker_ids.get(allowed_sid,'')if allowed_role=='worker'else'';sessions.append({'session_id':allowed_sid,'board_id':'','worker_id':allowed_wid,'repo':allowed_repo,'branch':f"arena/{allowed_sid}",'status':'active','polling':False,'updated_at':clip_stamp(now()),'allowed':True,'role':allowed_role})
+	repo_has_main={}
+	for row in sessions:
+		row_repo=clean_board_repo(row.get('repo')or'',row['session_id'])or str(repo or'');row['repo']=row_repo
+		if not row.get('allowed'):row['role']='blocked';continue
+		if main_sid and row['session_id']==main_sid:row['role']='main';repo_has_main[row_repo]=row['session_id']
+	for row in sessions:
+		if not row.get('allowed'):continue
+		row_repo=row['repo']
+		if row_repo not in repo_has_main:row['role']='main';repo_has_main[row_repo]=row['session_id']
+		elif repo_has_main[row_repo]!=row['session_id']:row['role']='worker'
+	used_by_repo={}
+	for row in sessions:
+		row_repo=row['repo'];used=used_by_repo.setdefault(row_repo,{'alpha'})
+		if row['role']=='worker':
+			explicit_wid=worker_ids.get(row['session_id'])
+			if explicit_wid:used.add(explicit_wid)
+	for row in sessions:
+		row_repo=row['repo']
+		if row['role']=='main':row['worker_id']='';row['board_id']=format_board_role_id('main',repo=row_repo,multi_repo=multi_repo,fallback_sid=row['session_id'])
+		elif row['role']=='worker':
+			wid=worker_ids.get(row['session_id'])or''
+			if not wid:
+				used=used_by_repo.setdefault(row_repo,{'alpha'})
+				for letter in GREEK_LETTERS[1:]:
+					if letter not in used:wid=letter;break
+				if not wid:wid=default_worker_id(row['session_id'],row_repo)
+				used.add(wid)
+			row['worker_id']=wid;row['board_id']=format_board_role_id('worker',repo=row_repo,worker_id=wid,multi_repo=multi_repo,fallback_sid=row['session_id'])
+		else:row['worker_id']='';row['board_id']=row['session_id']
+	session_by_id={row['session_id']:row for row in sessions};entries=[]
+	for item in data.get('entries')[-MAX_BOARD_ENTRIES:]if isinstance(data.get('entries'),list)else[]:
+		if not isinstance(item,dict):continue
+		from_sid=resolve_board_target(item.get('session_id')or item.get('branch')or'',sessions,allowed=allowed,main_sid=main_sid)
+		if not from_sid:continue
+		raw_to=str(item.get('to')or'*');resolved_to='*'if raw_to=='*'else resolve_board_target(raw_to,sessions,allowed=allowed,main_sid=main_sid);item_payload=dict(item.get('payload'))if isinstance(item.get('payload'),dict)else{}
+		for k in('tag','text'):
+			if item.get(k)and k not in item_payload:item_payload[k]=str(item.get(k))
+		entry_text=str(item.get('text')or item_payload.get('text')or item_payload.get('summary')or'');mention_target='';raw_mention=str(item.get('mention_target')or'').strip()
+		if raw_mention:mention_target=resolve_board_target(raw_mention,sessions,allowed=allowed,main_sid=main_sid)
+		if not mention_target and entry_text:
+			for token in re.findall('(?:^|(?<=\\s))@([A-Za-z0-9_/-]{1,64})\\b',entry_text):
+				cand=resolve_board_target(token,sessions,allowed=allowed,main_sid=main_sid)
+				if cand and cand in allowed and cand!=from_sid:mention_target=cand;break
+		if mention_target and resolved_to=='*':resolved_to=mention_target
+		entry_text=normalize_board_mentions(entry_text,sessions,allowed=allowed,main_sid=main_sid,from_sid=from_sid,to_sid=resolved_to)
+		if'text'in item_payload:item_payload['text']=entry_text
+		sender_row=session_by_id.get(from_sid)or{};raw_replies=item.get('replies');replies=[]
+		if isinstance(raw_replies,list):
+			for r in raw_replies:
+				if not isinstance(r,dict):continue
+				r_copy=dict(r)
+				if r_copy.get('text'):r_copy['text']=normalize_board_mentions(r_copy['text'],sessions,allowed=allowed,main_sid=main_sid,from_sid=resolved_to if resolved_to!='*'else'',to_sid=from_sid)
+				if r_copy.get('sender'):r_copy['sender']=resolve_board_ack_sender(r_copy['sender'],sessions,allowed=allowed,main_sid=main_sid,from_sid=from_sid,to_sid=resolved_to)
+				replies.append(r_copy)
+		raw_ack_text=item.get('ack_text');norm_ack_text=normalize_board_mentions(str(raw_ack_text or''),sessions,allowed=allowed,main_sid=main_sid,from_sid=resolved_to if resolved_to!='*'else'',to_sid=from_sid)if raw_ack_text is not None else None;norm_ack_sender=resolve_board_ack_sender(item.get('ack_sender'),sessions,allowed=allowed,main_sid=main_sid,from_sid=from_sid,to_sid=resolved_to);entries.append({'id':str(item.get('id')or f"p{uuid.uuid4().hex[:5]}"),'session_id':from_sid,'board_id':str(sender_row.get('board_id')or item.get('board_id')or from_sid),'from_owner':bool(item.get('from_owner')),'note_id':str(item.get('note_id')or''),'to':resolved_to or'*','mention_target':mention_target,'repo':str(item.get('repo')or sender_row.get('repo')or''),'branch':str(item.get('branch')or f"arena/{from_sid}"),'at':str(item.get('at')or clip_stamp(now())),'tag':str(item.get('tag')or item_payload.get('tag')or''),'text':entry_text,'seen_at':clip_stamp(item.get('seen_at'))if item.get('seen_at')else None,'acknowledged_at':clip_stamp(item.get('acknowledged_at'))if item.get('acknowledged_at')else None,'ack_type':str(item.get('ack_type')or'reply')if item.get('acknowledged_at')else None,'ack_text':norm_ack_text,'ack_sender':norm_ack_sender,'ack_edited_at':clip_stamp(item.get('ack_edited_at'))if item.get('ack_edited_at')else None,'ack_edited_seen_count':int(item.get('ack_edited_seen_count')or 0),'task_id':str(item.get('task_id')or'')if item.get('task_id')else None,'replies':replies,'payload':item_payload,'file':item.get('file')if isinstance(item.get('file'),dict)else None})
+	self_row=next((r for r in sessions if r['session_id']==sid),None)if sid else None;is_worker=bool(self_row and self_row.get('allowed')and self_row.get('role')=='worker');is_main=not is_worker;self_role='worker'if is_worker else'main';self_wid=(self_row['worker_id']if self_row and self_row.get('worker_id')else worker_ids.get(sid)or default_worker_id(sid,str(repo or'')))if self_role=='worker'and sid else'';self_board_id=self_row['board_id']if self_row and self_row.get('board_id')and self_row.get('allowed')else format_board_role_id(self_role,repo=str(repo or''),worker_id=self_wid,multi_repo=multi_repo,fallback_sid=sid)if sid else'';known_repos=[];base_repo_slug=clean_board_repo(repo,sid)
+	if base_repo_slug:known_repos.append(base_repo_slug)
+	for row in sessions:
+		r_slug=clean_board_repo(row.get('repo')or'',row.get('session_id')or'')
+		if r_slug and r_slug not in known_repos:known_repos.append(r_slug)
+	for r_slug in linked_repos:
+		if r_slug not in known_repos:known_repos.append(r_slug)
+	effective_main_sid=repo_has_main.get(base_repo_slug,'')if base_repo_slug else main_sid
+	if sid and sid not in allowed and not effective_main_sid:effective_main_sid=''
+	return{'version':1,'session_id':sid,'board_id':self_board_id,'worker_id':self_wid,'multi_repo':multi_repo,'linked_repos':linked_repos,'known_repos':known_repos,'worker_ids':worker_ids,'worker_tasks':worker_tasks,'task_ops':task_ops,'worker_reports':worker_reports,'report_ops':report_ops,'repo':str(repo or''),'branch':str(branch or''),'removed_sessions':removed_sessions,'allowed_sessions':allowed,'main_session_id':effective_main_sid,'board_role':self_role,'can_push_or_pr':bool(is_main),'sessions':sessions,'entries':entries,'wakes':wakes}
+def board_main_session_warning(state_dir,command):
+	if not isinstance(command,str)or not command.strip():return None
+	if not re.search('(?:^|[;&|()\\s])(?:git\\s+(?:-\\S+\\s+)*push\\b|gh\\s+pr\\s+(?:create|edit|merge|close|ready|reopen)\\b)',command):return None
+	if not state_file(state_dir).is_file():return None
+	try:board=Store(state_dir,create=False).board_state()
+	except Exception:return None
+	main_sid=board.get('main_session_id')or''
+	if main_sid and board.get('board_role')=='worker':return f"MAIN SESSION GATE: session {board.get('session_id')!r} is a worker session while {main_sid!r} is the Main Session. Only the Main Session may run git push or mutate pull requests. Send files or patches to the Main Session via the multi-session board."
+	return None
 def autosave_core_and_stamp(records):
 	if not isinstance(records,list)or not all(isinstance(row,dict)for row in records):raise TypeError('Autosave core must be an array of records')
 	if any(row.get('type')=='userscript-autosave'for row in records):raise ValueError('Autosave core cannot contain history')
@@ -2065,7 +2425,7 @@ def render_report(markdown,title=None):
 	if isinstance(title,str)and title.strip()and not re.match('^\\s*<h1\\b',rendered,re.IGNORECASE):rendered=f"<h1>{html.escape(title.strip())}</h1>\n{rendered}"
 	return rendered,questions
 SLASH_COMMAND_RE=re.compile('^/(nuu|nemoizer)(?:\\s+([\\s\\S]*))?$',re.IGNORECASE)
-NEMOIZER_COLLECT_IGNORES='arena-state','.agents','.git','node_modules','LICENSE.md','skills/arena-skill','skills/refs/arena-skill/assets/markdown-it.min.js','skills/amending-violations/LICENSE.txt','skills/refs/amending-violations/LICENSE.txt','skills/squash/LICENSE.txt','skills/refs/squash/LICENSE.txt','skills/refs/arena-skill/assets/lucide.LICENSE','skills/refs/arena-skill/assets/markdown-it.LICENSE','skills/refs/arena-skill/assets/sortable.LICENSE','skills/nuu/data/vendor','skills/refs/nuu/data/vendor'
+NEMOIZER_COLLECT_IGNORES='arena-state','.agents','.git','node_modules','LICENSE.md','skills/arena-skill','skills/refs/arena-skill/assets/markdown-it.min.js','skills/refs/arena-skill/assets/gsap.LICENSE','skills/amending-violations/LICENSE.txt','skills/refs/amending-violations/LICENSE.txt','skills/squash/LICENSE.txt','skills/refs/squash/LICENSE.txt','skills/refs/arena-skill/assets/lucide.LICENSE','skills/refs/arena-skill/assets/markdown-it.LICENSE','skills/refs/arena-skill/assets/sortable.LICENSE','skills/nuu/data/vendor','skills/refs/nuu/data/vendor'
 def _find_skill_dir(root,name):
 	roots=[Path(root)];here=Path(__file__).resolve();roots.extend(here.parents);cwd=Path.cwd().resolve();roots.append(cwd);roots.extend(cwd.parents)
 	for base in roots:
@@ -2078,18 +2438,25 @@ def _extract_clauses(skill_md):
 	if'## Clauses'not in text:return''
 	after=text.split('## Clauses',1)[1];section=after.split('\n## ',1)[0].strip();lines=[line.strip()for line in section.splitlines()if re.match('^\\d+\\.',line.strip())];return'\n'.join(lines)
 def _extract_nuu_breakpoints(nuu_dir):
-	uiux_py=nuu_dir/'scripts'/'uiux.py'
-	if uiux_py.is_file():
-		match=re.search('NAMED_BREAKPOINTS\\s*=\\s*\\(([^)]+)\\)',uiux_py.read_text(encoding='utf-8'))
-		if match:
-			items=re.findall('["\\\']([^"\\\']+)["\\\']',match.group(1))
-			if items:return tuple(items)
+	for toml_candidate in(nuu_dir/'nuu.toml',nuu_dir/'references'/'nuu.toml'):
+		if toml_candidate.is_file():
+			match=re.search('named_breakpoints\\s*=\\s*\\[([^\\]]+)\\]',toml_candidate.read_text(encoding='utf-8'))
+			if match:
+				items=re.findall('["\\\']([^"\\\']+)["\\\']',match.group(1))
+				if items:return tuple(items)
+	for script_name in('nuu.py','uiux.py'):
+		script_py=nuu_dir/'scripts'/script_name
+		if script_py.is_file():
+			match=re.search('NAMED_BREAKPOINTS\\s*=\\s*\\(([^)]+)\\)',script_py.read_text(encoding='utf-8'))
+			if match:
+				items=re.findall('["\\\']([^"\\\']+)["\\\']',match.group(1))
+				if items:return tuple(items)
 	clauses=_extract_clauses(nuu_dir/'SKILL.md')
 	for line in clauses.splitlines():
 		if line.startswith('7.'):
 			items=re.findall('\\b[0-9.]+(?:em|rem|px)\\b',line)
 			if items:return tuple(items)
-	return'75em','60em','40em','30em'
+	return'68em','60em','30em','24em'
 def _recipe_summary_line(content):
 	for raw in content.splitlines():
 		line=raw.strip()
@@ -2151,7 +2518,7 @@ def resolve_slash_command(text,root=None):
 			except ValueError as err:return{'mode':'query','command':'/nuu search','title':'nuu search','markdown':f"Invalid search arguments: `{err}`"}
 			proc=subprocess.run([sys.executable,str(nuu_dir/'scripts'/'uiux.py'),'search',*tokens],cwd=str(repo_root),capture_output=True,text=True,timeout=15,check=False);out=(proc.stdout or proc.stderr or'No results.').strip();return{'mode':'query','command':f"/nuu search {arg}",'title':f"nuu search · {arg}",'markdown':f"```text\n{out}\n```"}
 		if sub=='audit':
-			bp_list=', '.join(f"`{bp}`"for bp in _extract_nuu_breakpoints(nuu_dir));note_text=f"Run a full `nuu` UI/UX audit (breakpoints {bp_list}; `a11y`, `density`, and `annotate`) and publish the audit report using `skills/refs/nuu/references/audit-report.md`."
+			bp_list=', '.join(f"`{bp}`"for bp in _extract_nuu_breakpoints(nuu_dir));note_text=f"Run a full `nuu` UI/UX audit (breakpoints {bp_list}; `a11y`, `density`, and `annotate`; report shots for `1920x957` desktop maximized and `411x799` phone portrait only) and publish the audit report using `skills/refs/nuu/references/audit-report.md`."
 			if trailing:note_text=f"{note_text}\n\n{trailing}"
 			return{'mode':'note','command':'/nuu audit','text':note_text}
 		if sub=='recipe':
@@ -2184,7 +2551,7 @@ def resolve_slash_command(text,root=None):
 		ignore_args=[]
 		if not target_args:
 			for item in NEMOIZER_COLLECT_IGNORES:ignore_args.extend(['--ignore',item])
-		try:proc=subprocess.run([sys.executable,str(nemo_dir/'scripts'/'nemoize.py'),'--audit',*ignore_args,*target_args],cwd=str(repo_root),capture_output=True,text=True,timeout=25,check=False);out=(proc.stdout or proc.stderr or'').strip()
+		try:proc=subprocess.run([sys.executable,str(nemo_dir/'scripts'/'nemoize.py'),'--audit',*ignore_args,*target_args],cwd=str(repo_root),capture_output=True,text=True,timeout=60,check=False);out=(proc.stdout or proc.stderr or'').strip()
 		except subprocess.TimeoutExpired:return{'mode':'query','command':f"/nemoizer {sub}",'title':'nemoizer collect · Timeout','markdown':'Scan timed out. Pass a narrower path (e.g. `/nemoizer collect docs/ README.md`).'}
 		finding_lines=[line for line in out.splitlines()if line.strip()];summary=f"Found **{len(finding_lines)}** output line(s).\n\n```text\n{out}\n```"if finding_lines else'No findings.';return{'mode':'query','command':f"/nemoizer {sub}"+(f" {arg}"if arg else''),'title':'nemoizer collect · Audit Findings','markdown':summary}
 	if sub=='audit':
@@ -2208,7 +2575,9 @@ def sqlite_api():
 	return sqlite3
 class Store:
 	def __init__(self,directory,create=False,save_path=None):
-		directory=Path(directory).resolve();self.path=directory/'state.sqlite3';self.save_path=Path(save_path)if save_path else self.path.parent/SAVED_STATE;self.latest_backup_path=self.path.parent/BACKUP_DIR/LATEST_BACKUP;self.previous_backup_path=self.path.parent/BACKUP_DIR/PREVIOUS_BACKUP;existed=self.path.is_file()
+		directory=Path(directory).resolve()
+		if directory.name=='state.sqlite3':directory=directory.parent
+		self.path=directory/'state.sqlite3';self.save_path=Path(save_path)if save_path else self.path.parent/SAVED_STATE;self.latest_backup_path=self.path.parent/BACKUP_DIR/LATEST_BACKUP;self.previous_backup_path=self.path.parent/BACKUP_DIR/PREVIOUS_BACKUP;existed=self.path.is_file()
 		if not create and not existed:raise FileNotFoundError(f"Inbox missing: {self.path}. The sandbox may have been reset, so follow the restore routine: run scripts/install.sh from the repository root, start `arena-preview serve --port 8000` with the start_process tool, then `arena-preview read`.")
 		if create and not existed:directory.mkdir(parents=True,exist_ok=True,mode=448)
 		with closing(self.connect())as db,db:
@@ -2270,6 +2639,21 @@ class Store:
 		token=bare_id(token);like=f"{token}%";found=[]
 		with closing(self.connect())as db:
 			for(table,label)in(('notes','note'),('submissions','answer'),('reports','report'),('tasks','task')):rows=db.execute(f"SELECT * FROM {table} WHERE id = ? OR id LIKE ?",(token,like)).fetchall();found.extend((label,dict(row))for row in rows)
+			b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone()
+			if b_row and b_row[0]:
+				try:b_raw=json.loads(str(b_row[0]))
+				except Exception:b_raw=None
+				if isinstance(b_raw,dict):
+					if isinstance(b_raw.get('entries'),list):
+						existing_ids={str(r.get('id')or'')for(_,r)in found}
+						for entry in b_raw['entries']:
+							if not isinstance(entry,dict):continue
+							eid=str(entry.get('id')or'')
+							if not eid or eid in existing_ids:continue
+							alt_id=f"p{eid[2:7]}"if re.match('^b-[0-9a-f]{5,}',eid,re.IGNORECASE)else''
+							if eid==token or eid.startswith(token)or alt_id and(alt_id==token or alt_id.startswith(token)):existing_ids.add(eid);found.append(('note',{'id':eid,'at':str(entry.get('at')or'')}))
+					for(m_id,m_rep)in self._mirrored_worker_reports().items():
+						if(m_id==token or m_id.startswith(token))and not any(r.get('id')==m_id for(_,r)in found):found.append(('report',dict(m_rep)))
 		return found
 	def resolve_id(self,token):
 		token=bare_id(token);matches=self.id_matches(token);exact=[item for item in matches if item[1]['id']==token]
@@ -2310,7 +2694,7 @@ class Store:
 	def schedule_read_set_note(self,moment=None,root=None,manual=False):
 		moment=moment or datetime.now(DISPLAY_ZONE or timezone.utc)
 		if moment.tzinfo is None:moment=moment.replace(tzinfo=timezone.utc)
-		slot=read_set_slot(moment);paths=read_set_paths(root or self.repository_root())
+		slot=read_set_slot(moment);is_worker=self.board_state().get('board_role')=='worker';paths=read_set_paths(root or self.repository_root(),worker=is_worker)
 		with closing(self.connect())as db,db:
 			db.execute('BEGIN IMMEDIATE')
 			if not manual:
@@ -2345,6 +2729,9 @@ class Store:
 			if existing:
 				if existing['text']!=text or answer_data is not None and json.loads(existing['answer_data']or'null')!=answer_data:raise ValueError('This message ID already belongs to different text')
 				self.release_report_tasks(db,report_id);return message_row(existing)
+			if at is None and acknowledged_at is None:
+				latest=db.execute('SELECT * FROM submissions WHERE report_id = ? ORDER BY seq DESC LIMIT 1',(report_id,)).fetchone()
+				if latest is not None and latest['text']==text and(answer_data is None or latest['answer_data']is None or json.loads(latest['answer_data']or'null')==answer_data):self.release_report_tasks(db,report_id);return message_row(latest)
 			db.execute('INSERT INTO submissions (id, report_id, text, at, acknowledged_at, ack_type, ack_text, ack_edited_at, seen_at, task_id, replies, ack_edited_seen_count, answer_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',(submission_id,report_id,text,at or now(),*receipt,when(seen_at)if seen_at is not None else None,task_id,more,seen_reply_count,json.dumps(answer_data,ensure_ascii=False)if answer_data is not None else None));self.release_report_tasks(db,report_id);reset_poll_count(db);clear_skip_poll(db);return message_row(db.execute('SELECT * FROM submissions WHERE id = ?',(submission_id,)).fetchone())
 	def submissions(self):
 		with closing(self.connect())as db:return[message_row(row)for row in db.execute('SELECT * FROM submissions ORDER BY at, seq')]
@@ -2371,7 +2758,468 @@ class Store:
 			if tasks is not None:
 				for item in tasks['finished']+tasks['upcoming']:item['updated_at']=clip_stamp(item['updated_at'])
 				tasks['updated_at']=clip_stamp(tasks['updated_at'])
-			polling=self.polling();runs=live_runs(self.path.parent)if polling else[];return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(),'last_check':clip_stamp(meta.get('last_check')),'polling':polling,'waiting_for_gates':bool(runs),'checking_pr':any(pr_checks_command(routed_record(self.path.parent,name).get('argv',[]))for name in runs),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if polling else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'agent_interrupt_pending':bool(meta.get(AGENT_INTERRUPT_FLAG_META)),'read_set':read_set_files(self.repository_root()),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(meta.get(TURN_ENDED_META)),'agent_call_ended_at':clip_stamp(meta.get(AGENT_CALL_ENDED_META)),'gate_threshold':GATE_THRESHOLD,'display_tz':meta.get(TIMEZONE_META),'repo':self.repository_root().name,'force_save_id':meta.get(FORCE_SAVE_META)}
+			polling=self.polling();runs=live_runs(self.path.parent)if polling else[];board_now=self.board_state(meta=meta,polling=polling);mirrored_reports=self._mirrored_worker_reports(board_now=board_now,local_ids={r['id']for r in reports},meta=meta)
+			if mirrored_reports:
+				for m_rep in mirrored_reports.values():m_copy=dict(m_rep);m_copy.pop('markdown',None);reports.append(m_copy)
+			if isinstance(board_now.get('worker_reports'),dict):board_now['worker_reports']={w_sid:[{k:v for(k,v)in w_r.items()if k not in{'markdown','fields'}}for w_r in w_list if isinstance(w_r,dict)]for(w_sid,w_list)in board_now['worker_reports'].items()if isinstance(w_list,list)}
+			if isinstance(board_now.get('entries'),list):board_now['entries']=[{**e_row,'file':{fk:fv for(fk,fv)in e_row['file'].items()if fk!='content'}if isinstance(e_row.get('file'),dict)else e_row.get('file')}for e_row in board_now['entries']if isinstance(e_row,dict)]
+			return{'notes':notes,'reports':reports,'tasks':tasks,'uploads':uploads,'fetch_jobs':fetch_jobs,'workspace':workspace_usage(state_dir=self.path.parent),'last_check':clip_stamp(meta.get('last_check')),'polling':polling,'waiting_for_gates':bool(runs),'checking_pr':any(pr_checks_command(routed_record(self.path.parent,name).get('argv',[]))for name in runs),'polling_since':clip_stamp(meta.get(POLL_SINCE_META))if polling else None,'skip_poll':clip_stamp(meta.get(SKIP_POLL_META)),'agent_interrupt_pending':bool(meta.get(AGENT_INTERRUPT_FLAG_META)),'read_set':read_set_files(self.repository_root(),worker=board_now.get('board_role')=='worker'),'calls_since_message':meta_number(db,POLLS_SINCE_MESSAGE),'agent_key':self.agent_key(),'agent_seen_at':clip_stamp(meta.get(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(meta.get(TURN_ENDED_META)),'agent_call_ended_at':clip_stamp(meta.get(AGENT_CALL_ENDED_META)),'gate_threshold':GATE_THRESHOLD,'display_tz':meta.get(TIMEZONE_META),'repo':self.repository_root().name,'force_save_id':meta.get(FORCE_SAVE_META),'board':board_now}
+	def _mirrored_worker_reports(self,board_now=None,local_ids=None,meta=None):
+		b_state=board_now if isinstance(board_now,dict)else self.board_state(meta=meta);self_sid=str(b_state.get('session_id')or'');allowed=set(b_state.get('allowed_sessions')or[])
+		if not self_sid or self_sid not in allowed or b_state.get('board_role')!='main':return{}
+		worker_reports=b_state.get('worker_reports')
+		if not isinstance(worker_reports,dict)or not worker_reports:return{}
+		raw_text=meta.get(BOARD_STATE_META)if isinstance(meta,dict)else self.meta_value(BOARD_STATE_META)
+		try:raw_stored=json.loads(raw_text)if raw_text else{}
+		except Exception:raw_stored={}
+		ack_wakes=raw_stored.get('ack_wakes')if isinstance(raw_stored,dict)and isinstance(raw_stored.get('ack_wakes'),dict)else{};seen_map=ack_wakes.get(f"{self_sid}:mirrored_report_seen")if isinstance(ack_wakes.get(f"{self_sid}:mirrored_report_seen"),dict)else{};local_latest_by_rep={};local_acks_by_rep={}
+		try:
+			with closing(self.connect())as db:
+				if local_ids is None:used_ids={row['id']for row in db.execute('SELECT id FROM reports').fetchall()}
+				else:used_ids=set(local_ids)
+				for s_row in db.execute('SELECT * FROM submissions ORDER BY seq').fetchall():
+					r_key=s_row['report_id'];local_latest_by_rep[r_key]=s_row
+					if s_row['acknowledged_at']is not None:ack_msg=message_row(s_row);ack_msg.pop('text',None);local_acks_by_rep.setdefault(r_key,[]).append(ack_msg)
+		except Exception:used_ids=set(local_ids)if local_ids is not None else set()
+		multi_repo=bool(b_state.get('multi_repo'));current_repo=clean_board_repo(b_state.get('repo')or'',self_sid);active_repos={current_repo,*(b_state.get('linked_repos')or[])};active_repos.discard('');session_by_sid={str(r.get('session_id')or''):r for r in b_state.get('sessions')or[]if isinstance(r,dict)and r.get('session_id')};mirrored={};seq_idx=10000
+		for(worker_sid,rep_list)in worker_reports.items():
+			if not worker_sid or worker_sid==self_sid or worker_sid not in allowed or not isinstance(rep_list,list):continue
+			s_row=session_by_sid.get(worker_sid,{});worker_repo=clean_board_repo(s_row.get('repo')or'',worker_sid)
+			if active_repos and worker_repo and worker_repo not in active_repos:continue
+			if multi_repo:worker_label=str(s_row.get('board_id')or s_row.get('worker_id')or(b_state.get('worker_ids')or{}).get(worker_sid)or worker_sid)
+			else:
+				worker_label=str(s_row.get('worker_id')or(b_state.get('worker_ids')or{}).get(worker_sid)or s_row.get('board_id')or worker_sid)
+				if current_repo and worker_label.startswith(f"{current_repo}-"):worker_label=worker_label[len(current_repo)+1:]
+			for w_rep in rep_list:
+				if not isinstance(w_rep,dict):continue
+				orig_id=str(w_rep.get('id')or'').strip()
+				if not orig_id:continue
+				mirror_id=orig_id if orig_id not in used_ids else f"{worker_label}--{orig_id}";mirror_id=re.sub('[^a-zA-Z0-9_-]','-',mirror_id)[:80];used_ids.add(mirror_id);title=str(w_rep.get('title')or orig_id).strip();updated_at=clip_stamp(w_rep.get('updated_at')or w_rep.get('published_at')or now());published_at=clip_stamp(w_rep.get('published_at')or updated_at);seen_key=f"{worker_sid}:{orig_id}";seen_rec=seen_map.get(seen_key)if isinstance(seen_map,dict)else None;seen_at=clip_stamp(seen_rec.get('seen_at'))if isinstance(seen_rec,dict)and seen_rec.get('seen_at')and seen_rec.get('updated_at')in(None,'',updated_at,published_at)else None;op_sub_id=None;op_sub_at=None
+				for op in b_state.get('report_ops')or[]:
+					if not isinstance(op,dict):continue
+					if str(op.get('target')or'')!=worker_sid:continue
+					if str(op.get('report_id')or'')!=orig_id:continue
+					if str(op.get('op')or'')in{'answer','submit'}:
+						cand_id=str(op.get('submission_id')or op.get('note_id')or'').strip()
+						if cand_id:op_sub_id=cand_id
+						if op.get('at'):op_sub_at=clip_stamp(op.get('at'))
+				local_sub=local_latest_by_rep.get(mirror_id)or local_latest_by_rep.get(orig_id);local_acks=local_acks_by_rep.get(mirror_id)or local_acks_by_rep.get(orig_id)or[];answered_flag=bool(local_sub or w_rep.get('answered')or op_sub_id);latest_answer_id=(local_sub['id']if local_sub else None)or str(w_rep.get('latest_answer_id')or'').strip()or op_sub_id or None
+				if latest_answer_id=='answered':latest_answer_id=(local_sub['id']if local_sub else None)or op_sub_id or None
+				latest_answer_at=clip_stamp(local_sub['at'])if local_sub else clip_stamp(w_rep.get('latest_answer_at'))if w_rep.get('latest_answer_at')else op_sub_at or(updated_at if answered_flag else None);latest_ack_at=clip_stamp(local_sub['acknowledged_at'])if local_sub and local_sub['acknowledged_at']else clip_stamp(w_rep.get('latest_answer_acknowledged_at'))if w_rep.get('latest_answer_acknowledged_at')else None;agent_seen_val=clip_stamp(local_sub['seen_at']or local_sub['acknowledged_at'])if local_sub and(local_sub['seen_at']or local_sub['acknowledged_at'])else clip_stamp(w_rep.get('agent_seen_at'))if w_rep.get('agent_seen_at')else None;ack_seen_val=clip_stamp(seen_rec.get('ack_seen_at'))if isinstance(seen_rec,dict)and seen_rec.get('ack_seen_at')else clip_stamp(w_rep.get('ack_seen_at'))if w_rep.get('ack_seen_at')else None;markdown_text=str(w_rep.get('markdown')or'')
+				try:has_fields=bool(w_rep.get('fields')if isinstance(w_rep.get('fields'),list)else parse_fields(markdown_text)[1])
+				except Exception:has_fields=False
+				seq_idx+=1;mirrored[mirror_id]={'id':mirror_id,'title':title,'markdown':markdown_text,'updated_at':updated_at,'published_at':published_at,'seq':seq_idx,'seen_at':seen_at,'ever_seen':1 if isinstance(seen_rec,dict)else 0,'agent_seen_at':agent_seen_val,'ack_seen_at':ack_seen_val,'acknowledgements':local_acks if local_acks else list(w_rep.get('acknowledgements')or[])if isinstance(w_rep.get('acknowledgements'),list)else[],'latest_answer_id':latest_answer_id,'latest_answer_at':latest_answer_at,'latest_answer_acknowledged_at':latest_ack_at,'needs_answer':bool(w_rep.get('needs_answer')if'needs_answer'in w_rep and not op_sub_id and not local_sub else has_fields and not answered_flag),'submission_format':None,'worker_session_id':worker_sid,'worker_report_id':orig_id}
+		return mirrored
+	def board_state(self,meta=None,polling=None):
+		root=self.repository_root();branch=workspace_branch(root);repo=root.name;sid=board_session_id(branch);raw_text=meta.get(BOARD_STATE_META)if isinstance(meta,dict)else self.meta_value(BOARD_STATE_META)
+		try:raw=json.loads(raw_text)if raw_text else{}
+		except Exception:raw={}
+		is_polling=self.polling()if polling is None else bool(polling);out=normalize_board_state(raw,session_id=sid,repo=repo,branch=branch,polling=is_polling)
+		if sid:
+			try:
+				survey_raw=meta.get('survey_state_json')if isinstance(meta,dict)else self.meta_value('survey_state_json');checked_at=clip_stamp(meta.get('survey_checked_at')if isinstance(meta,dict)else self.meta_value('survey_checked_at'));s_state=json.loads(survey_raw)if survey_raw else{};s_results=s_state.get('results')if isinstance(s_state,dict)else None;s_ans_at=clip_stamp(s_state.get('answered_at')if isinstance(s_state,dict)else None)
+				if s_results is not None and checked_at and(not s_ans_at or checked_at>s_ans_at):s_ans_at=checked_at
+				self_survey={'answered':isinstance(s_results,list),'answered_at':s_ans_at,'results':s_results if isinstance(s_results,list)else None};runs=live_runs(self.path.parent)if is_polling else[]
+				with closing(self.connect())as db_conn:calls_count=meta_number(db_conn,POLLS_SINCE_MESSAGE)
+				m_dict=meta if isinstance(meta,dict)else{}
+				def _mval(key):return m_dict.get(key)if key in m_dict else self.meta_value(key)
+				self_status_fields={'survey':self_survey,'polling_since':clip_stamp(_mval(POLL_SINCE_META))if is_polling else None,'waiting_for_gates':bool(runs),'checking_pr':any(pr_checks_command(routed_record(self.path.parent,name).get('argv',[]))for name in runs),'calls_since_message':calls_count,'gate_threshold':GATE_THRESHOLD,'agent_seen_at':clip_stamp(_mval(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(_mval(TURN_ENDED_META)),'agent_call_ended_at':clip_stamp(_mval(AGENT_CALL_ENDED_META))}
+				for s_row in out['sessions']:
+					if s_row.get('session_id')==sid:s_row.update(self_status_fields)
+			except Exception:pass
+			try:out['worker_tasks'][sid]=[{'id':row['id'],'title':row['title'],'status':row['status'],'type':row.get('type')or'code','details':list(row.get('details')or[]),'order':row.get('order'),'report_id':row.get('report_id'),'updated_at':clip_stamp(row.get('updated_at'))}for row in self.list_tasks()]
+			except Exception:pass
+			try:
+				with closing(self.connect())as db:rep_rows=db.execute('SELECT id, title, markdown, updated_at, published_at, agent_seen_at, ack_seen_at, EXISTS(SELECT 1 FROM submissions WHERE report_id = reports.id) AS answered, EXISTS(SELECT 1 FROM tasks JOIN notes ON notes.task_id = tasks.id WHERE tasks.report_id = reports.id AND notes.quiet = 0) AS owner_requested FROM reports WHERE published_at IS NOT NULL ORDER BY seq, id').fetchall();sub_rows=db.execute('SELECT * FROM submissions ORDER BY seq').fetchall()
+				latest_by_rep={};acks_by_rep={}
+				for s_row in sub_rows:
+					r_key=s_row['report_id'];latest_by_rep[r_key]=s_row
+					if s_row['acknowledged_at']is not None:ack_msg=message_row(s_row);ack_msg.pop('text',None);acks_by_rep.setdefault(r_key,[]).append(ack_msg)
+				rep_list=[]
+				for r_row in rep_rows:
+					try:fields=parse_fields(r_row['markdown'])[1]
+					except Exception:fields=[]
+					answered_flag=bool(r_row['answered']);rid=r_row['id'];latest_sub=latest_by_rep.get(rid);sent_flag=any(e.get('session_id')==sid and(rid in str(e.get('text')or'')or str((e.get('payload')or{}).get('report_id')or'')==rid)for e in out.get('entries')or[]if isinstance(e,dict));rep_list.append({'id':rid,'title':r_row['title'],'markdown':r_row['markdown'],'fields':fields,'answered':answered_flag,'needs_answer':bool(fields)and not answered_flag,'latest_answer_id':latest_sub['id']if latest_sub else None,'latest_answer_at':clip_stamp(latest_sub['at'])if latest_sub else None,'latest_answer_acknowledged_at':clip_stamp(latest_sub['acknowledged_at'])if latest_sub and latest_sub['acknowledged_at']else None,'agent_seen_at':clip_stamp(r_row['agent_seen_at'])if r_row['agent_seen_at']else None,'ack_seen_at':clip_stamp(r_row['ack_seen_at'])if r_row['ack_seen_at']else None,'acknowledgements':acks_by_rep.get(rid,[]),'owner_requested':bool(r_row['owner_requested']),'sent_to_main':sent_flag,'updated_at':clip_stamp(r_row['updated_at']),'published_at':clip_stamp(r_row['published_at'])})
+				out['worker_reports'][sid]=rep_list
+			except Exception:pass
+		return out
+	def apply_board_report_op(self,op):
+		if not isinstance(op,dict):return
+		op_name=str(op.get('op')or op.get('operation')or'answer').strip().lower();report_id=str(op.get('report_id')or op.get('id')or'').strip()
+		if not report_id:raise ValueError('Missing report_id')
+		if op_name in{'unpublish','remove','delete'}:
+			try:self.unpublish(report_id,dismissed_by_owner=True)
+			except FileNotFoundError:pass
+			return
+		if op_name in{'answer','submit'}:
+			answers=op.get('answers')
+			if not isinstance(answers,dict):raise ValueError('Report answers must be an object')
+			normalized_answers={}
+			for(field_key,raw_ans)in answers.items():
+				if isinstance(raw_ans,dict)and'choice'in raw_ans and'value'not in raw_ans:normalized_answers[field_key]=raw_ans['choice']
+				else:normalized_answers[field_key]=raw_ans
+			note_id=str(op.get('submission_id')or op.get('note_id')or uuid.uuid4().hex[:6])
+			with self.transaction()as db:
+				db.execute('BEGIN IMMEDIATE');report=self.report(report_id,shared=db);fields=parse_fields(report['markdown'])[1]
+				if not fields:raise ValueError('This report has no fields to answer')
+				self.submit(report_id,report['title'],fields,note_id,normalized_answers,shared=db,submission_format=report['submission_format'],revision=report['updated_at'])
+			return
+		raise ValueError(f"Unsupported worker report operation: {op_name}")
+	def apply_board_task_op(self,op):
+		if not isinstance(op,dict):return
+		op_name=str(op.get('op')or op.get('operation')or'set').strip().lower()
+		if op_name=='clear':
+			for item in list(self.list_tasks()):
+				try:self.remove_task(item['id'])
+				except Exception:pass
+			return
+		if op_name=='replace':
+			for item in list(self.list_tasks()):
+				try:self.remove_task(item['id'])
+				except Exception:pass
+			for item in op.get('tasks')if isinstance(op.get('tasks'),list)else[]:
+				if not isinstance(item,dict)or not item.get('id'):continue
+				details=item.get('details')
+				if isinstance(details,str):details=[details]
+				elif not isinstance(details,list):details=['Scope: .']
+				self.write_task(str(item['id']),title=str(item.get('title')or item['id']),details=[str(x)for x in details],status=str(item.get('status')or'upcoming'),task_type=str(item.get('type')or item.get('task_type')or'code'),order=item.get('order'),report_id=item.get('report_id'))
+			return
+		if op_name in{'remove','delete'}:
+			target_id=str(op.get('task_id')or op.get('id')or'').strip()
+			if target_id:
+				try:self.remove_task(target_id)
+				except Exception:pass
+			return
+		if op_name=='reorder':
+			order_ids=op.get('order_ids')
+			if isinstance(order_ids,list)and order_ids:
+				for(idx,tid)in enumerate(order_ids,start=1):
+					if tid:
+						try:self.write_task(str(tid),order=idx)
+						except Exception:pass
+				return
+			target_id=str(op.get('task_id')or op.get('id')or'').strip()
+			if target_id and op.get('order')is not None:self.write_task(target_id,order=int(op.get('order')))
+			return
+		target_id=str(op.get('task_id')or op.get('id')or'').strip()
+		if not target_id:raise ValueError('Missing task_id')
+		status='finished'if op_name=='finish'else op.get('status');details=op.get('details')
+		if isinstance(details,str):details=[details]
+		elif isinstance(details,list):details=[str(x)for x in details]
+		else:details=None
+		existing={row['id']:row for row in self.list_tasks()}.get(target_id)
+		if existing is None and not details:scope_val=str(op.get('scope')or'.').strip();details=[f"Scope: {scope_val}"]
+		elif details is not None and op.get('scope')and not any(str(line).startswith('Scope:')for line in details):details=[f"Scope: {str(op.get('scope')).strip()}",*details]
+		self.write_task(target_id,title=op.get('title')or(existing['title']if existing else target_id),details=details,status=status,order=op.get('order'),append_details=bool(op.get('append')or op.get('append_details')),report_id=op.get('report_id'),task_type=op.get('task_type')or op.get('type')or(existing.get('type')if existing else'code'))
+	def take_board_wake(self):
+		raw_text=self.meta_value(BOARD_STATE_META)
+		if not raw_text:return None
+		try:raw=json.loads(raw_text)
+		except Exception:return None
+		if not isinstance(raw,dict):return None
+		wakes=raw.get('wakes')
+		if not isinstance(wakes,dict)or not wakes:return None
+		sid=board_session_id(workspace_branch(self.repository_root()));allowed={board_session_id(item)for item in(raw.get('allowed_sessions')if isinstance(raw.get('allowed_sessions'),list)else[])if board_session_id(item)}
+		if not sid or sid not in allowed or not wakes.get(sid):return None
+		stamp=wakes.pop(sid,None);raw['wakes']=wakes;ack_wakes=dict(raw.get('ack_wakes'))if isinstance(raw.get('ack_wakes'),dict)else{};hist_key=f"{sid}:history";seen=ack_wakes.get(hist_key);seen_list=[str(x)for x in seen if x]if isinstance(seen,list)else[];prev_single=ack_wakes.get(sid)
+		if isinstance(prev_single,list):
+			for item in prev_single:
+				if item and str(item)not in seen_list:seen_list.append(str(item))
+		elif prev_single and str(prev_single)not in seen_list:seen_list.append(str(prev_single))
+		already_seen=bool(stamp and str(stamp)in seen_list)
+		if stamp and not already_seen:seen_list.append(str(stamp))
+		ack_wakes[sid]=str(stamp)if stamp else'';ack_wakes[hist_key]=seen_list[-64:];raw['ack_wakes']=ack_wakes
+		if isinstance(raw.get('sessions'),list):
+			for row in raw['sessions']:
+				if isinstance(row,dict)and board_session_id(row.get('session_id')or row.get('branch')or'')==sid:row['polling']=False;row['status']='active'
+		with self.transaction(autosave=False)as db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(raw,ensure_ascii=False)))
+		return None if already_seen else str(stamp)
+	def take_unseen_board_entries(self):
+		board_now=self.board_state();sid=board_session_id(workspace_branch(self.repository_root()));entries=board_now.get('entries')if isinstance(board_now.get('entries'),list)else[]
+		if not sid or not entries:return[]
+		raw_text=self.meta_value(BOARD_STATE_META)
+		try:raw=json.loads(raw_text)if raw_text else{}
+		except Exception:raw={}
+		if not isinstance(raw,dict):raw={}
+		ack_wakes=dict(raw.get('ack_wakes'))if isinstance(raw.get('ack_wakes'),dict)else{};entries_key=f"{sid}:entries";seen_raw=ack_wakes.get(entries_key);seen_list=[str(x)for x in seen_raw if x]if isinstance(seen_raw,list)else[];seen_set=set(seen_list);unseen=[]
+		for entry in entries:
+			if not isinstance(entry,dict):continue
+			entry_id=str(entry.get('id')or'')
+			if entry_id and entry_id not in seen_set:
+				seen_set.add(entry_id);seen_list.append(entry_id)
+				if entry.get('session_id')!=sid and entry.get('to')in('*',sid,'',None):unseen.append(entry)
+		ack_wakes[entries_key]=seen_list[-512:];raw['ack_wakes']=ack_wakes
+		with self.transaction(autosave=False)as db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(raw,ensure_ascii=False)))
+		return unseen
+	def take_board_notifications(self):
+		raw_text=self.meta_value(BOARD_STATE_META)
+		if not raw_text:return[]
+		try:raw=json.loads(raw_text)
+		except Exception:return[]
+		if not isinstance(raw,dict):return[]
+		board_now=self.board_state();sid=str(board_now.get('session_id')or'');allowed=set(board_now.get('allowed_sessions')or[])
+		if not sid or sid not in allowed:return[]
+		ack_wakes=dict(raw.get('ack_wakes'))if isinstance(raw.get('ack_wakes'),dict)else{};joined_key=f"{sid}:joined_sessions";raw_joined=ack_wakes.get(joined_key);seen_joined={str(k):str(v)for(k,v)in raw_joined.items()if k}if isinstance(raw_joined,dict)else{};disc_key=f"{sid}:disconnected_sessions";raw_disc=ack_wakes.get(disc_key);seen_disc={str(x)for x in raw_disc if x}if isinstance(raw_disc,list)else set();multi_repo=bool(board_now.get('multi_repo'));current_repo=clean_board_repo(board_now.get('repo')or'',sid);active_repos={current_repo,*(board_now.get('linked_repos')or[])};active_repos.discard('');notices=[];changed=False;active_other_sids=set()
+		for row in board_now.get('sessions')or[]:
+			if not isinstance(row,dict)or not row.get('allowed'):continue
+			other_sid=str(row.get('session_id')or'')
+			if not other_sid or other_sid==sid:continue
+			other_repo=clean_board_repo(row.get('repo')or'',other_sid)
+			if active_repos and other_repo and other_repo not in active_repos:continue
+			active_other_sids.add(other_sid);other_board_id=str(row.get('board_id')or other_sid);other_role=str(row.get('role')or'worker');short_id='alpha'if other_role=='main'else str(row.get('worker_id')or other_board_id);ident_label=other_board_id if multi_repo or short_id==other_board_id else f"{short_id} ({other_board_id})";prev_board_id=seen_joined.get(other_sid)
+			if prev_board_id!=other_board_id:
+				if prev_board_id is None:notices.append(f"BOARD SESSION JOINED: session {other_sid} joined the board with identifier {ident_label} ({other_role}).")
+				else:notices.append(f"BOARD SESSION UPDATED: session {other_sid} now uses identifier {ident_label} ({other_role}).")
+				seen_joined[other_sid]=other_board_id;changed=True
+			is_disc=bool(row.get('disconnected')or row.get('status')=='disconnected')
+			if is_disc and other_sid not in seen_disc:notices.append(f"BOARD SESSION DISCONNECTED: session {other_sid} ({ident_label}, {other_role}) disconnected from the board.");seen_disc.add(other_sid);changed=True
+			elif not is_disc and other_sid in seen_disc:notices.append(f"BOARD SESSION RECONNECTED: session {other_sid} ({ident_label}, {other_role}) reconnected to the board.");seen_disc.discard(other_sid);changed=True
+		for stale_sid in[item for item in seen_joined if item not in active_other_sids]:seen_joined.pop(stale_sid,None);seen_disc.discard(stale_sid);changed=True
+		ack_wakes[joined_key]=seen_joined;ack_wakes[disc_key]=sorted(seen_disc);worker_key=f"{sid}:worker_role_notified"
+		if board_now.get('board_role')=='worker':
+			self_board_id=str(board_now.get('board_id')or sid);self_short_id=str(board_now.get('worker_id')or self_board_id);self_ident=self_board_id if multi_repo or self_short_id==self_board_id else f"{self_short_id} ({self_board_id})"
+			if ack_wakes.get(worker_key)!=self_board_id:
+				root=self.repository_root();worker_md='.agents/skills/arena-skill/WORKER.md'
+				for candidate in('.agents/skills/arena-skill/WORKER.md','skills/arena-skill/WORKER.md'):
+					if(root/candidate).is_file():worker_md=candidate;break
+				notices.append(f"WORKER ROLE ASSIGNED: you are assigned the worker role with identifier {self_ident}. Read {worker_md} before continuing work.");ack_wakes[worker_key]=self_board_id;changed=True
+		elif worker_key in ack_wakes:ack_wakes.pop(worker_key,None);changed=True
+		if changed:
+			raw['ack_wakes']=ack_wakes
+			if notices and isinstance(raw.get('sessions'),list):
+				for row in raw['sessions']:
+					if isinstance(row,dict)and board_session_id(row.get('session_id')or row.get('branch')or'')==sid:row['polling']=False;row['status']='active'
+			with self.transaction(autosave=False)as db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(raw,ensure_ascii=False)))
+		return notices
+	def board_action(self,payload):
+		if not isinstance(payload,dict):raise TypeError('Board payload must be an object')
+		action_type=str(payload.get('action')or payload.get('type')or'').strip().lower();raw_text=self.meta_value(BOARD_STATE_META)
+		try:raw_stored=json.loads(raw_text)if raw_text else{}
+		except Exception:raw_stored={}
+		ack_wakes=dict(raw_stored.get('ack_wakes'))if isinstance(raw_stored,dict)and isinstance(raw_stored.get('ack_wakes'),dict)else{};state=self.board_state();sid=state['session_id'];linked_repos=[str(x)for x in state.get('linked_repos')or[]if x];multi_repo=bool(state.get('multi_repo')or linked_repos);worker_ids=dict(state.get('worker_ids')or{});worker_tasks={k:[dict(item)for item in v if isinstance(item,dict)]for(k,v)in(state.get('worker_tasks')or{}).items()if isinstance(v,list)};task_ops=[dict(row)for row in state.get('task_ops')or[]];worker_reports={k:[dict(item)for item in v if isinstance(item,dict)]for(k,v)in(state.get('worker_reports')or{}).items()if isinstance(v,list)};report_ops=[dict(row)for row in state.get('report_ops')or[]];removed_sessions=[str(x)for x in state.get('removed_sessions')or[]if x and x!=sid];allowed=list(state['allowed_sessions']);main_sid=state['main_session_id'];sessions=[dict(row)for row in state['sessions']];entries=[dict(row)for row in state['entries']];wakes=dict(state['wakes'])
+		if action_type=='sync':
+			incoming=dict(payload.get('board'))if isinstance(payload.get('board'),dict)else dict(payload)
+			if isinstance(incoming,dict)and isinstance(incoming.get('linked_repos'),list):
+				linked_repos=[]
+				for item in incoming['linked_repos']:
+					slug=clean_board_repo(item)
+					if slug and slug not in linked_repos:linked_repos.append(slug)
+			if isinstance(incoming,dict)and'multi_repo'in incoming:multi_repo=bool(incoming.get('multi_repo')or linked_repos)
+			merged=normalize_board_state(incoming,session_id=sid,repo=state['repo'],branch=state['branch'],polling=any(r['session_id']==sid and r.get('polling')for r in sessions));protected_allowed_set=set(allowed)|set(merged.get('allowed_sessions')or[])
+			for rem_sid in merged.get('removed_sessions')or[]:
+				if rem_sid and rem_sid!=sid and rem_sid not in protected_allowed_set and rem_sid not in removed_sessions:removed_sessions.append(rem_sid)
+			if protected_allowed_set:removed_sessions=[r_sid for r_sid in removed_sessions if r_sid not in protected_allowed_set]
+			removed_set=set(removed_sessions);allowed=[item for item in allowed if item not in removed_set];sessions=[row for row in sessions if row['session_id']not in removed_set]
+			for(k,v)in(merged.get('worker_ids')or{}).items():
+				if k not in removed_set:worker_ids[k]=v
+			for(k,v)in(merged.get('worker_tasks')or{}).items():
+				if k!=sid and k not in removed_set:worker_tasks[k]=[dict(item)for item in v if isinstance(item,dict)]
+			for(k,v)in(merged.get('worker_reports')or{}).items():
+				if k!=sid and k not in removed_set:worker_reports[k]=[dict(item)for item in v if isinstance(item,dict)]
+			seen_op_ids={str(op.get('id')or'')for op in task_ops if op.get('id')};applied_key=f"{sid}:task_ops";applied_list=[str(x)for x in ack_wakes.get(applied_key)if x]if isinstance(ack_wakes.get(applied_key),list)else[];applied_set=set(applied_list)
+			for op in merged.get('task_ops')or[]:
+				op_id=str(op.get('id')or'')
+				if op_id and op_id not in seen_op_ids:seen_op_ids.add(op_id);task_ops.append(dict(op))
+				target_sid=resolve_board_target(op.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
+				if op_id and target_sid==sid and op_id not in applied_set:applied_set.add(op_id);applied_list.append(op_id);self.apply_board_task_op(op);wakes[sid]=op_id
+			ack_wakes[applied_key]=applied_list[-128:];seen_rep_op_ids={str(op.get('id')or'')for op in report_ops if op.get('id')};applied_rep_key=f"{sid}:report_ops";applied_rep_list=[str(x)for x in ack_wakes.get(applied_rep_key)if x]if isinstance(ack_wakes.get(applied_rep_key),list)else[];applied_rep_set=set(applied_rep_list)
+			for op in merged.get('report_ops')or[]:
+				op_id=str(op.get('id')or'')
+				if op_id and op_id not in seen_rep_op_ids:seen_rep_op_ids.add(op_id);report_ops.append(dict(op))
+				if str(op.get('op')or'')=='entry-ack':continue
+				target_sid=resolve_board_target(op.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
+				if op_id and target_sid==sid and op_id not in applied_rep_set:applied_rep_set.add(op_id);applied_rep_list.append(op_id);self.apply_board_report_op(op);wakes[sid]=op_id
+			ack_wakes[applied_rep_key]=applied_rep_list[-128:]
+			if merged['allowed_sessions']or not allowed:
+				for item in merged['allowed_sessions']:
+					if item not in removed_set and item not in allowed:allowed.append(item)
+			if merged['main_session_id']and merged['main_session_id']not in removed_set and(merged['main_session_id']not in worker_ids or not main_sid or main_sid in worker_ids):main_sid=merged['main_session_id']
+			elif main_sid in removed_set or main_sid and main_sid not in allowed:main_sid=''
+			by_sid={row['session_id']:dict(row)for row in sessions}
+			for row in merged['sessions']:
+				row_sid=row['session_id']
+				if row_sid in removed_set:continue
+				if row_sid==sid and row_sid in by_sid:continue
+				prev_survey=by_sid.get(row_sid,{}).get('survey');by_sid[row_sid]=dict(row)
+				if not isinstance(by_sid[row_sid].get('survey'),dict)and isinstance(prev_survey,dict):by_sid[row_sid]['survey']=prev_survey
+			sessions=list(by_sid.values());existing_entry_ids={str(item.get('id')or'')for item in entries if item.get('id')};seen_wakes=ack_wakes.get(f"{sid}:history");seen_wake_set={str(x)for x in seen_wakes if x}if isinstance(seen_wakes,list)else set();seen_entries=ack_wakes.get(f"{sid}:entries")
+			if isinstance(seen_entries,list):seen_wake_set.update(str(x)for x in seen_entries if x)
+			prev_ack=ack_wakes.get(sid)
+			if isinstance(prev_ack,list):seen_wake_set.update(str(x)for x in prev_ack if x)
+			elif prev_ack:seen_wake_set.add(str(prev_ack))
+			entry_by_id={};merged_entries=[]
+			for item in[*entries,*merged['entries']]:
+				row=dict(item);eid=str(row.get('id')or'')
+				if eid and eid in entry_by_id:
+					prev_entry=entry_by_id[eid]
+					for field in('seen_at','acknowledged_at','ack_type','ack_text','ack_sender','ack_edited_at','task_id'):
+						if row.get(field)and not prev_entry.get(field):prev_entry[field]=row[field]
+					if int(row.get('ack_edited_seen_count')or 0)>int(prev_entry.get('ack_edited_seen_count')or 0):prev_entry['ack_edited_seen_count']=int(row.get('ack_edited_seen_count')or 0)
+					if isinstance(row.get('replies'),list)and len(row['replies'])>len(prev_entry.get('replies')or[]):
+						prev_entry['replies']=row['replies']
+						if row.get('ack_edited_at'):prev_entry['ack_edited_at']=row['ack_edited_at']
+					continue
+				if eid:entry_by_id[eid]=row
+				if isinstance(row.get('file'),dict)and'content'in row['file']:row['file']=stage_board_file(self.path.parent,row['session_id'],row['file'])
+				merged_entries.append(row)
+			for op in report_ops:
+				if str(op.get('op')or'')!='entry-ack':continue
+				target_eid=str(op.get('entry_id')or'')
+				if not target_eid or target_eid not in entry_by_id:continue
+				target_entry=entry_by_id[target_eid]
+				for field in('seen_at','acknowledged_at','ack_type','ack_text','ack_sender','ack_edited_at','task_id'):
+					if op.get(field)and not target_entry.get(field):target_entry[field]=resolve_board_ack_sender(op[field],sessions,allowed=allowed,main_sid=main_sid,from_sid=str(target_entry.get('session_id')or''),to_sid=str(target_entry.get('to')or''))if field=='ack_sender'else op[field]
+				if int(op.get('ack_edited_seen_count')or 0)>int(target_entry.get('ack_edited_seen_count')or 0):target_entry['ack_edited_seen_count']=int(op.get('ack_edited_seen_count')or 0)
+				if isinstance(op.get('replies'),list)and len(op['replies'])>len(target_entry.get('replies')or[]):
+					target_entry['replies']=op['replies']
+					if op.get('ack_edited_at'):target_entry['ack_edited_at']=op['ack_edited_at']
+			for row in merged_entries:
+				eid=str(row.get('id')or'')
+				if eid and eid not in existing_entry_ids and row.get('session_id')!=sid and row.get('to')in('*',sid,'',None)and sid in allowed and eid not in seen_wake_set:wakes[sid]=eid
+			entries=sorted(merged_entries,key=lambda r:str(r.get('at')or''))
+			with closing(self.connect())as db:
+				for b_entry in entries:
+					note_ref=str(b_entry.get('note_id')or b_entry.get('id')or'')
+					if not note_ref:continue
+					n_row=db.execute('SELECT seen_at, acknowledged_at, ack_type, ack_text, ack_edited_at, replies, task_id FROM notes WHERE id = ?',(note_ref,)).fetchone()
+					if n_row is None:continue
+					for n_field in('seen_at','acknowledged_at','ack_type','ack_text','ack_edited_at','task_id'):
+						if n_row[n_field]and not b_entry.get(n_field):b_entry[n_field]=clip_stamp(n_row[n_field])if n_field.endswith('_at')else n_row[n_field]
+					n_replies=replies_list(n_row['replies'])
+					if len(n_replies)>len(b_entry.get('replies')or[]):b_entry['replies']=[{'type':r.get('type')or'reply','text':r.get('text')or'','at':clip_stamp(r.get('at'))}for r in n_replies if isinstance(r,dict)]
+			for(k,v)in merged['wakes'].items():
+				if k==sid and str(v)in seen_wake_set:continue
+				if not wakes.get(k)or str(v)>=str(wakes[k]):wakes[k]=v
+			for row in sessions:
+				if row['session_id']in allowed and wakes.get(row['session_id']):row['polling']=False;row['status']='active'
+		elif action_type in{'worker-task','manage-worker-tasks'}:
+			sender=resolve_board_target(payload.get('session_id')or sid,sessions,allowed=allowed,main_sid=main_sid)
+			if main_sid and sender and sender!=main_sid:raise ValueError('Only the main session can manage worker tasks')
+			target=resolve_board_target(payload.get('target')or payload.get('worker')or payload.get('target_session_id')or'',sessions,allowed=allowed,main_sid=main_sid)
+			if not target:raise ValueError('Missing worker target')
+			op_name=str(payload.get('op')or payload.get('operation')or payload.get('subaction')or'set').strip().lower()
+			if op_name not in{'set','create','update','finish','reorder','remove','delete','clear','replace'}:raise ValueError(f"Unsupported worker task operation: {op_name}")
+			op_record={'id':str(payload.get('id')or f"top-{uuid.uuid4().hex[:8]}"),'target':target,'op':op_name,'task_id':str(payload.get('task_id')or payload.get('task')or''),'title':payload.get('title'),'details':payload.get('details'),'scope':payload.get('scope'),'status':payload.get('status'),'task_type':payload.get('task_type')or payload.get('type'),'order':payload.get('order'),'order_ids':payload.get('order_ids'),'append':bool(payload.get('append')),'report_id':payload.get('report_id'),'tasks':payload.get('tasks'),'at':clip_stamp(now())};task_ops.append(op_record);worker_tasks[target]=apply_task_op_to_list(worker_tasks.get(target)or[],op_record)
+			if target==sid:
+				applied_key=f"{sid}:task_ops";applied_list=[str(x)for x in ack_wakes.get(applied_key)if x]if isinstance(ack_wakes.get(applied_key),list)else[]
+				if op_record['id']not in applied_list:applied_list.append(op_record['id']);ack_wakes[applied_key]=applied_list[-128:];self.apply_board_task_op(op_record)
+			if target in allowed:
+				wakes[target]=op_record['id'];ack_wakes.pop(target,None)
+				for row in sessions:
+					if row['session_id']==target:row['polling']=False;row['status']='active'
+		elif action_type in{'worker-report','manage-worker-reports'}:
+			sender=resolve_board_target(payload.get('session_id')or sid,sessions,allowed=allowed,main_sid=main_sid)
+			if main_sid and sender and sender!=main_sid:raise ValueError('Only the main session can manage worker reports')
+			target=resolve_board_target(payload.get('target')or payload.get('worker')or payload.get('target_session_id')or'',sessions,allowed=allowed,main_sid=main_sid)
+			if not target:raise ValueError('Missing worker target')
+			op_name=str(payload.get('op')or payload.get('operation')or payload.get('subaction')or'answer').strip().lower()
+			if op_name not in{'answer','submit','unpublish','remove','delete'}:raise ValueError(f"Unsupported worker report operation: {op_name}")
+			report_id=str(payload.get('report_id')or payload.get('report')or'').strip()
+			if not report_id:raise ValueError('Missing report_id')
+			if op_name in{'answer','submit'}and not payload.get('from_owner'):
+				target_rep=next((r for r in worker_reports.get(target)or[]if isinstance(r,dict)and r.get('id')==report_id),None);sent_via_entry=any(e.get('session_id')==target and(report_id in str(e.get('text')or'')or str((e.get('payload')or{}).get('report_id')or'')==report_id)for e in entries if isinstance(e,dict));is_sent_to_main=bool(sent_via_entry or target_rep and target_rep.get('sent_to_main'));is_owner_requested=bool(target_rep and target_rep.get('owner_requested')or payload.get('owner_requested'));has_explicit_report_entries=any(isinstance(e,dict)and e.get('session_id')==target and str((e.get('payload')or{}).get('report_id')or'')for e in entries)
+				if is_owner_requested or has_explicit_report_entries and not is_sent_to_main:raise ValueError(f"Report {report_id!r} was not sent to main; owner-requested reports must be presented to the owner")
+			rep_op={'id':str(payload.get('id')or f"rop-{uuid.uuid4().hex[:8]}"),'target':target,'op':op_name,'report_id':report_id,'answers':payload.get('answers')if isinstance(payload.get('answers'),dict)else{},'submission_id':payload.get('submission_id')or payload.get('note_id'),'at':clip_stamp(now())};report_ops.append(rep_op);worker_reports[target]=apply_report_op_to_list(worker_reports.get(target)or[],rep_op)
+			if target==sid:
+				applied_rep_key=f"{sid}:report_ops";applied_rep_list=[str(x)for x in ack_wakes.get(applied_rep_key)if x]if isinstance(ack_wakes.get(applied_rep_key),list)else[]
+				if rep_op['id']not in applied_rep_list:applied_rep_list.append(rep_op['id']);ack_wakes[applied_rep_key]=applied_rep_list[-128:];self.apply_board_report_op(rep_op)
+			if target in allowed:
+				wakes[target]=rep_op['id'];ack_wakes.pop(target,None)
+				for row in sessions:
+					if row['session_id']==target:row['polling']=False;row['status']='active'
+		elif action_type=='allow':
+			target=resolve_board_target(payload.get('session_id')or sid,sessions,allowed=allowed,main_sid=main_sid)
+			if not target:raise ValueError('Missing session_id')
+			removed_sessions=[item for item in removed_sessions if item!=target];raw_wid=payload.get('worker_id')or payload.get('identifier')
+			if raw_wid is not None:worker_ids[target]=clean_worker_id(raw_wid,required=True)
+			if target not in allowed:allowed.append(target)
+			found_target=False
+			for row in sessions:
+				if row['session_id']==target:row['updated_at']=clip_stamp(now());found_target=True
+			if not found_target:sessions.append({'session_id':target,'repo':state['repo'],'branch':f"arena/{target}",'status':'active','polling':False,'updated_at':clip_stamp(now())})
+		elif action_type in{'delegate-id','set-worker-id'}:
+			target=resolve_board_target(payload.get('session_id')or payload.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
+			if not target:raise ValueError('Missing session_id')
+			raw_wid=payload.get('worker_id')if payload.get('worker_id')is not None else payload.get('identifier')if payload.get('identifier')is not None else payload.get('id');worker_ids[target]=clean_worker_id(raw_wid,required=True)
+		elif action_type=='set-multi-repo':
+			multi_repo=bool(payload.get('multi_repo')or payload.get('enabled'))
+			if not multi_repo:linked_repos=[]
+		elif action_type=='link-repo':
+			slug=clean_board_repo(payload.get('repo')or payload.get('target')or'')
+			if not slug:raise ValueError('Missing repo')
+			if slug not in linked_repos:linked_repos.append(slug)
+			multi_repo=bool(linked_repos)
+		elif action_type=='unlink-repo':slug=clean_board_repo(payload.get('repo')or payload.get('target')or'');linked_repos=[item for item in linked_repos if item!=slug];multi_repo=bool(linked_repos)
+		elif action_type in{'revoke','remove-session','dismiss'}:
+			target=resolve_board_target(payload.get('session_id')or payload.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
+			if target:
+				if target!=sid and target not in removed_sessions:removed_sessions.append(target)
+				allowed=[item for item in allowed if item!=target]
+				if action_type in{'remove-session','dismiss'}or target!=sid:sessions=[row for row in sessions if row['session_id']!=target];wakes.pop(target,None);worker_ids.pop(target,None);worker_tasks.pop(target,None);worker_reports.pop(target,None)
+				if main_sid==target:main_sid=''
+		elif action_type=='set-main':
+			target=resolve_board_target(payload.get('session_id')or'',sessions,allowed=allowed,main_sid=main_sid)
+			if target:
+				removed_sessions=[item for item in removed_sessions if item!=target]
+				if target not in allowed:allowed.append(target)
+				worker_ids.pop(target,None)
+				for row in sessions:
+					if row['session_id']==target:row['worker_id']='';row['role']='main';row['updated_at']=clip_stamp(now())
+			main_sid=target
+		elif action_type=='heartbeat':
+			target=board_session_id(payload.get('session_id')or sid)
+			if target:
+				removed_sessions=[item for item in removed_sessions if item!=target];is_poll=bool(payload.get('polling')or payload.get('status')=='polling');updated=False
+				for row in sessions:
+					if row['session_id']==target:row['repo']=str(payload.get('repo')or row.get('repo')or state['repo']);row['branch']=str(payload.get('branch')or row.get('branch')or f"arena/{target}");row['status']='polling'if is_poll else'active';row['polling']=is_poll;row['updated_at']=clip_stamp(now());updated=True
+				if not updated:sessions.append({'session_id':target,'repo':str(payload.get('repo')or state['repo']),'branch':str(payload.get('branch')or f"arena/{target}"),'status':'polling'if is_poll else'active','polling':is_poll,'updated_at':clip_stamp(now())})
+		elif action_type=='post':
+			sender=resolve_board_target(payload.get('session_id')or sid,sessions,allowed=allowed,main_sid=main_sid)
+			if not sender or sender not in allowed:raise ValueError('Session is not on the board allowlist')
+			staged_file=None
+			if payload.get('file')is not None:staged_file=stage_board_file(self.path.parent,sender,payload.get('file'))
+			body=payload.get('payload')
+			if not isinstance(body,dict):body={'text':str(body)}if body is not None else{}
+			if not body:body={k:v for(k,v)in payload.items()if k not in{'action','type','id','session_id','board_id','from_owner','note_id','mention_target','to','repo','branch','at','seen_at','acknowledged_at','ack_type','ack_text','ack_edited_at','replies','payload','file'}}
+			entry_text=str(payload.get('text')or body.get('text')or body.get('summary')or'')
+			if entry_text and'text'not in body and not body.get('tag'):body['text']=entry_text
+			raw_to=str(payload.get('to')or'*');resolved_to='*'if raw_to=='*'else resolve_board_target(raw_to,sessions,allowed=allowed,main_sid=main_sid);mention_target='';raw_mention=str(payload.get('mention_target')or'').strip()
+			if raw_mention:mention_target=resolve_board_target(raw_mention,sessions,allowed=allowed,main_sid=main_sid)
+			if not mention_target and entry_text:
+				for token in re.findall('(?:^|(?<=\\s))@([A-Za-z0-9_/-]{1,64})\\b',entry_text):
+					cand=resolve_board_target(token,sessions,allowed=allowed,main_sid=main_sid)
+					if cand and cand in allowed and cand!=sender:mention_target=cand;break
+			if mention_target and resolved_to=='*':resolved_to=mention_target
+			entry_text=normalize_board_mentions(entry_text,sessions,allowed=allowed,main_sid=main_sid,from_sid=sender,to_sid=resolved_to)
+			if entry_text and('text'in body or not body.get('tag')):body['text']=entry_text
+			entry_id=str(payload.get('id')or f"p{uuid.uuid4().hex[:5]}");sender_row=next((r for r in sessions if r['session_id']==sender),{});from_owner=bool(payload.get('from_owner'));entries.append({'id':entry_id,'session_id':sender,'board_id':str(payload.get('board_id')or sender_row.get('board_id')or sender),'from_owner':from_owner,'note_id':str(payload.get('note_id')or''),'to':resolved_to or'*','mention_target':mention_target,'repo':str(payload.get('repo')or sender_row.get('repo')or state['repo']),'branch':str(payload.get('branch')or f"arena/{sender}"),'at':clip_stamp(now()),'tag':str(payload.get('tag')or body.get('tag')or''),'text':entry_text,'seen_at':None,'acknowledged_at':None,'ack_type':None,'ack_text':None,'ack_edited_at':None,'replies':[],'payload':body,'file':staged_file})
+			if mention_target and mention_target in allowed:
+				for row in sessions:
+					if row['session_id']==mention_target:row['polling']=False;row['status']='active'
+				wakes[mention_target]=entry_id;ack_wakes.pop(mention_target,None)
+			elif from_owner and(resolved_to or'*')=='*':
+				for row in sessions:
+					target_sid=row['session_id']
+					if target_sid in allowed and target_sid!=sender:row['polling']=False;row['status']='active';wakes[target_sid]=entry_id;ack_wakes.pop(target_sid,None)
+		elif action_type=='wake':
+			target=str(payload.get('target')or payload.get('session_id')or'').strip();stamp=f"{clip_stamp(now())}-{uuid.uuid4().hex[:6]}"
+			if target=='all-polling':
+				for row in sessions:
+					if row['session_id']in allowed and row.get('polling'):row['polling']=False;row['status']='active';wakes[row['session_id']]=stamp;ack_wakes.pop(row['session_id'],None)
+			else:
+				norm_target=resolve_board_target(target,sessions,allowed=allowed,main_sid=main_sid)
+				if norm_target:
+					for row in sessions:
+						if row['session_id']==norm_target and norm_target in allowed:row['polling']=False;row['status']='active'
+					if norm_target in allowed:wakes[norm_target]=stamp;ack_wakes.pop(norm_target,None)
+		elif action_type=='clear':entries=[]
+		else:raise ValueError(f"Unknown board action: {action_type}")
+		entries=entries[-MAX_BOARD_ENTRIES:];task_ops=task_ops[-MAX_BOARD_ENTRIES:];report_ops=report_ops[-MAX_BOARD_ENTRIES:];stored={'version':1,'local_session_id':sid,'multi_repo':multi_repo,'linked_repos':linked_repos,'removed_sessions':removed_sessions[-MAX_BOARD_ENTRIES:],'worker_ids':worker_ids,'worker_tasks':worker_tasks,'task_ops':task_ops,'worker_reports':worker_reports,'report_ops':report_ops,'allowed_sessions':allowed,'main_session_id':main_sid,'sessions':sessions,'entries':entries,'wakes':wakes,'ack_wakes':ack_wakes};encoded=json.dumps(stored,ensure_ascii=False)
+		while len(encoded.encode('utf-8'))>MAX_BOARD_BYTES and entries:entries.pop(0);stored['entries']=entries;encoded=json.dumps(stored,ensure_ascii=False)
+		if len(encoded.encode('utf-8'))>MAX_BOARD_BYTES:raise ValueError('Board storage exceeds 2 MB limit')
+		if encoded!=raw_text:
+			with self.transaction(autosave=False)as db:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,encoded))
+		return self.board_state()
 	def tasks(self):
 		with closing(self.connect())as db:
 			rows=db.execute(f"SELECT {TASK_COLUMNS} FROM tasks ORDER BY {TASK_ORDER}").fetchall();records=attach_blockers(db,[task_row(row)for row in rows])
@@ -2483,7 +3331,7 @@ class Store:
 				if report is not None and not parse_fields(report['markdown'])[1]:raise ValueError('A blocked task needs a report with answer fields')
 			if status=='finished':
 				guard_task_runs(self.path.parent,task_id,'finish task')
-				if not restoring and(status_arg=='finished'or not stored or stored['status']!='finished'):guard_task_push(self.repository_root(),task_id,task_type)
+				if not restoring and self.board_state(polling=False).get('board_role')!='worker'and(status_arg=='finished'or not stored or stored['status']!='finished'):guard_task_push(self.repository_root(),task_id,task_type)
 			if status=='finished'and blocked:raise ValueError(f"Task {task_id} is blocked; clear the report wait with --unblocked first")
 			siblings=[task_row(item)for item in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks WHERE status = ? AND id != ? ORDER BY position, id",(status,task_id)).fetchall()]
 			if not restoring and order is not None and not blocked and status=='upcoming':siblings=[item for item in siblings if not(item.get('blocked')and item.get('report_id'))]+[item for item in siblings if item.get('blocked')and item.get('report_id')]
@@ -2576,13 +3424,15 @@ class Store:
 		if not isinstance(payload,dict):raise TypeError('Expected a backup offer object')
 		text=payload.get('text')
 		if not isinstance(text,str)or not text.strip():raise ValueError('Backup offer text must be a nonblank string')
+		board=self.board_state()
+		if board.get('main_session_id')and board.get('board_role')=='worker':return{'offered':False,'duplicate':False,'worker':True}
 		records=parse_state_import(text);raw_name=payload.get('name');name=upload_name(raw_name if isinstance(raw_name,str)and raw_name.strip()else'state-backup.ndjson')
 		if not name.lower().endswith(('.ndjson','.json')):name=f"{name}.ndjson"
 		summary=payload.get('summary');summary_text=summary.strip()if isinstance(summary,str)and summary.strip()else'State mismatch detected.';data=text.encode('utf-8');backup_digest=body_digest(data);live_core,_=self.state_lines(self.state()['notes'],self.tasks()or{});live_digest=autosave_digest(live_core);mismatch_key=f"{backup_digest}:{live_digest}";backup_ids={str(row.get('id'))for row in records if isinstance(row,dict)and row.get('id')};created=[]
 		try:
 			with self.transaction(autosave=False)as db:
 				db.execute('BEGIN IMMEDIATE');offered=db.execute('SELECT value FROM meta WHERE key = ?',(AUTOSAVE_OFFER_META,)).fetchone();pending=db.execute("SELECT id FROM notes WHERE type = 'state-backup' AND acknowledged_at IS NULL ORDER BY at DESC, seq DESC LIMIT 1").fetchone()
-				if pending is not None and offered and offered[0]==mismatch_key:upload=db.execute('SELECT * FROM uploads WHERE note_id = ? ORDER BY seq LIMIT 1',(pending['id'],)).fetchone();return{'offered':True,'duplicate':True,'note_id':pending['id'],'path':upload_row(upload,self.path.parent)['path']if upload else None}
+				if offered and offered[0]==mismatch_key:last_note=pending or db.execute("SELECT id FROM notes WHERE type = 'state-backup' ORDER BY at DESC, seq DESC LIMIT 1").fetchone();upload=db.execute('SELECT * FROM uploads WHERE note_id = ? ORDER BY seq LIMIT 1',(last_note['id'],)).fetchone()if last_note is not None else None;return{'offered':True,'duplicate':True,'note_id':last_note['id']if last_note is not None else None,'path':upload_row(upload,self.path.parent)['path']if upload else None}
 				for _ in range(MINT_ATTEMPTS):
 					note_id=new_id()
 					if note_id not in backup_ids and not any(db.execute(f"SELECT 1 FROM {table} WHERE id = ?",(note_id,)).fetchone()for table in('notes','submissions','uploads','reports','tasks')):break
@@ -2959,7 +3809,7 @@ class Store:
 		if not armed:self.clear_meta(AGENT_INTERRUPT_FLAG_META);self.take_interrupt();return{'agent_interrupt_pending':False}
 		if not isinstance(tab,str)or tab not in{'notes','reports','tasks','downloads'}:raise ValueError('tab must name a preview tab')
 		if reason is not None and reason not in VIOLATION_TYPES[tab]:raise ValueError('reason must name a violation type for this tab')
-		if clause_file not in(None,'')and clause_file not in read_set_files(self.repository_root()):raise ValueError('clause_file must name a path in the bible')
+		if clause_file not in(None,'')and clause_file not in read_set_files(self.repository_root(),worker=self.board_state().get('board_role')=='worker'):raise ValueError('clause_file must name a path in the bible')
 		if note is not None and not isinstance(note,str):raise ValueError('note must be text')
 		cited=' '.join((note or'').split());evidence=[]
 		if reason is not None:
@@ -3069,18 +3919,18 @@ class Store:
 		order_notice=False
 		with closing(self.connect())as db,db:
 			if advance and meta_number(db,TASK_ORDER_PENDING_META):order_notice=True;db.execute('DELETE FROM meta WHERE key = ?',(TASK_ORDER_PENDING_META,))
-			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL AND blocking = 1').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND blocking = 1').fetchone()[0]-uploads;reports=db.execute(f"SELECT count(*) FROM submissions WHERE {PENDING_SUBMISSIONS}").fetchone()[0];remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];published=db.execute('SELECT count(*) FROM reports WHERE published_at IS NOT NULL').fetchone()[0];stale=self.stale_report_ids(db)if published>=STALE_REPORT_THRESHOLD else[];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);blocked=bool(gate_pending_count(db))and polls>=GATE_THRESHOLD
+			uploads=db.execute('SELECT count(*) FROM notes JOIN uploads USING (id) WHERE acknowledged_at IS NULL AND blocking = 1').fetchone()[0];notes=db.execute('SELECT count(*) FROM notes WHERE acknowledged_at IS NULL AND blocking = 1').fetchone()[0]-uploads;reports=db.execute(f"SELECT count(*) FROM submissions WHERE {PENDING_SUBMISSIONS}").fetchone()[0];board_mentions=len(pending_board_entries_for_db(db));remaining=db.execute("SELECT count(*) FROM tasks WHERE status <> 'finished'").fetchone()[0];published=db.execute('SELECT count(*) FROM reports WHERE published_at IS NOT NULL').fetchone()[0];stale=self.stale_report_ids(db)if published>=STALE_REPORT_THRESHOLD else[];cursor=meta_number(db,REMINDER_CURSOR);polls=0 if advance and not notes+reports+uploads+board_mentions else meta_number(db,POLLS_SINCE_MESSAGE)+(1 if advance else 0);blocked=bool(gate_pending_count(db))and polls>=GATE_THRESHOLD
 			if routine:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMINDER_CURSOR,str(cursor+1)))
 			if advance:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(POLLS_SINCE_MESSAGE,str(polls)))
-		counts=[f"{count} {type}{'s'if count!=1 else''}"for(count,type)in((notes,'note'),(reports,'answer'),(uploads,'upload'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[]
+		counts=[f"{count} {type}{'s'if count!=1 else''}"for(count,type)in((notes,'note'),(reports,'answer'),(uploads,'upload'),(board_mentions,'board post'))if count];unacked=[f"unacked {', '.join(counts)}"]if counts else[]
 		if blocked:head=['blocked']
 		elif polls and counts:
 			if polls>GATE_THRESHOLD//2:head=[f"bash blocked in {GATE_THRESHOLD-polls}"]
 			else:head=[f"calls {polls}"]
 		else:head=[]
-		unpushed=unpushed_commit_count(self.repository_root())if routine else 0;tail=reminder_tail(cursor,remaining,len(stale),unpushed)if routine else'';parts=[' '.join([*head,*unacked]).strip()]
+		is_worker=self.board_state().get('board_role')=='worker';repo_root=self.repository_root()if routine and not is_worker else None;unpushed=unpushed_commit_count(repo_root)if repo_root else 0;private=is_private_repo(repo_root,store=self)if unpushed else False;tail=reminder_tail(cursor,remaining,len(stale),unpushed,private=private)if routine else'';parts=[' '.join([*head,*unacked]).strip()]
 		if order_notice:parts.append(TASK_ORDER_NOTICE)
-		unpushed_notice=f"{unpushed} commit/s unpushed. ALWAYS push. NEVER delay for batch."if unpushed else''
+		unpushed_notice=unpushed_reminder_text(unpushed,private=private)if unpushed else''
 		if unpushed_notice and unpushed_notice!=tail:parts.append(unpushed_notice)
 		parts.append(tail);return' | '.join(parts).strip(' |')
 	def calls_since_message(self):
@@ -3092,11 +3942,28 @@ class Store:
 	def read(self,include_quiet=True):
 		quiet_filter=' AND (quiet = 0 OR blocking = 1 OR seen_at IS NULL)'if include_quiet else" AND (quiet = 0 OR (type IN ('state-backup', 'survey') AND blocking = 1))"
 		with self.transaction(autosave=False)as db:
-			pending=[message_row(row)|{'type':'note'}for row in db.execute(f"SELECT * FROM notes WHERE acknowledged_at IS NULL{quiet_filter} ORDER BY at, seq")];pending+=[message_row(row)|{'type':'report'}for row in db.execute(f"SELECT * FROM submissions WHERE {PENDING_SUBMISSIONS} ORDER BY at, seq")];notes={}
+			pending=[message_row(row)|{'type':'note'}for row in db.execute(f"SELECT * FROM notes WHERE acknowledged_at IS NULL{quiet_filter} ORDER BY at, seq")];pending+=[message_row(row)|{'type':'report'}for row in db.execute(f"SELECT * FROM submissions WHERE {PENDING_SUBMISSIONS} ORDER BY at, seq")]
+			for b_entry in pending_board_entries_for_db(db,session_id=board_session_id(workspace_branch(self.repository_root()))):pending.append({'id':str(b_entry.get('id')or''),'type':'board','session_id':str(b_entry.get('session_id')or''),'board_id':str(b_entry.get('board_id')or b_entry.get('session_id')or''),'text':str(b_entry.get('text')or''),'at':str(b_entry.get('at')or now()),'seen_at':b_entry.get('seen_at'),'acknowledged_at':b_entry.get('acknowledged_at'),'ack_edited_at':b_entry.get('ack_edited_at')})
+			notes={}
 			for table in('notes','submissions'):
 				for row in db.execute(f"SELECT * FROM {table} ORDER BY at, seq"):record=message_row(row);notes[record['id']]=record
 			for row in db.execute('SELECT id, source FROM reports'):notes[row['id']]=dict(row)|{'type':'report','text':''}
 			for row in db.execute(f"SELECT {TASK_COLUMNS} FROM tasks"):task=task_row(row);notes[task['id']]={'id':task['id'],'text':'\n'.join([task['title'],*task['details']])}
+			b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone()
+			if b_row and b_row[0]:
+				try:b_raw=json.loads(str(b_row[0]))
+				except Exception:b_raw=None
+				if isinstance(b_raw,dict):
+					for b_entry in b_raw.get('entries')or[]:
+						if not isinstance(b_entry,dict):continue
+						b_eid=str(b_entry.get('id')or'')
+						if b_eid and b_eid not in notes:payload_obj=b_entry.get('payload');b_text=str(b_entry.get('text')or(payload_obj.get('text')if isinstance(payload_obj,dict)else'')or'');notes[b_eid]={'id':b_eid,'text':b_text,'at':b_entry.get('at')}
+					for rep_list in(b_raw.get('worker_reports')or{}).values():
+						if not isinstance(rep_list,list):continue
+						for w_rep in rep_list:
+							if not isinstance(w_rep,dict):continue
+							m_id=str(w_rep.get('id')or'').strip()
+							if m_id and m_id not in notes:notes[m_id]={'id':m_id,'type':'report','source':f"/api/reports/{m_id}",'text':''}
 			attachments={}
 			for row in db.execute('SELECT * FROM uploads ORDER BY seq'):record=upload_row(row,self.path.parent);attachments.setdefault(record['note_id'],[]).append(record)
 			for record in notes.values():add_note_attachments(record,attachments.get(record['id'],[]))
@@ -3114,7 +3981,17 @@ class Store:
 				for table in('notes','submissions'):
 					cursor=db.execute(f"UPDATE {table} SET seen_at = COALESCE(seen_at, ?) WHERE id = ?",(stamp,record_id))
 					if cursor.rowcount:break
-				else:raise ValueError(f"Unknown note: {record_id}; no Seen receipts written")
+				else:
+					b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone();b_raw=None
+					if b_row and b_row[0]:
+						try:b_raw=json.loads(str(b_row[0]))
+						except Exception:b_raw=None
+					matched_board=False
+					if isinstance(b_raw,dict)and isinstance(b_raw.get('entries'),list):
+						for entry in b_raw['entries']:
+							if isinstance(entry,dict)and(entry.get('id')==record_id or str(entry.get('id')or'')[:6]==record_id):entry['seen_at']=entry.get('seen_at')or clip_stamp(stamp);matched_board=True;break
+					if matched_board:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(b_raw,ensure_ascii=False)))
+					else:raise ValueError(f"Unknown note: {record_id}; no Seen receipts written")
 	def mark_reports_agent_seen(self,report_ids):
 		stamp=now()
 		with self.transaction()as db:
@@ -3131,6 +4008,16 @@ class Store:
 				reply_count=len(replies_list(row['replies']))
 				if count>reply_count:raise ValueError('The viewed-reply count exceeds the current replies')
 				seen_count=max(int(row['ack_edited_seen_count']or 0),count);db.execute(f"UPDATE {table} SET ack_edited_seen_count = ? WHERE id = ?",(seen_count,record_id));return{'id':record_id,'ack_edited_seen_count':seen_count}
+			b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone()
+			if b_row and b_row['value']:
+				try:b_raw=json.loads(b_row['value'])
+				except Exception:b_raw=None
+				if isinstance(b_raw,dict)and isinstance(b_raw.get('entries'),list):
+					for entry in b_raw['entries']:
+						if isinstance(entry,dict)and str(entry.get('id')or'')==record_id:
+							b_replies=entry.get('replies')if isinstance(entry.get('replies'),list)else[]
+							if count>len(b_replies):raise ValueError('The viewed-reply count exceeds the current replies')
+							seen_count=max(int(entry.get('ack_edited_seen_count')or 0),count);entry['ack_edited_seen_count']=seen_count;rep_ops=list(b_raw['report_ops'])if isinstance(b_raw.get('report_ops'),list)else[];rep_ops.append({'id':f"erseen-{record_id}-{seen_count}",'target':'*','op':'entry-ack','entry_id':record_id,'ack_edited_seen_count':seen_count,'at':clip_stamp(now())});b_raw['report_ops']=rep_ops[-MAX_BOARD_ENTRIES:];db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(b_raw,ensure_ascii=False)));return{'id':record_id,'ack_edited_seen_count':seen_count}
 		raise FileNotFoundError('Message not found')
 	def unlink_submission(self,record_id):
 		identifier(record_id)
@@ -3153,7 +4040,10 @@ class Store:
 					return
 		raise ValueError(f"Unknown note: {record_id}; no task marker written")
 	def pending_ack(self):
-		with self.connect()as db:rows=db.execute(f"SELECT id, at FROM notes WHERE acknowledged_at IS NULL AND blocking = 1 UNION ALL SELECT id, at FROM submissions WHERE {PENDING_SUBMISSIONS} ORDER BY at").fetchall()
+		with self.connect()as db:
+			rows=[{'id':row['id'],'at':str(row['at']or'')}for row in db.execute(f"SELECT id, at FROM notes WHERE acknowledged_at IS NULL AND blocking = 1 UNION ALL SELECT id, at FROM submissions WHERE {PENDING_SUBMISSIONS} ORDER BY at").fetchall()]
+			for b_entry in pending_board_entries_for_db(db,session_id=board_session_id(workspace_branch(self.repository_root()))):rows.append({'id':str(b_entry.get('id')or''),'at':str(b_entry.get('at')or'')})
+		rows.sort(key=lambda r:r['at'])
 		if not rows:raise ValueError('No pending note or answer to acknowledge')
 		if len(rows)>1:listed=', '.join(row['id']for row in rows);raise ValueError(f"{len(rows)} items are pending: {listed}. Name the ID to answer one")
 		return rows[0]['id']
@@ -3166,7 +4056,13 @@ class Store:
 				if row is not None:
 					error=clause_ack_error(text,self.repository_root())
 					if error:raise ValueError(error)
+			b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone();b_raw=None
+			if b_row and b_row[0]:
+				try:b_raw=json.loads(str(b_row[0]))
+				except Exception:b_raw=None
+			board_dirty=False
 			for record_id in ids:
+				matched_db=False
 				for table in('notes','submissions'):
 					cols='acknowledged_at, replies, quiet, blocking, type'if table=='notes'else'acknowledged_at, replies';row=db.execute(f"SELECT {cols} FROM {table} WHERE id = ?",(record_id,)).fetchone()
 					if row is None:continue
@@ -3175,8 +4071,20 @@ class Store:
 						if table=='notes'and row['quiet']and row['blocking']and row['type']=='':db.execute("INSERT OR REPLACE INTO meta VALUES ('survey_checked_at', ?)",(stamp,))
 					else:more=replies_list(row['replies'])+[{'type':'reply','text':text,'at':stamp}];db.execute(f"UPDATE {table} SET replies = ?, ack_edited_at = ? WHERE id = ?",(json.dumps(more,ensure_ascii=False),stamp,record_id))
 					if table=='submissions':db.execute('UPDATE reports SET agent_seen_at = ? WHERE id = (SELECT report_id FROM submissions WHERE id = ?)',(stamp,record_id))
-					break
-				else:raise ValueError(f"Unknown note: {record_id}; no receipts written")
+					matched_db=True;break
+				if isinstance(b_raw,dict)and isinstance(b_raw.get('entries'),list):
+					for entry in b_raw['entries']:
+						if not isinstance(entry,dict):continue
+						eid=str(entry.get('id')or'');nid=str(entry.get('note_id')or'');alt_id=f"p{eid[2:7]}"if re.match('^b-[0-9a-f]{5,}',eid,re.IGNORECASE)else''
+						if eid==record_id or eid[:6]==record_id or alt_id and(alt_id==record_id or alt_id[:6]==record_id)or nid and(nid==record_id or nid[:6]==record_id):
+							local_sid=board_session_id(b_raw.get('local_session_id')or workspace_branch(self.repository_root()));norm_b=normalize_board_state(b_raw,session_id=local_sid,repo=self.repository_root().name,branch=workspace_branch(self.repository_root()));ack_sender_id=str(local_sid or norm_b.get('session_id')or'');norm_ack_msg=normalize_board_mentions(text,norm_b.get('sessions')or[],allowed=norm_b.get('allowed_sessions')or[],main_sid=norm_b.get('main_session_id')or'',from_sid=ack_sender_id,to_sid=str(entry.get('session_id')or''))
+							if not entry.get('acknowledged_at'):entry['acknowledged_at']=clip_stamp(stamp);entry['ack_type']='reply';entry['ack_text']=norm_ack_msg;entry['ack_sender']=ack_sender_id;entry['seen_at']=entry.get('seen_at')or clip_stamp(stamp)
+							else:replies=list(entry['replies'])if isinstance(entry.get('replies'),list)else[];replies.append({'type':'reply','text':norm_ack_msg,'at':clip_stamp(stamp),'sender':ack_sender_id});entry['replies']=replies;entry['ack_edited_at']=clip_stamp(stamp)
+							rep_ops=list(b_raw['report_ops'])if isinstance(b_raw.get('report_ops'),list)else[];rep_ops.append({'id':f"eack-{eid}-{uuid.uuid4().hex[:6]}",'target':'*','op':'entry-ack','entry_id':eid,'seen_at':entry.get('seen_at'),'acknowledged_at':entry.get('acknowledged_at'),'ack_type':entry.get('ack_type'),'ack_text':entry.get('ack_text'),'ack_sender':entry.get('ack_sender'),'ack_edited_at':entry.get('ack_edited_at'),'replies':entry.get('replies'),'at':clip_stamp(stamp)});b_raw['report_ops']=rep_ops[-MAX_BOARD_ENTRIES:];sender_sid=str(entry.get('session_id')or'')
+							if sender_sid and sender_sid!=local_sid:wakes=dict(b_raw['wakes'])if isinstance(b_raw.get('wakes'),dict)else{};wakes[sender_sid]=f"{eid}-ack";b_raw['wakes']=wakes
+							board_dirty=True;matched_db=True;break
+				if not matched_db:raise ValueError(f"Unknown note: {record_id}; no receipts written")
+			if board_dirty and isinstance(b_raw,dict):db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(b_raw,ensure_ascii=False)))
 			if not db.execute(f"SELECT 1 FROM notes WHERE {VIOLATION_NOTES} AND acknowledged_at IS NULL").fetchone():db.execute('DELETE FROM meta WHERE key = ?',(AGENT_INTERRUPT_FLAG_META,))
 			db.execute("INSERT OR REPLACE INTO meta VALUES ('last_check', ?)",(stamp,))
 			if not gate_pending_count(db):db.execute("INSERT OR REPLACE INTO meta VALUES (?, '0')",(POLLS_SINCE_MESSAGE,))
@@ -3197,7 +4105,9 @@ class Store:
 		if source.suffix.lower()!='.md':raise ValueError('Publish a UTF-8 .md source file')
 		with source.open('rb')as stream:data=stream.read(MAX_REPORT+1)
 		if len(data)>MAX_REPORT:raise ValueError('Report exceeds the 2 MB limit; split it into reports')
-		text=data.decode('utf-8');text=embed_report_images(text,source.resolve().parent);fields=parse_fields(text)[1];metadata=validate_submission_format(submission_format,fields)
+		text=data.decode('utf-8');text=embed_report_images(text,source.resolve().parent)
+		if len(text.encode('utf-8'))>MAX_REPORT:raise ValueError('Report exceeds the 2 MB limit; split it into reports')
+		fields=parse_fields(text)[1];metadata=validate_submission_format(submission_format,fields)
 		if not allow_unparsed_markers:
 			warnings=report_marker_warnings(text)
 			if warnings:lines=[f"{source}:{warning['line']}: Error: possible unparsed {warning['marker']} marker. Keep spaces outside the markers, or pass -u / --allow-unparsed-markers if literal marker text is intentional."for warning in warnings];raise ValueError('\n'.join(lines))
@@ -3211,17 +4121,20 @@ class Store:
 			self.refuse_shared_id(db,'reports','tasks',report_id);highest=db.execute('SELECT COALESCE(MAX(seq), 0) FROM reports').fetchone()[0];db.execute('INSERT INTO reports (id, title, markdown, updated_at, published_at, seq, source, submission_format)\n           VALUES (?, ?, ?, ?, ?, ?, ?, ?)\n           ON CONFLICT(id) DO UPDATE SET title = excluded.title,\n             markdown = excluded.markdown, updated_at = excluded.updated_at,\n             source = excluded.source, submission_format = excluded.submission_format,\n             seq = COALESCE(reports.seq, excluded.seq), seen_at = NULL',(report_id,title,text,now(),now(),highest+1,str(source.resolve()),json.dumps(metadata)if metadata is not None else None))
 		return len(fields)
 	def unpublish(self,report_id,dismissed_by_owner=False,*,stale_only=False):
-		identifier(report_id)
+		identifier(report_id);mirrored=None
 		with self.transaction()as db:
 			if stale_only:db.execute('BEGIN IMMEDIATE')
 			row=db.execute('SELECT title, ack_seen_at, viewed_at FROM reports WHERE id = ?',(report_id,)).fetchone()
 			if row is None:
 				if stale_only:return False
-				raise FileNotFoundError('Report not found')
-			if stale_only and report_id not in self.stale_report_ids(db):return False
-			if not dismissed_by_owner:self.guard_report_change(db,report_id,row,hold_view=False,hold_answer=False)
-			db.execute('DELETE FROM reports WHERE id = ?',(report_id,));self.release_report_tasks(db,report_id);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
-			if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet, blocking) VALUES (?, ?, ?, 1, 0)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
+				mirrored=self._mirrored_worker_reports().get(report_id)
+				if mirrored is None:raise FileNotFoundError('Report not found')
+			else:
+				if stale_only and report_id not in self.stale_report_ids(db):return False
+				if not dismissed_by_owner:self.guard_report_change(db,report_id,row,hold_view=False,hold_answer=False)
+				db.execute('DELETE FROM reports WHERE id = ?',(report_id,));self.release_report_tasks(db,report_id);db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(REMOVED_META,now()))
+				if dismissed_by_owner:db.execute('INSERT INTO notes (id, text, at, quiet, blocking) VALUES (?, ?, ?, 1, 0)',(new_id(),f"The owner dismissed the report {report_id} ({row['title']}).",now()))
+		if mirrored is not None:self.board_action({'action':'worker-report','target':mirrored['worker_session_id'],'op':'unpublish','report_id':mirrored['worker_report_id'],'from_owner':bool(dismissed_by_owner)});return True
 		if stale_only:return True
 	def clear_state(self):
 		guard_task_runs(self.path.parent,action='clear state');self.rotate_backup();counts={}
@@ -3231,34 +4144,112 @@ class Store:
 			for(key,value)in kept:db.execute('INSERT INTO meta VALUES (?, ?)',(key,value))
 			db.execute("INSERT OR REPLACE INTO meta VALUES (?, '1')",(CLEARED_META,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(FORCE_SAVE_META,str(uuid.uuid4())))
 		return counts
+	def state_usage(self):return state_dir_usage(self.path.parent)
+	def clean_state(self,dry_run=False):
+		state_root=self.path.parent.resolve();keep_files={(state_root/'state.sqlite3').resolve(),(state_root/'state.sqlite3-wal').resolve(),(state_root/'state.sqlite3-shm').resolve(),(state_root/'display_tz').resolve(),(state_root/'pr-body.md').resolve()};repo_root=self.repository_root().resolve()
+		with closing(self.connect())as db:report_rows=db.execute('SELECT id, markdown FROM reports').fetchall();upload_rows=db.execute('SELECT u.file, u.name, u.note_id, n.acknowledged_at FROM uploads u LEFT JOIN notes n ON n.id = u.note_id').fetchall();download_rows=db.execute('SELECT file FROM fetch_jobs WHERE file IS NOT NULL').fetchall()
+		for row in report_rows:
+			keep_files.add((state_root/f"{row['id']}.md").resolve())
+			for match in re.finditer('!\\[[^\\]]*\\]\\(([^)\\s]+)',row['markdown']or''):
+				raw_url=(match.group(1)or'').strip()
+				if not raw_url or raw_url.startswith(('http://','https://','data:','/')):continue
+				for base in(state_root,repo_root):
+					candidate=(base/raw_url).resolve()
+					if candidate.exists():keep_files.add(candidate)
+		for md_file in state_root.glob('*.md'):
+			keep_files.add(md_file.resolve())
+			try:md_text=md_file.read_text(encoding='utf-8')
+			except OSError:continue
+			for match in re.finditer('!\\[[^\\]]*\\]\\(([^)\\s]+)',md_text):
+				raw_url=(match.group(1)or'').strip()
+				if not raw_url or raw_url.startswith(('http://','https://','data:','/')):continue
+				for base in(state_root,repo_root):
+					candidate=(base/raw_url).resolve()
+					if candidate.exists():keep_files.add(candidate)
+		for row in upload_rows:
+			if row['note_id']is not None and row['acknowledged_at']is not None and(row['name']or'').lower().endswith('.ndjson'):continue
+			if row['file']:keep_files.add((state_root/'uploads'/row['file']).resolve())
+		for row in download_rows:
+			if row['file']:keep_files.add((state_root/'downloads'/row['file']).resolve())
+		active_runs=set(live_runs(state_root));runs_root=state_root/'runs'
+		if runs_root.is_dir():
+			for record_file in runs_root.glob('*.json'):
+				run_name=record_file.stem
+				try:record=json.loads(record_file.read_text(encoding='utf-8'))
+				except(OSError,ValueError):record={}
+				if not isinstance(record,dict):record={}
+				if run_name in active_runs or record.get('exit')is None or not record.get('noticed'):keep_files.add(record_file.resolve());keep_files.add((runs_root/f"{run_name}.log").resolve())
+		worktrees_root=state_root/'worktrees'
+		if worktrees_root.is_dir():
+			for wt_file in worktrees_root.glob('*.json'):
+				try:wt_record=json.loads(wt_file.read_text(encoding='utf-8'))
+				except(OSError,ValueError):wt_record={}
+				wt_path=wt_record.get('worktree')if isinstance(wt_record,dict)else None
+				if wt_path and Path(wt_path).exists():keep_files.add(wt_file.resolve())
+		removed_files=0;removed_bytes=0;removed_paths=[]
+		for(dirpath,_,filenames)in os.walk(state_root,followlinks=False):
+			rel_parts=Path(dirpath).relative_to(state_root).parts;top=rel_parts[0]if rel_parts else''
+			if top=='backups':continue
+			for name in sorted(filenames):
+				if not top and name.endswith('-pr-body.md'):continue
+				target=(Path(dirpath)/name).resolve()
+				if target in keep_files:continue
+				try:size=target.stat().st_size
+				except OSError:continue
+				rel_name=target.relative_to(state_root).as_posix()
+				if not dry_run:
+					try:target.unlink()
+					except OSError:continue
+				removed_files+=1;removed_bytes+=size;removed_paths.append(rel_name)
+		return{'removed_files':removed_files,'removed_bytes':removed_bytes,'paths':removed_paths,'dry_run':bool(dry_run),'usage':state_dir_usage(state_root)}
 	def mark_report_seen(self,report_id):
-		identifier(report_id)
+		identifier(report_id);mirrored=None
 		with self.transaction()as db:
 			row=db.execute('SELECT * FROM reports WHERE id = ?',(report_id,)).fetchone()
-			if row is None:raise FileNotFoundError('Report not found')
+			if row is None:
+				mirrored=self._mirrored_worker_reports().get(report_id)
+				if mirrored is None:raise FileNotFoundError('Report not found')
+				b_row=db.execute('SELECT value FROM meta WHERE key = ?',(BOARD_STATE_META,)).fetchone();raw_text=str(b_row[0])if b_row and b_row[0]else''
+				try:stored=json.loads(raw_text)if raw_text else{}
+				except Exception:stored={}
+				if not isinstance(stored,dict):stored={}
+				ack_wakes=dict(stored.get('ack_wakes'))if isinstance(stored.get('ack_wakes'),dict)else{};b_state=self.board_state();self_sid=str(b_state.get('session_id')or'');seen_map_key=f"{self_sid}:mirrored_report_seen";seen_map=dict(ack_wakes.get(seen_map_key))if isinstance(ack_wakes.get(seen_map_key),dict)else{};seen_key=f"{mirrored['worker_session_id']}:{mirrored['worker_report_id']}";existing=seen_map.get(seen_key)if isinstance(seen_map,dict)else None;stamp=existing.get('seen_at')if isinstance(existing,dict)and existing.get('updated_at')==mirrored['updated_at']and existing.get('seen_at')else clip_stamp(now());seen_map[seen_key]={**(existing if isinstance(existing,dict)else{}),'updated_at':mirrored['updated_at'],'seen_at':stamp};ack_wakes[seen_map_key]=seen_map;stored['ack_wakes']=ack_wakes;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(stored)));return{**mirrored,'seen_at':stamp,'ever_seen':1}
 			db.execute('UPDATE reports SET seen_at = COALESCE(seen_at, ?), ever_seen = 1 WHERE id = ?',(now(),report_id));return dict(db.execute('SELECT * FROM reports WHERE id = ?',(report_id,)).fetchone())
 	def mark_report_ack_seen(self,report_id):
 		identifier(report_id)
 		with self.transaction()as db:
 			row=db.execute('SELECT * FROM reports WHERE id = ?',(report_id,)).fetchone()
-			if row is None:raise FileNotFoundError('Report not found')
+			if row is None:
+				mirrored=self._mirrored_worker_reports().get(report_id)
+				if mirrored is None:raise FileNotFoundError('Report not found')
+				raw_text=self.meta_value(BOARD_STATE_META)
+				try:stored=json.loads(raw_text)if raw_text else{}
+				except Exception:stored={}
+				if not isinstance(stored,dict):stored={}
+				ack_wakes=dict(stored.get('ack_wakes'))if isinstance(stored.get('ack_wakes'),dict)else{};self_sid=board_session_id(workspace_branch(self.repository_root()))or'main';seen_map_key=f"{self_sid}:mirrored_report_seen";seen_map=dict(ack_wakes.get(seen_map_key))if isinstance(ack_wakes.get(seen_map_key),dict)else{};seen_key=f"{mirrored['worker_session_id']}:{mirrored['worker_report_id']}";existing=seen_map.get(seen_key)if isinstance(seen_map,dict)else None;stamp=clip_stamp(now());seen_map[seen_key]={**(existing if isinstance(existing,dict)else{}),'updated_at':mirrored['updated_at'],'seen_at':existing.get('seen_at')if isinstance(existing,dict)and existing.get('seen_at')else mirrored.get('seen_at')or stamp,'ack_seen_at':stamp};ack_wakes[seen_map_key]=seen_map;stored['ack_wakes']=ack_wakes;db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(BOARD_STATE_META,json.dumps(stored)));return{**mirrored,'ack_seen_at':stamp}
 			db.execute('UPDATE reports SET ack_seen_at = ? WHERE id = ?',(now(),report_id));return dict(db.execute('SELECT * FROM reports WHERE id = ?',(report_id,)).fetchone())
 	def mark_report_viewed(self,report_id,active=True):
 		identifier(report_id)
 		with closing(self.connect())as db,db:
 			row=db.execute('SELECT 1 FROM reports WHERE id = ?',(report_id,)).fetchone()
-			if row is None:raise FileNotFoundError('Report not found')
+			if row is None:
+				mirrored=self._mirrored_worker_reports().get(report_id)
+				if mirrored is None:raise FileNotFoundError('Report not found')
+				return{'id':report_id,'viewed_at':clip_stamp(now()if active else None)}
 			stamp=now()if active else None;db.execute('UPDATE reports SET viewed_at = ?, last_viewed_at = COALESCE(?, last_viewed_at) WHERE id = ?',(stamp,stamp,report_id))
 		return{'id':report_id,'viewed_at':clip_stamp(stamp)}
 	def report(self,report_id,shared=None):
 		identifier(report_id)
 		with self.transaction(shared)as db:
 			row=db.execute('SELECT * FROM reports WHERE id = ?',(report_id,)).fetchone()
-			if row is None:raise FileNotFoundError('Report not found')
+			if row is None:
+				mirrored=self._mirrored_worker_reports().get(report_id)
+				if mirrored is not None:return dict(mirrored)
+				raise FileNotFoundError('Report not found')
 			return dict(row,submission_format=json.loads(row['submission_format'])if row['submission_format']else None)
 	@staticmethod
 	def validate_fields(fields):
-		if not 1<=len(fields)<=50:raise ValueError('A report holds 1–50 fields')
+		if not 1<=len(fields)<=MAX_FIELDS:raise ValueError(f"A report holds 1–{MAX_FIELDS} fields")
 		seen=set()
 		for field in fields:
 			field_id=field['id'];identifier(field_id)
@@ -3270,15 +4261,8 @@ class Store:
 			if not 1<=len(options)<=20 or len(set(options))!=len(options)or any(not option.strip()or len(option)>200 for option in options):raise ValueError(f"{field['type']} fields take 1–20 unique options of 1–200 characters")
 			labels=[custom_label(option)for option in options];labels=[label for label in labels if label is not None]
 			if len(labels)>1:raise ValueError(f"{field['type']} field '{field_id}' takes at most one free-text option")
-	def submit_report(self,report_id,note_id,answers,revision=None):
-		if not isinstance(revision,str)or not revision:raise ValueError('Report revision required; copy your entries and reload the preview')
-		with self.transaction()as db:
-			db.execute('BEGIN IMMEDIATE');report=self.report(report_id,shared=db)
-			if revision!=report['updated_at']:raise ReportChanged('Report changed. Your entries are kept; copy them before refreshing, reviewing and resending')
-			fields=parse_fields(report['markdown'])[1]
-			if not fields:raise ValueError('This report has no fields to answer')
-			return self.submit(report_id,report['title'],fields,note_id,answers,shared=db,submission_format=report['submission_format'],revision=revision)
-	def submit(self,report_id,title,fields,note_id,answers,shared=None,submission_format=None,revision=None):
+	@staticmethod
+	def _format_report_submission(report_id,title,fields,answers,submission_format=None):
 		if not isinstance(answers,dict):raise TypeError('Answers is a JSON object keyed by field ID')
 		known={field['id']for field in fields}
 		if set(answers)-known:raise ValueError(f"Unknown field IDs: {', '.join(sorted(set(answers)-known))}")
@@ -3298,7 +4282,20 @@ class Store:
 			question=(mapping or{}).get('question',field['prompt']);slots[f"{field_id}.question"]=question;slots[f"{field_id}.answer"]=rendered;lines.append(f"  {question} ({field_id}): {rendered}")
 		if not answered:raise ValueError('A report submission carries at least one answer')
 		if metadata is not None and'template'in metadata:lines=[lines[0],expand_submission_template(metadata['template'],slots)]
-		data={'revision':revision,'answers':answers}if revision is not None else None;return self.submission(note_id,report_id,'\n'.join(lines),shared=shared,answer_data=data)
+		return'\n'.join(lines)
+	def submit_report(self,report_id,note_id,answers,revision=None):
+		if not isinstance(revision,str)or not revision:raise ValueError('Report revision required; copy your entries and reload the preview')
+		mirrored=None
+		with self.transaction()as db:
+			db.execute('BEGIN IMMEDIATE');report=self.report(report_id,shared=db)
+			if revision!=report['updated_at']:raise ReportChanged('Report changed. Your entries are kept; copy them before refreshing, reviewing and resending')
+			fields=parse_fields(report['markdown'])[1]
+			if not fields:raise ValueError('This report has no fields to answer')
+			local_sub=self.submit(report_id,report['title'],fields,note_id,answers,shared=db,submission_format=report['submission_format'],revision=revision)
+			if not report.get('worker_session_id'):return local_sub
+			mirrored=report
+		self.board_action({'action':'worker-report','target':mirrored['worker_session_id'],'op':'answer','report_id':mirrored['worker_report_id'],'answers':answers,'submission_id':local_sub['id'],'from_owner':True});return{**local_sub,'forwarded_to_worker':mirrored['worker_session_id']}
+	def submit(self,report_id,title,fields,note_id,answers,shared=None,submission_format=None,revision=None):formatted=self._format_report_submission(report_id,title,fields,answers,submission_format=submission_format);data={'revision':revision,'answers':answers}if revision is not None else None;return self.submission(note_id,report_id,formatted,shared=shared,answer_data=data)
 def open_link(renderer,tokens,index,options,env):
 	token=tokens[index];href=token.attrGet('href')or''
 	if href and not href.startswith('#'):token.attrSet('target','_blank');token.attrSet('rel','noopener noreferrer')
@@ -3336,6 +4333,7 @@ ICON_COPY='<svg class="lucide lucide-copy" width="14" height="14" viewBox="0 0 2
 ICON_MARKDOWN='<svg class="markdown-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22.27 19.385H1.73A1.73 1.73 0 0 1 0 17.655V6.345a1.73 1.73 0 0 1 1.73-1.73h20.54A1.73 1.73 0 0 1 24 6.345v11.308a1.73 1.73 0 0 1-1.73 1.731Zm-16.501-3.462v-4.5l2.308 2.885 2.307-2.885v4.5h2.308V8.078h-2.308l-2.307 2.885-2.308-2.885H3.46v7.847Zm15.463-3.923h-2.309V8.077h-2.307V12h-2.308l3.461 4.039Z" fill="currentColor" stroke="none"></path></svg>'
 ICON_BRACES='<svg class="lucide lucide-braces" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"></path><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path></svg>'
 MARKDOWN_CODE_TAG=re.compile('^<code\\s+class="language-(?:markdown|md)"\\s*>',re.IGNORECASE)
+MERMAID_CODE_TAG=re.compile('^<code\\s+class="language-mermaid"\\s*>',re.IGNORECASE)
 CODE_LANG_TAG=re.compile('^<code\\s+class="language-([^\\s"]+)"',re.IGNORECASE)
 CODE_LANG_NAMES={'bash':'Bash','c':'C','cjs':'JavaScript','cpp':'C++','cs':'C#','css':'CSS','diff':'Diff','go':'Go','html':'HTML','java':'Java','javascript':'JavaScript','js':'JavaScript','json':'JSON','jsx':'JSX','kt':'Kotlin','markdown':'Markdown','md':'Markdown','mermaid':'Mermaid','mjs':'JavaScript','php':'PHP','plaintext':'Text','py':'Python','python':'Python','rb':'Ruby','rs':'Rust','rust':'Rust','sh':'Shell','shell':'Shell','sql':'SQL','svg':'SVG','swift':'Swift','text':'Text','toml':'TOML','ts':'TypeScript','tsx':'TSX','txt':'Text','typescript':'TypeScript','xml':'XML','yaml':'YAML','yml':'YAML','zsh':'Zsh'}
 def format_code_language(inner):
@@ -3343,7 +4341,7 @@ def format_code_language(inner):
 	if not match:return'Code'
 	raw=match.group(1).lower();return CODE_LANG_NAMES.get(raw,raw[:1].upper()+raw[1:])
 def add_copy_buttons(rendered):
-	def replace(match):inner=match.group(1);code=html.unescape(CODE_TAG.sub('',inner));payload=html.escape(code,quote=True).replace('\n','&#10;');md_button=f'<button type="button" class="preview-code-md" aria-label="Preview Markdown" title="Preview Markdown" aria-pressed="false" data-code="{payload}">{ICON_MARKDOWN}</button>'if MARKDOWN_CODE_TAG.match(inner.strip())else'';button=f'<button type="button" class="copy-code" aria-label="Copy code" title="Copy code" data-code="{payload}">{ICON_COPY}</button>';lang=html.escape(format_code_language(inner),quote=True);header=f'<div class="code-block-header"><span class="code-block-lang">{ICON_BRACES}<span>{lang}</span></span></div>';return f'<div class="code-block">{md_button}{button}{header}<pre>{inner}</pre></div>'
+	def replace(match):inner=match.group(1);code=html.unescape(CODE_TAG.sub('',inner));payload=html.escape(code,quote=True).replace('\n','&#10;');md_button=f'<button type="button" class="preview-code-md" aria-label="Preview Markdown" title="Preview Markdown" aria-pressed="false" data-code="{payload}">{ICON_MARKDOWN}</button>'if MARKDOWN_CODE_TAG.match(inner.strip())else'';mermaid_button=f'<button type="button" class="preview-code-mermaid" aria-label="Show Mermaid code" title="Show Mermaid code" aria-pressed="false" data-code="{payload}">{ICON_BRACES}</button>'if MERMAID_CODE_TAG.match(inner.strip())else'';button=f'<button type="button" class="copy-code" aria-label="Copy code" title="Copy code" data-code="{payload}">{ICON_COPY}</button>';lang=html.escape(format_code_language(inner),quote=True);header=f'<div class="code-block-header"><span class="code-block-lang">{ICON_BRACES}<span>{lang}</span></span></div>';return f'<div class="code-block">{md_button}{mermaid_button}{button}{header}<pre>{inner}</pre></div>'
 	return CODE_BLOCK.sub(replace,rendered)
 ESCAPED_FENCE=re.compile('^(?P<indent>[ \\t]*)\\\\(?P<fence>(?:`{3,}|~{3,}))',re.MULTILINE)
 def _unescape_inline_code_line(line):
@@ -3448,7 +4446,16 @@ def render(markdown,breaks=False):
 	try:from markdown_it import MarkdownIt;from markdown_it.common.normalize_url import validateLink
 	except ImportError as error:raise RuntimeError("Markdown rendering needs markdown-it-py. Install it in the preview's venv and restart the server with that venv's Python; steering still works.")from error
 	parser=MarkdownIt('commonmark',{'html':False,'breaks':breaks}).enable(['table','strikethrough']);highlight_markdown(parser);parser.add_render_rule('link_open',open_link);parser.add_render_rule('image',render_image);tagged,images=hold_out(strip_fenced_md_comments(markdown),SIZED_IMAGE,lambda match:sized_image(match,validateLink),'image');rendered=drop_paragraph_breaks(parser.render(unescape_fences(tagged)));return add_copy_buttons(put_back(rendered,images,'image'))
-def handler(store):
+def file_signature(paths):
+	entries=[]
+	for path in paths:
+		target=Path(path)
+		try:stat=target.stat();entries.append((str(target),stat.st_mtime_ns,stat.st_size))
+		except OSError:entries.append((str(target),None,None))
+	return tuple(entries)
+def assets_signature(assets_dir=None):base=Path(assets_dir)if assets_dir is not None else ASSETS;return file_signature(base/name for name in('index.html','style.css','app.js','message-markdown.js','markdown-it.min.js'))
+def scripts_signature(scripts_dir=None):base=Path(scripts_dir)if scripts_dir is not None else Path(__file__).resolve().parent;return file_signature(base/name for name in('preview.py','survey.py'))
+def handler(store,reload_event=None):
 	from http.server import BaseHTTPRequestHandler;survey_state={'results':None,'answered_at':None,'requested':False};survey_lock=threading.Lock()
 	class Handler(BaseHTTPRequestHandler):
 		def setup(self):super().setup();self.connection.settimeout(15)
@@ -3487,7 +4494,7 @@ def handler(store):
 			self.protocol_version='HTTP/1.1';self.send_response(101);self.send_header('Upgrade','websocket');self.send_header('Connection','Upgrade');self.send_header('Sec-WebSocket-Accept',base64.b64encode(hashlib.sha1((key+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').encode(),usedforsecurity=False).digest()).decode());self.end_headers();self.close_connection=True;self.connection.settimeout(WS_TICK_SECONDS);buffer,message=bytearray(),bytearray();fragmented=False;last_seen=last_heartbeat=time.monotonic()
 			try:
 				with closing(store.connect())as db:
-					version=db.execute('PRAGMA data_version').fetchone()[0];self.ws_send(1,b'{"type":"change"}')
+					version=db.execute('PRAGMA data_version').fetchone()[0];asset_ver=assets_signature();self.ws_send(1,b'{"type":"change"}')
 					while True:
 						try:
 							chunk=self.connection.recv(65536)
@@ -3522,6 +4529,9 @@ def handler(store):
 							if final:self.ws_dispatch(json.loads(message.decode('utf-8')));message.clear()
 						current=db.execute('PRAGMA data_version').fetchone()[0]
 						if current!=version:version=current;self.ws_send(1,b'{"type":"change"}')
+						current_assets=assets_signature()
+						if current_assets!=asset_ver:asset_ver=current_assets;self.ws_send(1,b'{"type":"reload"}')
+						if reload_event is not None and reload_event.is_set():self.ws_send(1,b'{"type":"reload"}');self.ws_send(8,(1012).to_bytes(2,'big'));return
 						now=time.monotonic()
 						if now-last_seen>WS_IDLE_SECONDS:self.ws_send(8,(1001).to_bytes(2,'big'));return
 						if now-last_heartbeat>=WS_HEARTBEAT_SECONDS:self.ws_send(1,b'{"type":"heartbeat"}');last_heartbeat=now
@@ -3543,13 +4553,17 @@ def handler(store):
 						if survey_state['results']is not None and checked_at and(not survey_state['answered_at']or checked_at>survey_state['answered_at']):survey_state['answered_at']=checked_at;survey_state['requested']=False
 						body=json.dumps({'results':survey_state['results'],'answered_at':survey_state['answered_at']})
 					self.reply(200,body);return
-				if path=='/api/userscript-autosave':self.reply(200,json.dumps(store.userscript_snapshot(),ensure_ascii=False));return
+				if path=='/api/userscript-autosave':
+					try:snapshot=store.userscript_snapshot()
+					except(ValueError,TypeError)as error:self.problem(400,error);return
+					self.reply(200,json.dumps(snapshot,ensure_ascii=False));return
+				if path=='/api/board':self.reply(200,json.dumps(store.board_state(),ensure_ascii=False));return
 				if path=='/api/state':
 					header_tz=(self.headers.get('X-Timezone')or'').strip()
 					if header_tz and zone_exists(header_tz)and store.meta_value(TIMEZONE_META)!=header_tz:store.set_display_timezone(header_tz)
 					state=store.state();state['slash_commands']=discover_slash_commands()
 					try:
-						for item in state['notes']+[ack for report in state['reports']for ack in report['acknowledgements']]:
+						for item in state['notes']+[ack for report in state['reports']for ack in report['acknowledgements']]+((state.get('board')or{}).get('entries')or[]):
 							if'text'in item:item['html']=render(item['text'])
 							if item.get('ack_type')=='reply'and item.get('ack_text'):item['ack_html']=render(item['ack_text'].replace('\\n','\n'))
 							for reply in item.get('replies')or[]:
@@ -3577,7 +4591,7 @@ def handler(store):
 			except(OSError,sqlite_api().Error,RuntimeError)as error:self.problem(503,error)
 		def do_POST(self):
 			path=urlsplit(self.path).path;autosave_post=path in{'/api/userscript-autosave','/api/userscript-autosave/compare','/api/userscript-autosave/offer'};report_submit=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/submit',path);report_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/seen',path);report_ack_seen=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/ack-seen',path);report_view=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/view',path);message_replies_seen=re.fullmatch('/api/messages/([a-zA-Z0-9_-]{1,80})/replies/seen',path);report_unpublish=re.fullmatch('/api/reports/([a-zA-Z0-9_-]{1,80})/unpublish',path);fetch_post=re.fullmatch('/api/fetch-jobs/([a-zA-Z0-9_-]{1,80})/(renew|result|fail|retry|approve|deny|drop)',path);note_upload=path=='/api/notes/with-file';staged_upload=path=='/api/uploads';upload_drop=re.fullmatch('/api/uploads/([a-zA-Z0-9_-]{1,80})/drop',path);agent_key_post=path=='/api/key';timezone_post=path=='/api/timezone';skip_poll_post=path=='/api/skip-poll';interrupt_post=path=='/api/agent-interrupt';task_order_post=path=='/api/tasks/order';fetch_result=bool(fetch_post and fetch_post.group(2)=='result')
-			if path not in{'/api/notes','/api/markdown','/api/slash','/api/fetch-jobs','/api/fetch-jobs/claim','/api/survey','/api/survey/request'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not staged_upload and not upload_drop and not fetch_post and not agent_key_post and not timezone_post and not skip_poll_post and not interrupt_post and not task_order_post and not autosave_post:self.problem(404,'Not found');return
+			if path not in{'/api/notes','/api/markdown','/api/slash','/api/fetch-jobs','/api/fetch-jobs/claim','/api/survey','/api/survey/request','/api/board'}and not report_submit and not report_seen and not report_ack_seen and not report_view and not message_replies_seen and not report_unpublish and not note_upload and not staged_upload and not upload_drop and not fetch_post and not agent_key_post and not timezone_post and not skip_poll_post and not interrupt_post and not task_order_post and not autosave_post:self.problem(404,'Not found');return
 			content_type=self.headers.get('Content-Type','')
 			if note_upload or staged_upload:
 				if not content_type.lower().startswith('multipart/form-data;'):self.problem(415,'Expected multipart/form-data');return
@@ -3609,10 +4623,11 @@ def handler(store):
 				if len(data)!=length:self.problem(400,'Incomplete request body; retry the upload or request');return
 				if path=='/api/survey':
 					import survey;results=survey.grade(data.decode('utf-8'))
-					with survey_lock:survey_state['results']=results;survey_state['answered_at']=now();survey_state['requested']=False
+					with survey_lock:survey_state['results']=results;survey_state['answered_at']=now();survey_state['requested']=False;store.set_meta('survey_state_json',json.dumps(survey_state))
 					self.reply(200,json.dumps({'ok':True}));return
 				payload=json.loads(data)
 				if not isinstance(payload,dict):self.problem(400,'Expected a JSON object');return
+				if path=='/api/board':self.reply(200,json.dumps(store.board_action(payload),ensure_ascii=False));return
 				if path=='/api/survey/request':
 					if payload:raise ValueError('Survey request requires an empty object')
 					with survey_lock:
@@ -3963,7 +4978,11 @@ def check_report_nemoizer(source,markdown,repo_root=None):
 def gate_verdict(state_dir,push,line,out=None):
 	out=sys.stdout if out is None else out;run_notices(state_dir,out=out)
 	if poll_timeout_line(line):print('TIMEOUT BANNED: never wrap `arena-preview poll` in shell `timeout`. Set the Bash tool timeout to 1800 seconds; the poll returns within its 1799-second wait.',file=out,flush=True);return 1
-	try:gate_store=Store(state_dir);allowed=gate_store.gate(pending_only=push);blocked_calls=gate_store.calls_since_message()if not allowed and not push else None
+	try:
+		gate_store=Store(state_dir)
+		if not push:
+			for notice in gate_store.take_board_notifications():print(notice,file=out,flush=True)
+		allowed=gate_store.gate(pending_only=push);blocked_calls=gate_store.calls_since_message()if not allowed and not push else None
 	except FileNotFoundError:allowed=True;blocked_calls=None
 	except Exception:return 2
 	if not allowed:
@@ -3981,6 +5000,8 @@ def gate_verdict(state_dir,push,line,out=None):
 	if push and main_identical():print('HEAD equals `origin/main`, so the push carries nothing. Start new work from `origin/main`.',file=out,flush=True);return 1
 	stale=main_ancestor_warning()if push else''
 	if stale:print(stale,file=out,flush=True);return 1
+	board_gate=board_main_session_warning(state_dir,line)
+	if board_gate:print(board_gate,file=out,flush=True);return 1
 	return 0
 PRE_STEPS='interrupt','read-set','remind','main-local','main-fresh','bare','proxy','gate'
 GATED_SHELLS=frozenset({'bash','sh','dash','ksh','zsh'})
@@ -4059,7 +5080,10 @@ def pre_command(state_dir,line,command,root,done='',shell=''):
 	if not routed and'read-set'not in finished and state_file(state_dir).is_file():
 		mark('read-set');tick_store=Store(state_dir)
 		if preview_server_available(tick_store):read_set_tick(tick_store,line,moment=datetime.now(resolve_display_zone(tick_store)),root=root)
-	if'commit-remind'not in finished and'git commit'in command:mark('commit-remind');report('ALWAYS push. NEVER delay for batch.')
+	if'commit-remind'not in finished and'git commit'in command:
+		mark('commit-remind');gate_store=Store(state_dir)if state_file(state_dir).is_file()else None
+		if is_private_repo(root,store=gate_store):report('Private repo: batch at most 3 verified commits, and never starve pushes.')
+		else:report('ALWAYS push. NEVER delay for batch.')
 	if'remind'not in finished and any(word in command for word in('git commit','git push','gh pr checks')):mark('remind');report('Task done? Run arena-preview task <id> --status finished.')
 	if'git commit'in command and'main-local'not in finished:
 		mark('main-local');warning=main_drift_warning(Path.cwd(),fresh=False)
@@ -4129,15 +5153,39 @@ def watch_call_group(store,stop=None,interval=1.,signal_group=os.killpg):
 					store.set_meta(CALL_GROUP_META,'')
 		if stop is None:time.sleep(interval)
 		elif stop.wait(interval):return
+def watch_hot_reload(server,reload_event,stop=None,interval=1.,scripts_dir=None,store=None):
+	baseline=scripts_signature(scripts_dir)
+	while stop is None or not stop.is_set():
+		if stop is None:time.sleep(interval)
+		elif stop.wait(interval):return
+		current=scripts_signature(scripts_dir)
+		if current!=baseline:
+			baseline=current
+			if hasattr(server,'RequestHandlerClass')and store is not None:
+				try:
+					import importlib;import importlib.util
+					if'survey'in sys.modules:importlib.reload(sys.modules['survey'])
+					spec=importlib.util.spec_from_file_location('_preview_hot',Path(__file__).resolve())
+					if spec is not None and spec.loader is not None:mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);state_root=store.path.parent if getattr(store,'path',None)is not None and store.path.name=='state.sqlite3'else getattr(store,'path',Path('arena-state'));new_store=mod.Store(state_root,create=False);server.RequestHandlerClass=mod.handler(new_store,reload_event=reload_event);store.set_meta('hot_reload_at',now());print('Hot-reloaded preview handler in-process.',flush=True)
+				except Exception as error:print(f"Hot-reload skipped: {error}",file=sys.stderr,flush=True)
+				reload_event.set()
+				if stop is None:time.sleep(WS_TICK_SECONDS*1.5)
+				elif stop.wait(WS_TICK_SECONDS*1.5):reload_event.clear();return
+				reload_event.clear()
+			else:
+				reload_event.set()
+				if stop is None:time.sleep(WS_TICK_SECONDS*1.5)
+				if hasattr(server,'shutdown'):server.shutdown()
+				return
 class PreviewArgumentParser(argparse.ArgumentParser):
 	def print_usage(self,file=None):pass
 	def exit(self,status=0,message=None):super().exit(status,message.removeprefix('arena-preview: ')if message else message)
 def main():
-	parser=PreviewArgumentParser(description=CLI_DESCRIPTION,prog='arena-preview');parser.add_argument('-r','--reminder',action='store_true',help='Print unacked-count reminder; exit');parser.add_argument('-c','--rc',type=int,default=0,help='Exit status of shell call for --reminder');parser.add_argument('-l','--line',dest='reminder_line',default='',help='Shell command line for --reminder');parser.add_argument('-e','--elapsed',type=float,default=None,help=argparse.SUPPRESS);commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve preview page; -p names port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port (default: {DEFAULT_PORT}; only supported port)");init=commands.add_parser('init',help='Create state directory and database');init.add_argument('-z','--tz',help='CLI stamp IANA zone; TZ env wins');survey_parser=commands.add_parser('survey',help='Show questions and schema, or submit ordered JSON');survey_parser.add_argument('-i','--smallest-image',action='store_true',help='Print the smallest image path in the repository tree, or exit 1 when none exists');survey_parser.add_argument('answers',nargs='?',help='Ordered answer JSON');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');note_group=commands.add_parser('note',help='Read stored notes');note_verbs=note_group.add_subparsers(dest='verb',required=True);note_list=note_verbs.add_parser('list',help='Stored note IDs by page, newest first; acknowledged included');note_list.add_argument('-p','--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('-s','--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=note_verbs.add_parser('show',help='Reread stored note by short or full ID');note_reread.add_argument('id',help='Six or all note ID characters');image_uri=commands.add_parser('image-data-uri',help='Print Markdown: one local image as data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');outline_parser=commands.add_parser('outline',help='Print read-only source outline with line ranges for local repository files');outline_parser.add_argument('path',type=Path,help='Local source file inside the repository checkout');outline_parser.add_argument('-m','--max-entries',type=int,default=OUTLINE_MAX_ENTRIES,help=f"Maximum entries to print, 1 to {OUTLINE_MAX_ENTRIES} (default: {OUTLINE_MAX_ENTRIES})");outline_parser.add_argument('-j','--json',dest='as_json',action='store_true',help='Print JSON outline with path, language, entries, total, and omitted count');pr_update_parser=commands.add_parser('pr-update',help='Update a pull request title and body via REST from a workspace file and verify parity');pr_update_parser.add_argument('-n','--number',type=int,required=True,help='Pull request number');pr_update_parser.add_argument('-t','--title',required=True,help='Pull request title');pr_update_parser.add_argument('-f','--body-file',type=Path,required=True,help='Workspace Markdown file for pull request body');job_log_parser=commands.add_parser('job-log',help='Resolve the signed GitHub Actions job-log Location URL or fallback /v1/gh proxy URL');job_log_parser.add_argument('-j','--job',dest='job_id',help='GitHub Actions job ID');job_log_parser.add_argument('-r','--run',dest='run_id',help='GitHub Actions run ID');commands.add_parser('key',help='Print the recorded agent key, host and use line');pre=commands.add_parser('pre',help='Run all pre-Bash gates in order; list completed steps');pre.add_argument('-l','--line',default='',help='Shell command line from hook');pre.add_argument('-c','--command',dest='command_text',default='',help='Command reached by DEBUG trap');pre.add_argument('-r','--repo',default='.',help='Bible repository');pre.add_argument('-s','--shell',default='',help='Shell name');pre.add_argument('-d','--done',default='',help="This shell's completed steps, space-separated");run_group=commands.add_parser('run',help='Start long command; read result');run_verbs=run_group.add_subparsers(dest='verb',required=True);route=run_verbs.add_parser('start',help='Detach command, keep output tail; show exit on later call');route.add_argument('-t','--task',dest='task_id',metavar='TASK-ID',help='Link run to upcoming task, not current task');route.add_argument('-a','--after',metavar='GATE',help='Run only after this gate passes');route.add_argument('name',help='Short run name; example: gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='Command after --');route_run=commands.add_parser('route-run',help='Run command here; record exit for later call');route_run.add_argument('name',help='Run name already recorded by caller');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='Command after --');logs=run_verbs.add_parser('logs',help='Print routed run status and recorded output tail');logs.add_argument('name',help='Run name to read');worktree=commands.add_parser('worktree',help='Create or collect detached task worktree beside root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create detached worktree beside root gate, or without one');worktree_start.add_argument('name',help='Short worktree name');worktree_start.add_argument('destination',type=Path,help='New path outside root');worktree_start.add_argument('-g','--gate',default=None,help='Running root gate name; optional');worktree_start.add_argument('-a','--allow',action='append',default=[],help='Glob of paths task may change');worktree_collect=worktree_action.add_parser('collect',help='Print allowed detached-worktree patch after root gate passes');worktree_collect.add_argument('name',help='Worktree name to collect');worktree_forget=worktree_action.add_parser('forget',help='Remove a stored worktree record');worktree_forget.add_argument('name',help='Worktree name to forget');rename=commands.add_parser('rename',help='Move note, answer, report, or task to new ID');rename.add_argument('old_id',help='Stored ID or unique record prefix');rename.add_argument('new_id',help='Destination record ID');gate=commands.add_parser('gate',help='Inbox gate; -p blocks on any unacked note; -l names blocked line');gate.add_argument('-p','--push',action='store_true',help='Block on any unacked note or answer, regardless of call count');gate.add_argument('-l','--line',default='',help='Command line from hook; blocked calls name commands to drop');commands.add_parser('poll',help='Wait for owner answer or gate completion');download=commands.add_parser('download-request',help='Request HTTPS browser download; preview Approve click required; -a allows proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Owner may opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer notes with inline Markdown; omit IDs for one pending item');ack.add_argument('ids',nargs='*');ack.add_argument('markdown',help='Literal inline Markdown answer');ack.add_argument('-i','--id',dest='task_id');ack.add_argument('-t','--title',dest='task_title');ack.add_argument('-T','--type',dest='task_type',choices=TASK_TYPES);ack.add_argument('-S','--scope',dest='task_scope');ack.add_argument('-d','--detail',dest='task_detail',action='append');report_group=commands.add_parser('report',help='Publish, withdraw and inspect reports');report_verbs=report_group.add_subparsers(dest='verb',required=True);publish=report_verbs.add_parser('publish',help='Publish report; -i ID, -t title');publish.add_argument('source',type=Path);publish.add_argument('-s','--submission-format',type=Path,help='Optional question, answer, and template JSON');publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);publish.add_argument('-u','--allow-unparsed-markers',action='store_true',help='Publish even when possible unparsed == or ~~ markers are found');unpublish=report_verbs.add_parser('unpublish',help='Withdraw report by ID, or all stale reports with --stale');unpublish.add_argument('report_id',nargs='?');unpublish.add_argument('-s','--stale',action='store_true',help='Withdraw every stale report');report_verbs.add_parser('stale',help='List stale published report IDs and reasons without changing state')
+	parser=PreviewArgumentParser(description=CLI_DESCRIPTION,prog='arena-preview');parser.add_argument('-r','--reminder',action='store_true',help='Print unacked-count reminder; exit');parser.add_argument('-c','--rc',type=int,default=0,help='Exit status of shell call for --reminder');parser.add_argument('-l','--line',dest='reminder_line',default='',help='Shell command line for --reminder');parser.add_argument('-e','--elapsed',type=float,default=None,help=argparse.SUPPRESS);commands=parser.add_subparsers(dest='command',required=False);serve=commands.add_parser('serve',help='Serve preview page; -p names port');serve.add_argument('-p','--port',type=int,default=DEFAULT_PORT,help=f"Port (default: {DEFAULT_PORT}; only supported port)");init=commands.add_parser('init',help='Create state directory and database');init.add_argument('-z','--tz',help='CLI stamp IANA zone; TZ env wins');survey_parser=commands.add_parser('survey',help='Show questions and schema, or submit ordered JSON');survey_parser.add_argument('-i','--smallest-image',action='store_true',help='Print the smallest image path in the repository tree, or exit 1 when none exists');survey_parser.add_argument('answers',nargs='?',help='Ordered answer JSON');commands.add_parser('read',help='Print every pending note, answer and upload');commands.add_parser('skills',help='List skill names, full descriptions, and paths without loading skills');agents_parser=commands.add_parser('agents',help='List AGENTS.md files from the repository root through the target directory');agents_parser.add_argument('path',nargs='?',default='.',type=Path,help='Target directory or file path (default: current directory)');note_group=commands.add_parser('note',help='Read stored notes');note_verbs=note_group.add_subparsers(dest='verb',required=True);note_list=note_verbs.add_parser('list',help='Stored note IDs by page, newest first; acknowledged included');note_list.add_argument('-p','--page',type=int,default=1,help='Page number (default: 1)');note_list.add_argument('-s','--page-size',type=int,default=20,help='IDs per page, 1 to 100 (default: 20)');note_reread=note_verbs.add_parser('show',help='Reread stored note by short or full ID');note_reread.add_argument('id',help='Six or all note ID characters');image_uri=commands.add_parser('image-data-uri',help='Print Markdown: one local image as data URI');image_uri.add_argument('path',type=Path,help='One local PNG, JPEG, GIF or WebP file up to 2 MiB');outline_parser=commands.add_parser('outline',help='Print read-only source outline with line ranges for local repository files');outline_parser.add_argument('path',type=Path,help='Local source file inside the repository checkout');outline_parser.add_argument('-m','--max-entries',type=int,default=OUTLINE_MAX_ENTRIES,help=f"Maximum entries to print, 1 to {OUTLINE_MAX_ENTRIES} (default: {OUTLINE_MAX_ENTRIES})");outline_parser.add_argument('-j','--json',dest='as_json',action='store_true',help='Print JSON outline with path, language, entries, total, and omitted count');pr_update_parser=commands.add_parser('pr-update',help='Update a pull request title and body via REST from a workspace file and verify parity');pr_update_parser.add_argument('-n','--number',type=int,required=True,help='Pull request number');pr_update_parser.add_argument('-t','--title',required=True,help='Pull request title');pr_update_parser.add_argument('-f','--body-file',type=Path,required=True,help='Workspace Markdown file for pull request body');job_log_parser=commands.add_parser('job-log',help='Resolve the signed GitHub Actions job-log Location URL or fallback /v1/gh proxy URL');job_log_parser.add_argument('-j','--job',dest='job_id',help='GitHub Actions job ID');job_log_parser.add_argument('-r','--run',dest='run_id',help='GitHub Actions run ID');commands.add_parser('key',help='Print the recorded agent key, host and use line');pre=commands.add_parser('pre',help='Run all pre-Bash gates in order; list completed steps');pre.add_argument('-l','--line',default='',help='Shell command line from hook');pre.add_argument('-c','--command',dest='command_text',default='',help='Command reached by DEBUG trap');pre.add_argument('-r','--repo',default='.',help='Bible repository');pre.add_argument('-s','--shell',default='',help='Shell name');pre.add_argument('-d','--done',default='',help="This shell's completed steps, space-separated");run_group=commands.add_parser('run',help='Start long command; read result');run_verbs=run_group.add_subparsers(dest='verb',required=True);route=run_verbs.add_parser('start',help='Detach command, keep output tail; show exit on later call');route.add_argument('-t','--task',dest='task_id',metavar='TASK-ID',help='Link run to upcoming task, not current task');route.add_argument('-a','--after',metavar='GATE',help='Run only after this gate passes');route.add_argument('name',help='Short run name; example: gates');route.add_argument('command_args',nargs=argparse.REMAINDER,help='Command after --');route_run=commands.add_parser('route-run',help='Run command here; record exit for later call');route_run.add_argument('name',help='Run name already recorded by caller');route_run.add_argument('command_args',nargs=argparse.REMAINDER,help='Command after --');logs=run_verbs.add_parser('logs',help='Print routed run status and recorded output tail');logs.add_argument('name',help='Run name to read');worktree=commands.add_parser('worktree',help='Create or collect detached task worktree beside root gate');worktree_action=worktree.add_subparsers(dest='worktree_action',required=True);worktree_start=worktree_action.add_parser('start',help='Create detached worktree beside root gate, or without one');worktree_start.add_argument('name',help='Short worktree name');worktree_start.add_argument('destination',type=Path,help='New path outside root');worktree_start.add_argument('-g','--gate',default=None,help='Running root gate name; optional');worktree_start.add_argument('-a','--allow',action='append',default=[],help='Glob of paths task may change');worktree_collect=worktree_action.add_parser('collect',help='Print allowed detached-worktree patch after root gate passes');worktree_collect.add_argument('name',help='Worktree name to collect');worktree_forget=worktree_action.add_parser('forget',help='Remove a stored worktree record');worktree_forget.add_argument('name',help='Worktree name to forget');rename=commands.add_parser('rename',help='Move note, answer, report, or task to new ID');rename.add_argument('old_id',help='Stored ID or unique record prefix');rename.add_argument('new_id',help='Destination record ID');gate=commands.add_parser('gate',help='Inbox gate; -p blocks on any unacked note; -l names blocked line');gate.add_argument('-p','--push',action='store_true',help='Block on any unacked note or answer, regardless of call count');gate.add_argument('-l','--line',default='',help='Command line from hook; blocked calls name commands to drop');commands.add_parser('poll',help='Wait for owner answer or gate completion');download=commands.add_parser('download-request',help='Request HTTPS browser download; preview Approve click required; -a allows proxy fallback');download.add_argument('url',help='One HTTPS URL without embedded credentials');download.add_argument('-a','--allow-proxy',action='store_true',help='Owner may opt in to AllOrigins and CodeTabs fallback for this request');ack=commands.add_parser('ack',help='Answer notes with inline Markdown; omit IDs for one pending item');ack.add_argument('ids',nargs='*');ack.add_argument('markdown',help='Literal inline Markdown answer');ack.add_argument('-i','--id',dest='task_id');ack.add_argument('-t','--title',dest='task_title');ack.add_argument('-T','--type',dest='task_type',choices=TASK_TYPES);ack.add_argument('-S','--scope',dest='task_scope');ack.add_argument('-d','--detail',dest='task_detail',action='append');report_group=commands.add_parser('report',help='Publish, withdraw and inspect reports');report_verbs=report_group.add_subparsers(dest='verb',required=True);publish=report_verbs.add_parser('publish',help='Publish report; -i ID, -t title');publish.add_argument('source',type=Path);publish.add_argument('-s','--submission-format',type=Path,help='Optional question, answer, and template JSON');publish.add_argument('-i','--id',required=True);publish.add_argument('-t','--title',required=True);publish.add_argument('-u','--allow-unparsed-markers',action='store_true',help='Publish even when possible unparsed == or ~~ markers are found');unpublish=report_verbs.add_parser('unpublish',help='Withdraw report by ID, or all stale reports with --stale');unpublish.add_argument('report_id',nargs='?');unpublish.add_argument('-s','--stale',action='store_true',help='Withdraw every stale report');report_verbs.add_parser('stale',help='List stale published report IDs and reasons without changing state')
 	for verb in('pin','unpin'):pin=report_verbs.add_parser(verb,help=f"{verb.capitalize()} a report against staleness");pin.add_argument('report_id')
-	report_state=report_verbs.add_parser('state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task_group=commands.add_parser('task',help='Read and update tasks');task_verbs=task_group.add_subparsers(dest='verb',required=True);task_list=task_verbs.add_parser('list',help='List tasks; -f includes finished');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');task_show=task_verbs.add_parser('show',help='Print one stored task in full');task_show.add_argument('task_id',metavar='TASK-ID');task=task_verbs.add_parser('set',help='Write/update task; -s status, -o order, -d details, -A append, -m message, -r report, -u unblocked, -a amend, -t/--type type, -S/--scope scope');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details',dest='task_details',action='append',help='One step per line; max 120 characters; repeatable');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',default=None,help='Clear report wait or legacy blocked mark');task.add_argument('-m','--msg-id',help='Message task answers; mark it as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Awaited report; answer clears blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename task under this ID to given ID');task.add_argument('-b','--blocked-by',dest='blocked_by',action='append',metavar='TASK-ID',help='Dependency task; repeatable; cycles refused');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('-t','-T','--type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; omitted flag keeps stored type');task.add_argument('-S','--scope',dest='task_scope',default=None,help='Free-text task scope; omitted flag keeps stored scope');task.add_argument('-o','--order',type=int,default=None,help='1-based place within div, not end');task_unlink=task_verbs.add_parser('unlink',help='Unlink a submission from all tasks; retain its history');task_unlink.add_argument('submission_id');task_remove=task_verbs.add_parser('remove',help='Delete task by ID');task_remove.add_argument('task_id');state_group=commands.add_parser('state',help='Import, compare, save, restore, or clear stored state');state_verbs=state_group.add_subparsers(dest='verb',required=True);state_import=state_verbs.add_parser('import',help='Import NDJSON backup; replace live state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_compare=state_verbs.add_parser('compare',help='Compare NDJSON backup against live state without changing state');state_compare.add_argument('source',nargs='?',type=Path);state_verbs.add_parser('save',help='Snapshot live state to state-latest.ndjson and queue userscript local sync');state_restore=state_verbs.add_parser('restore',help='Restore state-latest.ndjson or state-previous.ndjson and queue userscript local sync');state_restore.add_argument('-p','--previous',action='store_true',help='Restore state-previous.ndjson instead of state-latest.ndjson');state_verbs.add_parser('clear',help='Empty all state tables in place; keep agent key record');args=parser.parse_args()
+	report_state=report_verbs.add_parser('state',help='Print publication, owner view stamp and answer visibility for one report or all');report_state.add_argument('report_id',nargs='?');task_group=commands.add_parser('task',help='Read and update tasks');task_verbs=task_group.add_subparsers(dest='verb',required=True);task_list=task_verbs.add_parser('list',help='List tasks; -f includes finished');task_list.add_argument('-f','--full',action='store_true',help='print every task, finished included');task_show=task_verbs.add_parser('show',help='Print one stored task in full');task_show.add_argument('task_id',metavar='TASK-ID');task=task_verbs.add_parser('set',help='Write/update task; -s status, -o order, -d details, -A append, -m message, -r report, -u unblocked, -a amend, -t/--type type, -S/--scope scope');task.add_argument('id_arg',nargs='?',metavar='TASK-ID');task.add_argument('title_arg',nargs='?',metavar='TASK-TITLE');task.add_argument('detail_arg',nargs='*',metavar='TASK-DETAIL');task.add_argument('-d','--details',dest='task_details',action='append',help='One step per line; max 120 characters; repeatable');task.add_argument('-A','--append',dest='append_details',action='store_true',help='Append provided details instead of replacing stored details');task.add_argument('-u','--unblocked',dest='blocked',action='store_false',default=None,help='Clear report wait or legacy blocked mark');task.add_argument('-m','--msg-id',help='Message task answers; mark it as having a task');task.add_argument('-r','--report',metavar='REPORT-ID',help='Awaited report; answer clears blocked mark');task.add_argument('-a','--amend',metavar='PREV-ID',help='Rename task under this ID to given ID');task.add_argument('-b','--blocked-by',dest='blocked_by',action='append',metavar='TASK-ID',help='Dependency task; repeatable; cycles refused');task.add_argument('-s','--status',choices=TASK_STATUSES,default=None);task.add_argument('-t','-T','--type',dest='task_type',choices=TASK_TYPES,default=None,help='Primary deliverable type; omitted flag keeps stored type');task.add_argument('-S','--scope',dest='task_scope',default=None,help='Free-text task scope; omitted flag keeps stored scope');task.add_argument('-o','--order',type=int,default=None,help='1-based place within div, not end');task_unlink=task_verbs.add_parser('unlink',help='Unlink a submission from all tasks; retain its history');task_unlink.add_argument('submission_id');task_remove=task_verbs.add_parser('remove',help='Delete task by ID');task_remove.add_argument('task_id');state_group=commands.add_parser('state',help='Import, compare, save, restore, or clear stored state');state_verbs=state_group.add_subparsers(dest='verb',required=True);state_import=state_verbs.add_parser('import',help='Import NDJSON backup; replace live state');state_import.add_argument('source',nargs='?',type=Path);state_import.add_argument('-r','--replace-tasks',action='store_true');state_compare=state_verbs.add_parser('compare',help='Compare NDJSON backup against live state without changing state');state_compare.add_argument('source',nargs='?',type=Path);state_verbs.add_parser('save',help='Snapshot live state to state-latest.ndjson and queue userscript local sync');state_restore=state_verbs.add_parser('restore',help='Restore state-latest.ndjson or state-previous.ndjson and queue userscript local sync');state_restore.add_argument('-p','--previous',action='store_true',help='Restore state-previous.ndjson instead of state-latest.ndjson');state_verbs.add_parser('clear',help='Empty all state tables in place; keep agent key record');state_verbs.add_parser('status',help='Print arena-state file and byte usage by category');state_clean=state_verbs.add_parser('clean',help='Prune unreferenced uploads, downloads, finished runs, and scratch files');state_clean.add_argument('-n','--dry-run',action='store_true',help='List files that would be removed without deleting them');args=parser.parse_args()
 	if args.command=='serve'and args.port!=DEFAULT_PORT:serve.error(f"--port must be {DEFAULT_PORT}")
-	verb=getattr(args,'verb',None);grouped_commands={('note','list'):'note-list',('note','show'):'note',('run','start'):'route',('run','logs'):'logs',('report','publish'):'publish',('report','unpublish'):'unpublish',('report','stale'):'stale-reports',('report','state'):'report-state',('report','pin'):'report-pin',('report','unpin'):'report-unpin',('task','list'):'task-list',('task','show'):'task-show',('task','set'):'task',('task','remove'):'task-remove',('task','unlink'):'task-unlink',('state','import'):'import-state',('state','compare'):'compare-state',('state','save'):'save-state',('state','restore'):'restore-state',('state','clear'):'clear-state'};args.command=grouped_commands.get((args.command,verb),args.command)
+	verb=getattr(args,'verb',None);grouped_commands={('note','list'):'note-list',('note','show'):'note',('run','start'):'route',('run','logs'):'logs',('report','publish'):'publish',('report','unpublish'):'unpublish',('report','stale'):'stale-reports',('report','state'):'report-state',('report','pin'):'report-pin',('report','unpin'):'report-unpin',('task','list'):'task-list',('task','show'):'task-show',('task','set'):'task',('task','remove'):'task-remove',('task','unlink'):'task-unlink',('state','import'):'import-state',('state','compare'):'compare-state',('state','save'):'save-state',('state','restore'):'restore-state',('state','clear'):'clear-state',('state','status'):'status-state',('state','clean'):'clean-state'};args.command=grouped_commands.get((args.command,verb),args.command)
 	if args.command=='route':
 		command_args=args.command_args;separator=command_args.index('--')if'--'in command_args else len(command_args)
 		if any(argument==option or argument.startswith(option+'=')for argument in command_args[:separator]for option in('-t','--task','-a','--after')):parser.error('put --task and --after before the run name. Use: arena-preview run start --task <id> <name> -- <command>')
@@ -4155,6 +5203,12 @@ def main():
 		if args.command=='pre':return pre_command(state_dir,args.line,args.command_text,args.repo,done=args.done,shell=args.shell)
 		if args.command=='survey':return survey_command(state_dir,args.answers,smallest_image=args.smallest_image)
 		if args.command=='skills':print_skills();return 0
+		if args.command=='agents':
+			try:
+				base,found=resolve_agents_chain(args.path)
+				for item in found:print(item.relative_to(base).as_posix())
+			except ValueError as error:print(error,file=sys.stderr);return 1
+			return 0
 		if args.command=='image-data-uri':
 			try:print(image_data_uri(args.path))
 			except ValueError as error:print(error,file=sys.stderr);return 1
@@ -4202,8 +5256,8 @@ def main():
 			if reminder:print(reminder,file=sys.stderr,flush=True)
 		if args.command!='serve'and not read_only:store.touch_agent()
 		if args.command=='serve':
-			from http.server import ThreadingHTTPServer;require_renderer()
-			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store))as server:store.set_meta('port',str(server.server_port));threading.Thread(target=watch_call_group,args=(store,),daemon=True).start();print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever()
+			from http.server import ThreadingHTTPServer;require_renderer();reload_event=threading.Event();stop_event=threading.Event();ThreadingHTTPServer.allow_reuse_address=True
+			with ThreadingHTTPServer(('0.0.0.0',args.port),handler(store,reload_event=reload_event))as server:server.daemon_threads=True;store.set_meta('port',str(server.server_port));threading.Thread(target=watch_call_group,args=(store,stop_event),daemon=True).start();threading.Thread(target=watch_hot_reload,args=(server,reload_event,stop_event,1.,None,store),daemon=True).start();print(f"Preview on 0.0.0.0:{server.server_port}; state: {store.path}",flush=True);server.serve_forever();stop_event.set()
 		elif args.command=='read':require_server(store);store.notice_expired_key();print_read(store)
 		elif args.command=='note-list':
 			ids,total=store.list_note_ids(args.page,args.page_size);pages=max(1,(total+args.page_size-1)//args.page_size)
@@ -4299,6 +5353,8 @@ def main():
 		elif args.command=='save-state':saved=store.save_backup();print(f"Saved state to {saved['latest_path']} (notes {saved['notes']}, tasks {saved['tasks']}, reports {saved['reports']}, answers {saved['answers']}); queued local sync.")
 		elif args.command=='restore-state':print(format_import_receipt(store.restore_state(previous=args.previous)))
 		elif args.command=='clear-state':print(format_clear_state(store.clear_state()))
+		elif args.command=='status-state':print(format_state_usage(store.state_usage()))
+		elif args.command=='clean-state':print(format_clean_state(store.clean_state(dry_run=args.dry_run)))
 		elif args.command=='init':
 			if args.tz:
 				if not zone_exists(args.tz):print(f"Unknown zone {args.tz}.",file=sys.stderr);return 1

@@ -1,23 +1,11 @@
 # Recipe: Scrollbars
 
-Style scrollbars with a thin `10px` rounded thumb (`#302e2c` in dark mode or `var(--scrollbar-thumb)`) on the surface background track (`var(--bg)`), `8px` thumb radius, and no top or bottom arrow buttons (`::-webkit-scrollbar-button { display: none; }`). Scope `scrollbar-width: thin` and `scrollbar-color` inside `@supports not selector(::-webkit-scrollbar)` so Chromium keeps the rounded WebKit thumb and hidden buttons while Firefox receives a matching thin track and thumb.
+Style scrollbars with a thin `10px` rounded thumb (`#302e2c`) on the surface track (`var(--bg)`), `8px` radius, and no arrow buttons (`::-webkit-scrollbar-button { display: none; }`). Omit hover highlights unless keyboard navigation is active (`:root[data-keyboard-nav="true"]`). Scope `scrollbar-width: thin` and `scrollbar-color` inside `@supports not selector(::-webkit-scrollbar)` so Chromium keeps the rounded WebKit thumb and hidden buttons while Firefox receives a matching thin track and thumb.
+
+![Scrollbars Dark-Mode Example](../examples/scrollbars.png)
 
 ```css
 :root {
-  --scrollbar-thumb: #c8c8d0;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --scrollbar-thumb: #302e2c;
-  }
-}
-
-:root[data-theme="light"] {
-  --scrollbar-thumb: #c8c8d0;
-}
-
-:root[data-theme="dark"] {
   --scrollbar-thumb: #302e2c;
 }
 
@@ -34,6 +22,11 @@ Style scrollbars with a thin `10px` rounded thumb (`#302e2c` in dark mode or `va
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 8px;
+}
+
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover,
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:active {
+  background: var(--focus);
 }
 
 ::-webkit-scrollbar-button {

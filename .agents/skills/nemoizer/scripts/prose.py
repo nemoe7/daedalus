@@ -58,12 +58,18 @@ def is_env_file(path: Path) -> bool:
   return name == ".env" or name.startswith(".env.") or path.suffix.lower() == ".env"
 
 
+def is_jinja_file(path: Path) -> bool:
+  """Return whether path is a Jinja template such as .jinja, .j2, or .jinja2."""
+  return any(suffix.lower() in JINJA_SUFFIXES for suffix in path.suffixes)
+
+
 def is_code_file(path: Path) -> bool:
   """Return whether path uses comment extraction rather than full-file prose scanning."""
   return (
     path.suffix.lower() in COMMENT_SUFFIXES
     or path.name in SPECIAL_CODE_NAMES
     or is_env_file(path)
+    or is_jinja_file(path)
   )
 
 
@@ -284,6 +290,7 @@ class _HTMLProseExtractor(HTMLParser):
   def __init__(self) -> None:
     super().__init__(convert_charrefs=True)
     self.spans: list[tuple[str, int, int]] = []
+    self.attr_spans: list[tuple[str, int, int]] = []
     self._skip_depth = 0
     self._buf: list[str] = []
     self._buf_start: int | None = None
@@ -318,6 +325,7 @@ class _HTMLProseExtractor(HTMLParser):
           if clean and clean not in seen and re.search(r"[A-Za-z]{2,}", clean):
             seen.add(clean)
             self.spans.append((clean, line, line))
+            self.attr_spans.append((clean, line, line))
 
   def handle_endtag(self, tag: str) -> None:
     lower = tag.lower()
@@ -348,6 +356,34 @@ def html_visible_prose(source: str) -> list[tuple[str, int, int]]:
   extractor.feed(source)
   extractor.flush()
   return extractor.spans
+
+
+def html_attr_spans(source: str) -> list[tuple[str, int, int]]:
+  """Collect only HTML prose attribute values (aria-label, title, placeholder) with line spans."""
+  extractor = _HTMLProseExtractor()
+  extractor.feed(source)
+  extractor.flush()
+  return extractor.attr_spans
+
+
+LABEL_KEYS = r'(?:"aria-label"|aria-label|title|placeholder|label)'
+LABEL_LITERAL = re.compile(
+  LABEL_KEYS
+  + r'\s*[:=]\s*(?:"([^"\n]{2,120})"|\'([^\'\n]{2,120})\'|`([^`\n$]{2,120})`)'
+)
+
+
+def ui_label_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
+  """Collect short label literals that scripts hand to title, aria-label, placeholder, or label."""
+  if path.suffix.lower() not in {".js", ".mjs", ".cjs", ".html", ".htm"}:
+    return []
+  spans: list[tuple[str, int, int]] = []
+  for match in LABEL_LITERAL.finditer(source):
+    text = next(group for group in match.groups() if group is not None).strip()
+    if re.search(r"[A-Za-z]{2,}", text):
+      line = source.count("\n", 0, match.start()) + 1
+      spans.append((text, line, line))
+  return spans
 
 
 def sql_comments(source: str) -> list[tuple[str, int, int]]:
@@ -448,7 +484,7 @@ def span_comments(
     return slash_comments(source)
   if suffix in SQL_SUFFIXES:
     return sql_comments(source)
-  if suffix in JINJA_SUFFIXES:
+  if suffix in JINJA_SUFFIXES or is_jinja_file(path):
     return jinja_comments(source)
   if suffix in HTML_SUFFIXES:
     return html_comments(source)
@@ -670,7 +706,7 @@ def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
       if not source.splitlines()[row[1] - 1].startswith("#!")
     ]
   else:
-    if path.suffix == ".html":
+    if path.suffix == ".html" and not is_jinja_file(path):
       docs = html_visible_prose(source)
     elif is_workflow_yaml(path, source):
       docs = workflow_name_spans(source)

@@ -1,12 +1,12 @@
 # Measure a page
 
-Read computed values, compare them with the sheet, and keep the numbers. Two widths are the minimum: 1280 px and 360 px.
+Read computed values, compare them with the sheet, and keep the numbers. Check the house widths (`1920`, `1080`, `958`, `411`, and `855 px`).
 
 | Subcommand | Purpose | Arguments and Shorthands |
 | --- | --- | --- |
-| `check` | Compare computed-style report JSON with the sheet | `<report>`, `-s, --sheet <path>`, `-g, --scale <px>`, `-d, --density`, `-j, --json` |
-| `density` | Check row/card ink ratio, sibling gaps, and control width caps | `<report>` |
-| `ruler` | Measure pixel gap between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-g, --scale <px>`, `-j, --json` |
+| `check` | Compare computed-style report JSON with the sheet | `<report>`, `-s, --sheet <path>`, `-k, --scale <px>`, `-d, --density` |
+| `density` | Check row/card ink ratio, sibling gaps, and form inputs that leave row space unused | `<report>` |
+| `ruler` | Measure pixel gap between two `x,y` guides | `-f, --from <x,y>`, `-t, --to <x,y>`, `-s, --sheet <path>`, `-k, --scale <px>` |
 
 ## Read the values
 
@@ -34,7 +34,7 @@ Save the output as `report.json`, one file per width.
 python scripts/measure.py check report.json
 ```
 
-A spacing value must sit on the 8 px scale. Another value may also take a size the sheet declares, such as the 10 px radius. Add `--scale 4` for a denser sheet, and `--sheet <path>` to read another sheet.
+A spacing value sits on the `4 px` scale by default. Another value may also take a size the sheet declares, such as the `6 px` radius. Add `--scale 8` for the `8 px` sheet, and `--sheet <path>` to read another sheet.
 
 ## Read a gap with the ruler
 

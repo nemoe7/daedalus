@@ -26,7 +26,7 @@ In report diffs, keep leading and trailing whitespace outside `~~...~~` and `==.
 | `- ( ) Label: ___` or `- [ ] Label: ___` inside a group | A labeled free-text choice |
 | `Label: ___` or bare `___` | A text answer |
 
-Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. The server caps a report's fields, prompts and options, and an over-limit value fails with an error the agent reads then. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
+Write an option group's custom slot inside the group, as `- ( ) custom: ___`. The nearest non-empty line before a group is its prompt; a labeled blank supplies its own prompt. Append `{#my-id}` to a prompt to keep the field ID stable. Markers inside fenced code blocks remain text. The server caps a report at 24 fields, prompts and options, and an over-limit value fails with an error the agent reads then. Fix invalid fields before publication. Each submission has its own pending ID; acknowledge every new answer, not just an earlier submission.
 
 Give each group its own prompt, so every answer maps to its question:
 

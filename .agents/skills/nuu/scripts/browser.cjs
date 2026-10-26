@@ -179,6 +179,26 @@ async function metrics(page, selector) {
       const tag = element.tagName.toLowerCase();
       const role = element.getAttribute('role');
       const inputType = tag === 'input' ? (element.getAttribute('type') || 'text').toLowerCase() : null;
+      let rowSlack = 0;
+      if ((tag === 'input' || tag === 'select') && element.parentElement && box.width > 0 && box.height > 0) {
+        const parent = element.parentElement;
+        const parentStyle = getComputedStyle(parent);
+        const parentBox = parent.getBoundingClientRect();
+        const padRight = parseFloat(parentStyle.getPropertyValue('padding-right')) || 0;
+        const rowRight = parentBox.x + parentBox.width - padRight;
+        const hasTrailingSibling = [...(parent.children || [])].some(sib => {
+          if (sib === element) return false;
+          const cs = getComputedStyle(sib);
+          if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+          const r = sib.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return false;
+          const verticalOverlap = Math.min(box.y + box.height, r.y + r.height) - Math.max(box.y, r.y);
+          return verticalOverlap > 0 && r.x >= box.x + box.width - 2;
+        });
+        if (!hasTrailingSibling && rowRight > box.x + box.width) {
+          rowSlack = Number((rowRight - (box.x + box.width)).toFixed(2));
+        }
+      }
       const classAndId = `${element.id || ''} ${typeof element.className === 'string' ? element.className : ''}`;
       const toolbarExempt = ['header', 'nav', 'footer'].includes(tag) ||
         ['banner', 'toolbar', 'navigation', 'menubar', 'tablist'].includes((role || '').toLowerCase()) ||
@@ -195,6 +215,8 @@ async function metrics(page, selector) {
         bounds: {x: box.x, y: box.y, width: box.width, height: box.height},
         ...(inkRatio !== null ? {inkWidth: Number(inkWidth.toFixed(2)), inkRatio} : {}),
         maxSiblingGap,
+        row_slack: rowSlack,
+        rowSlack,
         values: Object.fromEntries(properties.map(name => [name, style.getPropertyValue(name)]))};
     });
     return {width: innerWidth, height: innerHeight, elements,
@@ -404,13 +426,29 @@ async function a11yChecks(page) {
 
     const walker = document.createTreeWalker(document.body || document.documentElement, NodeFilter.SHOW_TEXT);
     const checkedElements = new Set();
+    const checkedTimestampElements = new Set();
+    const rawUiTimestampRe = /\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?|\s+\d{2}:\d{2}(?::\d{2})?(?:\s*(?:UTC|GMT|[+-]\d{2}:?\d{2}))?)\b|\b\d{2}:\d{2}(?::\d{2})?\s*(?:UTC|GMT)\b/;
     let textNode;
     while ((textNode = walker.nextNode())) {
       if (!textNode.nodeValue || !textNode.nodeValue.trim()) continue;
       const parent = textNode.parentElement;
-      if (!parent || checkedElements.has(parent) || ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(parent.tagName)) continue;
-      checkedElements.add(parent);
+      if (!parent || ['SCRIPT', 'STYLE', 'NOSCRIPT'].includes(parent.tagName)) continue;
       if (!isVisible(parent)) continue;
+      if (!checkedTimestampElements.has(parent) && !parent.closest('code, pre, textarea')) {
+        const tsMatch = rawUiTimestampRe.exec(textNode.nodeValue);
+        if (tsMatch) {
+          checkedTimestampElements.add(parent);
+          findings.push({
+            rule: 'NUA310',
+            severity: 'review',
+            criterion: 'relative-timestamps',
+            selector: selectorFor(parent),
+            evidence: `Visible raw or unadjusted timestamp in UI text: ${tsMatch[0]}`,
+          });
+        }
+      }
+      if (checkedElements.has(parent)) continue;
+      checkedElements.add(parent);
       const style = getComputedStyle(parent);
       const fgRaw = parseRgba(style.color);
       if (!fgRaw || fgRaw[3] <= 0) continue;
@@ -611,11 +649,18 @@ function validateFlow(steps) {
   }
 }
 
-async function flow(page, context, steps, output, timeout) {
+async function flow(page, context, steps, output, timeout, viewportMeta = {}) {
   const results = [];
   let assertions = 0;
   for (const [index, step] of steps.entries()) {
-    const row = {index, action: step.action, selector: step.selector, status: 'not_run'};
+    const row = {
+      index,
+      action: step.action,
+      selector: step.selector,
+      ...(viewportMeta.width ? {width: viewportMeta.width} : {}),
+      ...(viewportMeta.scheme ? {scheme: viewportMeta.scheme} : {}),
+      status: 'not_run',
+    };
     results.push(row);
     try {
       const target = step.selector ? page.locator(step.selector) : null;
@@ -663,8 +708,40 @@ async function flow(page, context, steps, output, timeout) {
     } catch (error) {
       row.status = 'failed';
       row.error = String(error.message);
-      return {status: 'failed', assertions, steps: results,
-        remaining: steps.length - results.length};
+      if (step.selector) {
+        try {
+          const state = await page.evaluate(sel => {
+            const el = document.querySelector(sel);
+            if (!el) return {matched: 0, visible: false};
+            const cs = getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            const vis =
+              cs.display !== 'none' &&
+              cs.visibility !== 'hidden' &&
+              Number(cs.opacity) !== 0 &&
+              r.width > 0 &&
+              r.height > 0;
+            return {
+              matched: document.querySelectorAll(sel).length,
+              visible: vis,
+              hiddenAttr: Boolean(el.hidden),
+              display: cs.display,
+              visibility: cs.visibility,
+            };
+          }, step.selector);
+          row.visible = state.visible;
+          row.selectorState = state;
+        } catch {}
+      }
+      return {
+        status: 'failed',
+        ...(viewportMeta.width ? {width: viewportMeta.width} : {}),
+        ...(viewportMeta.scheme ? {scheme: viewportMeta.scheme} : {}),
+        failedStep: row,
+        assertions,
+        steps: results,
+        remaining: steps.length - results.length,
+      };
     }
   }
   return {status: assertions ? 'passed' : steps.length ? 'actions_run' : 'not_run',
@@ -806,11 +883,23 @@ async function run() {
   const output = fs.mkdtempSync(path.join(artifactRoot, 'capture-'));
   const captures = [];
   const timeout = request.timeout * 1000;
+  const HOUSE_HEIGHTS = {
+    1920: 957,
+    1372: 883,
+    1080: 2437,
+    958: 958,
+    411: 799,
+    855: 325,
+    ...(request.heights || {}),
+  };
+  const REPORT_WIDTHS = Array.isArray(request.report_widths) && request.report_widths.length
+    ? request.report_widths
+    : [1920, 411];
   try {
     for (const width of request.widths) {
-      const height = Number(request.height || 900);
+      const height = Number(request.height || HOUSE_HEIGHTS[width] || 900);
       const touch = width <= 768 || height <= 480;
-      for (const scheme of ['light', 'dark']) {
+      for (const scheme of ['dark', 'light']) {
         for (const motion of ['no-preference', 'reduce']) {
           const context = await browser.newContext({viewport: {width, height},
             hasTouch: touch, isMobile: touch,
@@ -821,7 +910,9 @@ async function run() {
           page.on('console', message => {
             if (message.type() === 'error') errors.push({type: 'console', message: message.text()});
           });
-          const row = {width, touch, scheme, motion, status: 'not_checked', errors,
+          const row = {width, height, touch, scheme, motion,
+            report_shot: REPORT_WIDTHS.includes(width) && scheme === 'dark' && motion === 'no-preference',
+            status: 'not_checked', errors,
             flow: {status: 'not_run'}, edit: {status: 'not_run'}};
           captures.push(row);
           try {
@@ -833,7 +924,7 @@ async function run() {
             }
             row.measurements = await metrics(page, request.selector);
             if (captures.length === 1) {
-              row.flow = await flow(page, context, request.flow || [], output, timeout);
+              row.flow = await flow(page, context, request.flow || [], output, timeout, {width, scheme, motion});
               if (request.edit) {
                 const edit = request.edit;
                 const node = page.locator(edit.selector);
@@ -905,7 +996,9 @@ async function run() {
     }
   }
   return {status: findings.length ? 'findings' : 'captured', findings,
-    engine: chosen[0], captures, automated_flow: 'first capture only',
+    engine: chosen[0], captures,
+    report_shots: captures.filter(row => row.report_shot && row.screenshot).map(row => row.screenshot),
+    automated_flow: 'first capture only',
     synthesized_input: 'Playwright actions', visual_judgment: 'not_run', participant_research: 'not_run', real_device: 'not_run'};
 }
 

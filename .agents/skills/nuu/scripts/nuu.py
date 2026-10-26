@@ -38,7 +38,7 @@ from measure import check as check_measurements
 from measure import main as measure_main
 from walk import main as walk_main
 
-NAMED_BREAKPOINTS = ("75em", "60em", "40em", "30em")
+NAMED_BREAKPOINTS = ("68em", "60em", "30em", "24em")
 DEVICE_BREAKPOINTS = NAMED_BREAKPOINTS
 MEDIA_BREAKPOINT_RE = re.compile(
   r"@media\b[^{]*?\(\s*(?:min|max)-(?:width|height)\s*:\s*([0-9.]+(?:em|rem|px))\s*\)",
@@ -46,7 +46,8 @@ MEDIA_BREAKPOINT_RE = re.compile(
 )
 HOME = Path(__file__).resolve().parent.parent
 CATALOG = HOME / "data" / "vendor" / "ui-ux-pro-max"
-WIDTHS = (1280, 360)
+WIDTHS = (1920, 1080, 958, 855, 411)
+REPORT_WIDTHS = (1920, 411)
 SKIP = {
   ".agents",
   ".git",
@@ -57,7 +58,6 @@ SKIP = {
   "node_modules",
   "dist",
   "build",
-  "arena-state",
   "__pycache__",
   ".pytest_cache",
   ".ruff_cache",
@@ -158,22 +158,38 @@ def load_rule_descriptions(home: Path = HOME) -> dict[str, str]:
         descriptions.setdefault("NUI002", _clean_md(sentences[0]))
     if 2 in clauses:
       descriptions.setdefault("NUI003", _clean_md(clauses[2]))
+  descriptions.setdefault(
+    "NUL006", "Raw ISO or unadjusted UTC/offset timestamp in UI text or source"
+  )
+  descriptions.setdefault(
+    "NUA310", "Visible raw ISO or unadjusted UTC/offset timestamp in rendered UI text"
+  )
   return descriptions
 
 
 VERSION = _load_version()
 RULE_DESCRIPTIONS = load_rule_descriptions()
 KNOWN_NUU_RULES = {
-  *(f"NUL00{i}" for i in range(1, 6)),
+  *(f"NUL00{i}" for i in range(1, 7)),
   *(f"NUI00{i}" for i in range(1, 4)),
   *(f"NUB10{i}" for i in range(1, 5)),
   *(f"NUM{i}" for i in range(201, 211)),
-  *(f"NUA{i}" for i in range(301, 310)),
+  *(f"NUA{i}" for i in range(301, 311)),
   *RULE_DESCRIPTIONS,
 }
+RAW_UI_TIMESTAMP_RE = re.compile(
+  r"\b\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?"
+  r"|\s+\d{2}:\d{2}(?::\d{2})?(?:\s*(?:UTC|GMT|[+-]\d{2}:?\d{2}))?)\b"
+  r"|\b\d{2}:\d{2}(?::\d{2})?\s*(?:UTC|GMT)\b"
+)
+UNADJUSTED_JS_TIMESTAMP_RE = re.compile(
+  r"\.(?:textContent|innerText)\s*=\s*(?:(?![^\n;]*\b(?:clockTime|relativeTime|time|format\w*)\s*\()[^;\n]*\.(?:toISOString|toUTCString)\s*\("
+  r"|[A-Za-z0-9_$.]+\.(?:at|updated_at|created_at)\s*(?:\|\|\s*['\"][^\n'\"]*['\"])?\s*;)"
+  r"|\btimeZone\s*:\s*['\"](?:UTC|GMT|Etc/UTC)['\"]"
+)
 NONUU_MARKER_RE = re.compile(r"\bnonuu:[ \t]*(.*?)(?=-->|\*/|;|\s|$|\bnonuu:)")
 DEVIATION_MARKER_RE = re.compile(
-  r"\bnuu-deviation:[ \t]*([A-Za-z0-9_.-]+)(?::[ \t]*(.*?))?(?=-->|\*/|$)"
+  r"\bnuu-deviation:[ \t]*(?:([A-Za-z0-9_.-]+):[ \t]*)?(.*?)(?=-->|\*/|$)"
 )
 
 
@@ -190,7 +206,14 @@ def collect_deviation_markers(path, lines):
     for match in DEVIATION_MARKER_RE.finditer(line):
       dev_id = (match[1] or "").strip()
       reason = (match[2] or "").strip()
-      mark_str = f"{path}:{number}: {dev_id}: {reason or '<no-reason>'}"
+      if not dev_id and reason and re.fullmatch(r"[A-Za-z0-9_.-]+", reason):
+        dev_id, reason = reason, ""
+      if not dev_id and not reason:
+        continue
+      label = (
+        f"{dev_id}: {reason or '<no-reason>'}" if dev_id else (reason or "<no-reason>")
+      )
+      mark_str = f"{path}:{number}: {label}"
       deviations.append(
         {
           "id": dev_id,
@@ -362,11 +385,14 @@ def extract(root):
 
 
 class SourcePage(HTMLParser):
+  RAW_TEXT_TAGS = ("script", "style", "code", "pre", "textarea", "template")
+
   def __init__(self, path):
     super().__init__(convert_charrefs=True)
     self.path, self.findings = path, []
     self.labels, self.ids, self.controls = set(), set(), []
     self.label_depth = 0
+    self.raw_text_depth = 0
 
   def finding(self, rule, criterion, evidence, position):
     line, column = position
@@ -385,6 +411,8 @@ class SourcePage(HTMLParser):
 
   def handle_starttag(self, tag, attributes):
     attrs = dict(attributes)
+    if tag in self.RAW_TEXT_TAGS:
+      self.raw_text_depth += 1
     if attrs.get("id"):
       self.ids.add(attrs["id"])
     if tag == "label":
@@ -397,8 +425,22 @@ class SourcePage(HTMLParser):
       self.controls.append((attrs, bool(self.label_depth), self.getpos()))
 
   def handle_endtag(self, tag):
+    if tag in self.RAW_TEXT_TAGS:
+      self.raw_text_depth = max(0, self.raw_text_depth - 1)
     if tag == "label":
       self.label_depth = max(0, self.label_depth - 1)
+
+  def handle_data(self, data):
+    if self.raw_text_depth > 0 or not data:
+      return
+    match = RAW_UI_TIMESTAMP_RE.search(data)
+    if match:
+      self.finding(
+        "NUL006",
+        "relative-timestamps",
+        f"Raw or unadjusted timestamp in UI text: {match[0]}",
+        self.getpos(),
+      )
 
   def finish(self):
     for attrs, nested, position in self.controls:
@@ -449,17 +491,45 @@ def _has_custom_focus_ring(clean_css: str) -> bool:
   return False
 
 
-def _has_design_doc(root: Path) -> bool:
+def _resolve_design_doc_rel(root: Path) -> str:
+  try:
+    cfg = load_nuu_config(root).get("config") or {}
+  except Exception:
+    cfg = {}
+  if isinstance(cfg, dict):
+    design_tbl = cfg.get("design") if isinstance(cfg.get("design"), dict) else {}
+    audit_tbl = cfg.get("audit") if isinstance(cfg.get("audit"), dict) else {}
+    for candidate in (
+      design_tbl.get("path"),
+      design_tbl.get("doc"),
+      design_tbl.get("file"),
+      audit_tbl.get("design_doc"),
+      audit_tbl.get("design_path"),
+      cfg.get("design_doc"),
+      cfg.get("design_path"),
+    ):
+      if isinstance(candidate, str) and candidate.strip():
+        return candidate.strip()
+  return "docs/design.md"
+
+
+def _has_design_doc(root: Path, design_doc_rel: str | None = None) -> bool:
+  rel = (design_doc_rel or _resolve_design_doc_rel(root)).strip() or "docs/design.md"
+  rel_path = Path(rel)
+  if rel_path.is_absolute():
+    return rel_path.is_file()
   cur = Path(root).resolve()
   if cur.is_file():
     cur = cur.parent
   while True:
-    docs_dir = cur / "docs"
-    if (docs_dir / "design.md").is_file() or (
-      docs_dir.is_dir()
-      and any(p.is_file() and not p.is_symlink() for p in docs_dir.rglob("design.md"))
-    ):
+    if (cur / rel).is_file():
       return True
+    if rel == "docs/design.md":
+      docs_dir = cur / "docs"
+      if docs_dir.is_dir() and any(
+        p.is_file() and not p.is_symlink() for p in docs_dir.rglob("design.md")
+      ):
+        return True
     if (
       (cur / ".git").exists()
       or cur.parent == cur
@@ -543,22 +613,50 @@ def lint(root):
               "criterion": "clause-9",
             }
           )
+    if path.suffix.lower() in {".js", ".jsx", ".ts", ".tsx"}:
+      clean_js = re.sub(
+        r"/\*.*?\*/",
+        lambda match: "".join("\n" if char == "\n" else " " for char in match[0]),
+        text,
+        flags=re.DOTALL,
+      )
+      for number, raw_line in enumerate(clean_js.splitlines(), 1):
+        code_part = raw_line.split("//", 1)[0]
+        ts_match = UNADJUSTED_JS_TIMESTAMP_RE.search(code_part)
+        if ts_match:
+          current.append(
+            {
+              "rule": "NUL006",
+              "path": str(path),
+              "line": number,
+              "column": ts_match.start() + 1,
+              "severity": "review",
+              "status": "source_candidate",
+              "evidence": f"Unadjusted or raw timestamp assignment: {ts_match[0].strip()}",
+              "criterion": "relative-timestamps",
+            }
+          )
     for finding in current:
       ln = finding["line"]
       ignored = file_ids | (line_ids[ln - 1] if 0 < ln <= len(line_ids) else set())
       if finding["rule"] not in ignored:
         findings.append(finding)
-  docs_dir = root / "docs"
-  if not _has_design_doc(root):
+  design_doc_rel = _resolve_design_doc_rel(root)
+  design_doc_path = (
+    Path(design_doc_rel)
+    if Path(design_doc_rel).is_absolute()
+    else (root / design_doc_rel)
+  )
+  if not _has_design_doc(root, design_doc_rel):
     findings.append(
       {
         "rule": "NUL004",
-        "path": str(docs_dir / "design.md"),
+        "path": str(design_doc_path),
         "line": 1,
         "column": 1,
         "severity": "review",
         "status": "source_candidate",
-        "evidence": "Missing docs/design.md",
+        "evidence": f"Missing {design_doc_rel}",
         "criterion": "clause-11",
       }
     )
@@ -657,6 +755,59 @@ def check_icons(root):
       ignored = set(re.findall(r"\bnonuu:\s*([A-Za-z0-9_-]+)", line))
       if finding["rule"] not in ignored:
         findings.append(finding)
+  for path in files(root, {".css"}):
+    text = path.read_text(encoding="utf-8")
+    clean = re.sub(
+      r"/\*[\s\S]*?\*/",
+      lambda m: "\n" * m.group(0).count("\n"),
+      text,
+    )
+    lines = text.splitlines()
+    for rule_match in re.finditer(r"([^{};]+)\{([^}]*)\}", clean):
+      selector = rule_match[1].strip()
+      body = rule_match[2]
+      is_control = bool(
+        re.search(
+          r"(?:^|[\s,>+~:])(?:select|button|input|summary)\b|\[role=",
+          selector,
+          re.IGNORECASE,
+        )
+      )
+      prop_match = re.search(
+        r"\b(?:background(?:-image)?\s*:[^;]*(?:(?:linear|radial|conic)-gradient|url)\s*\(|(?:-webkit-)?mask(?:-image)?\s*:[^;]*url\s*\()",
+        body,
+        re.IGNORECASE,
+      )
+      if not prop_match:
+        continue
+      if not is_control and not re.search(
+        r"(?:-webkit-)?mask(?:-image)?\s*:[^;]*url\s*\(",
+        prop_match.group(0),
+        re.IGNORECASE,
+      ):
+        continue
+      line_no = clean.count("\n", 0, rule_match.start(2) + prop_match.start()) + 1
+      rule_line = clean.count("\n", 0, rule_match.start(1)) + 1
+      ignored = set()
+      for check_ln in range(max(1, rule_line), min(len(lines), line_no) + 1):
+        ignored.update(re.findall(r"\bnonuu:\s*([A-Za-z0-9_-]+)", lines[check_ln - 1]))
+      counts["custom"] += 1
+      if "NUI002" not in ignored:
+        findings.append(
+          {
+            "rule": "NUI002",
+            "path": str(path),
+            "line": line_no,
+            "column": 1,
+            "severity": "advisory",
+            "blocking": False,
+            "evidence": (
+              "CSS background-image/mask-image control icon outside the "
+              "Lucide -> Simple Icons -> Phosphor ladder"
+            ),
+            "criterion": "clause-1",
+          }
+        )
   if sum(counts.values()) > 0 and not license_files:
     findings.append(
       {
@@ -757,6 +908,25 @@ class AssetRedirect(urllib.request.HTTPRedirectHandler):
     return super().redirect_request(request, fp, code, message, headers, newurl)
 
 
+def resolve_named_breakpoints(
+  project_root: Path | None = None,
+) -> tuple[str, ...]:
+  cfg_info = load_nuu_config(project_root or Path.cwd())
+  cfg = cfg_info["config"]
+  cfg_audit = cfg.get("audit") if isinstance(cfg.get("audit"), dict) else {}
+  raw = (
+    cfg_audit.get("named_breakpoints")
+    or cfg_audit.get("breakpoints")
+    or cfg.get("named_breakpoints")
+    or cfg.get("breakpoints")
+  )
+  if isinstance(raw, list):
+    items = [str(x).strip() for x in raw if str(x).strip()]
+    if items:
+      return tuple(items)
+  return NAMED_BREAKPOINTS
+
+
 def browser(args):
   if args.timeout <= 0 or any(width <= 0 for width in args.widths):
     raise ValueError("timeout and widths must be positive")
@@ -772,18 +942,44 @@ def browser(args):
     if isinstance(cfg_info["config"].get("audit"), dict)
     else {}
   )
+  cfg_viewports = (
+    cfg_audit.get("viewports") or cfg_info["config"].get("viewports") or []
+  )
+  configured_heights: dict[int, int] = {}
+  viewport_widths: list[int] = []
+  if isinstance(cfg_viewports, list):
+    for item in cfg_viewports:
+      m = re.match(r"^\s*(\d+)\s*x\s*(\d+)\s*$", str(item), re.IGNORECASE)
+      if m:
+        vw, vh = int(m.group(1)), int(m.group(2))
+        if vw > 0 and vh > 0:
+          viewport_widths.append(vw)
+          configured_heights[vw] = vh
   cfg_widths = cfg_audit.get("widths") or cfg_info["config"].get("widths") or []
-  extra_widths = (
-    args.widths
+  configured_widths = [w for w in cfg_widths if isinstance(w, int) and w > 0]
+  if not configured_widths and viewport_widths:
+    configured_widths = viewport_widths
+  cfg_report_widths = (
+    cfg_audit.get("report_widths") or cfg_info["config"].get("report_widths") or []
+  )
+  report_widths = sorted(
+    {int(w) for w in cfg_report_widths if isinstance(w, int) and w > 0}
+    or REPORT_WIDTHS,
+    reverse=True,
+  )
+  selected_widths = (
+    sorted({int(w) for w in args.widths if w > 0})
     if args.widths
-    else [w for w in cfg_widths if isinstance(w, int) and w > 0]
+    else sorted(set(configured_widths or WIDTHS))
   )
   typography = resolve_project_typography(project_root)
   request = {
     "command": args.command,
     "url": args.url,
     "output": str(Path(args.artifacts).resolve()),
-    "widths": sorted({*WIDTHS, *extra_widths}),
+    "widths": selected_widths,
+    "heights": configured_heights,
+    "report_widths": report_widths,
     "selector": args.selector,
     "ready": getattr(args, "ready", None),
     "a11y": bool(getattr(args, "a11y", False) or args.command in {"a11y", "audit"}),
@@ -839,7 +1035,13 @@ def browser(args):
       }
       result.setdefault("findings", []).extend(
         {
-          "rule": "NUM201",
+          "rule": (
+            "NUM202"
+            if ": font-size is " in finding or ": letter-spacing is " in finding
+            else "NUM203"
+            if ": border-radius" in finding
+            else "NUM201"
+          ),
           "severity": "review",
           "evidence": finding,
           "location": location,
