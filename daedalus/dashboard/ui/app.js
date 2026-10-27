@@ -867,7 +867,7 @@ function openChain(at) {
     : t("request.chain.title");
   $("chain-modal-title").textContent = title;
   $("chain-modal-body").innerHTML = `<div class="chain-body">
-    <div class="chain-head"><span class="muted num">${esc(title)} \u00b7 ${timeText(found.at, { tag: "time" })}</span>
+    <div class="chain-head"><span class="muted num">${timeText(found.at, { tag: "time" })}</span>
       ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
     ${raceNote(found)}${chainSteps(found)}
   </div>`;

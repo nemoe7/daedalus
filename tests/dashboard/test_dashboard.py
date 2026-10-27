@@ -1224,8 +1224,11 @@ const CHAIN_ROW = {json.dumps(row)};
 probe.state.requests = [CHAIN_ROW];
 probe.openChain(String(CHAIN_ROW.at));
 const chainHtml = node('chain-modal-body').innerHTML;
-assert(chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
+assert.strictEqual(node('chain-modal-title').textContent,
+  chainTitle(1, "request.chain.fallback.one_text"),
   'the dialog head carries the count');
+assert(!chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
+  'the dialog body omits the duplicate title');
 assert(html.includes(LOCALE["request.chain.show_title"]), 'the chained row explains itself on hover');
 // The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
@@ -8941,3 +8944,29 @@ def test_semantic_category_tiles_match_vertical_and_horizontal_spacing() -> None
     f"{EXPECTED_TABLET_TILE_GAP_PX - 2}px; gap: {EXPECTED_TABLET_TILE_GAP_PX}px; }}"
   ) in css
   assert "#sort-small, #key-name { flex: 1 1 100%; width: 100%; }" in css
+
+
+MIN_WCAG_AA_CONTRAST = 4.5
+
+
+def _wcag_luminance(hex_color: str) -> float:
+  channels = [int(hex_color[index : index + 2], 16) / 255.0 for index in (1, 3, 5)]
+  linear = [
+    value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+    for value in channels
+  ]
+  return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
+
+
+def test_dark_bad_contrast_and_maintenance_hint_spacing() -> None:
+  """Dark --bad meets WCAG AA contrast on --panel and #update-card keeps inline hint spacing."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  dark_block = css[css.index(':root[data-theme="dark"]') :]
+  panel_match = re.search(r"--panel:\s*(#[0-9a-fA-F]{6})", dark_block)
+  bad_match = re.search(r"--bad:\s*(#[0-9a-fA-F]{6})", dark_block)
+  assert panel_match is not None and bad_match is not None
+  low, high = sorted(
+    (_wcag_luminance(panel_match.group(1)), _wcag_luminance(bad_match.group(1)))
+  )
+  assert (high + 0.05) / (low + 0.05) >= MIN_WCAG_AA_CONTRAST
+  assert "#update-card > .editbar .hint { margin-left: 0; }" in css

@@ -76,7 +76,7 @@
   --scrollbar-thumb: #302e2c;
   --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #353535;
   --control-line: #565656;
-  --accent: #4b63e8; --accent-text: #8c9eff; --on-accent: #ffffff; --ok: #90caf9; --warn: #e1bee7; --bad: #d4608f; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
+  --accent: #4b63e8; --accent-text: #8c9eff; --on-accent: #ffffff; --ok: #90caf9; --warn: #e1bee7; --bad: #e0709e; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23adadad' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   --tier: #90caf9; --tag: #e1bee7; --field: #1f1f1f;
 }
@@ -581,6 +581,7 @@ section[data-page="providers"], section[data-page="settings"] {
 .card.yaml-view textarea { min-height: 320px; margin: 4px 0 0; border: 1px solid var(--control-line); border-radius: 6px; }
 .card > .editbar { padding-inline: 0; }
 .yaml-view > .editbar .hint { order: -1; margin-left: 0; }
+#update-card > .editbar .hint { margin-left: 0; }
 /* Provider file strip spacing below the top page padding. */
 .files { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px; }
 .files + .message, .files + .write-note, .write-note + .message { margin: -8px 0 12px; }
