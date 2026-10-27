@@ -1,4 +1,4 @@
-"""The update check: the channel of the version, the GitHub reads, the stored row."""
+"""Update check: channel of version, GitHub reads, stored row."""
 
 import httpx
 import pytest

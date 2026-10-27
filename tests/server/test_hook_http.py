@@ -106,7 +106,7 @@ def test_hook_folders_keep_access_checks(tmp_path, monkeypatch, folder):
 
 
 def test_hook_http_answers_with_the_dict() -> None:
-  """The route loads the named file, calls its `on_http`, and answers with the dict."""
+  """Route loads named file, calls its `on_http`, and answers with dict."""
   name = written("probe.py", GOOD)
   response = TestClient(api.app, headers={**AUTH, "x-probe": "1"}).post(
     f"/v1/hook/{name}", json={"model": "daedalus/auto", "messages": CHAT}
@@ -122,7 +122,7 @@ def test_hook_http_answers_with_the_dict() -> None:
 
 
 def test_hook_http_hands_the_pin_of_the_session() -> None:
-  """The route passes the last pin of the session key to a file that names `pin`."""
+  """Route passes last pin of session key to a file that names `pin`."""
   name = written("probe_pin.py", GOOD_PIN)
   api.PENALTIES.pin(api.session_key(MASTER, CHAT), "daedalus/deinos", "kilo/x")
   response = TestClient(api.app, headers=AUTH).post(
@@ -133,7 +133,7 @@ def test_hook_http_hands_the_pin_of_the_session() -> None:
 
 
 def test_hook_http_hands_the_level_of_the_session() -> None:
-  """The route passes the reasoning level of the last answer to a file that names `level`."""
+  """Route passes reasoning level of last answer to a file that names `level`."""
   name = written("probe_level.py", GOOD_LEVEL)
   api.PENALTIES.record_level(api.session_key(MASTER, CHAT), "medium")
   response = TestClient(api.app, headers=AUTH).post(
@@ -199,7 +199,7 @@ def test_hook_http_refuses_a_non_dict_answer() -> None:
 
 
 def test_hook_http_asks_for_the_key() -> None:
-  """The route carries the same key check as the rest of `/v1`."""
+  """Route carries same key check as rest of `/v1`."""
   name = written("probe2.py", GOOD)
   response = TestClient(api.app).post(f"/v1/hook/{name}", json={})
   assert response.status_code == 401, response.text

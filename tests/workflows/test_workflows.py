@@ -124,7 +124,7 @@ def test_codeql_scans_python_and_the_workflows_only() -> None:
 
 
 def test_the_codeql_analysis_maps_to_the_pull_request() -> None:
-  """The PR run analyzes the merge commit, so the alerts show on the PR."""
+  """PR run analyzes merge commit, so alerts show on PR."""
   data = load("codeql.yml")
   assert "pull_request" in data["on"], (
     "the clankers way: the analysis belongs to the PR"
@@ -219,7 +219,7 @@ def test_the_ignore_file_holds_only_global_fingerprints() -> None:
 
 
 def test_a_pull_request_ignore_file_decides_its_own_scan() -> None:
-  """The scan reads the base tree, so the job takes the ignore file of the PR head."""
+  """Scan reads base tree, so job takes ignore file of PR head."""
   steps = load("secret-scan.yml")["jobs"]["gitleaks"]["steps"]
   taken = next(step for step in steps if "gitleaksignore" in step.get("run", ""))
   assert taken["if"] == "github.event_name == 'pull_request_target'"

@@ -71,9 +71,9 @@ FORWARD_OWUI_CHAT_ID = False
 # The client headers of the current request that go on to each provider.
 _forwarded: ContextVar[httpx.Headers] = ContextVar("forwarded")
 _client: httpx.AsyncClient | None = None
-# The limits that keep the rate-limit headers of each answer. The API sets it.
+# Limits that keep rate-limit headers of each answer. API sets it.
 LIMITS: limits.Limits | None = None
-# The cooldown lane of the media attempt that runs now. Without it, the model is the lane.
+# Cooldown lane of media attempt that runs now. Without it, model is lane.
 LANE: ContextVar[str | None] = ContextVar("lane", default=None)
 
 
@@ -234,7 +234,7 @@ class AuthenticationError(UpstreamStatus):
 
 
 class NotFoundError(UpstreamStatus):
-  """HTTP 404: the provider does not know the model or the path."""
+  """HTTP 404: provider does not know model or path."""
 
 
 class RateLimitError(UpstreamStatus):
@@ -546,7 +546,7 @@ def forward(headers: Mapping[str, str]) -> None:
 
 
 def with_client(headers: Mapping[str, str]) -> httpx.Headers:
-  """The client headers of the current request, with the provider headers on top."""
+  """Client headers of current request, with provider headers on top."""
   merged = httpx.Headers(_forwarded.get(httpx.Headers()))
   merged.update(headers)
   return merged

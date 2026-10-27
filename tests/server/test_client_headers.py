@@ -136,7 +136,7 @@ async def test_chat_id_separates_identical_first_messages(
 async def test_chat_id_forwarding_is_an_opt_in(
   client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The privacy switch can send the OWUI chat ID to the provider."""
+  """Privacy switch can send OWUI chat ID to provider."""
   monkeypatch.setattr(upstream_module, "FORWARD_OWUI_CHAT_ID", True)
   body = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"}]}
   response = await client.post("/v1/chat/completions", json=body)
@@ -145,7 +145,7 @@ async def test_chat_id_forwarding_is_an_opt_in(
 
 
 def test_app_name() -> None:
-  """The short app name comes from the header map, then from the title header."""
+  """Short app name comes from header map, then from title header."""
   found = [
     access.app_name(httpx.Headers(headers))
     for headers in (

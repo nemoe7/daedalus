@@ -174,7 +174,7 @@ def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
 
 
 def file_shadows(path: Path | str = DEFAULT_PATH) -> dict[str, str]:
-  """Each `{provider}.yml` whose block the main file also sets, with the name of the main file."""
+  """Each `{provider}.yml` whose block main file also sets, with name of main file."""
   main = Path(path)
   try:
     loaded = read_yaml(main)
@@ -232,7 +232,7 @@ def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
   ]
   for name, block in blocks:
     for path, reason in block_shape_problems(block):
-      # The settings groups of daedalus.yml share the top level with the provider blocks.
+      # Settings groups of daedalus.yml share top level with provider blocks.
       if block is loaded and path[0] in settings.DEFAULTS:
         continue
       if len(path) == 2:

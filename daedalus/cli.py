@@ -31,7 +31,7 @@ IMPORT_CODE = (
   "import sys; from pathlib import Path; from daedalus.providers.hooks import load; "
   "sys.exit(0 if load(Path(sys.argv[1])) else 1)"
 )
-# The discovery step of a host CLI: the wait for `/health`, and for the rebuild ask.
+# Discovery step of a host CLI: wait for `/health`, and for rebuild ask.
 PROBE_SECONDS = 0.3
 ASK_SECONDS = 2.0
 EXPORT_SECONDS = 300.0

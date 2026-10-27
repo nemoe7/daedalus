@@ -61,7 +61,7 @@ def error_message(body: dict[str, Any]) -> str:
 
 
 def error_headers(body: dict[str, Any]) -> dict[str, str]:
-  """The headers of the error body, such as the reset of an OpenRouter daily cap."""
+  """Headers of error body, such as reset of an OpenRouter daily cap."""
   error = body.get("error")
   metadata = error.get("metadata") if isinstance(error, dict) else None
   headers = metadata.get("headers") if isinstance(metadata, dict) else None
@@ -145,7 +145,7 @@ def capped(seconds: float) -> float:
 def reset_seconds(
   headers: Mapping[str, str], body: dict[str, Any], now: float
 ) -> float | None:
-  """Rule 2: the seconds to the reset time that the provider gives, cut at the cap."""
+  """Rule 2: seconds to reset time that provider gives, cut at cap."""
   for source in (headers, error_headers(body)):
     for name in ("retry-after", "x-ratelimit-reset"):
       if source.get(name):

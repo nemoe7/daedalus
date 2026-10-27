@@ -19,7 +19,7 @@ from daedalus.config import block_for, file_block, file_takes
 
 logger = logging.getLogger("daedalus.hooks")
 
-# The hook files must be in the folder at the root. The paths in `hooks` start here.
+# Hook files must be in folder at root. Paths in `hooks` start here.
 ROOT = Path(".")
 # The folder under `ROOT` that holds the hook files, the names that stay out and each surface order.
 DIR = "hooks"
@@ -60,7 +60,7 @@ CLAUSE = re.compile(r"(==|>=|<=|>|<) *([0-9]+(?:\.[0-9A-Za-z-]+)*)")
 
 # The loaded module of each file, with the file time. A new file time loads the file again.
 _loaded: dict[Path, tuple[float, ModuleType | None]] = {}
-# The frontmatter of each file, by path, with the file time and the size of the read.
+# Frontmatter of each file, by path, with file time and size of read.
 _meta: dict[Path, tuple[tuple[int, int], dict[str, Any] | None, str | None]] = {}
 # The problems that are already in the log, so that each one shows 1 time.
 _told: set[str] = set()
@@ -398,7 +398,7 @@ def meta_paths(
 ) -> list[Path]:
   """The installed files whose frontmatter gives this surface to this model and client.
 
-  :param app: the short name of the client app of the request, empty when the request names none
+  :param app: short name of client app of request, empty when request names none
   """
   found: list[Path] = []
   for path in installed_files():
@@ -423,7 +423,7 @@ def meta_paths(
 
 
 def entries_for(config: Mapping[str, Any], model: str) -> Any:
-  """The `hooks` of a model, like `order`: its `models` entry, then the block that owns the model."""
+  """`hooks` of a model, like `order`: its `models` entry, then block that owns model."""
   from daedalus.routing.router import model_setting
 
   found = model_setting(config, model, "hooks")

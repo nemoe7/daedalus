@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 
-# The folders that hold a versioned module: the Open WebUI plugins and the hook files.
+# Folders that hold a versioned module: Open WebUI plugins and hook files.
 FOLDERS = ("integrations/openwebui/", "hooks/")
 
 # The folders whose `.py` file always carries a version, so a new file there needs a line.
@@ -74,7 +74,7 @@ def git(*args: str) -> str:
 def rows_for(
   base: str, head: str
 ) -> list[tuple[str, tuple[int, ...] | None, tuple[int, ...] | None]]:
-  """The version of each changed module at the merge base and at the head."""
+  """Version of each changed module at merge base and at head."""
   merge = git("merge-base", base, head).strip()
   rows: list[tuple[str, tuple[int, ...] | None, tuple[int, ...] | None]] = []
   # A rename is a deletion and an addition. NUL separators keep each path intact.

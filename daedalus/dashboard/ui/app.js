@@ -660,7 +660,7 @@ const POOL_TIERS = {
   "daedalus/koinos": "C", "daedalus/moros": "D",
 };
 
-// Select the member with the most requests in the page history.
+// Select member with most requests in page history.
 // Use the first catalog member if none have requests.
 function topModel(members, served) {
   const counts = members.map((member) => served[member.id] || 0);
@@ -731,7 +731,7 @@ function shortEffort(value) {
   return EFFORT_SHORT[level] || shown;
 }
 
-// Display the requested effort, then the effort sent to the model that answered.
+// Display requested effort, then effort sent to model that answered.
 function effortCell(r) {
   const served = (r.attempts || []).filter((a) => a.result === "answered" && "effort" in a).pop();
   if (!served) return esc(r.effort || "-");
@@ -856,7 +856,7 @@ function routingCodes(r) {
   return transitionCell(r.transition) + from + loop;
 }
 
-// The chain opens in a dialog: the whole row is the control that opens it.
+// Chain opens in a dialog: whole row is control that opens it.
 function openChain(at) {
   const found = splitRequests(state.requests).find((r) => String(r.at) === at);
   if (!found || !hasChain(found)) return;
@@ -878,7 +878,7 @@ function openChain(at) {
   }
 }
 
-// Put the fallback count in the chain details. Display only the count for live rows.
+// Put fallback count in chain details. Display only count for live rows.
 function fallbackCount(r) {
   return r.fallbacks === undefined || r.fallbacks === null
     ? ""
@@ -917,7 +917,7 @@ function streamCell(r) {
   return r.ttft ? seconds(Math.max(0, r.seconds - parseFloat(r.ttft))) : "-";
 }
 
-// The short app name from the client headers, with the API key name on hover.
+// Short app name from client headers, with API key name on hover.
 const appCell = (r) => `<td role="cell"${r.key ? ` title="${t("request.app.api_key_text", { key: esc(r.key) })}"` : ""}>${mobileLabel(t("request.column.app_column"))}<span class="cell-value">${r.app ? esc(r.app) : dash}</span></td>`;
 
 // Convert server ages to local timestamps for live requests.
@@ -1428,7 +1428,7 @@ const sortValue = {
   cooldown: (m) => (m.cooldown && m.cooldown > Date.now() / 1000 ? m.cooldown : null),
 };
 
-// The label of each reasoning effort. The chip color grows with the effort.
+// Label of each reasoning effort. Chip color grows with effort.
 const EFFORTS = {
   none: t("model.effort.none_label"),
   minimal: t("model.effort.minimal_label"),
@@ -1601,7 +1601,7 @@ function firstDraw(host) {
   host.classList.add("drawn");
   animateArrival(host);
 }
-// Replay the animation only for the selected host, not the surrounding page.
+// Replay animation only for selected host, not surrounding page.
 function replay(host) {
   if (!host) return;
   host.classList.remove("drawn");
@@ -2352,7 +2352,7 @@ const SECTION_CHIPS = {
   privacy: "shield", catalog: "database", hooks: "plug", personalization: "palette",
   keys: "key", yaml: "code", providers: "cloud", maintenance: "wrench",
 };
-// The pane summary lines read like the reference header. The locale test needs the
+// Pane summary lines read like reference header. Locale test needs the
 // keys spelled out, so the map lists every section's summary key.
 const SECTION_SUMMARIES = {
   routing: t("settings.routing.summary"),
@@ -2601,13 +2601,13 @@ function filterRail(host) {
   highlightSectionPane(host, rawQuery);
 }
 
-// Name the back button for its destination.
+  // Label back button for its destination.
 function sectionPane(back, cards, actions = null) {
   const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${esc(back)}</span>`, {
     variant: "ghost back", attrs: { "data-back": true },
   });
   const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
-  // The reference heads a drill page with the back chevron and the page title.
+  // Reference heads a drill page with back chevron and page title.
   return `<div class="section-pane"><div class="pane-bar">${button}`
     + `<h1 class="pane-title" data-pane-title hidden></h1>${tools}</div>${cards}</div>`;
 }
@@ -2634,7 +2634,7 @@ function yamlCard(editor, save, hint) {
     + `<span class="hint">${t("settings.yaml.save_hint")}</span></div></div>`;
 }
 
-// Slide the phone pane from the right and the list from the left.
+// Slide phone pane from right and list from left.
 function playSlide(host, open) {
   if (!phoneSection()) return;
   // A host without a rail slides the pane both ways.
@@ -2691,7 +2691,7 @@ function selectSection(host, key, open = sectionState(host).open) {
     const tools = host.querySelector(":scope > .section-pane > .pane-bar > [data-pane-actions]");
     if (tools) tools.innerHTML = providerPaneActions(state_);
   }
-  // The reference clears the sidebar mark while a drill page holds the pane.
+  // Reference clears sidebar mark while a drill page holds pane.
   if (host.id === "provider-form" && sectionState($("settings")).key === "providers") {
     const outer = $("settings").querySelector(':scope > .rail > .sections button[data-section="providers"]');
     if (outer) {
@@ -2721,7 +2721,7 @@ function selectSection(host, key, open = sectionState(host).open) {
   playSlide(host, open);
 }
 
-// Store the phone section in the hash so the back gesture returns to the list.
+// Store phone section in hash so back gesture returns to list.
 const phoneSection = () => matchMedia("(max-width: 60em)").matches;
 
 function setProviderRoute(file, provider = null, push = phoneSection()) {
@@ -2885,7 +2885,7 @@ function applySectionHash() {
   }
 }
 
-// Replay the phone back slide once after the form rebuild replaces the pane.
+// Replay phone back slide once after form rebuild replaces pane.
 function slideAgain() {
   for (const host of [$("settings")]) {
     const state_ = sectionState(host);
@@ -3270,7 +3270,7 @@ function writeRow(anchor = null) {
   return target ? (target.closest(".field") ?? target) : null;
 }
 
-// The icon sits at the top right of the row that changed. A render of that card replaces the
+// Icon sits at top right of row that changed. A render of that card replaces the
 // row, so the icon falls back to the header of the card.
 function placeUndo(anchor = null) {
   if (!lastWrite?.button) return;
@@ -3285,7 +3285,7 @@ function placeUndo(anchor = null) {
 
 let saveTimer = null;
 
-// Report the write on the changed row, with the time since it landed.
+// Report write on changed row, with time since it landed.
 function placeSaveLine(anchor = null) {
   if (lastWrite?.page !== "settings" || !lastWrite.button) return;
   const row = writeRow(anchor);
@@ -3664,7 +3664,7 @@ function renderSettings() {
     const end = items.findIndex(([key]) => key === last);
     return items.slice(start, end + 1);
   });
-  // Grab the live providers nodes first: the wipe detaches the card that holds them.
+  // Grab live providers nodes first: wipe detaches card that holds them.
   const filesHost = $("files");
   const formHost = $("provider-form");
   $("settings").innerHTML = sectionList("settings", items, active, { search: true, groups: railGroups })
@@ -3770,7 +3770,7 @@ function settingsChanges() {
   if (JSON.stringify(disabled) !== JSON.stringify(settingList("hooks", "disabled"))) (changes.hooks ||= {}).disabled = disabled;
   const order = hookOrderState();
   if (JSON.stringify(order) !== JSON.stringify(setting("hooks", "order"))) (changes.hooks ||= {}).order = order;
-  // The rows of the table write the request surfaces: the list holds the files of that surface.
+  // Rows of table write request surfaces: list holds files of that surface.
   for (const [surface] of requestSurfaces()) {
     if (!(state.settings.lists || {})[`hooks.${surface}`]) continue;
     const values = listValue("hooks", surface).filter(Boolean);
@@ -4632,7 +4632,7 @@ $("requests").addEventListener("keydown", (event) => {
   event.preventDefault();
   openChain(row.dataset.chainAt);
 });
-// The copy button lives in the chain dialog, outside the table listener.
+// Copy button lives in chain dialog, outside table listener.
 $("chain-modal").addEventListener("click", async (event) => {
   const button = event.target.closest(".copy-chain");
   if (!button) return;
@@ -4946,7 +4946,7 @@ function showPage() {
   // The page layout of main rides on this dataset, so it needs no :has support.
   const main = document.querySelector("main");
   if (main?.dataset) main.dataset.page = page;
-  // Animate the table, not the page, when a pool filter targets the current Models page.
+  // Animate table, not page, when a pool filter targets current Models page.
   if (asked === "models" && query !== undefined) {
     applyModelFilters(query);
     if (!changed) replay($("models"));

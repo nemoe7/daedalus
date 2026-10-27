@@ -21,7 +21,7 @@ def test_lane() -> None:
 
 
 def test_provider_key() -> None:
-  """The provider request uses the key of the client, else the api_key."""
+  """Provider request uses key of client, else api_key."""
   for client, key in (("kilo", "kilo-key"), ("owui", "main"), (None, "main")):
     provider, _ = providers.provider_for("gemini/flash", CONFIG, client)
     assert provider.key == key, (client, provider.key)

@@ -125,7 +125,7 @@ def test_the_vendored_artifact_loads() -> None:
 
 
 def test_load_artifact_uses_the_documented_defaults(tmp_path: Path) -> None:
-  """A payload that names no priors gets the documented ones."""
+  """A payload that specifies no priors gets documented ones."""
   found = artifact(tmp_path / "tiers.json", global_statistics=rows())
   assert found.domain_prior_mass == 200.0
   assert found.cohort_prior_mass == 20.0
@@ -187,7 +187,7 @@ def test_predict_falls_back_to_the_top_tier_when_nothing_clears() -> None:
 
 
 def test_predict_takes_a_given_threshold() -> None:
-  """A given bar replaces the one of the artifact, and it moves the tier."""
+  """A given bar replaces one of artifact, and it moves tier."""
   artifact = classifier.load_artifact()
   cheap = classifier.predict(GENERAL, artifact)
   assert cheap.required_tier == 1

@@ -144,7 +144,7 @@ header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas:
 .tabs a:hover { color: var(--text); }
 .tabs a.on { color: var(--text); border-bottom-color: var(--accent); }
 .tabs a:focus-visible { outline-offset: -2px; }
-/* The bar stretches, so the underline of the selected tab lands on the header bottom line. */
+/* Bar stretches, so underline of selected tab lands on header bottom line. */
 .tab-bar { grid-area: tabs; display: flex; align-items: stretch; justify-content: center; gap: 2px; min-width: 0; }
 .tabs { flex: 0 1 auto; min-width: 0; }
 /* A clipped scroll edge fades toward its center, so no cut reads hard. The class only rides an
@@ -261,7 +261,7 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 .notification-item.reset .notification-mark { background: var(--accent); }
 .notification-item.warning .notification-mark { background: var(--warn); }
 .notification-item.rebuild .notification-mark { background: var(--ok); }
-/* The first event opens the card itself: the count strip above it carried no action. */
+/* First event opens card itself: count strip above it carried no action. */
 .notification-feed > .notification-item:first-child { border-top: 0; }
 .notification-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
 .notification-head { display: contents; }
@@ -453,7 +453,7 @@ a.more:hover { color: var(--accent-text); }
 .model-id .value { min-width: 0; overflow-wrap: anywhere; }
 .model-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .model-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
-/* The floor holds the token blocks at the height of the weight block, which draws the only bar. */
+/* Floor holds token blocks at height of weight block, which draws only bar. */
 .model-stats .stat { display: grid; gap: 2px; min-height: 60px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
 .model-stats .track { margin-top: auto; }
 .model-stats .num { font-size: 16px; }
@@ -470,17 +470,17 @@ td.end { text-align: right; }
 .legend h3 { color: var(--text); }
 .legend-body { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 4px 16px; margin-top: 8px; }
 .legend-body span { display: flex; gap: 8px; }
-/* The legend codes use the font of the codes in the table. */
+/* Legend codes use font of codes in table. */
 .legend-body code { font-family: inherit; font-size: 12px; color: var(--text); }
 /* Each cell keeps 1 line. A long model name ends in an ellipsis. */
 .requests tr:not(.chain) > td { white-space: nowrap; }
 .requests td.name { overflow: hidden; text-overflow: ellipsis; }
 .requests th:not(:first-child), .requests td:not(:first-child) { padding-left: 8px; padding-right: 8px; }
 .requests td.status, .requests td:nth-child(n+8):nth-child(-n+11) { text-align: right; }
-/* The desktop table reads the fallback count in the chain of the row. The phone card keeps a cell
+/* Desktop table reads fallback count in chain of row. Phone card keeps a cell
 for the details. */
 .requests td.fallbacks-cell { display: none; }
-/* The chained row is itself the control that opens the dialog. */
+/* Chained row is itself control that opens dialog. */
 tr.request.has-chain { cursor: pointer; }
 .mobile-label { display: none; }
 /* A control that only a phone shows, such as the sort of the card list. */
@@ -538,7 +538,7 @@ tr.live-row td { background: var(--field); }
 }
 /* Zero width with a full minimum: the chain fills the row but does not set the column widths. */
 .chain-body { width: 0; min-width: 100%; }
-/* The dialog carries the chain on every width: its body spans the dialog. */
+/* Dialog carries chain on every width: its body spans dialog. */
 .chain-modal { max-width: min(640px, calc(100vw - 32px)); }
 .chain-modal .chain-body { width: auto; min-width: 0; }
 .step b { overflow-wrap: anywhere; }
@@ -607,7 +607,7 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .add:hover { color: var(--accent-text); border-color: var(--accent); }
 .adder { display: inline-flex; gap: 6px; }
-/* A hook row: the file name in a chip that opens the list of the hooks folder. The chip holds the
+/* A hook row: file name in a chip that opens list of hooks folder. Chip holds the
    same pill as a keyword chip, and the list draws in the page so it follows the page theme. */
 .pill.on { border-color: var(--accent); background: var(--bar); color: var(--tier); }
 .pill.off { opacity: .5; }
@@ -681,7 +681,7 @@ mark.search-hit {
 }
 .field.search-row-hit { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .rail > .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
-/* The bar keeps its content height while the visible card fills the pane. */
+/* Bar keeps its content height while visible card fills pane. */
 #provider-form > .section-pane { grid-template-rows: auto 1fr; }
 /* Category tiles use semantic surface tokens and light with --accent when selected. */
 .tile {
@@ -905,7 +905,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 /* A row of a column holds the Undo on the line of its label: the control keeps its place below. */
 .field.stack > .undo-text { position: absolute; right: 0; top: 10px; }
 .field.stack > .save-line { position: absolute; right: 0; top: 10px; }
-/* The card holds the Undo at its top right when the row itself went away. */
+/* Card holds Undo at its top right when row itself went away. */
 .card { position: relative; }
 .card > .undo-text { position: absolute; right: 16px; top: 12px; }
 .card > .save-line { position: absolute; right: 16px; top: 12px; }
@@ -983,7 +983,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   }
   header { position: sticky; top: 0; z-index: 4; }
   .rail { position: sticky; top: 0; flex: 0 0 240px; width: 240px; max-width: 240px; overflow: hidden; }
-  /* A desktop drill page heads the pane with the bar, and the list keeps the summary. */
+  /* A desktop drill page heads pane with bar, and list keeps summary. */
   .pane-bar { display: none; }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar,
   #provider-form[data-file-open="1"] > .section-pane > .pane-bar {
@@ -1026,7 +1026,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 @media (max-width: 60em) {
   header { column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
-  /* The Providers drill page names itself, so the section title under it leaves the screen. */
+  /* Providers drill page labels itself, so section title under it leaves screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
   .rail, .section-pane { flex: 1 1 100%; }
@@ -1281,7 +1281,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .keys tr > td:not(.name) .cell-value { font-size: inherit; }
   .keys .cell-value { min-width: 0; text-align: left; }
   .keys td.name .cell-value { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* The last row of a panel clears the panel edge and the screen bottom. */
+  /* Last row of a panel clears panel edge and screen bottom. */
   #app > main { padding-bottom: 76px; }
   .panel { padding-bottom: 8px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
@@ -1293,7 +1293,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* The modality and capability chips share one row, at one size. The name keeps its row,
      and the chips wrap under it as one group. */
   .phone-types, .phone-chips { display: contents; }
-  /* The name holds a 44 px target. The weight leaves the card and stays in the model sheet. */
+  /* Name holds a 44 px target. Weight leaves card and stays in model sheet. */
   .models .model-open { display: flex; align-items: center; min-height: 44px; }
   .models tr > td:last-child:not(.empty) { display: none; }
   .models tr > td.name { flex-wrap: wrap; gap: 4px; }

@@ -1,4 +1,4 @@
-"""Check that the dashboard keeps the asked and the sent reasoning effort."""
+"""Check that dashboard keeps asked and sent reasoning effort."""
 
 import json
 import tempfile

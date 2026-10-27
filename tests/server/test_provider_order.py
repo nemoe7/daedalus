@@ -68,7 +68,7 @@ async def test_order(client: httpx.AsyncClient) -> None:
 
 
 async def test_hooks(client: httpx.AsyncClient) -> None:
-  """The on-upstream hook changes the body and headers, and the on-answer hook changes the answer."""
+  """`on-upstream` hook changes body and headers, and `on-answer` hook changes answer."""
   folder = hooks.ROOT / "hooks"
   folder.mkdir(parents=True, exist_ok=True)
   (folder / "any-name.py").write_text(

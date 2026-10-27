@@ -352,7 +352,7 @@ def test_failure_notes_hide_bodies_only_for_mapped_behaviors() -> None:
 
 
 def test_stream_refusal_notes_use_the_same_safe_line() -> None:
-  """The stream-refused attempt note rides the shared status line, not the body."""
+  """Stream-refused attempt note rides shared status line, not body."""
   api_source = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/server/api.py"
   ).read_text(encoding="utf-8")

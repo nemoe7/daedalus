@@ -71,7 +71,7 @@ def prepare(
 def provider_for(
   model: str, config: Mapping, client: str | None = None
 ) -> tuple[OpenAIProvider, str]:
-  """Build the provider and the slug for one `provider/slug` model, with the provider key of the client."""
+  """Build provider and slug for one `provider/slug` model, with provider key of client."""
   name, separator, slug = model.partition("/")
   raw = block_for(config, name, slug) if separator else None
   if not separator or not slug or raw is None:

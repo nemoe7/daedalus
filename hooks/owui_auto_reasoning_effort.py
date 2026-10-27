@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.8
+# version: 1.0.9
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -18,7 +18,7 @@ from daedalus.routing import classifier, router
 
 logger = logging.getLogger("daedalus.hooks")
 
-# The header that names the Open WebUI chat. The bundled service sets it through custom request headers.
+# Header that specifies Open WebUI chat. Bundled service sets it through custom request headers.
 HEADER = "x-openwebui-chat-id"
 
 # The level of each tier, from `TIER-D` none to `TIER-A` high.
@@ -28,7 +28,7 @@ TIER_OF = {level: tier for tier, level in LEVELS.items()}
 # The top of the ladder, `TIER-A`.
 TOP = max(router.TIERS)
 
-# The characters of the model turn that join the read. A long answer would bloat the read.
+# Characters of model turn that join read. A long answer would bloat read.
 ANSWER_CHARS = 500
 
 CONTROL = "_daedalus_auto_effort"
@@ -79,7 +79,7 @@ def _newest(messages: Any, prompt: str) -> str:
 
 
 def on_request(value: dict, model: str, headers: dict) -> dict | None:
-  """The key of the turn, and on a repeat the code of the row.
+  """Key of turn, and on a repeat code of row.
 
   :param value: the request values, holding `body`, `digest` and, on a repeat, `count`
   :param model: the requested model
@@ -204,7 +204,7 @@ def on_init() -> list[list[str]]:
 def on_chunk(
   chunk: dict[str, Any], model: str = "", context: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-  """Put the routed reasoning at the end of the served model line of the final chunk.
+  """Put routed reasoning at end of served model line of final chunk.
 
   The served model hook writes the line first, and this surface overrides it. A reasoning of
   `none` leaves the line alone, so the line names a reasoning only when the model reasoned.

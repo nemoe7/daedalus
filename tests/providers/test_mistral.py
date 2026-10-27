@@ -56,7 +56,7 @@ def test_completion() -> None:
 
 
 async def streamed(lines: list[str]) -> list[str]:
-  """The data payloads that the provider stream sends for the upstream lines."""
+  """Data payloads that provider stream sends for upstream lines."""
   body = "".join(f"{line}\n\n" for line in lines).encode()
   response = httpx.Response(200, content=body)
   out = b"".join(

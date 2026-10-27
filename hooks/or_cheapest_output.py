@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.5
+# version: 1.0.6
 # surfaces: [on-catalog, on-upstream]
 # scope: yaml
 # targets: [openrouter]
@@ -54,7 +54,7 @@ def price(value: Any) -> float:
 
 
 def cheapest_first(rows: Any) -> list[str]:
-  """The provider slugs, from the cheapest output price up. The input price breaks a tie.
+  """Provider slugs, from cheapest output price up. Input price breaks a tie.
 
   A slug has no variant, such as /fp4. A base slug matches each endpoint of the provider,
   and the provider keeps the place of its cheapest endpoint.

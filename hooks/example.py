@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.7
+# version: 1.0.8
 # surfaces: []
 # author: nemoe7
 # title: Example hook
@@ -8,7 +8,7 @@
 # ---
 """An example daedalus hook file. It changes nothing.
 
-Copy it, and name the copy in the hooks list of a model, provider, or file:
+Copy it, and specify copy in hooks list of a model, provider, or file:
 
   hooks:
     - on-upstream: hooks/my_hook.py
@@ -39,7 +39,7 @@ def on_catalog(row: dict, model: str, api_base: str, headers: dict) -> None:
 
 
 def on_request(value: dict, model: str, headers: dict) -> None:
-  """Before the chain of a chat request: the request values and the client headers.
+  """Before chain of a chat request: request values and client headers.
 
   `value` holds `key` (None) and `digest` (the messages without the system rows). A `key`
   string counts the requests of that key: a repeat after an answer is a try again.
@@ -70,11 +70,11 @@ def on_prompt(
   `value` starts empty. Set `value["reasoning_effort"]` to a string to set the effort. `messages` is
   the request list.
 
-  `prompt` holds the user turns joined. `tier` and `tier_name` name the ladder tier,
-  `slot` the pool slot. `reasoning` lists the chain models that support reasoning.
+  `prompt` joins user turns. `tier` and `tier_name` identify ladder tier, and
+  `slot` identifies pool slot. `reasoning` lists chain models with reasoning support.
 
-  `effort` is the value of the client, `None` when it sent none. The value that a hook sets wins.
-  `app` names the client app of the request: `OWUI`, `Kilo`, another title, or None.
+  `effort` holds client value, or `None` when absent. A hook value wins.
+  `app` identifies client app: `OWUI`, `Kilo`, another title, or `None`.
   """
   # Example: think on a hard prompt only, and keep the rest quick.
   # from daedalus.routing import router
@@ -89,12 +89,12 @@ def on_http(
   headers: dict | None = None,
   pin: tuple[str, str] | None = None,
 ) -> dict:
-  """On `POST /v1/hook/<file>`: the JSON body of the call, and dict to answer with.
+  """On `POST /v1/hook/<file>`: JSON body of call, and dict to return.
 
-  The file sits under `hooks`, and its path names it. The route passes JSON body,
-  the session `key` of the chat (the bearer token and its first user turn), the first user
-  turn as `prompt`, and the request `headers`. It also passes `pin`, the slot and the model
-  of the last answer of the chat, when the file names that argument.
+  File sits under `hooks`, identified by relative path. Route passes JSON body,
+  chat session `key` (bearer token and first user turn), first user turn as `prompt`,
+  and request `headers`. Route also passes `pin`, slot and model of last chat answer,
+  when function signature lists `pin`.
 
   Any valid key may call a hook file, so treat it as admin code. The returned dict is the JSON answer.
   """
@@ -104,7 +104,7 @@ def on_http(
 
 
 def on_upstream(body: dict, model: str, headers: dict) -> None:
-  """Before each chat request goes to the provider: the upstream body and the provider headers."""
+  """Before each chat request goes to provider: upstream body and provider headers."""
   # Example: add a header and a body field.
   # headers["x-example"] = "1"
   # body.setdefault("user", "daedalus")
@@ -120,11 +120,11 @@ def on_answer(answer: dict, model: str) -> None:
 def on_chunk(chunk: dict, model: str, context: dict) -> None:
   """On each streamed chunk of a chat request, before the client gets it: 1 OpenAI chunk.
 
-  `model` is the requested name. `context` holds the fields of the call. `previous` is the model
-  of the last session answer, and it is empty on the first.
+  `model` holds requested model ID. `context` holds call metadata, and `previous` holds
+  model ID of last session answer (empty on first answer).
 
-  `attempts` counts failures so far. `code` names the retry code, `pool` the landed pool
-  and `served` the landed model.
+  `attempts` counts failures so far. `code` identifies retry code, `pool` identifies landed pool,
+  and `served` identifies landed model.
   """
   # Example: mark the last chunk of the answer.
   # if any(choice.get("finish_reason") for choice in chunk.get("choices") or []):

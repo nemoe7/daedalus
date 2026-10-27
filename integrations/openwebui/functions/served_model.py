@@ -3,7 +3,7 @@ title: Served model
 author: nemo
 description: Requires daedalus and its served_model.py hook for the served model line above an answer.
 required_open_webui_version: 0.10.0
-version: 1.0.8
+version: 1.0.9
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -34,7 +34,7 @@ class Filter:
 
   def __init__(self) -> None:
     self.valves = self.Valves()
-    # The served model of the last line of each chat, for the `on change` valve.
+    # Served model of last line of each chat, for `on change` valve.
     self.drawn: dict[str, str] = {}
     # The last line of each message, so a repeat of it adds no row.
     self.lines: dict[str, str] = {}
@@ -57,10 +57,10 @@ class Filter:
     __event_emitter__: Any = None,
     __metadata__: dict[str, Any] | None = None,
   ) -> dict[str, Any]:
-    """Read one stream chunk, draw the line when it carries the served model, and the chunk goes on.
+    """Read one stream chunk, emit status line when served model arrives, and return chunk.
 
-    :param event: the stream chunk of the answer
-    :param __metadata__: the chat ids of the call, for the `on change` valve
+    :param event: stream chunk of answer
+    :param __metadata__: chat and message IDs for `on change` valve
     """
     if getattr(self.valves, "enabled", True) and callable(__event_emitter__):
       usage = event.get("usage") if isinstance(event, dict) else None

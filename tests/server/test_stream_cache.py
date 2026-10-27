@@ -175,7 +175,7 @@ async def test_a_denied_key_keeps_its_own_path(client: httpx.AsyncClient) -> Non
 
 
 async def test_a_flagged_model_skips_the_stream(client: httpx.AsyncClient) -> None:
-  """`streams: false` on the model or the provider reads the whole body at once."""
+  """`streams: false` on model or provider reads whole body at once."""
   config.set_config(
     {
       "p": {
@@ -207,7 +207,7 @@ async def test_a_flagged_model_skips_the_stream(client: httpx.AsyncClient) -> No
 
 
 async def test_a_stream_without_done_falls_back(client: httpx.AsyncClient) -> None:
-  """A stream that stops early hands the request to the next model of the chain."""
+  """A stream that stops early hands request to next model of chain."""
   api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = "cut"
   response = await client.post("/v1/chat/completions", json=CHAT)

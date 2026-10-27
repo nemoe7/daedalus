@@ -160,7 +160,7 @@ def test_repo_name() -> None:
 def test_a_source_writes_its_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The archive lands under owner/name, and only the `.py` files under the path."""
+  """Archive lands under owner/name, and only `.py` files under path."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar(
@@ -603,7 +603,7 @@ def test_a_report_names_a_source_that_did_not_read(
 def test_a_report_names_an_archive_without_the_folder(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """An archive with no .py file under the path names the folder in the report."""
+  """An archive with no .py file under path names folder in report."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
     ARCHIVE: tar({"other/four.py": block(name="four")}),
@@ -699,7 +699,7 @@ def test_the_lock_lives_in_the_hooks_folder(
 def test_the_report_never_carries_exception_text(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The report names the step that failed, never the text of the exception."""
+  """Report specifies step that failed, never text of exception."""
 
   def boom(url: str, **kwargs: object) -> None:
     raise remote.httpx.ConnectError("SECRET-LOAD")

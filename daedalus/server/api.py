@@ -48,14 +48,14 @@ AFFINITY = True
 KEYWORDS: re.Pattern[str] | None = None
 # The keywords of `routing.switch` as 1 pattern, or None when the list is empty.
 SWITCH: re.Pattern[str] | None = None
-# The `affinity` settings: the mode names the session pin and the race of the next models.
+# `affinity` settings: mode names session pin and race of next models.
 AFFINITY_MODE = settings.DEFAULTS["affinity"]["mode"]
 PARALLEL_ENABLED = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
 PARALLEL_SLOW_SECONDS = 30.0
 PARALLEL_PENALTY = 0.9
-# The upstream statuses that never mean a stream refusal: the key and the rate limit.
+# Upstream statuses that never mean a stream refusal: key and rate limit.
 NOT_A_REFUSAL = (401, 403, 429)
 
 logger = logging.getLogger("daedalus")
@@ -175,7 +175,7 @@ class Watch:
     return message
 
   async def watch(self, task: asyncio.Task) -> None:
-    """Cancel the handler when the client disconnects before the last byte of the answer."""
+    """Cancel handler when client disconnects before last byte of answer."""
     await self.read.wait()
     while not self.gone.is_set():
       if (await self.receive())["type"] == "http.disconnect":
@@ -749,7 +749,7 @@ class Tracker:
     self.preserve_pin = False
     self.dropped = False
     self.switched = False
-    # The reasoning level of this request, for the level of the last answer.
+    # Reasoning level of this request, for level of last answer.
     self.effort: str | None = None
 
   def lane(self, model: str) -> str:
@@ -765,7 +765,7 @@ class Tracker:
     return model
 
   def order(self, groups: list[list[str]]) -> list[str]:
-    """The chain: the order groups of each tier, then the weights and the session model."""
+    """Chain: order groups of each tier, then weights and session model."""
     return PENALTIES.order(router.by_order(get_config(), groups), self.key, self.slot)
 
   def _weight(self, model: str, factor: float, attempt: dict[str, Any] | None) -> None:
@@ -1059,7 +1059,7 @@ async def race_models(
       raise takes[0].task.exception()
     if len(takes) == 1:
       plan.request.state.race = "fast"
-    # The row reads the race: the winner carries the mark, and a runner that wins takes the pin.
+    # Row reads race: winner carries mark, and a runner that wins takes pin.
     winner.sent["race"] = "won"
     if winner.model != first:
       plan.request.state.transition = route_transition(
@@ -1141,7 +1141,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     if isinstance(found_key, str) and found_key:
       turn = RETRIES.turn(found_key)
       if turn.count:
-        # The hook writes the code of the row: it runs again with the count filled in.
+        # Hook writes code of row: it runs again with count filled in.
         request_values["count"] = turn.count
         request_values = hooks.run_request(
           "on-request",
@@ -1239,7 +1239,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
         slot=found[1],
         reasoning=reasoners,
         effort=providers.effort_text(body.get("reasoning_effort")),
-        # `retry` counts the try agains of this message, and `level` is the level of its last answer.
+        # `retry` counts retries for this message, and `level` holds reasoning level of last answer.
         retry=turn.count if turn else 0,
         level=PENALTIES.last_level(key) if key else None,
         body=body,
@@ -1252,7 +1252,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     if chosen:
       # A hook file answers above the client value and above the catalog default.
       body = {**body, "reasoning_effort": chosen}
-      # The row shows the level that the request runs with, so the hook sets the dashboard state.
+      # Row shows level that request runs with, so hook sets dashboard state.
       request.state.effort = chosen
       dashboard.live_update(request, effort=chosen)
   if model == router.RESERVED_MODEL and found[1]:
@@ -1336,10 +1336,10 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
   ):
     pin.preserve_pin = True
   if old in models:
-    # A switch keyword gives the session another model. The old model is the last fallback.
+    # A switch keyword gives session another model. Previous model is last fallback.
     models = [m for m in models if m != old] + [old]
   if looping in models:
-    # The model with the tool loop is the last fallback of this request.
+    # Model with tool loop is last fallback of this request.
     models = [m for m in models if m != looping] + [looping]
   first_transition = None
   if previous and models:
@@ -1449,7 +1449,7 @@ async def run_chat(plan: Plan) -> Response:
       )
     request.state.transition = transition
     request.state.fallbacks = str(index)
-    # The pool of the tried model lands on the live row now, not at the first token.
+    # Pool of tried model lands on live row now, not at first token.
     shown: dict[str, Any] = {
       "trying": candidate,
       "fallbacks": index,

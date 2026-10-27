@@ -25,9 +25,9 @@ from daedalus.store import keys, saved_env
 ROOT = Path(__file__).resolve().parents[1]
 UI = ROOT / "daedalus" / "dashboard" / "ui"
 FIXTURES = ROOT / "scripts" / "pages_fixtures.json"
-# The master key of the capture session. It never leaves the capture process.
+# Master key of capture session. It never leaves capture process.
 DEMO_MASTER = "daedalus-demo-master-key"
-# The calls that the page reads, with the query that the page sends.
+# Calls that page reads, with query that page sends.
 ENDPOINTS = (
   "status",
   "models",
@@ -47,22 +47,22 @@ ENDPOINTS = (
 # The provider files of the demo. Its local main stays empty, and the shipped main supplies
 # cached cloud blocks that Providers form shows.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
-# The models of the demo: a captured snapshot of the live catalog, 137 rows.
+# Models of demo: a captured snapshot of live catalog, 137 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
 DOWN = set()
 LIMITED = set()
-# The source of the demo: the repo that ships its hook files. The Sources card starts with it.
+# Source of demo: repo that ships its hook files. Sources card starts with it.
 DEMO_SOURCE = {
   "repo": "nemoe7/daedalus",
   "path": "hooks",
   "ref": "main",
   "auto_update": False,
 }
-# The request-level surfaces of the demo file, in the order of the settings defaults.
+# Request-level surfaces of demo file, in order of settings defaults.
 DEMO_HOOK_SURFACES = ("on-request", "on-prompt", "on-chunk")
-# The prompts of the captured rows, in the order that the table shows them.
+# Prompts of captured rows, in order that table shows them.
 DEMO_CALLS = (
   ("daedalus/moros", "Count to three."),
   ("daedalus/deinos", "Write a haiku about a slow deployment."),
@@ -74,7 +74,7 @@ DEMO_CALLS = (
   ),
   ("openrouter/z-ai/glm-5.3-flash", "Say hello in Japanese."),
   ("daedalus/koinos", "Draft a short release note for version 0.3."),
-  # The auto pool: the row carries the pool that the route selected.
+  # Auto pool: row carries pool that route selected.
   ("daedalus/auto", "Sort these 3 words by length."),
 )
 DEMO_STREAM = DEMO_CALLS[2][0]
@@ -150,7 +150,7 @@ def answer(request: httpx.Request) -> httpx.Response:
   except ValueError:
     return httpx.Response(400, json={"error": "a JSON body is required"})
   model = body.get("model", "z-ai/glm-5.3-flash")
-  # The upstream body carries the slug of the provider, not the full model id.
+  # Upstream body carries slug of provider, not full model id.
   slug = model.split("/")[-1]
   if model in DOWN or slug in DOWN:
     return httpx.Response(503, json={"error": "the deployment is down"})
@@ -237,7 +237,7 @@ def demo_files(folder: Path) -> tuple[Path, ...]:
       shutil.copyfile(file, target / file.name)
   settings_file = folder / "config" / "daedalus.yml"
   settings_file.write_text(demo_settings_text())
-  # The shipped hooks of the root folder: the legend rows of the page come from them.
+  # Shipped hooks of root folder: legend rows of page come from them.
   hooks_dir = ROOT / "hooks"
   if hooks_dir.is_dir():
     shutil.copytree(hooks_dir, folder / "hooks", dirs_exist_ok=True)
@@ -1677,7 +1677,7 @@ def demo_version() -> str:
 
 
 def demo_fixtures(version: str) -> dict[str, Any]:
-  """The fixtures of 1 build: the rows the provider files keep, with the version stamps."""
+  """Fixtures of 1 build: rows provider files keep, with version stamps."""
   fixtures = json.loads(FIXTURES.read_text(encoding="utf-8"))
   # The capture can predate a shipped setting, and a missing default selects the wrong widget: the
   # boolean above falls back to a number box. Fill the gaps from the shipped defaults.
@@ -1705,7 +1705,7 @@ def demo_fixtures(version: str) -> dict[str, Any]:
   hooks_file["sources"] = [dict(DEMO_SOURCE)]
   saved = hooks.ROOT
   try:
-    # The build reads the shipped folder, whatever root folder the running process holds.
+    # Build reads shipped folder, whatever root folder running process holds.
     hooks.ROOT = ROOT
     rows = hooks.rows({})
   finally:
@@ -1726,7 +1726,7 @@ def demo_fixtures(version: str) -> dict[str, Any]:
 
 
 def build(out: Path, version: str) -> Path:
-  """Copy the UI into `out`, add the demo script, and load it before the page."""
+  """Copy UI into `out`, add demo script, and load it before page."""
   fixtures = demo_fixtures(version)
   if out.exists():
     shutil.rmtree(out)

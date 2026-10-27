@@ -128,7 +128,7 @@ async def test_generic_keys(client: httpx.AsyncClient) -> None:
     assert "daedalus/best" in ids and "daedalus/sophos" not in ids, ids
     response = await client.post("/v1/chat/completions", json=chat("daedalus/sophos"))
     assert response.status_code == 400, response.text
-    # The settings call drops the upstream client, so the mock comes back for the last call.
+    # Settings call drops upstream client, so mock comes back for last call.
     async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as again:
       set_client(again)
       response = await client.post("/v1/chat/completions", json=chat("daedalus/best"))

@@ -1,4 +1,4 @@
-"""The default provider file of the repo fills only the names that the local file lacks."""
+"""Default provider file of repo fills only names that local file lacks."""
 
 import logging
 from pathlib import Path
@@ -62,7 +62,7 @@ def test_refresh_writes_the_cache(
 def test_refresh_leaves_the_local_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The fetch never writes the local provider file of the operator."""
+  """Fetch never writes local provider file of operator."""
   local = tmp_path / "free.yml"
   text = "# mine\nkilo:\n  api_base: https://mine.test\n"
   local.write_text(text, encoding="utf-8")

@@ -10,7 +10,7 @@ import yaml
 
 logger = logging.getLogger("daedalus.config")
 
-# The shipped provider file on `main`. The fetch never writes the local file of the operator.
+# Shipped provider file on `main`. Fetch never writes local file of operator.
 URL = "https://raw.githubusercontent.com/nemoe7/daedalus/main/config/providers/free.yml"
 PATH = Path(__file__).resolve().parents[2] / ".daedalus-state" / "free.defaults.yml"
 TIMEOUT = 10.0

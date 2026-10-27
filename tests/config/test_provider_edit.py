@@ -13,7 +13,7 @@ FILE = f"{FILE_COMMENT}\nname: old\n{INLINE_COMMENT}\nrpm: 5\n"
 
 
 def test_merge_text_keeps_the_comments_of_the_file() -> None:
-  """A new value keeps the comment above the key and the one at the end of the line."""
+  """A new value keeps comment above key and one at end of line."""
   out = edit.merge_text(FILE, {"name": "new", "note": "keep", "rpm": 5})
   assert FILE_COMMENT in out
   assert INLINE_COMMENT in out
@@ -51,7 +51,7 @@ def test_merge_text_spaces_the_braces_of_a_one_line_map() -> None:
 
 
 def test_spaced_keeps_the_comment_column() -> None:
-  """The spaces inside the braces come out of the gap before the comment."""
+  """Spaces inside braces come out of gap before comment."""
   found = edit.FLOW_LINE.search("slug: {rpm: 5}    # note\n")
   assert found is not None
   assert edit.spaced(found) == "slug: { rpm: 5 }  # note"

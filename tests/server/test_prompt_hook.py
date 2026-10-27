@@ -114,7 +114,7 @@ def test_catalog_wins(provider: Provider, monkeypatch: pytest.MonkeyPatch) -> No
 def test_hook_file_wins(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The prompt hook receives the expected context and sets the outgoing effort."""
+  """Prompt hook receives expected context and sets outgoing effort."""
   monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
   written = post(provider, "daedalus/auto:TIER-B")
   assert written["reasoning_effort"] == "max"
@@ -165,7 +165,7 @@ def test_no_reasoning_model(
 
 
 def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
-  """Write the shipped hook into the hook folder, and name it in the prompt surface."""
+  """Write shipped hook into hook folder, and name it in prompt surface."""
   shipped = (
     Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   )
@@ -181,7 +181,7 @@ def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_the_shipped_ladder_file_sets_the_effort(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The shipped `owui_auto_reasoning_effort.py` sets the level from the heuristics read of the prompt."""
+  """Shipped `owui_auto_reasoning_effort.py` sets level from heuristics read of prompt."""
   ladder_file(monkeypatch)
   monkeypatch.setattr(
     upstream.store, "model_limits", lambda candidate: {"reasoning_effort": "minimal"}
@@ -211,7 +211,7 @@ def test_the_shipped_ladder_file_skips_another_client(
 
 
 def shipped_levels() -> dict[int, str]:
-  """The level table of the shipped ladder file, read from the file itself."""
+  """Level table of shipped ladder file, read from file itself."""
   path = Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
   spec = importlib.util.spec_from_file_location("shipped_ladder", path)
   assert spec and spec.loader, path
@@ -349,7 +349,7 @@ def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
 
 
 def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
-  """The try-again rule names the turn from the chat header, and writes `rtN` on a repeat."""
+  """Try-again rule specifies turn from chat header, and writes `rtN` on a repeat."""
   module = shipped_module()
   value = {"digest": "d1"}
   assert module.on_request(value, "daedalus/auto", {}) is None, "no header, no turn"
@@ -370,7 +370,7 @@ def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
 def test_a_hook_file_wins_over_the_client(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-  """The `reasoning_effort` of a hook file replaces the value of the client."""
+  """`reasoning_effort` of a hook file replaces value of client."""
   monkeypatch.setattr(api, "REQUEST_HOOKS", {"on-prompt": [hook_file]})
   written = post(
     provider, "daedalus/auto:TIER-B", {**BODY, "reasoning_effort": "minimal"}
@@ -473,7 +473,7 @@ def test_the_shipped_hook_ladders_the_catalog_efforts(
 
 
 def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:
-  """The supported_reasoning_efforts key of a model re-indexes the ladder of the hook."""
+  """`supported_reasoning_efforts` key of a model re-indexes ladder of hook."""
   module = shipped_module()
   config = {
     "p": {"models": {"m": {"supported_reasoning_efforts": ["none", "medium", "high"]}}}

@@ -873,7 +873,7 @@ class Limits:
       await asyncio.sleep(CHECK_SECONDS)
 
   def view(self) -> dict[str, Any]:
-    """The balances and the header rows for the dashboard."""
+    """Balances and header rows for dashboard."""
     rows = []
     for lane, seen in sorted(self.lanes.items()):
       model, client = lanes.split(lane)

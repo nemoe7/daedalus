@@ -136,7 +136,7 @@ class Live:
       self.send("update", self.view(key))
 
   def first(self, key: int, **fields: Any) -> None:
-    """Keep the time of the first token, or of the full answer without a stream."""
+    """Keep time of first token, or of full answer without a stream."""
     if key in self.rows:
       self.rows[key].update(fields, first=time.time())
       self.send("first", self.view(key))
@@ -292,7 +292,7 @@ def live_update(request: Request, **fields: Any) -> None:
 
 
 def live_first(request: Request) -> None:
-  """Mark the first token of a request, with the model and the pool that answered."""
+  """Mark first token of a request, with model and pool that answered."""
   if (key := getattr(request.state, "live", None)) is not None:
     state = request.state
     pool = getattr(state, "pool", None)
@@ -1394,7 +1394,7 @@ def settings_routes(
     body = await json_body(request)
     body = body if isinstance(body, dict) else {}
     path = settings.DEFAULT_PATH
-    # The YAML view sends the file text. The form sends the changed values.
+    # YAML view sends file text. Form sends changed values.
     if isinstance(body.get("text"), str):
       return write_config(path, body["text"], apply, rebuild)
     changes = body.get("changes")

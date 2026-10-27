@@ -33,7 +33,7 @@ from daedalus.providers.hooks import meta_check
 
 logger = logging.getLogger("daedalus.config")
 
-# The lock rides in the folder of the hook files, so its write lands where the process owns
+# Lock rides in folder of hook files, so its write lands where process owns
 # the folder. A caller without a folder uses the folder of the settings.
 LOCK: Final = Path("hooks.lock.json")
 TIMEOUT: Final = 30.0

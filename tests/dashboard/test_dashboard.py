@@ -1807,7 +1807,7 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
 
 
 def test_provider_tiles_carry_the_vendored_marks() -> None:
-  """Provider rows in the section rail draw the vendored mark in the tile."""
+  """Provider rows in section rail draw vendored mark in tile."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
@@ -2067,7 +2067,7 @@ def test_the_provider_flow_keeps_one_scroll_owner() -> None:
 
 
 def test_the_yaml_editor_fills_the_pane_and_saves_at_the_right() -> None:
-  """The YAML textarea flexes to the leftover height, and Save sits at the right."""
+  """YAML textarea flexes to leftover height, and Save sits at right."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }" in css, (
@@ -2079,7 +2079,7 @@ def test_the_yaml_editor_fills_the_pane_and_saves_at_the_right() -> None:
 
 
 def test_the_maintenance_actions_share_one_row() -> None:
-  """The reset and the check buttons ride one row, with the hint at the right."""
+  """Reset and check buttons ride one row, with hint at right."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -6031,7 +6031,7 @@ for (const reduced of [false, true]) {
 
 
 def test_hook_delete_keeps_the_title_out_of_the_request() -> None:
-  """Hook deletion uses the file path and keeps the title in the dialog."""
+  """Hook deletion uses file path and keeps title in dialog."""
   code = _app_js_vm(
     """
 sandbox.setTimeout = () => 0;
@@ -8802,7 +8802,7 @@ EXPECTED_ICON_PX = 16
 def test_vendored_gsap_serves_offline_and_drives_motion_with_reduced_motion_guard(
   client: TestClient,
 ) -> None:
-  """Offline gsap.min.js is registered, served, and skipped under reduced motion."""
+  """Register and serve offline gsap.min.js, and skip tweens under reduced motion."""
   root = Path(__file__).resolve().parents[2]
   gsap_path = root / "daedalus/dashboard/ui/gsap.min.js"
   assert gsap_path.is_file()

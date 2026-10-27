@@ -1,4 +1,4 @@
-"""The SQLite model store: the model table, and the tables of the other modules."""
+"""SQLite model store: model table, and tables of other modules."""
 
 import json
 import logging
@@ -613,7 +613,7 @@ REBUILDS_TABLE = (
 
 
 def rows_by_id() -> dict[str, dict[str, Any]]:
-  """The values of each stored row by id, so a rebuild can name the moves it made."""
+  """Values of each stored row by id, so a rebuild can specify moves it made."""
   if not Path(MODELS_DB).exists():
     return {}
   try:

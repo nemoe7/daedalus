@@ -3,7 +3,7 @@ title: Chat metadata
 author: nemo
 description: Inject the date, the clock, the timezone, the place and the language at the top of the chat. No key.
 required_open_webui_version: 0.10.0
-version: 1.0.5
+version: 1.0.6
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -49,7 +49,7 @@ class Filter:
     self.valves = self.Valves()
 
   def _block(self, __request__: Any) -> str:
-    """The lines of the block, from the clock of the server and the Valves."""
+    """Lines of block, from clock of server and Valves."""
     now = datetime.now().astimezone().replace(microsecond=0)
     zone = now.tzname() or os.environ.get("TZ") or ""
     lines = [MARK, f"Current date/time: {now.isoformat()}"]
@@ -66,7 +66,7 @@ class Filter:
   async def inlet(
     self, body: dict[str, Any], __request__: Any = None
   ) -> dict[str, Any]:
-    """Put the block in as 1 system message at the top, and return the body.
+    """Put block in as 1 system message at top, and return body.
 
     :param body: the JSON body of the chat request
     :param __request__: the request, for its `Accept-Language` header

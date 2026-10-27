@@ -15,7 +15,7 @@ from daedalus.store.database import connect_read, open_db
 
 logger = logging.getLogger("daedalus.updates")
 
-# The repo the check reads when the settings name none.
+# Repo check reads when settings name none.
 DEFAULT_REPO = "nemoe7/daedalus"
 # The idle between two checks, in hours. The schedule tick calls the check at most that often.
 EVERY_HOURS = 6.0
@@ -100,7 +100,7 @@ def check(
 
 
 def save(result: dict[str, Any]) -> None:
-  """The last check in the store, for the next start and the tab."""
+  """Last check in store, for next start and tab."""
   database = open_db(store.MODELS_DB, (UPDATES_TABLE,))
   try:
     database.execute(
@@ -154,6 +154,6 @@ def tick(now: float) -> dict[str, Any] | None:
 
 
 def check_now() -> dict[str, Any]:
-  """A forced check, for the check button of the tab, written to the store."""
+  """A forced check, for check button of tab, written to store."""
   save(check(repo(), __version__))
   return read()

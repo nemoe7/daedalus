@@ -22,7 +22,7 @@ class Turn:
 
 
 def digest(messages: list[dict]) -> str:
-  """The hash of the messages without the system messages, which can hold the time."""
+  """Hash of messages without system messages, which can hold time."""
   kept = [m for m in messages if m.get("role") != "system"]
   return keys.digest(json.dumps(kept, sort_keys=True, ensure_ascii=False))
 

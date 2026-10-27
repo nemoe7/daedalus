@@ -71,7 +71,7 @@ def built_in(name: str) -> str | None:
 
 
 def listed(model: str) -> bool:
-  """Tell if a request may answer: the store lists the id, or it names a built-in pool."""
+  """Tell if a request may answer: store lists id, or it specifies a built-in pool."""
   if model in POOLS or model == RESERVED_MODEL or model in MEDIA_POOLS:
     return True
   return store.catalog_name(model) == model
@@ -153,7 +153,7 @@ def efforts(
 ) -> list[str]:
   """The ordered reasoning efforts of a model: its key, its block, its catalog row, then the code.
 
-  `supported` is the list that the catalog holds for the model, so a provider that names its
+  `supported` is list that catalog holds for model, so a provider that specifies its
   efforts per model narrows the coded set. The settings of the file keep the last word.
   """
   name, _, slug = model.partition("/")
@@ -305,7 +305,7 @@ def prefer_same_model(
 
 
 def model_wait(config: Mapping[str, Any], model: str, default: float) -> float:
-  """The seconds with no data from the provider: the `timeout` of the model, or the default."""
+  """Seconds with no data from provider: `timeout` of model, or default."""
   value = model_setting(config, model, "timeout")
   if (
     isinstance(value, bool)
@@ -387,15 +387,15 @@ def chain_groups(
 
 # The tier table, loaded on the first request. The file does not change at run time.
 _ARTIFACT: list[Artifact] = []
-# The tiers of the last prompts, by digest. The requests of 1 tool loop repeat the prompt.
+# Tiers of last prompts, by digest. Requests of 1 tool loop repeat prompt.
 _TIER_OF: OrderedDict[bytes, int] = OrderedDict()
 PROMPTS_KEPT: Final = 64
-# The bar of the `routing.threshold` setting. None keeps the value of the artifact.
+# Bar of `routing.threshold` setting. None keeps value of artifact.
 THRESHOLD: float | None = None
 
 
 def set_threshold(value: float | None) -> None:
-  """Use the bar of `routing.threshold` for the next reads. None keeps the artifact value."""
+  """Use bar of `routing.threshold` for next reads. None keeps artifact value."""
   global THRESHOLD
   if THRESHOLD != value:
     # The cached tiers use the previous threshold.

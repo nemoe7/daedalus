@@ -873,7 +873,7 @@ def test_a_capture_without_an_update_block_still_builds(
 
 
 def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
-  """Built assets include the UI, with the demo and locale before the app."""
+  """Built assets include UI, with demo and locale before app."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   page = (out / "index.html").read_text(encoding="utf-8")
   assert page.index("demo.js") < page.index("ui/en.js") < page.index("ui/app.js")

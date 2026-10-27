@@ -18,7 +18,7 @@ MASTER = "test-master-key-0001"
 
 
 def no_network(*_args: object, **_kwargs: object) -> str:
-  """A test never reads the default provider file of the repo over the network."""
+  """A test never reads default provider file of repo over network."""
   raise httpx.ConnectError("no network in a test")
 
 
@@ -83,7 +83,7 @@ def state_folder(
   os.environ[dashboard.DAEDALUS_MASTER_KEY] = getattr(request.module, "MASTER", MASTER)
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
-    # No test reads the default provider file of the repo over the network.
+    # No test reads default provider file of repo over network.
     patch.setattr(defaults_module, "PATH", folder / "free.defaults.yml")
     patch.setattr(defaults_module, "fetch", no_network)
     # No test reads the GitHub API of the update check.

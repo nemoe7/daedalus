@@ -1,4 +1,4 @@
-"""The vendored nemoizer linter, run the way the workflow runs it."""
+"""Vendored nemoizer linter, run way workflow runs it."""
 
 import re
 import subprocess

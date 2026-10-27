@@ -436,7 +436,7 @@ def test_routing_threshold() -> None:
 
 
 def test_apply_takes_the_threshold(folder: Path) -> None:
-  """Apply the saved threshold and restore the current default when the file is missing."""
+  """Apply saved threshold and restore current default when file is missing."""
   path = folder / "threshold.yml"
   path.write_text("routing:\n  threshold: 0.91\n", encoding="utf-8")
   try:

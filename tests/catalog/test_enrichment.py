@@ -80,7 +80,7 @@ def broken(url: str, headers: dict[str, str]) -> dict:
 
 
 def test_litellm_entries_keys_the_rows_by_slug() -> None:
-  """The provider prefix comes off the id, and the slug is the key."""
+  """Provider prefix comes off id, and slug is key."""
   fetch, _ = sequenced(PAGE)
   assert enrichment.litellm_entries("openrouter", fetch) == {
     "a": {"id": "openrouter/a", "rpm": 9}

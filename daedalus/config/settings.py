@@ -95,7 +95,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
   },
   # The update check: the repo it reads for a newer daedalus.
   "updates": {"repo": "nemoe7/daedalus"},
-  # The names and the view that suit the operator, not the router.
+  # Names and view that suit operator, not router.
   "personalization": {
     "tier-a": "sophos",
     "tier-b": "deinos",
@@ -273,7 +273,7 @@ def keyword_list(name: str, value: Any) -> list[str]:
 
 
 def dir_name(name: str, value: Any) -> str:
-  """The folder at the root that holds the hook files: 1 plain folder name."""
+  """Folder at root that holds hook files: 1 plain folder name."""
   if not isinstance(value, str) or not DIR_NAME.fullmatch(value):
     raise SettingsError(
       f"{name} must be 1 folder name of letters, digits, dots, dashes, or underscores"
@@ -380,7 +380,7 @@ def hook_order(name: str, value: Any) -> dict[str, list[str]]:
 
 
 def schedule_value(name: str, key: str, value: Any) -> float:
-  """A catalog hour value: `every` is 0 or a part of 24, and `anchor` is an hour of the day."""
+  """Validate catalog schedule hours: `every` divides 24 or equals 0, and `anchor` is 0..23."""
   if (
     isinstance(value, bool)
     or not isinstance(value, int | float)

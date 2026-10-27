@@ -90,7 +90,7 @@ def use_config(api_key: str = UPSTREAM_KEY) -> None:
 
 
 def use_upstream(api_key: str = UPSTREAM_KEY, local_key: str = "") -> None:
-  """Point the app at the stub upstream, with its model in the store."""
+  """Point app at stub upstream, with its model in store."""
   use_config(api_key)
   api.router.set_pool_names({})
   store.write_store([{"id": "stub/gpt-test"}])
@@ -283,7 +283,7 @@ async def test_reroute(client: httpx.AsyncClient) -> None:
 
 
 def test_wait_cap() -> None:
-  """The client uses the read-wait cap for reads and the general timeout for connections."""
+  """Client uses read-wait cap for reads and general timeout for connections."""
   upstream.set_client(None)
   client = upstream.get_client()
   assert client.timeout.read == upstream.WAIT_SECONDS, client.timeout

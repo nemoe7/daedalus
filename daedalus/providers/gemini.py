@@ -482,7 +482,7 @@ class GeminiProvider(OpenAIProvider):
   def transcription(
     self, response: httpx.Response, fields: dict[str, Any]
   ) -> tuple[bytes, str]:
-    """The text parts of the first candidate, in the requested format."""
+    """Text parts of first candidate, in requested format."""
     text = "".join(part.get("text", "") for part in answer_parts(response.json()))
     if fields.get("response_format") == "text":
       return text.encode(), "text/plain; charset=utf-8"

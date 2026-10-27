@@ -14,7 +14,7 @@ class ProviderError(ValueError):
 
 
 class UpstreamOverload(ProviderError):
-  """The safe line names the overloaded provider and leaves out the relay name."""
+  """Safe line names overloaded provider and leaves out relay name."""
 
   def __init__(self, text: str) -> None:
     super().__init__(text)

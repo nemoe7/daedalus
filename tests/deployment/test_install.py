@@ -427,7 +427,7 @@ def test_a_crlf_env_takes_a_valid_key(tmp_path: Path) -> None:
 
 
 def test_local_compose_override_is_loaded(tmp_path: Path) -> None:
-  """The installer layers the user-owned structural override after the managed file."""
+  """Installer layers user-owned structural override after managed file."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
   folder, env = checkout(tmp_path, env_text)
   (folder / "compose.override.yml").write_text("services: {}\n")

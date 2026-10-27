@@ -114,7 +114,7 @@ def answer_calls(completion: dict) -> list[str]:
 
 
 def primitive(unit: str) -> int:
-  """The length of the shortest part that repeats to make the unit."""
+  """Length of shortest part that repeats to make unit."""
   return (unit + unit).find(unit, 1)
 
 
@@ -157,7 +157,7 @@ def text_loop(text: str, step: int = 64) -> int | None:
 
 
 def kept(text: str, period: int) -> str:
-  """The text up to the end of the first copy of the passage."""
+  """Text up to end of first copy of passage."""
   return text[: len(text) - (REPEATS - 1) * period]
 
 

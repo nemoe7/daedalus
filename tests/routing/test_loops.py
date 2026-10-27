@@ -65,7 +65,7 @@ def test_repeats_small_pieces() -> None:
   repeats, text = loops.Repeats(), "Start. " + LINE * 4
   found = [repeats.feed(text[i : i + 3]) for i in range(0, len(text), 3)]
   first = next(i for i, value in enumerate(found) if value is not None)
-  # The text before the loop ends like the passage, so the loop can show 1 piece early.
+  # Text before loop ends like passage, so loop can show 1 piece early.
   assert first >= len(found) - 2 and found[first] == len(LINE), found
 
 

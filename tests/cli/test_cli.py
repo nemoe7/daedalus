@@ -198,7 +198,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
   assert calls == ["migrate", ("catalog", "csv")], calls
   cli.run(["dump", "models", "--format", "json"])
   assert calls == ["migrate", ("catalog", "csv"), "migrate"], calls
-  # The store holds no ladder for the row, so the dump mirrors that.
+  # Store holds no ladder for row, so dump mirrors that.
   assert json.loads((tmp_path / "models.json").read_text("utf-8"))["data"] == [
     {**rows[0], "tier": None, "supported_efforts": None}
   ]
@@ -335,7 +335,7 @@ def assert_key_command(calls: list[str]) -> None:
   [(False, False, True), (True, False, False), (True, True, True)],
 )
 def test_serve_defers_the_initial_build(monkeypatch, tmp_path, stored, force, initial):
-  """The CLI starts the listener and marks required catalog work for the server."""
+  """CLI starts listener and marks required catalog work for server."""
   calls = []
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   if stored:

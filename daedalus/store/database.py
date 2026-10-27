@@ -5,7 +5,7 @@ import sqlite3
 import threading
 from pathlib import Path
 
-# The (file, tables) pairs with the setup done: the folder, WAL mode and the tables.
+# (file, tables) pairs with setup done: folder, WAL mode and tables.
 _READY: set[tuple[str, tuple[str, ...]]] = set()
 # 1 idle connection for each file. The close of the last connection writes the WAL
 # back to the file, so this connection keeps that work out of each request.
@@ -23,7 +23,7 @@ class Kept(sqlite3.Connection):
 # 1 open connection for each thread, file, schema, and durability. A request or
 # a poll reuses its thread's connection instead of opening a new one.
 _OPEN: dict[tuple[int, str, tuple[str, ...], bool], sqlite3.Connection] = {}
-# The same for the read-only connections, with the inode they opened.
+# Same for read-only connections, with inode they opened.
 _READ: dict[tuple[int, str], tuple[sqlite3.Connection, int]] = {}
 
 

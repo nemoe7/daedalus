@@ -248,7 +248,7 @@ def test_docker_workflow_dev_build_waits_for_image_paths() -> None:
 def test_docker_workflow_filter_reads_all_commits_after_last_dev_merge(
   tmp_path: Path,
 ) -> None:
-  """The filter checks every commit after the last `dev-merge` success, not only the tip."""
+  """Filter checks every commit after last `dev-merge` success, not only tip."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
   script = next(
     item["run"]

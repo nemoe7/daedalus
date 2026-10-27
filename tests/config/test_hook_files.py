@@ -1,4 +1,4 @@
-"""The hook files in `hooks`: the cheapest output order and the example."""
+"""Hook files in `hooks`: cheapest output order and example."""
 
 import json
 import shutil
@@ -207,7 +207,7 @@ def test_request_paths_add_the_installed_files_of_the_surface(
 
 
 def test_the_example_stays_out_of_the_folder_list(tmp_path: Path, monkeypatch) -> None:
-  """The example of the base repo never lists as a hook file of the folder."""
+  """Example of base repo never lists as a hook file of folder."""
   root = tmp_path / "hooks"
   root.mkdir()
   for name in ("example.py", "one.py"):

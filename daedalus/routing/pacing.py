@@ -145,7 +145,7 @@ class Pacing:
         self.in_hour(provider).append(self.clock())
 
   def used_up(self, model: str) -> None:
-    """After a 429, count the rest of the hour of the provider as used."""
+    """After a 429, count rest of hour of provider as used."""
     provider = lanes.split(model)[0].partition("/")[0]
     if provider in self.caps():
       found = self.in_hour(provider)

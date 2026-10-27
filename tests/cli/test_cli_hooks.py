@@ -228,7 +228,7 @@ def test_verify_reports_a_bad_settings_file(
 
 
 def test_the_load_check_reads_a_file(folder: Path) -> None:
-  """The real check loads a good hook file, and names the error of a broken one."""
+  """Real check loads a good hook file, and specifies error of a broken one."""
   good = folder / "good.py"
   good.write_bytes(BODY)
   assert cli.import_problem(good) is None

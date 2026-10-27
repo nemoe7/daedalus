@@ -1114,7 +1114,7 @@ def test_the_clairic_extraction_model_leaves_the_chat_chains() -> None:
 
 
 def test_mistral_voxtral_3_drops_from_the_free_config() -> None:
-  """The free config drops the Voxtral 3 audio models and keeps the dated free rows."""
+  """Free config drops Voxtral 3 audio models and keeps dated free rows."""
   loaded = config.read_yaml(config.DEFAULT_PATH)
   mistral = loaded["mistral"]
   dropped = [

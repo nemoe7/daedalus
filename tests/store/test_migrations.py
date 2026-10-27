@@ -68,7 +68,7 @@ def test_head_matches_schema(tmp_path: Path) -> None:
 
 
 def test_code_matches_head(tmp_path: Path) -> None:
-  """The CREATE statements of the request code give the same layout as the Alembic steps."""
+  """CREATE statements of request code give same layout as Alembic steps."""
   steps, code = tmp_path / "steps.sqlite3", tmp_path / "code.sqlite3"
   store.migrate(steps)
   store.write_store([], code)

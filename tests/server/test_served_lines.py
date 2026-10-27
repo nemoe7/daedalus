@@ -158,7 +158,7 @@ async def test_the_client_scope_gates_the_line_on_the_request(
     "/v1/chat/completions", json=body, headers={"x-openwebui-chat-id": "t1"}
   )
   assert answer.status_code == 200, answer.text
-  # The name order of the folder puts the served model hook last, so the line holds no effort.
+  # Name order of folder puts served model hook last, so line holds no effort.
   assert [selection["line"] for selection in lines(answer.text)] == ["Alpha"]
   other = await client.post("/v1/chat/completions", json=body)
   assert other.status_code == 200, other.text

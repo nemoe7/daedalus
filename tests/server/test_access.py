@@ -14,7 +14,7 @@ MASTER = "test-master-key-0001"
 
 @pytest.fixture
 def guard() -> FastAPI:
-  """One route behind the key check, so the test covers the gate and not the router."""
+  """One route behind key check, so test covers gate and not router."""
   app = FastAPI()
 
   @app.get("/v1/guarded")

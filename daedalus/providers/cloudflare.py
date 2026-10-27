@@ -21,7 +21,7 @@ from daedalus.providers.base import (
 
 TRANSCRIPT_FORMATS = ("json", "text", "vtt")
 logger = logging.getLogger("daedalus")
-# The 2 URLs of the account, in the template form that the card shows as a placeholder.
+# 2 URLs of account, in template form that card shows as a placeholder.
 ACCOUNT_URL = "https://api.cloudflare.com/client/v4/accounts/{account_id}"
 # The Aura encoding and container for each OpenAI speech format.
 AURA_FORMATS = {
@@ -210,7 +210,7 @@ class CloudflareProvider(OpenAIProvider):
   def transcription(
     self, response: httpx.Response, fields: dict[str, Any]
   ) -> tuple[bytes, str]:
-    """The OpenAI answer from the native result, in the requested format."""
+    """OpenAI answer from native result, in requested format."""
     result = response.json().get("result") or {}
     text, form = result.get("text"), fields.get("response_format") or "json"
     if not isinstance(text, str) or (

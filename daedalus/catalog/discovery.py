@@ -215,7 +215,7 @@ def auth_headers(provider_name: str, provider: dict[str, Any]) -> dict[str, str]
 
 
 def row_shape(payload: dict[str, Any]) -> str | None:
-  """Name the response shape, or None when no row list is present."""
+  """Specify response shape, or None when no row list is present."""
   for key in ROW_KEYS:
     if isinstance(payload.get(key), list):
       return key
@@ -287,7 +287,7 @@ def failure(payload: dict[str, Any]) -> str | None:
 
 
 def next_page_url(url: str, payload: dict[str, Any]) -> str | None:
-  """Build the next page URL, or None when the page is the last one."""
+  """Build next page URL, or None when page is last one."""
   token = payload.get("nextPageToken")
   if isinstance(token, str) and token:
     return with_param(url, "pageToken", token)
@@ -465,7 +465,7 @@ def read_providers(
   for provider_name, provider, is_file, source in plan:
     payload = downloads[source]
     if not isinstance(payload, dict):
-      # 1 skip line per URL, on the first block that names it.
+      # 1 skip line per URL, on first block that specifies it.
       if source not in reported:
         reported.add(source)
         skipped.append(f"{provider_name}: {payload}")

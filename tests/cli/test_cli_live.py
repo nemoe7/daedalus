@@ -113,7 +113,7 @@ def test_ask_rebuild(monkeypatch, live: str) -> None:
 
 
 def test_catalog_uses_the_live_server(monkeypatch, live: str) -> None:
-  """The discovery line names the server, and the server does the rebuild."""
+  """Discovery line names server, and server does rebuild."""
   calls: list[str] = []
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))
   monkeypatch.setenv(dashboard.DAEDALUS_MASTER_KEY, MASTER)
@@ -127,7 +127,7 @@ def test_catalog_uses_the_live_server(monkeypatch, live: str) -> None:
 
 
 def test_catalog_runs_here_with_the_force_flag(monkeypatch, live: str) -> None:
-  """The flag takes the local rebuild after a refusal, and names the server."""
+  """Flag takes local rebuild after a refusal, and specifies server."""
   calls: list[str] = []
   Live.status = 401
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))

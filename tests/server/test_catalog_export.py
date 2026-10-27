@@ -19,7 +19,7 @@ AUTH = {"Authorization": f"Bearer {MASTER}"}
 @pytest.mark.parametrize("kind", ["catalog", "models", "enrichments", "all"])
 @pytest.mark.parametrize("file_format", ["json", "csv"])
 def test_export_returns_the_completed_server_build(monkeypatch, kind, file_format):
-  """The response contains the requested fresh files without using the server dump folder."""
+  """Response contains requested fresh files without using server dump folder."""
   from daedalus.catalog import enrichment
 
   url = "https://export.test/models"

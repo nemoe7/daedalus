@@ -410,7 +410,7 @@ def test_the_catalog_efforts_sit_under_the_config_keys() -> None:
 
 
 def test_the_efforts_key_follows_the_block_hierarchy() -> None:
-  """The supported_reasoning_efforts key reads from the model entry, then the block, then the code."""
+  """`supported_reasoning_efforts` key reads from model entry, then block, then code."""
   config = {
     "kilo": {
       "supported_reasoning_efforts": ["none", "low", "high"],
