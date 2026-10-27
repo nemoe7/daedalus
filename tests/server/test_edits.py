@@ -257,7 +257,10 @@ def test_edit_errors(client: TestClient) -> None:
     "locale_params": {},
   }, response.text
   response = edit(client, "x", small, n="two")
-  assert response.status_code == 400 and "n must be" in response.text, response.text
+  assert response.status_code == 400, response.text
+  assert response.json()["error"]["message"] == media.image_error(
+    {"prompt": "x", "n": "two"}
+  )
   response = client.post(
     "/v1/images/edits",
     data={"model": KLEIN, "prompt": "x"},

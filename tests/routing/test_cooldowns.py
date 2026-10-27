@@ -198,7 +198,7 @@ def test_rules(caplog) -> None:
     assert (
       cooldowns.reset_seconds({"retry-after": "1791000000000"}, {}, NOW) == 86400
     ), "a millisecond time gives a day at most"
-  assert "is above the cap" in caplog.text, "the log names the cut"
+  assert "86400s" in caplog.text, "the log names the cut"
   caplog.clear()
   # The cap is a module constant: a test can move it without the settings.
   original, cooldowns.LONGEST_RESET = cooldowns.LONGEST_RESET, 100.0
@@ -207,7 +207,7 @@ def test_rules(caplog) -> None:
       assert cooldowns.reset_seconds({"retry-after": "600"}, {}, NOW) == 100
   finally:
     cooldowns.LONGEST_RESET = original
-  assert "is above the cap" in caplog.text
+  assert "100s" in caplog.text
 
 
 def test_store() -> None:

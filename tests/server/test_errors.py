@@ -396,9 +396,8 @@ def test_rejected_logs_safe_gateway_summary_without_raw_metadata(caplog) -> None
       time.perf_counter(),
       raw,
     )
-  assert (
-    upstream.status_line(err) == "Upstream AtlasCloud returned an error: bad request"
-  )
-  assert "Upstream AtlasCloud returned an error: bad request" in caplog.text
+  expected_status = upstream.status_line(err)
+  assert expected_status == "Upstream AtlasCloud returned an error: bad request"
+  assert any(expected_status in record.getMessage() for record in caplog.records)
   assert "user_secret_789" not in caplog.text
   assert "req_or_456" not in caplog.text

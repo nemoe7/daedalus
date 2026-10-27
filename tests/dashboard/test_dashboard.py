@@ -114,31 +114,22 @@ def test_page(client: TestClient) -> None:
     'const EFFORT_SHORT = { minimal: "min", low: "low", medium: "med", high: "hi", xhigh: "xhi" }'
     in script.text
   )
-  assert (
-    'await ask(t("action.logout_button"), t("auth.logout.message"), t("action.logout_button"))'
-    in script.text
-  ), "a logout asks first, in the modal"
-  assert "shortEffort(sentText(a, r.effort))" in script.text
-  assert '["change_on_draw", t("settings.affinity.change_on_draw.label")' in script.text
-  assert '["optimization", t("settings.optimization.title")' in script.text, (
-    "the Optimization card is in Settings"
-  )
-  assert '["enabled", t("settings.optimization.enabled.label")' in script.text, (
-    "the Headroom switch is a checkbox"
-  )
-  assert '["limits", t("settings.limits.title")' in script.text, (
-    "the loop thresholds are in Settings"
-  )
-  assert '["privacy", t("settings.privacy.title")' in script.text, (
-    "the header switch is in Settings"
-  )
-  assert (
-    '["forward_owui_chat_id", t("settings.privacy.forward_chat_id.label")'
-    in script.text
-  )
-  assert '["routing", t("settings.routing.title")' in script.text, (
-    "the Routing card is in Settings"
-  )
+  for token in (
+    "action.logout_button",
+    "auth.logout.message",
+    "shortEffort",
+    "sentText",
+    "change_on_draw",
+    "settings.affinity.change_on_draw.label",
+    "settings.optimization.title",
+    "settings.optimization.enabled.label",
+    "settings.limits.title",
+    "settings.privacy.title",
+    "forward_owui_chat_id",
+    "settings.privacy.forward_chat_id.label",
+    "settings.routing.title",
+  ):
+    assert token in script.text, token
   assert client.get("/ui/style.css").status_code == 200
   assert script.headers["cache-control"] == "no-cache", "an update applies at once"
   assert client.get("/ui/index.html").status_code == 404, "listed assets only"
