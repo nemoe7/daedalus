@@ -12,9 +12,8 @@ import shutil
 import subprocess
 import sys
 import tokenize
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 try:
   from markers import (

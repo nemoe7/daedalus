@@ -17,7 +17,7 @@ import threading
 import time
 import uuid
 from contextlib import closing,contextmanager,nullcontext
-from datetime import datetime,timedelta,timezone
+from datetime import UTC,datetime,timedelta
 from fnmatch import fnmatchcase
 from pathlib import Path
 from urllib.parse import parse_qs,unquote,urlsplit,urlunsplit
@@ -137,7 +137,7 @@ REPORT_CHANGE_VIEW_SECONDS=60
 REPORT_IDLE_SECONDS=30*60
 AGENT_KEY_RE=re.compile('[A-Za-z0-9_-]{20,64}\\Z')
 AGENT_HOST_RE=re.compile('https://[A-Za-z0-9.-]+\\Z')
-def now():return datetime.now(timezone.utc).isoformat()
+def now():return datetime.now(UTC).isoformat()
 TIMEZONE_META='display_tz'
 DISPLAY_ZONE=None
 def zone_exists(name):
@@ -151,7 +151,7 @@ def local_stamp(value):
 	if not value or DISPLAY_ZONE is None:return value
 	try:parsed=datetime.fromisoformat(value)
 	except ValueError:return value
-	if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone.utc)
+	if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=UTC)
 	return parsed.astimezone(DISPLAY_ZONE).isoformat()
 def workspace_branch(root=None):
 	try:head=(Path(root or Path.cwd())/'.git'/'HEAD').read_text(encoding='utf-8').strip()
@@ -406,7 +406,7 @@ def pr_check_latest(root,slug,sha):
 	for node in data:
 		if not isinstance(node,dict)or not all(isinstance(node.get(field),str)for field in('type','name','workflow','state','at')):return None
 		if node['type']not in('check','status')or not node['name']:return None
-		try:stamp=datetime.fromisoformat(node['at'].replace('Z','+00:00'))
+		try:stamp=datetime.fromisoformat(node['at'])
 		except ValueError:return None
 		if stamp.tzinfo is None:return None
 		active=node['state']not in PR_CHECK_SUCCESS_STATES+PR_CHECK_FAILURE_STATES;rank=1 if active else 0,stamp;key=node['type'],node['name'],node['workflow']
@@ -533,7 +533,7 @@ def commit_id_report(hits):
 def new_id():return uuid.uuid4().hex[:6]
 def seconds_since(value):
 	if not value:return None
-	try:return(datetime.now(timezone.utc)-datetime.fromisoformat(value)).total_seconds()
+	try:return(datetime.now(UTC)-datetime.fromisoformat(value)).total_seconds()
 	except ValueError:return None
 def clip_stamp(value):return value[:19]if value else value
 def at_or_after(value,other):
@@ -543,7 +543,7 @@ def import_stamp(value):
 	if not value:return None
 	try:parsed=datetime.fromisoformat(str(value))
 	except ValueError:return None
-	if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=timezone.utc)
+	if parsed.tzinfo is None:parsed=parsed.replace(tzinfo=UTC)
 	return parsed
 def identifier(value):
 	if not isinstance(value,str)or not IDENTIFIER.fullmatch(value):raise ValueError('ID must contain 1–80 letters, digits, underscores or hyphens')
@@ -1119,8 +1119,8 @@ READ_SET_LAST_META='read_set_last_at'
 READ_SET_INTERVAL_MINUTES=15
 SKIP_POLL_META='skip_poll_at'
 def read_set_slot(moment=None):
-	moment=moment or datetime.now(DISPLAY_ZONE or timezone.utc)
-	if moment.tzinfo is None:moment=moment.replace(tzinfo=timezone.utc)
+	moment=moment or datetime.now(DISPLAY_ZONE or UTC)
+	if moment.tzinfo is None:moment=moment.replace(tzinfo=UTC)
 	minute=moment.minute//READ_SET_INTERVAL_MINUTES*READ_SET_INTERVAL_MINUTES;return moment.replace(minute=minute,second=0,microsecond=0).isoformat()
 def read_set_paths(root=None,worker=False):
 	root=Path(root or resolve_repo_root()).resolve();skill=root/'.agents'/'skills'/'arena-skill'/'SKILL.md';candidates=[root/'ARENA.md',root/'AGENTS.md',skill]
@@ -1694,7 +1694,7 @@ PR_CHECK_WRAPPERS='env','command','timeout','xargs','nice','nohup','stdbuf','sud
 PR_CHECK_NAMES=('pr','checks','pr-checks'),('run','watch','run-watch')
 LONG_RUN_HEADS={'pytest':'pytest','py.test':'pytest','tox':'tox','nox':'nox'}
 LONG_RUN_WORDS=(('npm','test'),'npm-tests'),(('npm','run','test*'),'npm-tests'),(('yarn','test'),'yarn-tests'),(('pnpm','test'),'pnpm-tests'),(('make','test'),'make-tests'),(('npx','jest'),'npx-tests'),(('npx','vitest'),'npx-tests'),(('npx','mocha'),'npx-tests'),(('npx','ava'),'npx-tests'),(('go','test'),'go-tests'),(('cargo','test'),'cargo-tests'),(('dotnet','test'),'dotnet-tests'),(('mvn','test'),'mvn-tests'),(('mvnw','test'),'mvn-tests'),(('gradle','test'),'gradle-tests'),(('gradlew','test'),'gradle-tests')
-WORKTREE_STEP='NEXT: work queued file task in worktree while this runs: `arena-preview worktree start [-g, --gate <gate-name>] [-a, --allow <glob>] <name> <destination>`.'
+WORKTREE_STEP='NEXT: delegate independent queued tasks to idle board workers first, else work in worktree while this runs: `arena-preview worktree start [-g, --gate <gate-name>] [-a, --allow <glob>] <name> <destination>`.'
 DETACHED_NOTICE='RUN DETACHED: `{name}` runs in background, call ends clean. Verdict on later call. '+WORKTREE_STEP
 DETACHED_BLOCK='RUN BLOCKED: background start failed, wait not started. Nothing on this line ran. Use `arena-preview run start {name} -- <the same line>` instead.'
 DETACHED_STATUS_SECONDS=7200
@@ -1865,8 +1865,8 @@ def auto_start_post_push_pr_checks(state_dir,line,rc=0):
 def detached_seconds(started_at):
 	try:
 		started=datetime.fromisoformat(str(started_at))
-		if started.tzinfo is None:started=started.replace(tzinfo=timezone.utc)
-		return max(0,int((datetime.now(timezone.utc)-started).total_seconds()))
+		if started.tzinfo is None:started=started.replace(tzinfo=UTC)
+		return max(0,int((datetime.now(UTC)-started).total_seconds()))
 	except(TypeError,ValueError):return None
 def write_detached_placeholder(state_dir,name,argv,pid=None,pid_started_at=None,task_id=None,after=None):
 	path=run_record_path(state_dir,name)
@@ -1959,10 +1959,22 @@ def next_open_task(state_dir,gate_name):
 		if gate_name in(task.get('runs')or[]):continue
 		return task
 	return None
+def idle_board_workers(state_dir):
+	if not state_dir or not(Path(state_dir).resolve()/'state.sqlite3').is_file():return[]
+	try:board=Store(state_dir).board_state()
+	except Exception:return[]
+	if board.get('board_role')!='main':return[]
+	allowed=set(board.get('allowed_sessions')or());worker_tasks=board.get('worker_tasks')or{};idle=[]
+	for row in board.get('sessions')or():
+		sid=row.get('session_id')or''
+		if not sid or sid not in allowed or row.get('role')!='worker'or row.get('disconnected'):continue
+		active=[t for t in worker_tasks.get(sid)or()if t.get('status')=='upcoming']
+		if not active:idle.append(str(row.get('worker_id')or row.get('board_id')or sid))
+	return idle
 def next_task_hint(state_dir,gate_name):
 	task=next_open_task(state_dir,gate_name)
 	if task is None:return''
-	return f" Next open task: {task['id']} \"{task.get('title')or''}\". Start it in a worktree: `arena-preview worktree start --gate {gate_name} --allow '<task path glob>' {task['id']} <destination outside the repo root>`."
+	idle=idle_board_workers(state_dir);worker_prefix=f" Delegate to idle board worker @{idle[0]} via /api/board first, or start"if idle else' Start';return f" Next open task: {task['id']} \"{task.get('title')or''}\".{worker_prefix} it in a worktree: `arena-preview worktree start --gate {gate_name} --allow '<task path glob>' {task['id']} <destination outside the repo root>`."
 def run_log_report(state_dir,name):
 	record=routed_record(state_dir,name)
 	if record.get('exit')is None:
@@ -1999,7 +2011,7 @@ def poll_inbox(store,sleeper=None):
 			if failures and'pr-checks'not in live_runs(store.path.parent):print(f"PR CHECKS FAILED: {failures[0]}. Fix the failed check before the next push.",flush=True);return 0
 			if run_notices(store.path.parent):clear_poll_repeat(store);print('DO NOT END TURN. POLL AGAIN.',flush=True);return 0
 			open_tasks=[item for item in store.list_tasks()if item['status']=='upcoming'and not item['blocked']]
-			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);continue_line=f"CONTINUE: UNBLOCKED TASK {names}. Start a worktree with: arena-preview worktree start --gate <gate> <name> <destination>.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);return 0
+			if open_tasks:listing['tasks']=open_tasks;names=', '.join(item['id']for item in open_tasks);idle=idle_board_workers(store.path.parent);worker_step=f"Delegate to idle board worker @{idle[0]} via /api/board first, or start"if idle else'Start';continue_line=f"CONTINUE: UNBLOCKED TASK {names}. {worker_step} a worktree with: arena-preview worktree start --gate <gate> <name> <destination>.";print(continue_line,flush=True);print(format_task_list(listing.get('tasks',[])),flush=True);return 0
 			board_woken=bool(store.take_board_wake());board_notices=store.take_board_notifications()
 			if board_woken or board_notices:
 				clear_poll_repeat(store);print('BOARD WAKE: session woken from the multi-session board. Read board entries and continue work before polling again.',flush=True)
@@ -2037,6 +2049,7 @@ MAX_BOARD_FILE_BYTES=524288
 MAX_BOARD_BYTES=8388608
 MAX_BOARD_ENTRIES=100
 CLEARED_META='state-explicitly-cleared'
+CLEARED_AT_META='state-cleared-at'
 BACKUP_DIR='backups'
 LATEST_BACKUP='state-latest.ndjson'
 PREVIOUS_BACKUP='state-previous.ndjson'
@@ -2179,8 +2192,8 @@ def board_stamp_epoch(value):
 	try:
 		if text.endswith('Z'):text=text[:-1]+'+00:00'
 		dt=datetime.fromisoformat(text)
-		if dt.tzinfo is not None:dt=dt.astimezone(timezone.utc).replace(tzinfo=None)
-		return dt.replace(tzinfo=timezone.utc).timestamp()
+		if dt.tzinfo is not None:dt=dt.astimezone(UTC).replace(tzinfo=None)
+		return dt.replace(tzinfo=UTC).timestamp()
 	except Exception:return None
 def normalize_board_state(raw,session_id='',repo='',branch='',polling=False):
 	data=raw if isinstance(raw,dict)else{};sid=board_session_id(session_id or branch);linked_repos=[]
@@ -2232,7 +2245,7 @@ def normalize_board_state(raw,session_id='',repo='',branch='',polling=False):
 				delegated=clean_worker_id(row.get('worker_id'))
 				if delegated and not is_legacy_hex_worker_id(row_sid,delegated):worker_ids[row_sid]=delegated
 			except ValueError:pass
-		is_self=bool(sid and row_sid==sid);wake_pending=row_sid in allowed and bool(wakes.get(row_sid));row_disc=False if is_self else bool(row.get('disconnected')or row.get('status')=='disconnected');row_polling=(bool(polling)if is_self else bool(row.get('polling')or row.get('status')=='polling'))and not wake_pending and not row_disc;row_repo=str(row.get('repo')or(repo if is_self else''));row_role='main'if main_sid==row_sid or not main_sid and row_sid in allowed else'worker'if row_sid in allowed else'blocked';row_wid=worker_ids.get(row_sid)or default_worker_id(row_sid,row_repo)if row_role=='worker'else'';s_entry={'session_id':row_sid,'board_id':format_board_role_id(row_role,repo=row_repo,worker_id=row_wid,multi_repo=multi_repo,fallback_sid=row_sid),'worker_id':row_wid,'repo':row_repo,'branch':str(row.get('branch')or(branch if is_self else f"arena/{row_sid}")),'status':'disconnected'if row_disc else'polling'if row_polling else'active','polling':row_polling,'disconnected':row_disc,'updated_at':str(row.get('updated_at')or clip_stamp(now())),'allowed':row_sid in allowed,'role':row_role}
+		is_self=bool(sid and row_sid==sid);wake_pending=row_sid in allowed and bool(wakes.get(row_sid));row_disc=False if is_self else bool(row.get('disconnected')or row.get('status')=='disconnected');row_polling=(bool(polling)if is_self else bool(row.get('polling')or row.get('status')=='polling'))and not wake_pending and not row_disc;row_repo=str(row.get('repo')or(repo if is_self else''));row_role='main'if main_sid==row_sid or not main_sid and row_sid in allowed else'worker'if row_sid in allowed else'blocked';row_wid=worker_ids.get(row_sid)or default_worker_id(row_sid,row_repo)if row_role=='worker'else'';s_entry={'session_id':row_sid,'board_id':format_board_role_id(row_role,repo=row_repo,worker_id=row_wid,multi_repo=multi_repo,fallback_sid=row_sid),'worker_id':row_wid,'repo':row_repo,'branch':str(row.get('branch')or(branch if is_self else f"arena/{row_sid}")),'status':'disconnected'if row_disc else'polling'if row_polling else'active','polling':row_polling,'disconnected':row_disc,'updated_at':str(row.get('updated_at'))if isinstance(row.get('updated_at'),str)and re.match('^\\d{4}-\\d{2}-\\d{2}T',row['updated_at'])else clip_stamp(now()),'allowed':row_sid in allowed,'role':row_role}
 		if isinstance(row.get('survey'),dict):s_entry['survey']=dict(row['survey'])
 		for status_key in('polling_since','waiting_for_gates','checking_pr','calls_since_message','gate_threshold','agent_seen_at','turn_ended_at','agent_call_ended_at'):
 			if status_key in row and row[status_key]is not None:s_entry[status_key]=row[status_key]
@@ -2692,8 +2705,8 @@ class Store:
 		with closing(self.connect())as db:row=db.execute(f"SELECT * FROM notes WHERE {VIOLATION_NOTES} AND acknowledged_at IS NULL ORDER BY at, seq LIMIT 1").fetchone()
 		return message_row(row)if row else None
 	def schedule_read_set_note(self,moment=None,root=None,manual=False):
-		moment=moment or datetime.now(DISPLAY_ZONE or timezone.utc)
-		if moment.tzinfo is None:moment=moment.replace(tzinfo=timezone.utc)
+		moment=moment or datetime.now(DISPLAY_ZONE or UTC)
+		if moment.tzinfo is None:moment=moment.replace(tzinfo=UTC)
 		slot=read_set_slot(moment);is_worker=self.board_state().get('board_role')=='worker';paths=read_set_paths(root or self.repository_root(),worker=is_worker)
 		with closing(self.connect())as db,db:
 			db.execute('BEGIN IMMEDIATE')
@@ -2708,7 +2721,7 @@ class Store:
 				try:previous=datetime.fromisoformat(recorded['value'])if recorded else None
 				except ValueError:previous=None
 				if previous is None:db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(READ_SET_LAST_META,moment.isoformat()));return None
-				if previous.tzinfo is None:previous=previous.replace(tzinfo=timezone.utc)
+				if previous.tzinfo is None:previous=previous.replace(tzinfo=UTC)
 				if(moment-previous).total_seconds()<READ_SET_INTERVAL_MINUTES*60:return None
 			for _ in range(MINT_ATTEMPTS):
 				note_id=new_id()
@@ -2825,7 +2838,9 @@ class Store:
 				def _mval(key):return m_dict.get(key)if key in m_dict else self.meta_value(key)
 				self_status_fields={'survey':self_survey,'polling_since':clip_stamp(_mval(POLL_SINCE_META))if is_polling else None,'waiting_for_gates':bool(runs),'checking_pr':any(pr_checks_command(routed_record(self.path.parent,name).get('argv',[]))for name in runs),'calls_since_message':calls_count,'gate_threshold':GATE_THRESHOLD,'agent_seen_at':clip_stamp(_mval(AGENT_SEEN_META)),'turn_ended_at':clip_stamp(_mval(TURN_ENDED_META)),'agent_call_ended_at':clip_stamp(_mval(AGENT_CALL_ENDED_META))}
 				for s_row in out['sessions']:
-					if s_row.get('session_id')==sid:s_row.update(self_status_fields)
+					if s_row.get('session_id')==sid:
+						s_row.update(self_status_fields);latest_stamp=max(str(s_row.get('updated_at')or''),str(self_status_fields.get('polling_since')or''),str(self_status_fields.get('agent_seen_at')or''),str(self_status_fields.get('turn_ended_at')or''),str(self_status_fields.get('agent_call_ended_at')or''))
+						if latest_stamp:s_row['updated_at']=latest_stamp
 			except Exception:pass
 			try:out['worker_tasks'][sid]=[{'id':row['id'],'title':row['title'],'status':row['status'],'type':row.get('type')or'code','details':list(row.get('details')or[]),'order':row.get('order'),'report_id':row.get('report_id'),'updated_at':clip_stamp(row.get('updated_at'))}for row in self.list_tasks()]
 			except Exception:pass
@@ -2844,13 +2859,13 @@ class Store:
 			except Exception:pass
 		return out
 	def apply_board_report_op(self,op):
-		if not isinstance(op,dict):return
+		if not isinstance(op,dict):return False
 		op_name=str(op.get('op')or op.get('operation')or'answer').strip().lower();report_id=str(op.get('report_id')or op.get('id')or'').strip()
 		if not report_id:raise ValueError('Missing report_id')
 		if op_name in{'unpublish','remove','delete'}:
 			try:self.unpublish(report_id,dismissed_by_owner=True)
-			except FileNotFoundError:pass
-			return
+			except FileNotFoundError:return False
+			return True
 		if op_name in{'answer','submit'}:
 			answers=op.get('answers')
 			if not isinstance(answers,dict):raise ValueError('Report answers must be an object')
@@ -2860,10 +2875,13 @@ class Store:
 				else:normalized_answers[field_key]=raw_ans
 			note_id=str(op.get('submission_id')or op.get('note_id')or uuid.uuid4().hex[:6])
 			with self.transaction()as db:
-				db.execute('BEGIN IMMEDIATE');report=self.report(report_id,shared=db);fields=parse_fields(report['markdown'])[1]
+				db.execute('BEGIN IMMEDIATE')
+				try:report=self.report(report_id,shared=db)
+				except FileNotFoundError:return False
+				fields=parse_fields(report['markdown'])[1]
 				if not fields:raise ValueError('This report has no fields to answer')
 				self.submit(report_id,report['title'],fields,note_id,normalized_answers,shared=db,submission_format=report['submission_format'],revision=report['updated_at'])
-			return
+			return True
 		raise ValueError(f"Unsupported worker report operation: {op_name}")
 	def apply_board_task_op(self,op):
 		if not isinstance(op,dict):return
@@ -3016,19 +3034,23 @@ class Store:
 				if k!=sid and k not in removed_set:worker_tasks[k]=[dict(item)for item in v if isinstance(item,dict)]
 			for(k,v)in(merged.get('worker_reports')or{}).items():
 				if k!=sid and k not in removed_set:worker_reports[k]=[dict(item)for item in v if isinstance(item,dict)]
-			seen_op_ids={str(op.get('id')or'')for op in task_ops if op.get('id')};applied_key=f"{sid}:task_ops";applied_list=[str(x)for x in ack_wakes.get(applied_key)if x]if isinstance(ack_wakes.get(applied_key),list)else[];applied_set=set(applied_list)
+			seen_op_ids={str(op.get('id')or'')for op in task_ops if op.get('id')};applied_key=f"{sid}:task_ops";applied_list=[str(x)for x in ack_wakes.get(applied_key)if x]if isinstance(ack_wakes.get(applied_key),list)else[];applied_set=set(applied_list);cleared_at=str(self.meta_value(CLEARED_AT_META)or'')
 			for op in merged.get('task_ops')or[]:
 				op_id=str(op.get('id')or'')
 				if op_id and op_id not in seen_op_ids:seen_op_ids.add(op_id);task_ops.append(dict(op))
 				target_sid=resolve_board_target(op.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
-				if op_id and target_sid==sid and op_id not in applied_set:applied_set.add(op_id);applied_list.append(op_id);self.apply_board_task_op(op);wakes[sid]=op_id
+				if op_id and target_sid==sid and op_id not in applied_set:
+					applied_set.add(op_id);applied_list.append(op_id);op_at=str(op.get('at')or'')
+					if not(cleared_at and op_at and op_at<=cleared_at):self.apply_board_task_op(op);wakes[sid]=op_id
 			ack_wakes[applied_key]=applied_list[-128:];seen_rep_op_ids={str(op.get('id')or'')for op in report_ops if op.get('id')};applied_rep_key=f"{sid}:report_ops";applied_rep_list=[str(x)for x in ack_wakes.get(applied_rep_key)if x]if isinstance(ack_wakes.get(applied_rep_key),list)else[];applied_rep_set=set(applied_rep_list)
 			for op in merged.get('report_ops')or[]:
 				op_id=str(op.get('id')or'')
 				if op_id and op_id not in seen_rep_op_ids:seen_rep_op_ids.add(op_id);report_ops.append(dict(op))
 				if str(op.get('op')or'')=='entry-ack':continue
 				target_sid=resolve_board_target(op.get('target')or'',sessions,allowed=allowed,main_sid=main_sid)
-				if op_id and target_sid==sid and op_id not in applied_rep_set:applied_rep_set.add(op_id);applied_rep_list.append(op_id);self.apply_board_report_op(op);wakes[sid]=op_id
+				if op_id and target_sid==sid and op_id not in applied_rep_set:
+					applied_rep_set.add(op_id);applied_rep_list.append(op_id);op_at=str(op.get('at')or'')
+					if not(cleared_at and op_at and op_at<=cleared_at)and self.apply_board_report_op(op):wakes[sid]=op_id
 			ack_wakes[applied_rep_key]=applied_rep_list[-128:]
 			if merged['allowed_sessions']or not allowed:
 				for item in merged['allowed_sessions']:
@@ -3040,8 +3062,16 @@ class Store:
 				row_sid=row['session_id']
 				if row_sid in removed_set:continue
 				if row_sid==sid and row_sid in by_sid:continue
-				prev_survey=by_sid.get(row_sid,{}).get('survey');by_sid[row_sid]=dict(row)
+				prev_existing=by_sid.get(row_sid,{});prev_survey=prev_existing.get('survey');by_sid[row_sid]=dict(row)
 				if not isinstance(by_sid[row_sid].get('survey'),dict)and isinstance(prev_survey,dict):by_sid[row_sid]['survey']=prev_survey
+				for status_key in('polling_since','waiting_for_gates','checking_pr','calls_since_message','gate_threshold','agent_seen_at','turn_ended_at','agent_call_ended_at'):
+					if status_key not in by_sid[row_sid]and status_key in prev_existing and prev_existing[status_key]is not None:
+						if status_key=='polling_since'and not by_sid[row_sid].get('polling'):continue
+						if status_key=='turn_ended_at':
+							if by_sid[row_sid].get('polling'):continue
+							prev_turn_end=str(prev_existing[status_key]or'');newest_active=max(str(by_sid[row_sid].get('agent_seen_at')or''),str(by_sid[row_sid].get('agent_call_ended_at')or''))
+							if newest_active and newest_active>prev_turn_end:continue
+						by_sid[row_sid][status_key]=prev_existing[status_key]
 			sessions=list(by_sid.values());existing_entry_ids={str(item.get('id')or'')for item in entries if item.get('id')};seen_wakes=ack_wakes.get(f"{sid}:history");seen_wake_set={str(x)for x in seen_wakes if x}if isinstance(seen_wakes,list)else set();seen_entries=ack_wakes.get(f"{sid}:entries")
 			if isinstance(seen_entries,list):seen_wake_set.update(str(x)for x in seen_entries if x)
 			prev_ack=ack_wakes.get(sid)
@@ -3181,8 +3211,11 @@ class Store:
 			body=payload.get('payload')
 			if not isinstance(body,dict):body={'text':str(body)}if body is not None else{}
 			if not body:body={k:v for(k,v)in payload.items()if k not in{'action','type','id','session_id','board_id','from_owner','note_id','mention_target','to','repo','branch','at','seen_at','acknowledged_at','ack_type','ack_text','ack_edited_at','replies','payload','file'}}
-			entry_text=str(payload.get('text')or body.get('text')or body.get('summary')or'')
+			entry_text=str(payload.get('text')or payload.get('body')or payload.get('message')or body.get('text')or body.get('body')or body.get('message')or body.get('summary')or'')
 			if entry_text and'text'not in body and not body.get('tag'):body['text']=entry_text
+			if body.get('text'):body.pop('body',None);body.pop('message',None)
+			tag_value=str(payload.get('tag')or body.get('tag')or'').strip()
+			if not entry_text.strip()and not tag_value and staged_file is None:raise ValueError('Board post requires non-empty text, a tag, or a file attachment')
 			raw_to=str(payload.get('to')or'*');resolved_to='*'if raw_to=='*'else resolve_board_target(raw_to,sessions,allowed=allowed,main_sid=main_sid);mention_target='';raw_mention=str(payload.get('mention_target')or'').strip()
 			if raw_mention:mention_target=resolve_board_target(raw_mention,sessions,allowed=allowed,main_sid=main_sid)
 			if not mention_target and entry_text:
@@ -3618,7 +3651,7 @@ class Store:
 		with self.transaction(autosave=False)as db:
 			db.execute("UPDATE fetch_jobs SET status = 'queued', claim = NULL, lease_until = NULL, error = 'Browser stopped; queued again', updated_at = ? WHERE status = 'fetching' AND approval = 'approved' AND lease_until <= ?",(stamp,stamp));row=db.execute("SELECT id FROM fetch_jobs WHERE status = 'queued' AND approval = 'approved' ORDER BY seq LIMIT 1").fetchone()
 			if row is None:return None
-			job_id=row['id'];claim=secrets.token_urlsafe(24);lease=(datetime.now(timezone.utc)+FETCH_LEASE).isoformat();db.execute("UPDATE fetch_jobs SET status = 'fetching', claim = ?, lease_until = ?, error = NULL, updated_at = ? WHERE id = ?",(claim,lease,stamp,job_id));row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
+			job_id=row['id'];claim=secrets.token_urlsafe(24);lease=(datetime.now(UTC)+FETCH_LEASE).isoformat();db.execute("UPDATE fetch_jobs SET status = 'fetching', claim = ?, lease_until = ?, error = NULL, updated_at = ? WHERE id = ?",(claim,lease,stamp,job_id));row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
 		return fetch_row(row,self.path.parent)|{'claim':claim}
 	def claimed_fetch(self,db,job_id,claim):
 		identifier(job_id);row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
@@ -3626,7 +3659,7 @@ class Store:
 		if row['status']!='fetching'or row['approval']!='approved'or not isinstance(claim,str)or not secrets.compare_digest(row['claim']or'',claim)or not row['lease_until']or row['lease_until']<=now():raise FetchChanged('Download claim expired; refresh the queue and try again')
 		return row
 	def renew_fetch(self,job_id,claim):
-		with self.transaction(autosave=False)as db:self.claimed_fetch(db,job_id,claim);lease=(datetime.now(timezone.utc)+FETCH_LEASE).isoformat();db.execute('UPDATE fetch_jobs SET lease_until = ? WHERE id = ?',(lease,job_id));row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
+		with self.transaction(autosave=False)as db:self.claimed_fetch(db,job_id,claim);lease=(datetime.now(UTC)+FETCH_LEASE).isoformat();db.execute('UPDATE fetch_jobs SET lease_until = ? WHERE id = ?',(lease,job_id));row=db.execute('SELECT * FROM fetch_jobs WHERE id = ?',(job_id,)).fetchone()
 		return fetch_row(row,self.path.parent)
 	def fail_fetch(self,job_id,claim,error):
 		message=str(error).strip()[:1000]or'The browser could not fetch this URL'
@@ -3874,7 +3907,7 @@ class Store:
 		if not record:return None
 		stamp=import_stamp(record['at'])
 		if stamp is None:return None
-		if(datetime.now(timezone.utc)-stamp).total_seconds()<AGENT_KEY_EXPIRY_SECONDS:return None
+		if(datetime.now(UTC)-stamp).total_seconds()<AGENT_KEY_EXPIRY_SECONDS:return None
 		if self.meta_value(AGENT_KEY_EXPIRY_META)==record['at']:return None
 		self.set_meta(AGENT_KEY_EXPIRY_META,record['at']);return self.note(self.free_id(),f"The recorded agent key expired (set {record['at']}). Run `arena-preview key` for the live key; a new post overwrites this record by itself.",quiet=True)
 	def agent_key(self):
@@ -4142,7 +4175,7 @@ class Store:
 			for table in('notes','reports','submissions','tasks','uploads','fetch_jobs'):counts[table]=db.execute(f"SELECT count(*) FROM {table}").fetchone()[0];db.execute(f"DELETE FROM {table}")
 			kept=db.execute('SELECT key, value FROM meta WHERE key IN (?, ?)',(AGENT_KEY_META,'port')).fetchall();db.execute('DELETE FROM meta')
 			for(key,value)in kept:db.execute('INSERT INTO meta VALUES (?, ?)',(key,value))
-			db.execute("INSERT OR REPLACE INTO meta VALUES (?, '1')",(CLEARED_META,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(FORCE_SAVE_META,str(uuid.uuid4())))
+			db.execute("INSERT OR REPLACE INTO meta VALUES (?, '1')",(CLEARED_META,));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(CLEARED_AT_META,clip_stamp(now())));db.execute('INSERT OR REPLACE INTO meta VALUES (?, ?)',(FORCE_SAVE_META,str(uuid.uuid4())))
 		return counts
 	def state_usage(self):return state_dir_usage(self.path.parent)
 	def clean_state(self,dry_run=False):

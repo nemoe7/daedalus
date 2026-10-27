@@ -148,7 +148,7 @@
 
 ## Style
 
-- `nemoe7` repos: 2-space indent beats formatter defaults; Markdown: markdownlint defaults + MD060, MD013 off; Python: Ruff defaults in project `pyproject.toml` when suitable, else `ruff.toml`, with only AGENTS.md conventions until flagged; create missing config exactly before gates; run `ruff format` before other local gates, and gates `ruff check`/`ruff format` with no CLI overrides.
+- `nemoe7` repos: 2-space indent beats formatter defaults; Markdown: markdownlint defaults + MD060, MD013 off; Python: Ruff defaults in `pyproject.toml` (else `ruff.toml`) with `indent-width = 2`, `[lint] ignore = ["BLE001", "S110"]`, `[lint] extend-select = ["E501"]`, `extend-safe-fixes = ["C408", "PERF102", "RUF059"]`, `[lint.pycodestyle] max-line-length = 120`, `required-version = "0.17.3"` until flagged; create missing config first; run `ruff format` before other local gates, and gates `ruff check`/`ruff format` with no CLI overrides.
 - Add code/config comments ONLY when method complexity needs them.
 
 ## Git
@@ -184,7 +184,7 @@
 - UI work: verify via screenshots from that pinned Chromium package; read rendered result before counting landed; when `nuu` is available and used for a UI task or audit, embed its screenshots, including before-and-after images, in the published report for user review.
 - Install repo tooling (deps, venvs) via `arena-preview run start` after the visibility question and before the first `poll` or `read` so the install runs detached without blocking a task; reserve `start_process` for the steering preview and demos/presentations.
 - Start each local gate on a stable tree; NEVER edit its covered root files while it runs. A remote PR CI watch does not freeze the working tree.
-- Freeze = root tree only: queued other-file tasks start worktrees (`arena-preview worktree start`) during root gates; NEVER wait read-only.
+- Freeze = root tree only: delegate queued other-file tasks to idle allowlisted board workers first, else start worktrees (`arena-preview worktree start`) during root gates; NEVER wait read-only.
 - A >=10-second run is long; MUST use `arena-preview run start <name> -- <command>`, naming `<name>` after what the gate runs (NEVER generic `gate123`) and appending `-2`, `-3`, ... on retries.
 - NEVER sleep during a background gate.
 - Link each local gate to its task at run start; the live run owns the task's blocked state.

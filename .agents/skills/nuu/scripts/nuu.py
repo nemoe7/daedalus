@@ -11,14 +11,14 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 import urllib.parse
 import urllib.request
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html.parser import HTMLParser
 from pathlib import Path
 
-import tomllib
 from annotate import (
   annotate_image,
   build_board,
@@ -1371,7 +1371,7 @@ def main(argv=None):
     result = {
       "tool": args.command,
       "version": VERSION,
-      "timestamp": datetime.now(timezone.utc).isoformat(),
+      "timestamp": datetime.now(UTC).isoformat(),
       **result,
     }
     serialized = json.dumps(result, ensure_ascii=False, indent=2) + "\n"

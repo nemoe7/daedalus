@@ -2,7 +2,7 @@
 name: arena-skill
 description: Steer an Arena.ai agent mid-turn through a local preview inbox, publish rendered Markdown reports, and reach data outside the sandbox through the owner's proxy backend. Use in Arena Agent Mode when the user wants steering or a report, ARENA.md requires it, or the sandbox cannot reach a needed source. NEVER USE THIS SKILL OUTSIDE OF ARENA.AI.
 license: MIT
-compatibility: Arena.ai Agent Mode, Python 3.10+, persisted workspace and long-lived process tools; serve needs markdown-it-py.
+compatibility: Arena.ai Agent Mode, Python 3.11+, persisted workspace and long-lived process tools, and serve needs markdown-it-py.
 ---
 
 # Arena Skill
@@ -141,7 +141,7 @@ Coordinate allowlisted sessions across tabs through `GET /api/board` and `POST /
 - Only allowlisted sessions can post entries, stage file attachments under `board-files/<session_id>/`, or update heartbeats.
 - When `main_session_id` names a main session, non-main worker sessions hand off findings through the board instead of committing or pushing.
 - Worker sessions load WORKER.md in their bible. NEVER paste full reports into board posts; attach files or cite a report ID.
-- Main sessions MUST question worker behavior, code, and claims; NEVER take worker notes at face value.
+- Main sessions MUST question worker behavior, code, and claims; NEVER take worker notes at face value. With idle allowlisted workers, MUST delegate independent queued tasks via `worker-task` and `@worker` posts before local worktrees.
 - A wake stamp or a new board entry wakes `arena-preview poll` (`BOARD WAKE`) without arming `skip_poll`.
 
 ## Proxy access

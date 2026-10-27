@@ -13,10 +13,9 @@ import shutil
 import struct
 import subprocess
 import sys
+import tomllib
 import zlib
 from pathlib import Path
-
-import tomllib
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 COLORS = {
