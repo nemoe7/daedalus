@@ -308,13 +308,13 @@ When 2 entries match 1 model, the last entry in the file sets the key. A model k
 
 ### A wrong shape
 
-The dashboard reads the shape of each known key of a provider block. `api_key`, `api_base`, `api_type`, and `discovery_url` are
-strings, `client_keys`, `tier`, and `models` are mappings, and `hooks` and `exclude` are lists. `tier` holds a list of patterns for
-each tier name, and `client_keys` holds a string for each key name.
+The dashboard validates each known key in a provider block. `api_key`, `api_base`, `api_type`, and `discovery_url` hold
+strings, `client_keys`, `tier`, and `models` hold mappings, and `hooks` and `exclude` hold lists. `tier` maps each tier name to patterns,
+and `client_keys` maps each client key name to a string.
 
-The Providers page refuses a wrong shape with a 422 that names the key. A hand edit that leaves a
-wrong shape drops that key at load, with a log line that names the file and the key. The rest of the
-block stays.
+The Providers page refuses an invalid shape with HTTP 422 specifying that key. A hand edit with an
+invalid shape drops that key at load and logs both file and key. Remaining keys in that
+block stay.
 
 ### Client keys
 

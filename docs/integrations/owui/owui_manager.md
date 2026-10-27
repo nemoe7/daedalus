@@ -83,7 +83,7 @@ Text offsets count characters, not bytes. Paged text responses return `offset`, 
 
 - `read_file_content`, `read_knowledge_file`, `show_skill` (without `path`), `show_tool`, and `show_function` return JSON strings with character ranges and continuation fields.
 - `show_skill` with `path` returns line-oriented text with `offset` and `next_offset` capped to `max_output_bytes`.
-- `list_knowledge_bases`, `list_knowledge_files` (`tree=false`), `list_skills` (without `skill_id`), and `list_files` (without `filename`) fetch one API page. Pass `next_page` and `next_offset` until `null`.
-- `list_tools`, `list_functions`, and `list_skills` (with `skill_id`) page unpaged API lists locally via `offset` and `next_offset`.
-- `list_files` with `filename` sends API `skip` and `limit` without file bodies.
+- `list_knowledge_bases`, `list_knowledge_files` (`tree=false`), `list_skills` (without `skill_id`), and `list_files` (without `filename`) accept `page` and `offset`. Pass `next_page` and `next_offset` until `null`.
+- `list_tools`, `list_functions`, and `list_skills` (with `skill_id` and optional `path`) page unpaged API lists locally via `offset`, `max_results`, and `next_offset`.
+- `list_files` with `filename` accepts optional `path`, `offset`, and `max_results`, sending API `skip` and `limit` without file bodies.
 - `list_knowledge_files` includes directories on API page `1` and preserves breadcrumbs, while `tree=true` renders a depth- and node-bounded tree.

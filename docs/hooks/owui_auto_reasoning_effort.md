@@ -38,13 +38,13 @@ each tier above is 1 step up. The key of the model, or of its block, wins first.
 list that the catalog holds for the model applies, and a provider with no list keeps its coded
 default. The ladder stops at `high` and at the end of the list.
 
-A value of the client keeps the last word over that read. The tier of the conversation stays with the
-routing of `daedalus/auto`, so this file sets the level only.
+Client-supplied effort overrides that read. Conversation tier stays with
+`daedalus/auto` routing, so this hook sets reasoning effort only.
 
 | Event | The level |
 | --- | --- |
 | A new message | The read of the newest user turn and model turn |
-| A try again | 1 step above the level of the last answer, never below the value of the client |
+| A try again | 1 step above the prior answer level, never below client-supplied effort |
 | A try again after a model without reasoning | The read of the newest turns, with no step |
 | Any request, at the top | `high` |
 

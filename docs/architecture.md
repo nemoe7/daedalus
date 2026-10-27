@@ -207,7 +207,7 @@ Some limits start a cooldown with no 429. The longer of the two stays.
 
 | Cause | Cooldown end | Reason in the log |
 | --- | --- | --- |
-| An answer with 0 left of a day or month in its `x-ratelimit-*`, still delivered. | The reset header time, else the next 00:00 UTC or the next month start | `limit` |
+| An answer with 0 left of a day or month in its `x-ratelimit-*`, still delivered. | Reset header time, else next 00:00 UTC or next month start | `limit` |
 | The hourly OpenRouter check: 0 free requests left. The cooldown covers all `:free` models. | Next 00:00 UTC | `limit` |
 
 | Item | Value |
@@ -381,14 +381,14 @@ Transcription and images get a pool, because the answer of another model is stil
 A table change:
 
 1. Change the table in [`daedalus/store/schema.py`](../daedalus/store/schema.py) and the `CREATE TABLE` statement of its module.
-2. Make the step. The command is the same in cmd, PowerShell, and bash:
+2. Make the migration step. Commands match across cmd, PowerShell, and bash:
 
    ```text
    uv run alembic -c daedalus/store/alembic.ini upgrade head
    uv run alembic -c daedalus/store/alembic.ini revision --autogenerate -m "add a column"
    ```
 
-3. Read the new step, then run the tests. [`tests/store/test_migrations.py`](../tests/store/test_migrations.py) fails until the table, the statement, and the steps agree.
+3. Read the generated step and run tests. [`tests/store/test_migrations.py`](../tests/store/test_migrations.py) fails until schema, `CREATE TABLE`, and migrations agree.
 
 ## Performance
 

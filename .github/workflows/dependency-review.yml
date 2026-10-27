@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   review:
-    name: Review the PR
+    name: Review PR
     if: github.event_name == 'pull_request_target'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -41,7 +41,7 @@ jobs:
           fail-on-severity: moderate
 
   audit:
-    name: Audit the locked dependencies
+    name: Audit locked dependencies
     if: github.event_name != 'pull_request_target'
     runs-on: ubuntu-24.04
     timeout-minutes: 15

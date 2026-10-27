@@ -52,7 +52,7 @@ jobs:
           fetch-depth: 0
 
       - id: filter
-        name: Read the files changed since the last dev build
+        name: Read files changed since last dev build
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -134,7 +134,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Pin the tested commit
+      - name: Pin tested commit
         env:
           EXPECTED: ${{ github.event.workflow_run.head_sha || github.sha }}
         shell: bash
@@ -190,7 +190,7 @@ jobs:
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=dev-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=dev-${{ matrix.arch }}
-      - name: Export the Digest
+      - name: Export Digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         shell: bash
@@ -255,7 +255,7 @@ jobs:
           tags: |
             type=raw,value=dev
             type=raw,value=${{ steps.dev.outputs.version }}
-      - name: Create the Manifest
+      - name: Create Manifest
         working-directory: /tmp/digests
         env:
           IMAGE: ghcr.io/${{ github.repository }}
@@ -466,7 +466,7 @@ jobs:
           outputs: type=image,name=ghcr.io/${{ github.repository }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=release-${{ matrix.arch }}
           cache-to: type=gha,mode=max,scope=release-${{ matrix.arch }}
-      - name: Export the Digest
+      - name: Export Digest
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
         shell: bash
@@ -514,7 +514,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.release.outputs.tag }}
             type=raw,value=latest
-      - name: Create the Manifest
+      - name: Create Manifest
         working-directory: /tmp/digests
         env:
           IMAGE: ghcr.io/${{ github.repository }}

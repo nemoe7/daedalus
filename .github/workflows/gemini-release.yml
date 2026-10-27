@@ -56,12 +56,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Check Out Trusted Workflow Sources
+      - name: Checkout Trusted Workflow Sources
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Set Up Python
+      - name: Install Python
         uses: actions/setup-python@v7
         with:
           python-version: '3.11'

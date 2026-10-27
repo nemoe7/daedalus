@@ -154,9 +154,9 @@ A successful **CI** run on `main` starts the `Docker` workflow in [`.github/work
 | Manual dev image build | Run **Docker** in the Actions tab and select `dev`. |
 | Use the dev image | Use the [platform installer](../README.md#quick-start) with `--dev` without the source, or set `image: ghcr.io/nemoe7/daedalus:dev` in [`compose.yml`](../compose.yml). |
 
-The dev image tracks `main`. Its code has no review. Run it for new-commit checks, not for a
-release. `DAEDALUS_DEV_IMAGE` and `DAEDALUS_DEV_PULL` change the image and the pull policy, and
-`DAEDALUS_VERSION` is the version under the logo.
+The dev image tracks `main`, and commits land without release review. Run it for new-commit checks, not for a
+release. `DAEDALUS_DEV_IMAGE` and `DAEDALUS_DEV_PULL` change the image and pull policy, and
+`DAEDALUS_VERSION` sets the version under the logo.
 
 ## Optional services
 

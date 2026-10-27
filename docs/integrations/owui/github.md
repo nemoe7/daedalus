@@ -72,6 +72,7 @@ Confirmations travel over the active tab WebSocket. Because Open WebUI leaves `W
 Text offsets count characters, not bytes. Paged text responses return `offset`, `next_offset`, `total_chars`, and `truncated`, where `null` `next_offset` marks completion.
 
 - `list_repositories` returns compact summaries with IDs, URLs, default branches, and permissions. Pass `next_offset` as `page_offset` with constant `page_size`.
+- `list_tree` accepts `path`, `max_depth` (default `3`), `offset`, and `limit` (default `200`). Pass `next_offset` until `null` when `truncated` is `true`.
 - `search_github` (`repositories`, `issues`, and `prs` scopes) returns `next_page`, stops at GitHub's 1,000-result cap, and sets `search_limited` when results exceed `1000`.
 - `list_commits` and `search_github(scope="commits")` return compact 200-character subjects (`message_truncated` marks trimmed messages) with `page` and `per_page`.
 - `fetch_github_file(blob_sha=...)` and `fetch_github_url` accept `offset` and `max_chars`, shrinking ranges automatically to fit `max_output_bytes`.

@@ -29,11 +29,11 @@ flowchart LR
 | `reasoning` | `supports_reasoning` |
 | `modalities.input`, `attachment` | `["text", "image"]` and `true`, when `supports_vision` is `true` |
 
-The plugin changes each provider that has the id `daedalus` or a `daedalus/` model. It uses the
-`baseURL` of the provider. The key comes from the first of these:
+This plugin updates each provider with id `daedalus` or a `daedalus/` model using its
+`baseURL`. API keys resolve in order:
 
 1. `options.apiKey` of the provider
-2. The Kilo auth store: the key from the custom provider dialog
+2. Kilo auth store key from custom provider setup
 3. The `DAEDALUS_API_KEY` variable
 
 ## Install

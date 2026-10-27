@@ -89,7 +89,7 @@ def test_docker_workflow_dev_job_publishes_dev_tags() -> None:
   assert "github.event.workflow_run.head_branch == 'main'" in content
   # The checkout uses a fixed trusted ref and only compares the commit from CI.
   assert "ref: main" in content
-  assert "Pin the tested commit" in content
+  assert "Pin tested commit" in content
   assert "type=raw,value=dev\n" in content
   assert "type=raw,value=${{ steps.dev.outputs.version }}" in content
   assert "build-args: VERSION=${{ steps.dev.outputs.version }}" in content
@@ -314,7 +314,7 @@ def test_docker_workflow_pin_step_checks_out_tested_main_ancestor(
   pin_script = next(
     item["run"]
     for item in data["jobs"]["dev"]["steps"]
-    if item.get("name") == "Pin the tested commit"
+    if item.get("name") == "Pin tested commit"
   )
 
   repo = tmp_path / "repo"

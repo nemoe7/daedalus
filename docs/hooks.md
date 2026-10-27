@@ -35,7 +35,7 @@ Each item has 1 hook surface and 1 file path. The path starts in the [`config`](
 
 ## Hook surfaces
 
-For each surface, the file defines 1 function with the name of the surface.
+For each surface, the file defines 1 function matching that surface name.
 
 The first chart follows a chat request. The second shows the catalog build, dashboard load, and a hook call.
 
@@ -254,9 +254,9 @@ daedalus reads a file again when its file time changes. A restart is not necessa
 
 For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. A hook can also keep data in its own file, such as `cheapest_output.json`.
 
-The dashboard edits the `hooks` list of a model or a provider. The Hooks card of the Settings page names the
-folder, sources, and files that load. Only update writes a hook file, and it writes to the folder
-of `hooks.dir`. The Delete button deletes the file, its lock record, and its settings entries.
+The dashboard edits `hooks` lists on models and providers. Settings > Hooks lists the
+folder, sources, and loaded files. Only update writes a hook file, writing inside
+`hooks.dir`. Delete removes the file, its lock record, and its settings entries.
 
 A hook runs inside the daedalus process, with all its access.
 
@@ -359,7 +359,7 @@ docker exec daedalus-api daedalus hooks verify
 
 ## The Settings page
 
-The Hooks card of the Settings page holds the folder, the sources, and 1 switch per installed file. It lists the active candidates of each surface, and its arrows set their order without changing their scopes. `Check for updates` reads the same sources as `daedalus hooks update`, and names the old version and the new version of each file that moved. `+ Add source` opens 1 modal for the repo URL.
+Settings > Hooks holds the folder, sources, and 1 switch per installed file. It lists active candidates per surface, and its arrows reorder them without changing scopes. `Check for updates` reads `hooks.sources` like `daedalus hooks update` and shows old and new versions of updated files. `+ Add source` opens 1 modal for a repo URL.
 
 The scan then lists the files of that repo, each with its own switch, so the operator takes some files and leaves the rest.
 

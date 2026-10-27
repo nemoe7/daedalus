@@ -40,10 +40,10 @@ jobs:
           persist-credentials: false
       - uses: docker/setup-buildx-action@v4.4.1
 
-      - name: Build the image
+      - name: Build image
         run: docker build --tag daedalus:scan .
 
-      - name: Scan the image
+      - name: Scan image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: daedalus:scan
@@ -66,10 +66,10 @@ jobs:
           persist-credentials: false
       - uses: docker/setup-buildx-action@v4.4.1
 
-      - name: Build the image
+      - name: Build image
         run: docker build --tag daedalus:scan .
 
-      - name: Scan the image
+      - name: Scan image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: daedalus:scan
@@ -79,7 +79,7 @@ jobs:
           exit-code: "0"
           ignore-unfixed: true
 
-      - name: Upload the SARIF report
+      - name: Upload SARIF report
         uses: github/codeql-action/upload-sarif@v4.39.1
         with:
           sarif_file: trivy.sarif

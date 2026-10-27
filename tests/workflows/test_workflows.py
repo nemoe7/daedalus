@@ -295,9 +295,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
     workflow = load("pr-check.yml")
     assert "pull_request_target" in workflow["on"]
     body_steps = workflow["jobs"]["body"]["steps"]
-    command = next(
-      s["run"] for s in body_steps if s.get("name") == "Check the description"
-    )
+    command = next(s["run"] for s in body_steps if s.get("name") == "Check description")
     commands = (
       shlex.split(command)[1:],
       ["scripts/check_pr.py", "--pr-title", "invalid subject"],
@@ -338,7 +336,7 @@ def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
   command = next(
     step["run"]
     for step in data["jobs"]["body"]["steps"]
-    if step.get("name") == "Check the description"
+    if step.get("name") == "Check description"
   )
   assert command == "python3 scripts/check_pr.py --body-file pr-body.md"
   # The vendored linter runs on the runner Python. No skill install, no new package.

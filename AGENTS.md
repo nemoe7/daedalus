@@ -47,19 +47,18 @@ An ADR holds one decision and the reason for it.
 ## Human-facing text
 
 - Lint every human-facing file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations, advisory findings included.
-- Lint Python comments, docstrings, and page paragraphs with `scripts/lint_prose.py`.
-- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. Each run must report 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
+- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`, and require 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
 - Review every human-facing edit to `AGENTS.md` with `.agents/skills/nemoizer/SKILL.md`.
 - Run `.agents/skills/nemoizer/scripts/nemoizer AGENTS.md` after each edit. Each run must report 0 violations.
 - Docs never hold narrative. State facts, and leave out story text.
 - Use lists and tables. Humans read this text, not models.
 - Write at most four sentences in a paragraph, and keep only one core idea.
-- Give each subject its own short section. State what it does, where it runs, what it writes, and which config names it reads. Do not write a wall of text.
+- Give each subject its own short section stating what it does, where it runs, what it writes, and which config keys it reads. Do not write a wall of text.
 
 ## Docs workflow
 
 - Write only facts that code or a primary source shows.
-- For each point that needs owner words or an owner decision, add a `> Q:` line with that question. Owner input supplies the answer. Keep that question until an answer arrives.
+- For each point that needs owner words or an owner decision, add a `> Q:` line with that question. Keep that question until owner input supplies the answer.
 - Use a neutral voice. Do not add a claim, an opinion, or a promise without owner approval.
 - Lint each changed file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations.
 - Show each command for cmd, PowerShell, and bash. Use Mermaid for diagrams.
@@ -75,7 +74,7 @@ An ADR holds one decision and the reason for it.
 
 - A new page uses `.flow` in `style.css`. Put its table in `.column.wide`, and put cards in `.column` beside it.
 - Do not put cards in a row above a table.
-- Reuse an existing shared UI component before adding page-specific markup, behavior, or CSS. When no component fits and the same contract has at least two current callers, add one shared component. Migrate those callers in the same change. Keep one-off domain UI local.
+- Reuse an existing shared UI component before adding page-specific markup, behavior, or CSS. When no component fits and at least two callers share the contract, add one shared component and migrate those callers, keeping one-off UI local.
 - For each new UI component, reuse a suitable key in `daedalus/dashboard/ui/en.js` or add a semantic key. Do not add an English fallback in the component.
 - Update the local demo in `scripts/pages_demo.py` when code or UI changes.
 - Keep the demo local on port 8001. Do not claim a public Pages deployment.

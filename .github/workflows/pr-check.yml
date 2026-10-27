@@ -20,7 +20,7 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Check the title
+      - name: Check title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: python3 scripts/check_pr.py --pr-title "$PR_TITLE"
@@ -34,13 +34,13 @@ jobs:
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
-      - name: Write the description
+      - name: Write description
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$BODY" > pr-body.md
-      - name: Check the description
+      - name: Check description
         run: python3 scripts/check_pr.py --body-file pr-body.md
-      - name: Check the linter itself
+      - name: Check linter
         run: python3 .agents/skills/nemoizer/scripts/nemoizer --selftest
 
   commits:
@@ -53,13 +53,13 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Read the pinned PR objects
+      - name: Read pinned PR objects
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD"
-      - name: Write the description
+      - name: Write description
         env:
           BODY: ${{ github.event.pull_request.body }}
         run: printf '%s' "$BODY" > pr-body.md
@@ -79,13 +79,13 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Read the pinned PR objects
+      - name: Read pinned PR objects
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: python3 scripts/pr_snapshot.py "$PR_NUMBER" "$PR_HEAD"
-      - name: Check the version of each changed module
+      - name: Check version of each changed module
         env:
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}

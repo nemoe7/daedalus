@@ -24,7 +24,7 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 ## Kilo
 
 1. Go to <https://app.kilo.ai> and sign in, or create an account.
-2. Open the **API Key** section at the bottom of the dashboard.
+2. Open **API Key** at the bottom of the dashboard.
 3. Copy the key.
 
 ## Mistral
