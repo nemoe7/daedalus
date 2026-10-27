@@ -377,6 +377,46 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
   expect(modelsTabBaselineDelta).toBeLessThanOrEqual(0.2);
   await expect(page.locator("#requests-legend")).toBeVisible();
   await expect(page.locator("#legend-open")).toBeHidden();
+  await page.evaluate(() => {
+    const baseFetch = window.fetch.bind(window);
+    const now = Date.now() / 1000;
+    const rows = [
+      {
+        at: now - 2,
+        status: 499,
+        seconds: 4.913,
+        app: "OWUI",
+        session: "s-cancel",
+        key: "master",
+        model: "daedalus/deinos",
+        via: "daedalus/deinos",
+        ttft: null,
+        stream: true,
+        fallbacks: 0,
+      },
+    ];
+    window.fetch = (input, init = {}) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (url.includes("ui/api/requests")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(rows), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          }),
+        );
+      }
+      return baseFetch(input, init);
+    };
+  });
+  await page.locator("#live-toggle").click();
+  await page.locator("#live-toggle").click();
+  await page.locator(".requests tr.request.has-chain").first().click();
+  await expect(page.locator("#chain-modal")).toBeVisible();
+  const chainListStyle = await page.evaluate(
+    () => getComputedStyle(document.querySelector("#chain-modal ol")).listStyleType,
+  );
+  expect(chainListStyle).toBe("none");
+  await page.keyboard.press("Escape");
 
   await open(page, "#/requests", 960, 900);
   const requestsAt960 = await page.evaluate(() => {

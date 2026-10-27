@@ -2166,6 +2166,11 @@ def test_the_fallback_chain_opens_in_a_modal() -> None:
   assert ".chain-modal .chain-body { width: auto;" in css, (
     "the chain body spans the dialog"
   )
+  desktop_css = css.split("@media (max-width:", 1)[0]
+  assert (
+    ".chain ol, .chain-modal ol { list-style: none;" in desktop_css
+    and '<span class="num">${i + 1}.</span>' in app
+  ), "desktop chain modal suppresses native ol markers to avoid duplicate step numbers"
 
 
 def test_keys_page_holds_its_labels_on_one_line() -> None:

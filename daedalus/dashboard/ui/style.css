@@ -582,8 +582,8 @@ tr.live-row td { background: var(--field); }
 .chain-modal { max-width: min(640px, calc(100vw - 32px)); }
 .chain-modal .chain-body { width: auto; min-width: 0; }
 .step b { overflow-wrap: anywhere; }
-.chain-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-.chain ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.chain-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; }
+.chain ol, .chain-modal ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .step { font-size: 13px; }
 .step .result { font-weight: 600; margin-left: 6px; }
 .step.good .result { color: var(--ok); }
