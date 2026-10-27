@@ -74,6 +74,7 @@ extend-exclude = [
   ".github/workflows/gemini_release.py",
   "daedalus/routing/classifier.py",
   "daedalus/routing/artifacts",
+  "daedalus/dashboard/ui/gsap.min.js",
   "daedalus/dashboard/ui/icons",
   "*.json",
   "*.webmanifest",

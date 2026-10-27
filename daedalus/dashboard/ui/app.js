@@ -65,7 +65,7 @@ const stamp = (seconds) => {
 const plural = (number, one, other, values = {}) =>
   t(number === 1 ? one : other, { count: number, ...values });
 
-const mobileTime = () => typeof matchMedia === "function" && matchMedia("(max-width: 40em)").matches;
+const mobileTime = () => typeof matchMedia === "function" && matchMedia("(max-width: 30em)").matches;
 
 // Format relative time with localized full and mobile abbreviated labels.
 function relative(seconds, { compact = mobileTime(), now = Date.now() } = {}) {
@@ -127,7 +127,7 @@ function timeText(seconds, { tag = "span", variant = "" } = {}) {
 
 const state = {
   models: [], tier: "All", mode: "all", sort: { key: "", dir: 1 }, files: [], file: 0, fileOpen: false,
-  providerReturnKey: "", saved: [], timers: [], chainAt: null,
+  providerReturnKey: "", saved: [], timers: [], chainAt: null, diffEvent: null,
   view: "form", forms: [], formSaved: [], overrideKeys: [], providerDefaults: {}, settingsView: "form",
   pools: [], requests: [], requestShown: REQUESTS_PAGE, requestLimit: REQUESTS_STEP, requestFetched: 0, requestLoading: false, keys: [], catalog: {},
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
@@ -431,25 +431,19 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
-// Mark the active view and header with loading state while calls remain active.
-// CSS delays the 2 px edge bar by 200 ms so fast calls complete without flashing.
+// Mark the active view with aria-busy while initial or background reads remain active.
 let calling = 0;
 const busyRegions = new Set();
 function showSpinner(on) {
-  const header = document.querySelector?.("#app > header");
   const active = document.querySelector?.("section[data-page]:not([hidden])");
   if (on) {
-    if (header?.dataset) header.dataset.loading = "true";
     if (active) {
-      if (active.dataset) active.dataset.loading = "true";
       active.setAttribute?.("aria-busy", "true");
       busyRegions.add(active);
     }
     return;
   }
-  if (header?.dataset) delete header.dataset.loading;
   for (const region of busyRegions) {
-    if (region.dataset) delete region.dataset.loading;
     region.setAttribute?.("aria-busy", "false");
   }
   busyRegions.clear();
@@ -493,12 +487,6 @@ async function call(path, options = {}) {
   }
 }
 
-// Draw placeholder rows during the first load.
-function skeletons(id, cols, rows = 3) {
-  $(id).innerHTML = Array.from({ length: rows }, () =>
-    `<tr class="skeleton" aria-hidden="true">${`<td><span></span></td>`.repeat(cols)}</tr>`).join("");
-}
-
 function showLogin(message = "") {
   state.timers.forEach(clearInterval);
   state.timers = [];
@@ -530,22 +518,53 @@ function showPassword(on) {
   button.title = label;
 }
 
+const MOTION_EASE = "power3.out";
+function reducedMotion() {
+  return typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+function tweenFromTo(target, fromVars, toVars, { duration = 0.18, clearProps = "opacity,transform" } = {}) {
+  const gs = globalThis.gsap;
+  if (!target || !gs || reducedMotion()) return;
+  gs.killTweensOf(target);
+  gs.fromTo(target, fromVars, {
+    duration,
+    ease: MOTION_EASE,
+    clearProps,
+    ...toVars,
+  });
+}
+
 // A read failure stays visible until the user closes it. A retry keeps the failure text.
 function showNotice(message) {
   $("notice-text").textContent = message || t("error.dashboard_unreachable_text");
   const note = $("notice");
   note.classList.remove("leave");
+  const wasHidden = note.hidden;
   note.hidden = false;
+  if (wasHidden) tweenFromTo(note, { opacity: 0, y: 6 }, { opacity: 1, y: 0 });
 }
 
 function closeNotice() {
   const note = $("notice");
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  const gs = globalThis.gsap;
+  if (!gs || reducedMotion()) {
     note.classList.remove("leave");
     note.hidden = true;
-  } else {
-    note.classList.add("leave");
+    return;
   }
+  note.classList.add("leave");
+  gs.killTweensOf(note);
+  gs.to(note, {
+    opacity: 0,
+    y: 8,
+    duration: 0.18,
+    ease: MOTION_EASE,
+    clearProps: "opacity,transform",
+    onComplete: () => {
+      note.classList.remove("leave");
+      note.hidden = true;
+    },
+  });
 }
 
 async function guarded(task) {
@@ -848,7 +867,7 @@ function openChain(at) {
     : t("request.chain.title");
   $("chain-modal-title").textContent = title;
   $("chain-modal-body").innerHTML = `<div class="chain-body">
-    <div class="chain-head"><span class="muted num">${esc(title)} \u00b7 ${esc(stamp(found.at))}</span>
+    <div class="chain-head"><span class="muted num">${esc(title)} \u00b7 ${timeText(found.at, { tag: "time" })}</span>
       ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
     ${raceNote(found)}${chainSteps(found)}
   </div>`;
@@ -1048,7 +1067,7 @@ function renderLive() {
   // Animate only new rows when the live group is redrawn.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell(t("request.column.time_column"), `<span class="pulse" aria-hidden="true"></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time_column"), `<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
@@ -1062,6 +1081,9 @@ function renderLive() {
       <td role="cell" class="hide-sm num">${mobileLabel(t("request.column.stream_column"))}<span class="cell-value"><span data-clock="stream"></span></span></td>
       ${fallbackCell(r, "hide-sm num muted", true)}
     </tr>`).join("");
+  for (const row of $("live").querySelectorAll?.("tr.live-row.arrive") ?? []) {
+    tweenFromTo(row, { opacity: 0, y: -4 }, { opacity: 1, y: 0 });
+  }
   state.liveSeen = new Set(rows.map((r) => r.id));
   tickLive();
 }
@@ -1255,8 +1277,8 @@ function renderRequestTable() {
   if (live !== state.liveCount) {
     state.liveCount = live;
     hint.classList.remove("bump");
-    void hint.offsetWidth;
     hint.classList.add("bump");
+    tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }, { duration: 0.2, clearProps: "opacity" });
   }
   queueRequestsFill();
 }
@@ -1344,9 +1366,12 @@ const ICON_PATHS = {
   cloud: '<path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />',
   sparkles: '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" /> <path d="M20 3v4" /> <path d="M22 5h-4" />',
   undo_2: '<path d="M9 14 4 9l5-5" /> <path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" />',
+  monitor: '<rect width="20" height="14" x="2" y="3" rx="2" /> <line x1="8" x2="16" y1="21" y2="21" /> <line x1="12" x2="12" y1="17" y2="21" />',
+  sun: '<circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" />',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />',
 };
 function icon(name) {
-  return `<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
+  return `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
 }
 // Flag chips use registered glyphs. A flag without a glyph keeps its text.
 const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
@@ -1535,7 +1560,7 @@ function sortModels(rows) {
 }
 
 function syncSortFocus() {
-  const phone = matchMedia("(max-width: 40em)").matches;
+  const phone = matchMedia("(max-width: 30em)").matches;
   const heads = [...document.querySelectorAll("#model-head th")];
   const small = $("sort-small");
   heads.forEach((th) => { th.querySelector("button").tabIndex = phone ? -1 : 0; });
@@ -1566,18 +1591,23 @@ const dash = '<span class="muted">-</span>';
 const DRAWN = new Map();
 // Animate each host only on its first data render.
 const DRAWN_SHOWN = new Set();
+function animateArrival(host) {
+  const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));
+  tweenFromTo(host, inPaneCard ? { opacity: 0 } : { opacity: 0, y: -4 }, inPaneCard ? { opacity: 1 } : { opacity: 1, y: 0 });
+}
 function firstDraw(host) {
   if (!host || DRAWN_SHOWN.has(host)) return;
   DRAWN_SHOWN.add(host);
   host.classList.add("drawn");
+  animateArrival(host);
 }
 // Replay the animation only for the selected host, not the surrounding page.
 function replay(host) {
   if (!host) return;
   host.classList.remove("drawn");
-  void host.offsetWidth;
   host.classList.add("drawn");
   DRAWN_SHOWN.add(host);
+  animateArrival(host);
 }
 function draw(id, markup) {
   const host = $(id);
@@ -1668,7 +1698,7 @@ function renderKeys(rows) {
     <tr>
       <td class="name" title="${esc(k.name)}">${esc(k.name)}</td>
       <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start_title")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
-      <td class="hide-sm muted">${stamp(k.created)}</td>
+      <td class="hide-sm muted num">${k.created ? timeText(k.created) : dash}</td>
       <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? timeText(k.used) : t("settings.keys.used_never_text")}</span></td>
       <td class="end">${actionButton(icon("trash"), {
         variant: "ghost danger",
@@ -2190,12 +2220,11 @@ async function takeHooks() {
 async function runHooksUpdate(button) {
   if (button) {
     button.disabled = true;
-    button.classList.add("checking");
     button.setAttribute?.("aria-busy", "true");
   }
   hooksNote(t("hook.state.updating_text"));
   try {
-    const answer = await call("hooks/update", { method: "POST" });
+    const answer = await call("hooks/update", { method: "POST", spinner: false });
     await loadSettings();
     const fails = updateFails(answer);
     hooksNote(fails ? "" : updateNote(answer));
@@ -2206,7 +2235,6 @@ async function runHooksUpdate(button) {
   } finally {
     if (button) {
       button.disabled = false;
-      button.classList.remove("checking");
       button.removeAttribute?.("aria-busy");
     }
   }
@@ -2613,8 +2641,8 @@ function playSlide(host, open) {
   const arriving = host.querySelector(open || !host.querySelector(":scope > .rail") ? ".section-pane" : ".rail");
   if (!arriving) return;
   arriving.classList.remove("slide", "slide-back");
-  void arriving.offsetWidth;
   arriving.classList.add(open ? "slide" : "slide-back");
+  tweenFromTo(arriving, { opacity: 0, x: open ? 14 : -14 }, { opacity: 1, x: 0 });
 }
 
 // Activate one section button and card. On phones, leave the list.
@@ -3250,7 +3278,7 @@ function placeUndo(anchor = null) {
   const row = writeRow(anchor);
   if (!row) return;
   // Put Undo between the label and control without moving the label or row.
-  const control = row.querySelector(".input, .pills, select, input");
+  const control = row.querySelector(".input, .pills, .theme-seg, select, input");
   if (control) row.insertBefore(lastWrite.button, control);
   else row.prepend(lastWrite.button);
 }
@@ -3269,7 +3297,7 @@ function placeSaveLine(anchor = null) {
     const text = document.createElement("span");
     text.className = "saved";
     line.append(text, lastWrite.button);
-    const control = row.querySelector(".input, .pills, select, input");
+    const control = row.querySelector(".input, .pills, .theme-seg, select, input");
     if (control) row.insertBefore(line, control);
     else row.prepend(line);
   }
@@ -3480,6 +3508,14 @@ const CHOICES = {
     ["12h", t("settings.time_format.hour12_option")],
   ],
 };
+const THEME_ICONS = { system: "monitor", light: "sun", dark: "moon" };
+function themeControlValue(node) {
+  if (!node) return "system";
+  if (typeof node.value === "string" && node.value) return node.value;
+  if (node.dataset?.themeValue) return node.dataset.themeValue;
+  const checked = node.querySelector?.('[role="radio"][aria-checked="true"]');
+  return checked?.dataset?.themeChoice || "system";
+}
 
 // System theme follows the device, including before login.
 const darkDevice = matchMedia("(prefers-color-scheme: dark)");
@@ -3572,6 +3608,21 @@ function renderSettings() {
         // Place the label and hint before the right-aligned switch.
         return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
           <input type="checkbox" role="switch" class="switch" id="${id}" ${setting(group, key) ? "checked" : ""}></label>`;
+      }
+      if (unit === "choice" && group === "personalization" && key === "theme") {
+        const activeTheme = setting(group, key);
+        return `<div class="field info" data-config-key="${esc(cfgKey)}">${labelSpan(label, hint)}
+          <div class="theme-seg" id="${id}" role="radiogroup" aria-label="${esc(label)}" data-theme-value="${esc(activeTheme)}">${CHOICES.theme.map(([name, text]) =>
+            actionButton(icon(THEME_ICONS[name]), {
+              attrs: {
+                role: "radio",
+                "data-theme-choice": name,
+                "aria-checked": activeTheme === name ? "true" : "false",
+                "aria-label": text,
+                title: text,
+                tabindex: activeTheme === name ? "0" : "-1",
+              },
+            })).join("")}</div></div>`;
       }
       if (unit === "choice") {
         return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
@@ -3698,7 +3749,7 @@ function settingsChanges() {
         value = input.checked;
         before = setting(group, key);
       } else if (unit === "choice") {
-        value = input.value;
+        value = group === "personalization" && key === "theme" ? themeControlValue(input) : input.value;
         before = setting(group, key);
       } else if (unit === "name") {
         value = input.value.trim() || null;
@@ -3773,15 +3824,21 @@ async function saveSettings(keepForm = false) {
     return clearWrite("settings");
   }
   const text = $("settings-editor")?.value ?? "";
-  const body = state.settingsView === "yaml" ? { text } : { changes: settingsChanges() };
+  const changes = state.settingsView === "yaml" ? null : settingsChanges();
+  const body = state.settingsView === "yaml" ? { text } : { changes };
   rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
   try {
-    await call("settings", { method: "PUT", body: JSON.stringify(body) });
+    await call("settings", { method: "PUT", body: JSON.stringify(body), spinner: false });
     await loadSettings({ render: !keepForm });
     clearWrite("settings");
     placeSaveLine();
     refresh();
   } catch (error) {
+    if (changes) {
+      applyTheme(setting("personalization", "theme"));
+      applyTimeFormat(setting("personalization", "time_format"));
+      if (keepForm) renderSettings();
+    }
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
   }
@@ -3816,8 +3873,7 @@ async function refreshFast({ fresh = false } = {}) {
       if (requestPages.size >= REQUEST_PAGES) requestPages.delete(requestPages.keys().next().value);
       requestPages.set(nextKey, rows.value);
     }
-    const hadSkeleton = Boolean($("requests")?.innerHTML?.includes("skeleton"));
-    if (rememberJson("requests", rows.value, fresh) || hadSkeleton) {
+    if (rememberJson("requests", rows.value, fresh)) {
       state.requests = split;
       state.requestFetched = rows.value.length;
       renderRequestTable();
@@ -4115,7 +4171,10 @@ function diffModel(text, kind = "") {
 
 // Display the rebuild diff with one line per added, removed, or moved model.
 function openDiffModal(event) {
-  $("model-modal-title").textContent = `${event.reason} \u00b7 ${stamp(event.at)}`;
+  state.diffEvent = event;
+  const titleNode = $("model-modal-title");
+  titleNode.textContent = `${event.reason} \u00b7 ${relative(event.at)}`;
+  titleNode.title = stamp(event.at);
   const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
     event[key].map((text) => [kind, mark, text]));
   $("model-modal-body").innerHTML = lines.length
@@ -4254,8 +4313,7 @@ async function refreshSlow({ fresh = false } = {}) {
     refreshKeys(),
   ]);
   const poolsChanged = rememberJson("pools", pools, fresh);
-  const hadSkeleton = Boolean($("models")?.innerHTML?.includes("skeleton"));
-  const modelsChanged = rememberJson("models", models, fresh) || hadSkeleton;
+  const modelsChanged = rememberJson("models", models, fresh);
   const limitsChanged = rememberJson("limits", limits, fresh);
   const notesChanged = rememberJson("notifications", notifications, fresh);
   state.pools = pools;
@@ -4287,8 +4345,8 @@ async function start() {
   fitSectionPane();
   markCardScrollEdges();
   setStateKnown(null);
-  skeletons("requests", 13);
-  skeletons("models", 9);
+  if (!state.requests.length) renderRequestTable();
+  if (!state.models.length) renderModels();
   await refreshFast();
   await refreshSlow();
   takeFiles(await call("files"));
@@ -4333,18 +4391,19 @@ $("login").addEventListener("submit", async (event) => {
 
 $("limits-check").addEventListener("click", async () => {
   const button = $("limits-check");
+  const prevLimits = state.limits;
   button.disabled = true;
-  button.classList.add("checking");
   button.setAttribute?.("aria-busy", "true");
   $("limits-message").textContent = "";
+  if (prevLimits) renderLimits({ ...prevLimits, checked: Date.now() / 1000 });
   try {
     renderLimits(await call("limits", { method: "POST", spinner: false }));
   } catch (error) {
+    if (prevLimits) renderLimits(prevLimits);
     if (error instanceof LoggedOut) return showLogin();
     $("limits-message").textContent = error.message;
   } finally {
     button.disabled = false;
-    button.classList.remove("checking");
     button.removeAttribute?.("aria-busy");
   }
 });
@@ -4358,19 +4417,26 @@ $("notification-feed").addEventListener("click", (event) => {
 $("settings").addEventListener("click", async (event) => {
   const button = event.target.closest("#update-check");
   if (button) {
+    const prevUpdate = state.notifications?.update;
     button.disabled = true;
-    button.classList.add?.("checking");
     button.setAttribute?.("aria-busy", "true");
+    if (prevUpdate) {
+      state.notifications = { ...(state.notifications || {}), update: { ...prevUpdate, checked: Date.now() / 1000 } };
+    }
     try {
-      const result = await call("updates", { method: "POST" });
+      const result = await call("updates", { method: "POST", spinner: false });
       state.notifications = { ...(state.notifications || {}), update: result };
       const card = $("settings").querySelector("#update-card");
       if (card) card.outerHTML = maintenanceCard();
     } catch (error) {
+      if (prevUpdate) {
+        state.notifications = { ...(state.notifications || {}), update: prevUpdate };
+        const card = $("settings").querySelector("#update-card");
+        if (card) card.outerHTML = maintenanceCard();
+      }
       if (error instanceof LoggedOut) return showLogin();
     } finally {
       button.disabled = false;
-      button.classList.remove?.("checking");
       button.removeAttribute?.("aria-busy");
       if (!button.innerHTML) button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
     }
@@ -4431,14 +4497,24 @@ $("settings").addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = $("key-message");
   message.textContent = "";
+  const enteredName = $("key-name").value.trim();
+  const previousKeys = [...(state.keys ?? [])];
+  if (enteredName && !previousKeys.some((item) => item.name === enteredName)) {
+    state.keys = [{ name: enteredName, start: null, created: Date.now() / 1000, used: null }, ...previousKeys];
+    renderKeys(state.keys);
+    renderOverview();
+  }
   try {
-    const made = await call("keys", { method: "POST", body: JSON.stringify({ name: $("key-name").value }) });
+    const made = await call("keys", { method: "POST", body: JSON.stringify({ name: $("key-name").value }), spinner: false });
     $("key-name").value = "";
     $("reveal-name").textContent = made.name;
     $("reveal-key").textContent = made.key;
     $("reveal").hidden = false;
     guarded(refreshKeys);
   } catch (error) {
+    state.keys = previousKeys;
+    renderKeys(state.keys);
+    renderOverview();
     if (error instanceof LoggedOut) return showLogin();
     message.textContent = error.message;
   }
@@ -4464,9 +4540,20 @@ $("settings").addEventListener("click", async (event) => {
   if (!button) return;
   const name = button.dataset.key;
   if (!(await ask(t("dialog.delete_key.title"), t("dialog.delete_key.message", { name }), t("action.delete_button"), true))) return;
+  const previousKeys = [...(state.keys ?? [])];
+  state.keys = previousKeys.filter((item) => item.name !== name);
+  renderKeys(state.keys);
+  renderOverview();
   await guarded(async () => {
-    await call("keys/" + encodeURIComponent(name), { method: "DELETE" });
-    await refreshKeys();
+    try {
+      await call("keys/" + encodeURIComponent(name), { method: "DELETE", spinner: false });
+      await refreshKeys();
+    } catch (error) {
+      state.keys = previousKeys;
+      renderKeys(state.keys);
+      renderOverview();
+      throw error;
+    }
   });
 });
 // Apply Requests filters without a server call.
@@ -4531,13 +4618,6 @@ $("notice-retry").addEventListener("click", () => {
 });
 $("notice-close").addEventListener("click", () => {
   closeNotice();
-});
-// Hide the note after its exit animation. A new failure interrupts the animation.
-$("notice").addEventListener("animationend", (event) => {
-  if (event.animationName !== "leave") return;
-  const note = $("notice");
-  note.classList.remove("leave");
-  note.hidden = true;
 });
 
 $("requests").addEventListener("click", (event) => {
@@ -4827,7 +4907,7 @@ function keepSettingsScroll(at) {
 }
 
 function fitSectionPane() {
-  const wide = !matchMedia("(max-width: 60em)").matches && !matchMedia("(max-height: 30em)").matches;
+  const wide = !matchMedia("(max-width: 60em)").matches && !matchMedia("(max-height: 24em)").matches;
   const main = document.querySelector("main");
   for (const pane of document.querySelectorAll(".section-pane")) {
     if (!wide || !pane.offsetParent || !main) {
@@ -4875,11 +4955,10 @@ function showPage() {
   if (asked === "limits" && query !== undefined) applyLimitFilters(query);
   document.querySelectorAll("section[data-page]").forEach((section) => {
     section.hidden = section.dataset.page !== page;
-    // The arriving page fades in on a page change, and the reflow read restarts the animation.
     section.classList.remove("enter");
     if (section.dataset.page === page && changed) {
-      void section.offsetWidth;
       section.classList.add("enter");
+      tweenFromTo(section, { opacity: 0, y: 4 }, { opacity: 1, y: 0 });
     }
   });
   if (calling > 0) showSpinner(true);
@@ -4929,13 +5008,17 @@ function refreshRelativeTimes() {
   if (state.notifications) renderNotifications(state.notifications);
   if (state.keys.length && $("keys")) renderKeys(state.keys);
   if (state.chainAt && $("chain-modal")?.open) openChain(state.chainAt);
+  if (state.diffEvent && $("model-modal")?.open) {
+    $("model-modal-title").textContent = `${state.diffEvent.reason} \u00b7 ${relative(state.diffEvent.at)}`;
+    $("model-modal-title").title = stamp(state.diffEvent.at);
+  }
   tickSaveLine();
 }
 
-matchMedia("(max-width: 40em)").addEventListener("change", syncSortFocus);
-matchMedia("(max-width: 40em)").addEventListener("change", refreshRelativeTimes);
+matchMedia("(max-width: 30em)").addEventListener("change", syncSortFocus);
+matchMedia("(max-width: 30em)").addEventListener("change", refreshRelativeTimes);
 matchMedia("(max-width: 60em)").addEventListener("change", fitSectionPane);
-matchMedia("(max-height: 30em)").addEventListener("change", fitSectionPane);
+matchMedia("(max-height: 24em)").addEventListener("change", fitSectionPane);
 syncSortFocus();
 $("model-head").addEventListener("click", (event) => {
   const th = event.target.closest("th[data-sort]");
@@ -5224,8 +5307,40 @@ $("settings").addEventListener("input", (event) => {
   clearWrite("settings");
   renderSettingsSave();
 });
+function selectThemeChoice(choiceButton, focusButton = false) {
+  const seg = choiceButton?.closest?.(".theme-seg");
+  const next = choiceButton?.dataset?.themeChoice;
+  if (!seg || !next) return;
+  seg.dataset.themeValue = next;
+  for (const btn of seg.querySelectorAll?.('[role="radio"]') ?? []) {
+    const on = btn === choiceButton;
+    btn.setAttribute("aria-checked", String(on));
+    btn.tabIndex = on ? 0 : -1;
+  }
+  if (focusButton) choiceButton.focus?.();
+  applyTheme(next);
+  state.writeAnchor = anchorOf(seg);
+  return saveSettings(true);
+}
 $("settings").addEventListener("click", (event) => {
+  const themeChoice = event.target.closest("[data-theme-choice]");
+  if (themeChoice && !event.composedPath?.().includes($("provider-form"))) {
+    selectThemeChoice(themeChoice);
+    return;
+  }
   if (event.target.closest("#settings-yaml-save")) saveSettings();
+});
+$("settings").addEventListener("keydown", (event) => {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight" && event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+  const current = event.target.closest?.("[data-theme-choice]");
+  const seg = current?.closest?.(".theme-seg");
+  if (!current || !seg) return;
+  const radios = [...(seg.querySelectorAll?.('[role="radio"]') ?? [])];
+  const idx = radios.indexOf(current);
+  if (idx < 0) return;
+  event.preventDefault();
+  const delta = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : -1;
+  selectThemeChoice(radios[(idx + delta + radios.length) % radios.length], true);
 });
 document.addEventListener("keydown", (event) => {
   if (["Tab", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {

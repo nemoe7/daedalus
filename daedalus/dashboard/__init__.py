@@ -239,6 +239,7 @@ UI_DIR = Path(__file__).parent / "ui"
 UI_FILES = {
   "app.js": "text/javascript",
   "en.js": "text/javascript",
+  "gsap.min.js": "text/javascript",
   "style.css": "text/css",
   "logo.svg": "image/svg+xml",
   "icon-192.png": "image/png",

@@ -318,6 +318,11 @@ test("time format defaults to 24h and updates stamps when switched to 12h in Set
 
   await page.goto("/#/settings");
   await page.locator('#settings > .rail > .sections button[data-section="personalization"]').click();
+  const themeGroup = page.locator('#set-personalization-theme[role="radiogroup"]');
+  await expect(themeGroup.locator('[role="radio"]')).toHaveCount(3);
+  await themeGroup.getByRole("radio", { name: "Dark" }).click();
+  await expect(page.locator("#modal")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
   const select = page.locator("#set-personalization-time_format");
   await expect(select).toHaveValue("24h");
   await select.selectOption("12h");
@@ -328,7 +333,7 @@ test("time format defaults to 24h and updates stamps when switched to 12h in Set
   expect(twelveHourStamp).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} (AM|PM)$/);
 });
 
-test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/640 folds hold", async ({ page }) => {
+test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/480 folds hold", async ({ page }) => {
   await open(page, "#/settings", 1280, 900);
   const settingsBoxes = await page.evaluate(() => {
     const rail = document.querySelector("#settings > .rail").getBoundingClientRect();
@@ -435,21 +440,21 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
   await expect(page.locator("#chain-modal-body")).toContainText("Previous model exceeded the context limit");
   await page.keyboard.press("Escape");
 
-  await open(page, "#/requests", 640, 900);
-  const requestsAt640 = await page.evaluate(() => {
+  await open(page, "#/requests", 480, 900);
+  const requestsAt480 = await page.evaluate(() => {
     const row = document.querySelector(".requests tr.request, .requests tr.live-row");
     return {
       rowDisplay: row ? getComputedStyle(row).display : "grid",
       overflow: document.documentElement.scrollWidth - window.innerWidth,
     };
   });
-  expect(requestsAt640.rowDisplay).toBe("grid");
-  expect(requestsAt640.overflow).toBeLessThanOrEqual(1);
+  expect(requestsAt480.rowDisplay).toBe("grid");
+  expect(requestsAt480.overflow).toBeLessThanOrEqual(1);
   await expect(page.locator("#requests-legend")).toBeHidden();
   await expect(page.locator("#legend-open")).toBeVisible();
 
-  await open(page, "#/limits", 640, 900);
-  const limitsAt640 = await page.evaluate(() => {
+  await open(page, "#/limits", 480, 900);
+  const limitsAt480 = await page.evaluate(() => {
     const main = document.querySelector("#app > main");
     const mainStyle = getComputedStyle(main);
     const contentWidth = main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight);
@@ -458,8 +463,8 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/6
     const checkRect = document.querySelector(".limits-check-stack").getBoundingClientRect();
     return { contentWidth, wideWidth: wide.width, searchRight: searchRect.right, checkLeft: checkRect.left };
   });
-  expect(limitsAt640.wideWidth).toBeGreaterThanOrEqual(limitsAt640.contentWidth - 2);
-  expect(limitsAt640.checkLeft).toBeGreaterThanOrEqual(limitsAt640.searchRight);
+  expect(limitsAt480.wideWidth).toBeGreaterThanOrEqual(limitsAt480.contentWidth - 2);
+  expect(limitsAt480.checkLeft).toBeGreaterThanOrEqual(limitsAt480.searchRight);
 });
 
 const TOUCH_TARGET_FLOOR_PX = 44;

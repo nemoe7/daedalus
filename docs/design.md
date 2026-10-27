@@ -52,7 +52,7 @@ The visual direction matches the operational tooling domain:
 | `--field` | `#f7f7f9` | `#1f1f1f` | Input, select, search, and code block fill |
 | `--line` | `#e5e5e7` | `#353535` | Hairline border and row divider token |
 | `--control-line` | `#b3b3b3` | `#565656` | Interactive control border token |
-| `--scrollbar-thumb` | `#c8c8d0` | `#302e2c` | `10px` rounded scrollbar thumb token |
+| `--scrollbar-thumb` | `#c8c8d0` | `#302e2c` | `6px` rounded scrollbar thumb token |
 
 ### Text and Accent Tokens
 
@@ -62,7 +62,7 @@ The visual direction matches the operational tooling domain:
 | `--muted` | `#616161` | `#adadad` | 6.1:1 (light) / 6.7:1 (dark) | Secondary label, timestamp, and hint ink |
 | `--accent` | `#304ffe` | `#4b63e8` | 5.6:1 (light) / 4.6:1 (dark) | Primary button fill, active tab underline, and focus ring |
 | `--accent-text` | `#304ffe` | `#8c9eff` | 5.6:1 (light) / 6.9:1 (dark) | Inline link and active tab text ink |
-| `--tile-ink` | `#ffffff` | `#1c1c1c` | 14.3:1 (dark tile) | Ink inside category icon tiles on Settings |
+| `--on-accent` | `#ffffff` | `#ffffff` | 5.6:1 (light) / 4.6:1 (dark on `--accent`) | Ink on filled `--accent` buttons, tabs, switches, and active category tiles |
 
 ### Semantic and Status Tokens
 
@@ -105,8 +105,8 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 
 ### Shell and Container
 
-- **Root container (`#app`)**: Full-viewport column (`100dvh`) with centered `main` (`padding-inline: max(32px, calc((100% - 1116px) / 2))` on desktop, `16px` at `<= 40em`).
-- **Top bar (`header`)**: Sticky header (`border-bottom: 1px solid var(--line)`) with `.brand` left, `.tabs` centered, and `#status` plus `#logout` right (`#status` hides at `<= 75em`). `syncHeaderWrap()` keeps all three regions on one row until their intrinsic inline width exceeds `header`, then sets `header[data-wrapped="1"]` to move `.tabs` onto row 2 (`"brand chips" "tabs tabs"`).
+- **Root container (`#app`)**: Full-viewport column (`100dvh`) with centered `main` (`padding-inline: max(32px, calc((100% - 1116px) / 2))` on desktop, `16px` at `<= 30em`).
+- **Top bar (`header`)**: Sticky header (`border-bottom: 1px solid var(--line)`) with `.brand` left, `.tabs` centered, and `#status` plus `#logout` right (`#status` hides at `<= 68em`). `syncHeaderWrap()` keeps all three regions on one row until their intrinsic inline width exceeds `header`, then sets `header[data-wrapped="1"]` to move `.tabs` onto row 2 (`"brand chips" "tabs tabs"`).
 - **View switching**: Only the active `section[data-page]` is visible (`hidden` removed). The header tab (`aria-current="page"`) names the active view without a redundant `<h1>` title block.
 
 ### View Grids
@@ -114,10 +114,10 @@ The console bundles variable `.woff2` fonts in `daedalus/dashboard/ui/fonts/` an
 | View | Route (`data-page`) | Desktop Grid (`> 60em`) | Focal Point |
 | --- | --- | --- | --- |
 | Overview | `overview` | 4-column `.kpis` strip above a 2-column `.flow` (`gap: 16px`) | Top-left `.kpi` card (`In flight now`) and `.status-card` health row |
-| Requests | `requests` | `.requests-bar` filter bar above 2-column `.flow` (`table.requests` + `260px` `.legend` above `75em`, `#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`) | Live request table (`table.requests`) with routing legend |
+| Requests | `requests` | `.requests-bar` filter bar above 2-column `.flow` (`table.requests` + `260px` `.legend` above `68em`, `#legend-open` modal at `<= 68em`, `auto-fit` cards at `<= 30em`) | Live request table (`table.requests`) with routing legend |
 | Models | `models` | `.pools` strip above `.panel` with sticky `.toolbar` and `table.models` | Search input (`#search`) and pool summary cards |
 | Limits | `limits` | `.editbar` above 2-column `.flow` (`table.limits` + `260px` `#balances`) | Lowest remaining quota progress bar |
-| Notifications | `notifications` | Width-capped `740px` `.notification-feed` card (`40px` single-line rows, wrapping details at `<= 40em`) | Recent provider reset, limit, and catalog rebuild rows |
+| Notifications | `notifications` | Width-capped `740px` `.notification-feed` card (`40px` single-line rows, wrapping details at `<= 30em`) | Recent provider reset, limit, and catalog rebuild rows |
 | Settings | `settings` | 2-column `.settings` (`240px` `.rail` with `minmax(0, 1fr)` track + `.section-pane`) | Active settings category card in `.section-pane` |
 
 ## 7. Core Functional and Domain Components
@@ -127,32 +127,32 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 1. **Header Navigation (`header`, `.skip-link`, `.tabs a`, `#nav`)**: Skip link to `#main` plus 6 route links (`Overview` through `Settings`) with `#nav-models`.
 2. **KPI Stat Strip (`.kpis`, `.kpi`, `#ov-kpis`)**: 4 equal-width cards on Overview showing `In flight now`, `Success rate`, `Lowest remaining limit`, and `Models in catalog`. `syncKpiWrap()` keeps all 4 columns on one row until any value or caption exceeds a column track, then sets `.kpis[data-wrapped="1"]` (`2x2`).
 3. **Pool and Quota Bars (`.pool-line`, `.balance`, `.track`, `.fill`)**: Horizontal `4px` to `6px` tracks (`var(--bar)`) with `var(--accent)`, `var(--warn)`, or `var(--bad)` fills. Overview snippet rows (`.pool-line`, `#ov-limits`) truncate long model labels on one line with ellipsis.
-4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 75em`), and `#request-clear`.
-5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `75em` (`#legend-open` modal at `<= 75em`, `auto-fit` cards at `<= 40em`).
-6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`)**: 4 grouped category cards in `.rail` (`Routing / Affinity / Load Distribution / Limits / Optimization`, `Privacy / Catalog / Hooks`, `Personalization`, `Providers / API Keys / YAML / Maintenance`) that load `.section-pane`. Desktop rail and single-line pane rows use a `40px` height (`44px` at `<= 60em`).
+4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 68em`), and `#request-clear`.
+5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `68em` (`#legend-open` modal at `<= 68em`, `auto-fit` cards at `<= 30em`).
+6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`, `.theme-seg`)**: 4 `.rail` cards load `.section-pane`, and `24x24` `.tile` icons use semantic tokens with matched `8px` (`10px` `<= 60em`) spacing. `Personalization` renders `theme` as a 3-way `monitor` / `sun` / `moon` icon `radiogroup` (`.theme-seg`).
 7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
-8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
+8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
 
 ## 8. Motion, Interaction, and States
 
 ### Motion Tokens
 
-- `--fast: .18s`
-- `--soft: .2s`
-- `--ease: cubic-bezier(.2, .7, .3, 1)`
+- `--fast: .15s`
+- `--soft: .18s`
+- `--ease: cubic-bezier(.22, 1, .36, 1)`
 
-Transitions apply only to `background-color`, `border-color`, `color`, `opacity`, and `transform`. Layout properties (`width`, `height`, `padding`, `margin`) never animate.
+Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s`) drives view entrances, mobile slides, live arrivals, notice fades, and count bumps. Completed tweens clear inline `opacity` and `transform`, and `prefers-reduced-motion: reduce` skips them. CSS transitions apply only to `background-color`, `border-color`, `color`, `opacity`, and `transform`. Layout properties (`width`, `height`, `padding`, `margin`) never animate.
 
 ### Applied `nuu` Recipes
 
 | Recipe | Surface / Selector | Behavior |
 | --- | --- | --- |
 | `offline-fonts` | `index.html`, `@font-face`, `start()` | Preloads bundled WOFF2 fonts with `crossorigin`, pairs `font-display: block` with metric-matched fallbacks, and awaits `document.fonts?.ready` before revealing `#app`. |
-| `scrollbars` | `::-webkit-scrollbar`, `@supports not selector(::-webkit-scrollbar)` | Styles a `10px` scrollbar with an `8px` rounded `--scrollbar-thumb` (`#c8c8d0` light, `#302e2c` dark) on `var(--bg)`, hides arrow buttons, and scopes `scrollbar-width: thin` to non-WebKit engines. |
-| `loading-bar` | `header::after`, `section[data-page][data-loading="true"]` | Anchors a `2px` bottom-edge `scaleX` bar on `header` after a `200ms` delay (`0.45` static opacity under reduced motion) and sets `aria-busy` in `finally`. |
-| `page-memory` | `state.memory`, `requestPages`, `loadSettings()` | Paints cached views immediately, keys request slices on catalog and head version, and skips DOM redraws when fresh JSON matches memory. |
-| `live-dot` | `.pulse`, `tr.live-row` | Renders a `6px` amber (`var(--orange)`) `aria-hidden="true"` dot with a `1.4s` pulse and zero dimension shift. |
-| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button without footer `Cancel`/`Close` buttons, focuses `x` on confirmations, and gates deletions. |
+| `scrollbars` | `::-webkit-scrollbar`, `@supports not selector(::-webkit-scrollbar)` | Styles a `10px` scrollbar with a `6px` rounded `--scrollbar-thumb` (`#c8c8d0` light, `#302e2c` dark) on `var(--bg)`, hides arrow buttons, and scopes `scrollbar-width: thin` to non-WebKit engines. |
+| `relative-timestamps` | `timeText()`, `#chain-modal`, `API Keys`, `openDiffModal()` | Renders relative ages (`just now`, `10min ago`, compact mobile units at `<= 30em`) across tables, cards, and modal headers while keeping exact `stamp()` timestamps in `title`. |
+| `page-memory` & optimistic writes | `state.memory`, `saveSettings()`, `#new-key`, `[data-key]`, `#limits-check` | Updates settings, API keys, and check timestamps optimistically in memory without loading bars, button spinners, or skeleton rows. Reconciles or rolls back state on server replies. |
+| `live-dot` | `.ico-svg > .pulse`, `tr.live-row` | Renders an `8px` amber (`var(--orange)`) `aria-hidden="true"` dot centered inside a `16x16` `.ico-svg` slot with a `1.4s` pulse and zero dimension shift. |
+| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel`/`Close` buttons, focuses `x` on confirmations, and gates deletions. |
 | `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-inline-end`, `.floating-info-tip` | Applies `12px` / `192px` vertical and inline scroll masks (bottom-only below sticky `thead`) and viewport-clamped `position: fixed` tooltips. |
 
 ### Approved `nuu` Deviations
@@ -161,6 +161,7 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | --- | --- | --- |
 | `nuu-deviation: NUM201` | `.chip`, `.chip.flag`, `.pill`, `.ghost` (`style.css`) | Compact inline badges and pills (`0 7px` to `4px 12px`) preserve 1-line desktop rows and 4 visible phone cards. |
 | `nuu-deviation: NUM202` | `body`, `th`, `td`, `.card.pool` (`style.css`) | Dense operational type (`11`-`15` px, `22` px KPI) and cell paddings (`6`/`10`/`12` px) fit 11-column tables without wrapping slugs. |
+| `nuu-deviation: NUM205` | `.snippet`, `#notification-feed` (`style.css`) | Narrowly scoped to two-endpoint `Overview` `.snippet` summary rows and single-column `#notification-feed` event rows so short event lines stay readable without artificial filler. |
 
 ### Interactive States
 
@@ -169,23 +170,23 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 | Default | Surface `var(--panel)` or `var(--field)`, border `1px solid var(--line)` | All interactive controls |
 | Hover | Subtle surface shift (`color-mix(in srgb, var(--text) 5%, transparent)`) | `.tabs a:hover`, `tr[data-chain-at]:hover`, `.sections button:hover` |
 | Focus-visible | `outline: 2px solid var(--accent-text)`, `outline-offset: 2px` (keyboard only) | `:focus-visible` under `:root[data-keyboard-nav="true"]` |
-| Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: var(--field)` | `.tabs a.on`, `.sections button.on` |
+| Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: var(--field)` | `.tabs a.on`, `.sections button.on`, `.theme-seg button[aria-checked="true"]` |
 | Pressed toggle | `border-color: var(--accent)`, `color: var(--accent-text)` | `#live-toggle[aria-pressed="true"]` |
-| Loading | `2px` delayed `header::after` edge bar and `aria-busy="true"` on active `section[data-page]` | `call()` when `spinner !== false` |
+| Busy | `aria-busy="true"` on active `section[data-page]` with immediate optimistic state updates | `call()` when `spinner !== false` and write handlers |
 | Disabled | `opacity: .45`, `cursor: not-allowed` | `:disabled` buttons and inputs |
 | Empty state | Muted helper copy (`color: var(--muted)`, `padding: 24px 16px`) inside `.panel` | `td.empty`, `.rail-empty`, `#ov-requests` |
 
 ## 9. Responsive and Adaptive Design
 
-`daedalus/dashboard/ui/style.css` and `app.js` use the `nuu` house breakpoints (`75em`, `60em`, and `40em` width, plus `30em` landscape height):
+`daedalus/dashboard/ui/style.css`, `app.js`, and `nuu.toml` use the `nuu` house breakpoints (`68em`, `60em`, and `30em` width, plus `24em` landscape height):
 
 | Breakpoint | Shell Layout | Navigation | View Adjustments |
 | --- | --- | --- | --- |
-| Wide Desktop (`> 75em` / `> 1200px`) | Full-width `header` and centered `main` (`32px` min gutter) | Single-row header with `.tabs` and `#status` chips | 4-column `.kpis`, 2-column `Requests`, `Limits`, and `Settings` (`240px` `.rail`) |
-| Narrow Desktop (`<= 75em` / `<= 1200px`) | Centered `main` (`32px` min gutter) | `#status` hides so `.tabs` stay on 1 row | Keeps 2-column desktop layouts above `60em` |
-| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | `header` keeps 1 row until overflow (`header[data-wrapped="1"]`) | `.kpis` keeps 4 equal columns until collision, `Requests` keeps its table above `40em`, `Limits` stacks `100%` wide, and `Settings` drills down (`44px` floor) |
-| Phone (`<= 40em` / `<= 640px`) | `16px` gutter and `76px` bottom clearance | Scrollable `.tabs` strip with `44px` targets | Horizontal `.pools` strip, card folds, `16px` `.notification-item` inline padding, symmetric `3px 3px 8px` filter bars, and compact time units |
-| Landscape Short Height (`max-height: 30em` / `<= 480px`) | Outer `main` scroll unlocked | Compact header and `16px` `.login` top offset | `Settings`, `Providers`, `Requests`, and `Limits` scroll in `main`, and `.modal` caps height at `calc(100dvh - 32px)` |
+| Wide Desktop (`> 68em` / `> 1088px`) | Full-width `header` and centered `main` (`32px` min gutter) | Single-row header with `.tabs` and `#status` chips | 4-column `.kpis`, 2-column `Requests`, `Limits`, and `Settings` (`240px` `.rail`) |
+| Narrow Desktop (`<= 68em` / `<= 1088px`) | Centered `main` (`32px` min gutter) | `#status` hides so `.tabs` stay on 1 row | Keeps 2-column desktop layouts above `60em` and moves `Requests` legend to `#legend-open` |
+| Tablet (`<= 60em` / `<= 960px`) | `32px` horizontal `main` gutter | `header` keeps 1 row until overflow (`header[data-wrapped="1"]`) | `.kpis` keeps 4 equal columns until collision, `Requests` keeps its table above `30em`, `Limits` stacks `100%` wide, and `Settings` drills down (`44px` floor, `10px` symmetric `.tile` spacing) |
+| Phone (`<= 30em` / `<= 480px`) | `16px` gutter and `76px` bottom clearance | Scrollable `.tabs` strip with `44px` targets | Horizontal `.pools` strip, card folds, full-width `#sort-small` and `#key-name` controls, `14px` `.notification-item` inline padding, and compact time units |
+| Landscape Short Height (`max-height: 24em` / `<= 384px`) | Outer `main` scroll unlocked | Compact header and `16px` `.login` top offset | `Settings`, `Providers`, `Requests`, and `Limits` scroll in `main`, and `.modal` caps height at `calc(100dvh - 32px)` |
 
 ## 10. Anti-Patterns and Guardrails
 
@@ -193,12 +194,13 @@ Transitions apply only to `background-color`, `border-color`, `color`, `opacity`
 2. **No hardcoded colors outside `:root`**: Every color in `style.css` and `app.js` references a CSS custom property. Light (`:root`) and dark (`:root[data-theme="dark"]`) schemes stay in sync.
 3. **No unclickable log rows with hidden errors**: Every request row with fallback attempts or an upstream error sets `data-chain-at`, `tabindex="0"`, and `role="button"`. Keyboard and pointer users can open `#chain-modal`.
 4. **No decorative charts or sparklines**: Use tabular numerals and horizontal `.track` fills instead of multi-axis charts or circular gauges.
-5. **No layout shifts or state resets on poll**: Style scrollbars with the `10px` rounded `--scrollbar-thumb` recipe on `var(--bg)` without arrow buttons. Skip DOM redraws on unchanged poll responses so scroll position and dialog state stay intact.
+5. **No layout shifts or state resets on poll**: Style scrollbars with the `10px` scrollbar and `6px` rounded `--scrollbar-thumb` recipe on `var(--bg)` without arrow buttons. Skip DOM redraws on unchanged poll responses so scroll position and dialog state stay intact.
 
 ## 11. Design Revision Log
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-27 | Adopted `relative-timestamps`, `live-dot`, house radii, `16x16` Lucide glyphs, `.theme-seg`, optimistic writes, `nuu` breakpoints, scoped `NUM205`, GSAP, and symmetric `.tile` tokens. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/`, `nuu.toml`, `scripts/pages_demo.py`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-27 | Suppressed native `<ol>` decimal markers and aligned `8px` grid spacing on `.chain-modal ol` across desktop viewports so step rows render a single `1.` ordinal. | `Requests` `#chain-modal` (`daedalus/dashboard/ui/style.css`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Kept `Requests` as a table down to `40em` (`auto-fit` cards at `<= 40em`), moved `Code legend` into `#legend-open` modal at `<= 75em`, and locked `#settings > .rail` without UI config-key badges. | `Requests`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-25 | Scoped switch/fold focus (`NUA307`), squared mobile key buttons (`NUM208`), aligned stacked buttons (`NUM205`), and added `@keyframes spin`, `.skip-link`, `--fast: .18s`, and CSS fades. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`, `en.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |

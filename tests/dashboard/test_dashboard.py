@@ -629,7 +629,7 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  base_css, mobile_css = css.split("@media (max-width: 40em) {", 1)
+  base_css, mobile_css = css.split("@media (max-width: 30em) {", 1)
   mobile_css = mobile_css.split("\n}", 1)[0]
   assert "th[data-sort] { cursor: pointer; }" in base_css
   assert ".models th { padding: 13px 8px; }" in mobile_css
@@ -790,7 +790,7 @@ def test_narrow_desktop_header_keeps_one_row() -> None:
   """Narrow-header CSS hides status without hiding the Overview card or changing its padding."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  base, rest = css.split("@media (max-width: 75em) {", 1)
+  base, rest = css.split("@media (max-width: 68em) {", 1)
   narrow = rest.split("\n}", 1)[0]
   assert "#status { display: none; }" in narrow, "a narrow header drops the state"
   assert ".status-card { display: none" not in css, "the card shows at every width"
@@ -1356,7 +1356,7 @@ def test_phone_panels_clear_the_last_row() -> None:
   """Phone CSS adds bottom padding to the main area and panels."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  mobile = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
+  mobile = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert "#app > main { padding-bottom: 76px; }" in mobile, "the screen bottom clears"
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
@@ -1410,7 +1410,7 @@ def test_the_phone_limits_row_keeps_every_field() -> None:
   assert '"limits.meta.seen_text"' in meta, "the last check reaches the phone line"
   assert 'class="limit-meta"' in app, "each row carries the phone line"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  phone = css.split("@media (max-width: 40em) {", 1)[1]
+  phone = css.split("@media (max-width: 30em) {", 1)[1]
   assert ".limit-meta { display: none; }" in css, "the desk row hides the phone line"
   assert "#limit-rows .limit-meta { display: block;" in phone, (
     "the phone row shows the line"
@@ -1535,7 +1535,7 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
     ".notification-feed { width: 100%; max-width: 740px;" in css
     and "min-height: 40px; padding: 8px 16px;" in css
   ), "the shared card lays out notification rows"
-  desk = css.split("@media (max-width: 40em) {", 1)[0]
+  desk = css.split("@media (max-width: 30em) {", 1)[0]
   for selector, body in re.findall(r"([^{}]+)\{([^{}]*)\}", desk):
     if "#limit-rows" in selector:
       assert "padding" not in body, "Limits columns use the shared table cell padding"
@@ -1776,9 +1776,10 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
     "select controls match input control height inside 40px settings rows"
   )
   narrow = css.rsplit("@media (max-width: 60em) {", 1)[1]
-  assert ".sections button { min-height: 44px; }" in narrow, (
-    "narrow viewports preserve the 44px touch target floor"
-  )
+  assert (
+    ".sections button { min-height: 44px; padding: 10px 12px 10px 8px; gap: 10px; }"
+    in narrow
+  ), "narrow viewports preserve the 44px touch target floor"
   assert ".fold summary { min-height: 44px; }" in narrow, (
     "narrow viewports preserve a 44px touch target on closed field groups"
   )
@@ -1817,7 +1818,7 @@ def test_provider_tiles_carry_the_vendored_marks() -> None:
   assert "chipFor(id, key)" in rail, "the section rail draws the provider tile"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   tile = css.partition(".tile .mark {")[2].partition("}")[0]
-  assert "width: 13px" in tile, "the tile sizes the mark like its glyph"
+  assert "width: 16px" in tile, "the tile sizes the mark like its glyph"
 
 
 def test_provider_files_use_the_shared_section_list_style() -> None:
@@ -1836,7 +1837,9 @@ def test_provider_files_use_the_shared_section_list_style() -> None:
   assert "border-radius: var(--radius)" in sections, (
     "shared lists have the standard radius"
   )
-  assert "padding: 8px 16px" in rows, "shared list rows use the 8px spacing scale"
+  assert "padding: 8px 12px 8px 6px" in rows, (
+    "shared list rows match 8px symmetric tile spacing"
+  )
 
 
 def test_the_page_scroll_does_not_wait_on_has_support() -> None:
@@ -2435,7 +2438,10 @@ def test_narrow_navigation_scrolls_in_one_row() -> None:
   )
   assert ".tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }" in css
   assert ".tabs { flex-wrap: wrap" not in css, "a phone never wraps the tabs"
-  assert ".sections button { min-height: 44px; }" in css
+  assert (
+    ".sections button { min-height: 44px; padding: 10px 12px 10px 8px; gap: 10px; }"
+    in css
+  )
   assert ".page-title" not in css
   narrow = css.rsplit("@media (max-width: 60em) {", 1)[1]
   assert (
@@ -2539,9 +2545,11 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  base_css, rest_css = css.split("@media (max-width: 60em) {", 1)
-  mobile_css = rest_css.split("@media (max-width: 30em) {", 1)[0]
-  narrow_css = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
+  base_css = css.split("@media (max-width: 60em) {", 1)[0]
+  mobile_css = css.split("@media (max-width: 60em) {", 1)[1].split(
+    "@media (max-height: 24em) {", 1
+  )[0]
+  narrow_css = mobile_css.rsplit(".panel:has(> .requests) { margin-top: 0; }", 1)[1]
   assert ".requests td.fallbacks-cell { display: none; }" in base_css, (
     "the desktop table reads the fallback count in the chain of the row"
   )
@@ -2955,7 +2963,7 @@ def test_limit_columns_stay_compact() -> None:
   model_cell = re.search(r"#limit-rows td\.name\s*\{([^}]*)\}", css)
   value = re.search(r"#limit-rows td\.name \.cell-value\s*\{([^}]*)\}", css)
   limit_cell = re.search(r"#limit-rows td:nth-child\(2\)\s*\{([^}]*)\}", css)
-  mobile_css = css.split("@media (max-width: 40em) {", 1)[1]
+  mobile_css = css.split("@media (max-width: 30em) {", 1)[1]
   mobile_weight = re.search(r"#limit-rows \.weight\.left\s*\{([^}]*)\}", mobile_css)
   assert model_cell and "white-space: normal" in model_cell.group(1)
   assert model_cell and "max-width: 0" in model_cell.group(1)
@@ -3116,17 +3124,14 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
     "the selected section card arrives"
   )
   assert (
-    ".section-pane > .card.drawn { animation: fade var(--soft) var(--ease); }" in css
-  ), "the card fades, so the scroll pane never clips its top"
+    'const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));' in app
+  ), "the card fades in GSAP without a y offset so the scroll pane never clips its top"
   assert 'replay($("provider-form"));' in app, "a file change arrives its form"
   assert "if (!off) replay(field);" not in app, "a switch toggle replays no row fade"
   assert (
-    ".section-pane.slide { animation: slide-in var(--soft) var(--ease); }" in css
-  ), "the phone slides the pane in"
-  assert ".sections.slide { animation: slide-back var(--soft) var(--ease); }" in css, (
-    "and the list back"
-  )
-  assert "@keyframes slide-in" in css and "@keyframes slide-back" in css
+    "tweenFromTo(arriving, { opacity: 0, x: open ? 14 : -14 }, { opacity: 1, x: 0 });"
+    in app
+  ), "the phone slides the pane and rail with GSAP"
 
 
 def test_the_settings_sections_carry_a_rule() -> None:
@@ -3270,7 +3275,7 @@ def test_pills_cap_their_radius() -> None:
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
   rule = re.search(r"(?m)^\.pill \{([^}]*)\}", css)
-  assert rule and "border-radius: 12px" in rule.group(1)
+  assert rule and "border-radius: 10px" in rule.group(1)
 
 
 def run_app_js(probe: str, body: str) -> None:
@@ -3429,7 +3434,7 @@ assert(row.includes('role="tooltip"'), 'the hint text serves as the tooltip');
 for (const id of ['set-affinity-change_on_draw', 'set-balance-weights', 'set-balance-pacing',
   'set-optimization-enabled']) node(id).checked = true;
 node('set-affinity-mode').value = 'session';
-node('set-personalization-theme').value = 'system';
+node('set-personalization-theme').dataset = {{ themeValue: 'system' }};
 node('set-personalization-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
 // The keyword fields are chip lists with a + adder, not a text box.
@@ -3472,77 +3477,22 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
     "provider file rows derive their slug from the filename"
   )
   chips = app.partition("const SECTION_CHIPS = {")[2].partition("};")[0]
-  keys = re.findall(r'([a-z_0-9]+): "', chips)
   for glyph in re.findall(r': "([a-z_0-9]+)"', chips):
     assert re.search(rf"^  {glyph}: '", app, re.MULTILINE), (
       f"the glyph {glyph} is registered"
     )
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  light_colors = {
-    key: re.search(
-      rf'^\[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
-      css,
-      re.MULTILINE,
-    ).group(1)
-    for key in keys
-  }
-  dark_colors = {
-    key: re.search(
-      rf'^:root\[data-theme="dark"\] \[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
-      css,
-      re.MULTILINE,
-    ).group(1)
-    for key in keys
-  }
-  assert len(set(light_colors.values())) == len(keys), (
-    "every settings section tile has a unique light-mode color"
+  assert "[data-chip=" not in css, (
+    "category tiles use semantic role tokens without hex literals"
   )
-  assert len(set(dark_colors.values())) == len(keys), (
-    "every settings section tile has a unique dark-mode color"
+  assert (
+    "background: var(--field); color: var(--muted); border: 1px solid var(--line);"
+    in css
   )
-  provider_keys = (
-    "free",
-    "cloudflare",
-    "gemini",
-    "groq",
-    "kilo",
-    "mistral",
-    "openrouter",
-    "pollinations",
-    "z-ai",
+  assert (
+    "background: var(--accent); color: var(--on-accent); border-color: var(--accent);"
+    in css
   )
-  provider_light = {
-    key: re.search(
-      rf'^\[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
-      css,
-      re.MULTILINE,
-    ).group(1)
-    for key in provider_keys
-  }
-  assert len(set(provider_light.values())) == len(provider_keys), (
-    "every provider tile has a unique light-mode color"
-  )
-  provider_dark = {
-    key: re.search(
-      rf'^:root\[data-theme="dark"\] \[data-chip="{key}"\] \{{ background: (#[0-9a-f]{{6}}); \}}',
-      css,
-      re.MULTILINE,
-    ).group(1)
-    for key in provider_keys
-  }
-  all_light = [*light_colors.values(), *provider_light.values()]
-  all_dark = [*dark_colors.values(), *provider_dark.values()]
-  assert len(set(all_light)) == len(all_light), (
-    "no light-mode tile color duplicates across settings and provider chips"
-  )
-  assert len(set(all_dark)) == len(all_dark), (
-    "no dark-mode tile color duplicates across settings and provider chips"
-  )
-  for hex_color in (*all_light, *all_dark):
-    r, g, b = (int(hex_color[index : index + 2], 16) for index in (1, 3, 5))
-    assert not (g > r and g > b), (
-      f"tile color {hex_color} stays within the indigo-plum-crimson-amber Daedalus palette"
-    )
 
 
 def test_app_js_hook_point_chips() -> None:
@@ -4499,7 +4449,7 @@ for (const name of names) {
   const path = probe.ICON_PATHS[name];
   const glyph = probe.icon(name);
   assert(!path.includes('<svg') && !path.includes('<style') && !path.includes('<g'), name);
-  assert(glyph.startsWith('<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"'), name);
+  assert(glyph.startsWith('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"'), name);
   assert(glyph.includes('fill="none" stroke="currentColor" stroke-width="2"'), name);
   assert(glyph.endsWith(`${path}</svg>`), name);
 }
@@ -5749,7 +5699,7 @@ def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
   ).read_text(encoding="utf-8")
-  phone = re.search(r"@media \(max-width: 40em\) \{(.*?)\n\}", css, re.DOTALL)
+  phone = re.search(r"@media \(max-width: 30em\) \{(.*?)\n\}", css, re.DOTALL)
   assert phone, "the phone media query holds the bar rules"
   assert not re.search(
     r'section\[data-page="requests"\] \.requests-bar \{([^}]*)\}', phone.group(1)
@@ -6054,7 +6004,14 @@ def test_error_notice_dismissal_respects_reduced_motion() -> None:
 const notice = node('notice');
 const classes = new Set();
 notice.classList = { add: name => classes.add(name), remove: name => classes.delete(name) };
+let completeLeave = null;
+sandbox.gsap = {
+  killTweensOf() {},
+  fromTo() {},
+  to(_el, toVars) { completeLeave = toVars.onComplete || null; },
+};
 for (const reduced of [false, true]) {
+  completeLeave = null;
   sandbox.matchMedia = query => ({ matches: query === '(prefers-reduced-motion: reduce)' && reduced });
   probe.showNotice(LOCALE['error.dashboard_unreachable_text']);
   assert.strictEqual(notice.hidden, false);
@@ -6063,9 +6020,8 @@ for (const reduced of [false, true]) {
   assert.strictEqual(notice.hidden, reduced);
   assert.strictEqual(classes.has('leave'), !reduced);
   if (!reduced) {
-    for (const handler of notice.handlers.animationend) handler({ animationName: 'arrive' });
-    assert.strictEqual(notice.hidden, false, 'arrival does not hide the notice');
-    for (const handler of notice.handlers.animationend) handler({ animationName: 'leave' });
+    assert.strictEqual(typeof completeLeave, 'function');
+    completeLeave();
     assert.strictEqual(notice.hidden, true);
     assert.strictEqual(classes.has('leave'), false);
   }
@@ -6360,21 +6316,18 @@ def test_the_page_carries_a_motion_base() -> None:
   ]
   for rule in ("transition: none", "animation: none"):
     assert rule in block, rule
-  assert "@keyframes enter" in css, "the page enter of a tab switch"
+  assert "tweenFromTo(section, { opacity: 0, y: 4 }, { opacity: 1, y: 0 });" in app
   assert 'classList.add("enter")' in app and 'classList.remove("enter")' in app, (
     "the shown section replays the enter"
   )
 
 
 def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
-  """Live-row source tracks arrivals and count changes with matching animation classes."""
+  """Live-row source tracks arrivals and count changes with GSAP motion hooks."""
   root = Path(__file__).resolve().parents[2]
-  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "@keyframes arrive" in css and "tr.live-row.arrive {" in css, (
-    "the glide of a new live row"
-  )
-  assert "@keyframes bump" in css and ".hint.bump {" in css, "the pulse of the count"
+  assert "tweenFromTo(row, { opacity: 0, y: -4 }, { opacity: 1, y: 0 });" in app
+  assert "tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }" in app
   assert "liveSeen" in app and "liveCount" in app, (
     "the rows already drawn, and the last count"
   )
@@ -6385,11 +6338,10 @@ def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
 
 
 def test_the_first_data_of_a_card_arrives_once() -> None:
-  """First-draw source tracks marked hosts and defines arrival-animation CSS."""
+  """First-draw source tracks marked hosts and triggers GSAP arrival motion."""
   root = Path(__file__).resolve().parents[2]
-  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert ".drawn { animation: arrive" in css, "the enter of the first data"
+  assert "function animateArrival(host)" in app, "the GSAP enter of the first data"
   assert "const DRAWN_SHOWN = new Set();" in app, "the hosts that already arrived"
   assert "DRAWN_SHOWN.has(host)" in app and "DRAWN_SHOWN.add(host)" in app, (
     "the once mark"
@@ -6431,34 +6383,27 @@ process.exit(0);
 
 
 def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
-  """Loading source defines a delayed 2 px edge bar, aria-busy state, and initial skeleton rows."""
+  """Loading source marks aria-busy without loading bars, button spinners, or skeleton rows."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   brand = next(line for line in page.splitlines() if 'class="brand"' in line)
   assert "spinner" not in brand and 'id="spinner"' not in page
-  assert "@keyframes nuu-edge-loading" in css and "200ms" in css and "scaleX(" in css
-  assert "opacity: 0.45;" in css, "reduced-motion static loading bar fallback"
-  assert "@keyframes shimmer" in css and "tr.skeleton td span {" in css, (
-    "the placeholder bar"
-  )
+  assert "nuu-edge-loading" not in css and "tr.skeleton" not in css
+  assert "@keyframes spin" not in css and 'classList.add("checking")' not in app
   assert (
     'setAttribute?.("aria-busy", "true")' in app
     and 'setAttribute?.("aria-busy", "false")' in app
   )
-  assert 'dataset.loading = "true"' in app and "delete region.dataset.loading" in app
-  assert "function skeletons(" in app and 'skeletons("requests"' in app, (
-    "the placeholder rows"
-  )
-  assert 'skeletons("models"' in app, "the models table waits too"
+  assert "region.dataset.loading" not in app and "function skeletons(" not in app
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   """Phone CSS defines metric and card layouts, and tab code replaces history entries."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  phone = css.split("@media (max-width: 40em) {", 1)[1]
+  phone = css.split("@media (max-width: 30em) {", 1)[1]
   for rule in (
     ".kpis { grid-template-columns: 1fr 1fr;",
     ".models tr > td.name { grid-column: 1 / -1; max-width: none; }",
@@ -6506,7 +6451,7 @@ def test_each_page_holds_a_section_list() -> None:
     ".sections button.on",
     ".section-pane {",
     '.settings[data-detail="1"] > .section-pane',
-    ".sections button { min-height: 44px; }",
+    ".sections button { min-height: 44px; padding: 10px 12px 10px 8px; gap: 10px; }",
   ):
     assert needle in style, needle
 
@@ -6532,9 +6477,7 @@ def test_the_notice_takes_the_red_and_wraps() -> None:
   rule = re.search(r"\n\.notice \{([^}]*)\}", css)
   assert rule, "the notice keeps its rule"
   assert "color: var(--red);" in rule.group(1), "the failure line takes our red"
-  assert "animation: arrive var(--soft) var(--ease);" in rule.group(1), (
-    "the line arrives as the modal does"
-  )
+  assert "box-shadow: 0 8px 20px rgb(0 0 0 / 25%);" in rule.group(1)
   assert "#notice-text { min-width: 0; overflow-wrap: anywhere; }" in css, (
     "a long message wraps in place of a clipped line"
   )
@@ -6560,16 +6503,8 @@ def test_the_notice_floats_without_moving_page_content() -> None:
 
 
 def test_the_notice_leaves_on_its_own_keyframes() -> None:
-  """Notice-dismissal source includes a leave animation, a labeled button, and an animation-name guard."""
+  """Notice-dismissal source uses GSAP exit tweening, a labeled button, and reduced-motion bypass."""
   root = Path(__file__).resolve().parent.parent.parent
-  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert (
-    "@keyframes leave { from { opacity: 1; transform: none; }"
-    " to { opacity: 0; transform: translateY(8px); } }"
-  ) in css, "the leave plays the arrival backwards"
-  assert (
-    ".notice.leave { animation: leave var(--soft) var(--ease) forwards; }" in css
-  ), "the leave keeps the page tokens of the arrival"
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   close = re.search(r'<button[^>]*id="notice-close"[^>]*>', page)
   assert close and 'aria-label="notice.dismiss_label"' in close.group(0), (
@@ -6581,11 +6516,9 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
     "the x draws the lucide glyph"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert re.search(
-    r'\$\("notice"\)\.addEventListener\("animationend", \(event\) => \{\n'
-    r'  if \(event\.animationName !== "leave"\) return;',
-    app,
-  ), "the note hides only when its own leave played out"
+  assert 'note.classList.add("leave");' in app
+  assert 'clearProps: "opacity,transform"' in app
+  assert "onComplete: () => {" in app
 
 
 def test_model_modal_heading_sizes_images_and_wraps_text() -> None:
@@ -6662,7 +6595,7 @@ def test_the_model_modal_reads_as_a_card() -> None:
   )
   assert "min-height: 60px;" in css, "a floor holds the blocks at one height"
   assert "grid-template-columns: repeat(3, 1fr);" in css, "the blocks ride one row"
-  phone_stats = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
+  phone_stats = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert ".model-stats { grid-template-columns: 1fr; }" in phone_stats, (
     "a narrow page folds them to one column, so no wrap leaves an orphan"
   )
@@ -7871,7 +7804,7 @@ const outside = node('search');
 const focus = { header: buttons[2], small, outside };
 sandbox.document.activeElement = focus[focused];
 sandbox.document.querySelectorAll = selector => selector === '#model-head th' ? heads : [];
-sandbox.matchMedia = query => ({ matches: query === '(max-width: 40em)' && phone,
+sandbox.matchMedia = query => ({ matches: query === '(max-width: 30em)' && phone,
   addEventListener() {} });
 probe.state.sort = { key: 'weight', dir: -1 };
 probe.renderSortHeads();
@@ -7961,12 +7894,11 @@ def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
   stack = page.split('class="limits-check-stack">', 1)[1].split("</div>", 1)[0]
   assert stack.index('id="limits-check"') < stack.index('id="limits-checked"')
   assert 'call("limits", { method: "POST", spinner: false })' in app
-  assert 'button.classList.add("checking")' in app
-  assert 'button.classList.remove("checking")' in app
   assert (
-    "#limits-check.checking svg, #limits-check:disabled svg { animation: spin .7s linear infinite; }"
-    in css
+    "if (prevLimits) renderLimits({ ...prevLimits, checked: Date.now() / 1000 });"
+    in app
   )
+  assert 'button.classList.add("checking")' not in app
   assert "align-items: center; justify-content: center;" in css
   assert "#limits-check { min-height: 0; padding: 2px 12px; }" in css
   run_app_js(
@@ -8309,7 +8241,7 @@ def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
   assert "--scrollbar-thumb: #c8c8d0;" in root.group(1)
   assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
   assert (
-    "::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 8px; }"
+    "::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; }"
     in css
   )
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
@@ -8649,20 +8581,20 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  allowed = {"75em", "60em", "40em", "30em"}
+  allowed = {"68em", "60em", "30em", "24em"}
   media_re = re.compile(r"\(\s*(?:min|max)-(?:width|height)\s*:\s*([^)]+?)\s*\)")
   css_breakpoints = set(media_re.findall(css))
   js_breakpoints = set(media_re.findall(app))
   assert css_breakpoints == allowed
   assert js_breakpoints <= allowed
-  assert "(max-height: 30em)" in css
+  assert "(max-height: 24em)" in css
   assert (
     "grid-template-columns: minmax(0, 1fr);"
     in css.partition(".rail {")[2].partition("}")[0]
   )
   assert ".rail-search input:focus-visible { outline: none" not in css
   assert ':root[data-keyboard-nav="true"] .rail-search:has(input:focus-visible)' in css
-  narrow_desk = css.split("@media (max-width: 75em) {", 1)[1].split("\n}", 1)[0]
+  narrow_desk = css.split("@media (max-width: 68em) {", 1)[1].split("\n}", 1)[0]
   assert (
     'section[data-page="requests"] > .flow > .column:not(.wide) { display: none; }'
     in narrow_desk
@@ -8673,7 +8605,7 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
     'section[data-page="limits"] > .flow > .column.wide { flex: none; width: 100%; min-height: 0; }'
     in tablet
   )
-  phone = css.split("@media (max-width: 40em) {", 1)[1].split("\n}", 1)[0]
+  phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert (
     ".requests tbody {" in phone
     and "repeat(auto-fit, minmax(min(280px, 100%), 1fr))" in phone
@@ -8694,7 +8626,10 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
     "background: var(--orange); flex: none; animation: pulse 1.4s ease-in-out infinite;"
     in css
   )
-  assert '<span class="pulse" aria-hidden="true"></span>' in app
+  assert (
+    '<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span>'
+    in app
+  )
 
 
 def test_nuu_modal_manager_and_delete_confirmations() -> None:
@@ -8788,12 +8723,16 @@ vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis._
 
 
 def test_approved_nuu_deviation_markers_present() -> None:
-  """Approved compact-control and dense-scale nuu-deviation markers stay recorded."""
+  """Approved compact-control, dense-scale, and scoped NUM205 markers stay recorded."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   design = Path("docs/design.md").read_text(encoding="utf-8")
-  for code in ("NUM201", "NUM202"):
+  for code in ("NUM201", "NUM202", "NUM205"):
     assert f"nuu-deviation: {code}:" in css
     assert f"nuu-deviation: {code}" in design
+  num205_blocks = re.findall(r"/\* nuu-deviation: NUM205:[^*]*\*/\n([^\n]+)", css)
+  assert len(num205_blocks) == 2
+  assert num205_blocks[0].startswith(".notification-feed {")
+  assert num205_blocks[1].startswith(".snippet {")
 
 
 def test_modal_close_icon_button_rest_hover_and_active() -> None:
@@ -8817,13 +8756,13 @@ def test_table_panels_apply_inline_scroll_edge_fade() -> None:
   assert "mask-composite: intersect;" in css
 
 
-MIN_FAST_SECONDS = 0.16
+MIN_FAST_SECONDS = 0.15
 MAX_FAST_SECONDS = 0.22
 MOBILE_TOUCH_MIN_PX = 44
 
 
 def test_nuu_audit_repairs_for_focus_spin_switch_skiplink_and_scroll_fade() -> None:
-  """Audit repairs gate focus outlines, define spin, use compositor switches, and wire skip link."""
+  """Audit repairs gate focus outlines, use compositor switches, and wire skip link."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   html = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -8841,7 +8780,7 @@ def test_nuu_audit_repairs_for_focus_spin_switch_skiplink_and_scroll_fade() -> N
   assert ".field input.switch::before {" in css
   assert "transform: translateX(18px);" in css
   assert ".settings .field.stack > button { align-self: flex-start; }" in css
-  assert "@keyframes spin { to { transform: rotate(360deg); } }" in css
+  assert "@keyframes spin" not in css
   assert (
     f'.card[data-section="keys"] .keys .ghost {{ width: {MOBILE_TOUCH_MIN_PX}px; '
     f"height: {MOBILE_TOUCH_MIN_PX}px; min-width: {MOBILE_TOUCH_MIN_PX}px; }}"
@@ -8852,3 +8791,153 @@ def test_nuu_audit_repairs_for_focus_spin_switch_skiplink_and_scroll_fade() -> N
   assert '<main id="main" tabindex="-1">' in html
   assert 'setAttribute?.("aria-busy", "true")' in app
   assert "action.checking_button" not in app and "action.checking_button" not in locale
+
+
+EXPECTED_TILE_PX = 24
+EXPECTED_DESKTOP_TILE_GAP_PX = 8
+EXPECTED_TABLET_TILE_GAP_PX = 10
+EXPECTED_ICON_PX = 16
+
+
+def test_vendored_gsap_serves_offline_and_drives_motion_with_reduced_motion_guard(
+  client: TestClient,
+) -> None:
+  """Offline gsap.min.js is registered, served, and skipped under reduced motion."""
+  root = Path(__file__).resolve().parents[2]
+  gsap_path = root / "daedalus/dashboard/ui/gsap.min.js"
+  assert gsap_path.is_file()
+  resp = client.get("/ui/gsap.min.js")
+  assert resp.status_code == 200
+  assert "gsap" in resp.text
+  html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  assert html.index('src="ui/gsap.min.js"') < html.index('src="ui/en.js"')
+  assert '<script src="ui/en.js"></script>\n<script src="ui/app.js"></script>' in html
+
+  code = _app_js_vm(
+    r"""
+Object.assign(sandbox, sandbox.window);
+sandbox.window = sandbox;
+sandbox.document.documentElement.style = {};
+const baseCreate = sandbox.document.createElement;
+sandbox.document.createElement = (...args) => ({ style: {}, ...baseCreate(...args) });
+sandbox.setTimeout = () => 0;
+sandbox.clearTimeout = () => {};
+vm.runInContext(fs.readFileSync("daedalus/dashboard/ui/gsap.min.js", "utf8"), sandbox);
+assert(typeof sandbox.gsap?.fromTo === "function", "vendored GSAP attaches to globalThis");
+const calls = [];
+sandbox.gsap.fromTo = (target, fromVars, toVars) => {
+  calls.push({ target, fromVars, toVars });
+};
+const box = { style: {} };
+sandbox.matchMedia = (q) => ({ matches: false, addEventListener() {} });
+vm.runInContext("tweenFromTo", sandbox)(box, { opacity: 0, y: 4 }, { opacity: 1, y: 0 });
+assert.strictEqual(calls.length, 1, "motion runs when reduced-motion is off");
+assert.strictEqual(calls[0].toVars.ease, "power3.out");
+assert.strictEqual(calls[0].toVars.clearProps, "opacity,transform");
+sandbox.matchMedia = (q) => ({ matches: q === "(prefers-reduced-motion: reduce)", addEventListener() {} });
+vm.runInContext("tweenFromTo", sandbox)(box, { opacity: 0 }, { opacity: 1 });
+assert.strictEqual(calls.length, 1, "reduced-motion skips GSAP tweens");
+process.exit(0);
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_clause4_theme_segmented_control_and_optimistic_writes() -> None:
+  """Theme renders a 3-way radiogroup, and settings writes update optimistically with rollback."""
+  run_app_js(
+    "state, SETTINGS, renderSettings, settingsChanges, selectThemeChoice, openDiffModal, refreshRelativeTimes",
+    r"""
+const defaults = {};
+for (const [group, , fields] of probe.SETTINGS) {
+  defaults[group] = {};
+  for (const [key, , unit] of fields) {
+    const defChoice = key === "theme" ? "system" : "24h";
+    const defScalar = unit === "name" ? key : unit ? 10 : true;
+    defaults[group][key] = unit === "list" ? ["x"] : unit === "choice" ? defChoice : defScalar;
+  }
+}
+defaults.hooks = { sources: [], disabled: [] };
+probe.state.settings = {
+  path: "config/daedalus.yml",
+  values: JSON.parse(JSON.stringify(defaults)),
+  defaults,
+  file: { personalization: { theme: "system", time_format: "24h" } },
+  text: "personalization:\n  theme: system\n",
+  hook_rows: [],
+};
+probe.renderSettings();
+const html = node("settings").innerHTML;
+assert(html.includes('class="theme-seg" id="set-personalization-theme" role="radiogroup"'));
+assert(!html.includes('id="set-personalization-theme" role="radiogroup" aria-label="Theme" data-value='),
+  "theme-seg avoids data-value so bindValueRows never opens the text modal");
+for (const choice of ["system", "light", "dark"]) {
+  assert(html.includes(`data-theme-choice="${choice}"`), choice);
+}
+
+const radios = ["system", "light", "dark"].map((choice) => ({
+  dataset: { themeChoice: choice },
+  attrs: { "aria-checked": choice === "system" ? "true" : "false" },
+  tabIndex: choice === "system" ? 0 : -1,
+  setAttribute(k, v) { this.attrs[k] = v; },
+  closest(sel) { return sel === ".theme-seg" ? seg : null; },
+}));
+const seg = node("set-personalization-theme");
+seg.dataset = { themeValue: "system" };
+seg.querySelectorAll = () => radios;
+seg.closest = () => null;
+const store = { getItem: () => null, removeItem: () => {}, setItem: () => {} };
+sandbox.sessionStorage = store;
+sandbox.localStorage = store;
+let sawOptimisticDark = false;
+sandbox.fetch = async (url, opts) => {
+  if (opts?.method === "PUT") {
+    sawOptimisticDark =
+      sandbox.document.documentElement.dataset.theme === "dark"
+      && seg.dataset.themeValue === "dark";
+    return { ok: false, status: 500, json: async () => ({ error: { message: "boom" } }) };
+  }
+  return { ok: true, status: 200, json: async () => probe.state.settings };
+};
+for (const id of ["set-affinity-change_on_draw", "set-balance-weights", "set-balance-pacing",
+  "set-optimization-enabled"]) node(id).checked = true;
+node("set-affinity-mode").value = "session";
+node("set-personalization-time_format").value = "24h";
+(async () => {
+  await probe.selectThemeChoice(radios[2]);
+  assert.strictEqual(sawOptimisticDark, true, "optimistic state updates before PUT resolves");
+  assert.strictEqual(sandbox.document.documentElement.dataset.theme, "light", "rollback restores prior theme");
+  assert(node("settings").innerHTML.includes('data-theme-value="system"'), "rollback restores themeValue");
+  const at = Date.now() / 1000 - 300;
+  node("model-modal").open = true;
+  node("model-modal").showModal = () => {};
+  probe.openDiffModal({ reason: "startup", at, added: [], removed: [], changed: [] });
+  assert(node("model-modal-title").textContent.includes("ago"), "diff modal title uses relative age");
+  assert(node("model-modal-title").title.includes("-"), "diff modal title keeps exact stamp on hover");
+  probe.refreshRelativeTimes();
+})().catch((err) => { console.error(err); process.exit(1); });
+""",
+  )
+
+
+def test_semantic_category_tiles_match_vertical_and_horizontal_spacing() -> None:
+  """Settings category tiles use 24px semantic boxes and symmetric 8px/10px spacing."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert (
+    f"width: {EXPECTED_TILE_PX}px; height: {EXPECTED_TILE_PX}px; border-radius: 6px;"
+    in css
+  )
+  assert (
+    f".tile svg {{ width: {EXPECTED_ICON_PX}px; height: {EXPECTED_ICON_PX}px; }}" in css
+  )
+  assert (
+    f"gap: {EXPECTED_DESKTOP_TILE_GAP_PX}px;\n"
+    f"  padding: {EXPECTED_DESKTOP_TILE_GAP_PX}px 12px {EXPECTED_DESKTOP_TILE_GAP_PX}px "
+    f"{EXPECTED_DESKTOP_TILE_GAP_PX - 2}px;"
+  ) in css
+  assert (
+    f".sections button {{ min-height: {MOBILE_TOUCH_MIN_PX}px; "
+    f"padding: {EXPECTED_TABLET_TILE_GAP_PX}px 12px {EXPECTED_TABLET_TILE_GAP_PX}px "
+    f"{EXPECTED_TABLET_TILE_GAP_PX - 2}px; gap: {EXPECTED_TABLET_TILE_GAP_PX}px; }}"
+  ) in css
+  assert "#sort-small, #key-name { flex: 1 1 100%; width: 100%; }" in css

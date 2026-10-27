@@ -22,7 +22,7 @@ renderer = "auto"
 wireframe = false
 
 [audit]
-named_breakpoints = ["75em", "60em", "40em", "30em"]
+named_breakpoints = ["68em", "60em", "30em", "24em"]
 viewports = ["1440x900", "768x1024", "390x844"]
 widths = [1440, 768, 390]
 report_widths = [1440, 768, 390]

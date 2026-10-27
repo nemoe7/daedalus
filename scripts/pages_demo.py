@@ -1746,14 +1746,19 @@ def build(out: Path, version: str) -> Path:
     encoding="utf-8",
   )
   page = (UI / "index.html").read_text(encoding="utf-8")
-  marker = '<script src="ui/en.js"></script>\n<script src="ui/app.js"></script>'
+  marker = (
+    '<script src="ui/gsap.min.js"></script>\n'
+    '<script src="ui/en.js"></script>\n'
+    '<script src="ui/app.js"></script>'
+  )
   if marker not in page:
     raise SystemExit(
-      "index.html does not load ui/en.js before ui/app.js: the demo build cannot patch it"
+      "index.html does not load ui/gsap.min.js and ui/en.js before ui/app.js: the demo build cannot patch it"
     )
   # The version rides on each asset, so a browser loads a new build and not the cache.
   stamped = (
     f'<script src="demo.js?v={version}"></script>\n'
+    f'<script src="ui/gsap.min.js?v={version}"></script>\n'
     f'<script src="ui/en.js?v={version}"></script>\n'
     f'<script src="ui/app.js?v={version}"></script>'
   )
