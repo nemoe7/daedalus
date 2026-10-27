@@ -258,3 +258,35 @@ def test_google_and_manager_generic_results_obey_the_guard():
   tool.valves.permissions = "Allow reads"
   out = asyncio.run(tool.list_tools(__request__=object()))
   assert json.loads(out)["next_offset"] > 0 and size(out) <= 32768
+
+
+def test_all_guards_record_call_arguments_and_root_ids_before_large_child_lists():
+  byte_limit = 1024
+  expected_repo = "nemoe7/clankers"
+  expected_tool = "github"
+  expected_thread = "thread-1"
+  expected_tree = "tree-root-sha"
+  children = [
+    {"sha": f"child-{i}", "url": f"https://example.invalid/{i}", "body": "x" * 600}
+    for i in range(120)
+  ]
+  arguments = {
+    "repository_full_name": expected_repo,
+    "tool_id": expected_tool,
+    "thread_id": expected_thread,
+    "ref": "",
+    "recursive": True,
+  }
+  payload = {"result": {"tree_sha": expected_tree, "items": children}}
+  for module in (github.tool, google.tool, manager.MOD):
+    instance = module.Tools()
+    instance.valves.max_output_bytes = byte_limit
+    out = instance._output(payload, arguments=arguments)
+    assert size(out) <= byte_limit and out["truncated"] is True
+    assert out["identifiers"]["repository_full_name"] == expected_repo
+    assert out["identifiers"]["tool_id"] == expected_tool
+    assert out["identifiers"]["thread_id"] == expected_thread
+    assert out["identifiers"]["tree_sha"] == expected_tree
+    assert "ref" not in out["identifiers"]
+    assert "recursive" not in out["identifiers"]
+    assert out["identifiers"].get("sha") in (None, "child-0")

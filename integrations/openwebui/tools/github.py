@@ -3,7 +3,7 @@ title: GitHub
 author: nemo
 description: GitHub access for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 3.0.12
+version: 3.0.13
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -114,11 +114,16 @@ class Tools:
     keys = {
       "id",
       "sha",
+      "tree_sha",
       "node_id",
       "html_url",
       "url",
       "file_id",
+      "directory_id",
       "thread_id",
+      "message_id",
+      "document_id",
+      "calendar_id",
       "skill_id",
       "version_id",
       "tool_id",
@@ -132,7 +137,7 @@ class Tools:
     for _ in range(100):
       if not pending:
         break
-      row = pending.pop()
+      row = pending.pop(0)
       if isinstance(row, list):
         pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
         continue
@@ -141,6 +146,8 @@ class Tools:
           key in keys
           and key not in result["identifiers"]
           and isinstance(item, (str, int))
+          and not isinstance(item, bool)
+          and item != ""
         ):
           result["identifiers"][key] = item
           if self._output_size(result) > limit:
@@ -178,6 +185,43 @@ class Tools:
       raise ValueError(
         "Output metadata leaves no room for text. Use a smaller result."
       )
+    return page(lower)
+
+  def _list_page(
+    self,
+    payload: dict,
+    field: str,
+    items: list,
+    offset: int,
+    max_results: int,
+    *,
+    cap: int = 200,
+    more: bool = False,
+  ) -> dict:
+    start = min(max(0, int(offset)), len(items))
+    upper = min(max(1, int(max_results)), cap, len(items) - start)
+
+    def page(count):
+      end = start + count
+      return {
+        **payload,
+        field: items[start:end],
+        "count": count,
+        "total_count": len(items),
+        "offset": start,
+        "next_offset": end if end < len(items) else None,
+        "truncated": more or end < len(items),
+      }
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size({"result": page(middle)}) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(items):
+      return page(1)
     return page(lower)
 
   def __init__(self):
@@ -432,6 +476,14 @@ class Tools:
       "date": author.get("date"),
     }
 
+  @staticmethod
+  def _tree_entry(item: dict) -> dict:
+    return {
+      key: item[key]
+      for key in ("path", "type", "sha", "size")
+      if key in item and item[key] is not None
+    }
+
   # ------------------------------------------------------------- pointers
 
   @staticmethod
@@ -559,15 +611,18 @@ class Tools:
   async def list_recent_issues(
     self,
     top_k: int = 20,
+    offset: int = 0,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
     """List recent GitHub issues for the signed-in user, newest update first.
 
     :param top_k: maximum issues to return, up to 100
+    :param offset: item offset within the fetched recent issues
     """
 
     async def run():
+      limit = min(max(1, int(top_k)), 100)
       issues = await self._request(
         "GET",
         f"{API}/issues",
@@ -576,14 +631,15 @@ class Tools:
           "state": "all",
           "sort": "updated",
           "direction": "desc",
-          "per_page": min(max(1, int(top_k)), 100),
+          "per_page": limit,
         },
       )
-      return self._ok({"issues": issues})
+      rows = [self._issue_summary(item) for item in issues]
+      return self._ok(self._list_page({}, "issues", rows, offset, limit, cap=100))
 
     return await self._read(
       "read list_recent_issues",
-      str({"top_k": top_k}),
+      str({"top_k": top_k, "offset": offset}),
       run,
       __user__,
       __event_call__,
@@ -2071,7 +2127,11 @@ class Tools:
     ref: str | None = None,
     tree_sha: str | None = None,
     recursive: bool = True,
+    path: str | None = None,
     path_prefix: str | None = None,
+    entry_type: Literal["blob", "tree"] | None = None,
+    offset: int = 0,
+    max_results: int = 200,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
   ) -> dict:
@@ -2081,7 +2141,11 @@ class Tools:
     :param ref: branch or tag name, defaults to repo default branch
     :param tree_sha: tree SHA instead of ref
     :param recursive: traverse nested directories
+    :param path: relative path prefix alias for path_prefix
     :param path_prefix: filter entries starting with this prefix
+    :param entry_type: optional git entry kind (blob or tree)
+    :param offset: entry offset within the filtered tree
+    :param max_results: maximum entries per page within output byte limits
     """
 
     async def run():
@@ -2096,20 +2160,29 @@ class Tools:
         params={"recursive": "1" if recursive else None},
       )
       entries = data.get("tree") or []
-      if path_prefix:
+      prefix = ((path_prefix if path_prefix is not None else path) or "").lstrip("/")
+      if prefix:
         entries = [
           item
           for item in entries
-          if (item.get("path") or "").startswith(path_prefix)
+          if (item.get("path") or "").startswith(prefix)
         ]
+      if entry_type:
+        entries = [item for item in entries if item.get("type") == entry_type]
       limit = min(max(1, int(self.valves.max_tree_entries)), 5000)
-      return self._ok(
-        {
-          "tree": entries[:limit],
-          "count": min(len(entries), limit),
-          "truncated": bool(data.get("truncated")) or len(entries) > limit,
-        }
+      rows = [self._tree_entry(item) for item in entries[:limit]]
+      api_truncated = bool(data.get("truncated")) or len(entries) > limit
+      paged = self._list_page(
+        {"tree_sha": data.get("sha") or tree_sha, "api_truncated": api_truncated},
+        "tree",
+        rows,
+        offset,
+        max_results,
+        cap=limit,
       )
+      if api_truncated:
+        paged["truncated"] = True
+      return self._ok(paged)
 
     return await self._read(
       "read list_tree",
@@ -2118,7 +2191,11 @@ class Tools:
         "ref": ref,
         "tree_sha": tree_sha,
         "recursive": recursive,
+        "path": path,
         "path_prefix": path_prefix,
+        "entry_type": entry_type,
+        "offset": offset,
+        "max_results": max_results,
       }),
       run,
       __user__,

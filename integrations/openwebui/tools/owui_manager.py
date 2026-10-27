@@ -3,7 +3,7 @@ title: Open WebUI Manager
 author: nemo
 description: Open WebUI knowledge, skills, files, tools, and functions. Read and write approval follows permission mode.
 required_open_webui_version: 0.12.0
-version: 1.0.15
+version: 1.0.16
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -174,11 +174,16 @@ class Tools:
     keys = {
       "id",
       "sha",
+      "tree_sha",
       "node_id",
       "html_url",
       "url",
       "file_id",
+      "directory_id",
       "thread_id",
+      "message_id",
+      "document_id",
+      "calendar_id",
       "skill_id",
       "version_id",
       "tool_id",
@@ -192,7 +197,7 @@ class Tools:
     for _ in range(100):
       if not pending:
         break
-      row = pending.pop()
+      row = pending.pop(0)
       if isinstance(row, list):
         pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
         continue
@@ -201,6 +206,8 @@ class Tools:
           key in keys
           and key not in result["identifiers"]
           and isinstance(item, (str, int))
+          and not isinstance(item, bool)
+          and item != ""
         ):
           result["identifiers"][key] = item
           if self._output_size(result) > limit:
@@ -247,10 +254,11 @@ class Tools:
     page: int | None = None,
     more: bool = False,
     base_offset: int = 0,
+    cap: int = 100,
     **metadata,
   ) -> str:
     start = min(max(0, int(offset)), len(items))
-    upper = min(max(1, int(max_results)), 100, len(items) - start)
+    upper = min(max(1, int(max_results)), cap, len(items) - start)
 
     def result(count):
       end = start + count
@@ -1013,6 +1021,7 @@ class Tools:
     knowledge_id: str = Field(..., description="ID of the Open WebUI knowledge base."),
     directory_id: str = "",
     path: str = "",
+    path_prefix: str = "",
     tree: bool = False,
     max_depth: int = 20,
     max_nodes: int = 1000,
@@ -1025,16 +1034,17 @@ class Tools:
     __event_emitter__: Callable | None = None,
   ) -> str:
     """
-    List one knowledge directory page by ID or path, or render a bounded tree when `tree` is true.
+    List one knowledge directory page by ID or path, or return a paged tree when `tree` is true.
 
     :param knowledge_id: Open WebUI knowledge base ID
     :param directory_id: directory ID to list, or empty for root
     :param path: optional directory path when `directory_id` is empty
+    :param path_prefix: optional relative path prefix filter when `tree` is true
     :param tree: true to return a recursive directory and file tree
     :param max_depth: maximum recursion depth when `tree` is true
     :param max_nodes: maximum tree nodes when `tree` is true
     :param page: API page, starting at 1
-    :param offset: row offset within this API page
+    :param offset: row offset within this API page or tree
     :param max_results: maximum rows within output byte limits
     """
 
@@ -1044,7 +1054,7 @@ class Tools:
       if tree:
         depth_cap = max(1, min(max_depth, 50))
         node_cap = max(1, min(max_nodes, 5000))
-        lines = []
+        rows = []
         count = 0
         visited = set()
         async with await self._open_session(__request__) as session:
@@ -1061,11 +1071,8 @@ class Tools:
           meta, err = await self._request(session, "GET", f"/knowledge/{knowledge_id}")
           if err:
             return err
-          lines.append(
-            f"{meta.get('name', 'Knowledge Base')} (knowledge_id={knowledge_id})"
-          )
 
-          async def walk(directory, depth):
+          async def walk(directory, prefix_parts, depth):
             nonlocal count
             if count >= node_cap or depth > depth_cap:
               return
@@ -1077,31 +1084,61 @@ class Tools:
               session, knowledge_id, directory
             )
             if walk_err:
-              lines.append("  " * depth + walk_err)
+              rows.append(
+                {
+                  "path": "/".join(prefix_parts),
+                  "kind": "error",
+                  "error": walk_err,
+                }
+              )
               return
             for entry in listing["items"]:
               if count >= node_cap:
                 return
               count += 1
               item = self._file_item(entry)
-              lines.append(
-                "  " * depth
-                + f"📄 {item.get('filename', 'Unnamed')} (file_id={item.get('id')})"
+              name = item.get("filename", "Unnamed")
+              rows.append(
+                {
+                  "path": "/".join([*prefix_parts, name]),
+                  "kind": "file",
+                  "file_id": item.get("id"),
+                }
               )
             for entry in listing["directories"]:
               if count >= node_cap:
                 return
               count += 1
-              lines.append(
-                "  " * depth
-                + f"📁 {entry.get('name', 'Unnamed')} (directory_id={entry.get('id')})"
+              name = entry.get("name", "Unnamed")
+              next_parts = [*prefix_parts, name]
+              rows.append(
+                {
+                  "path": "/".join(next_parts),
+                  "kind": "directory",
+                  "directory_id": entry.get("id"),
+                }
               )
-              await walk(entry.get("id"), depth + 1)
+              await walk(entry.get("id"), next_parts, depth + 1)
 
-          await walk(target_dir, 1)
-        if count >= node_cap:
-          lines.append(f"\nTree truncated after {node_cap} nodes.")
-        return "\n".join(lines)
+          await walk(target_dir, [], 1)
+        clean_prefix = (path_prefix or "").lstrip("/")
+        if clean_prefix:
+          rows = [
+            row
+            for row in rows
+            if (row.get("path") or "").startswith(clean_prefix)
+          ]
+        return self._list_page(
+          rows,
+          offset,
+          max_results,
+          cap=node_cap,
+          more=count >= node_cap,
+          knowledge_id=knowledge_id,
+          directory_id=target_dir,
+          name=(meta or {}).get("name"),
+          tree=True,
+        )
 
       current = max(1, int(page))
       async with await self._open_session(__request__) as session:
@@ -1184,6 +1221,9 @@ class Tools:
     read_match: bool = False,
     page: int = 1,
     max_content_items: int = 10,
+    offset: int = 0,
+    max_results: int = 20,
+    max_chars: int = 10000,
     __request__=None,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
@@ -1198,6 +1238,9 @@ class Tools:
     :param read_match: true to read a single unambiguous first-page match
     :param page: result page, starting at 1
     :param max_content_items: maximum matching files with text previews
+    :param offset: row offset for search results or character offset for `read_match`
+    :param max_results: maximum rows within output byte limits
+    :param max_chars: maximum characters when `read_match` is true
     """
 
     async def run():
@@ -1238,11 +1281,18 @@ class Tools:
           body, err = await self._request(
             session, "GET", f"/files/{chosen.get('id')}/data/content"
           )
-        return (
-          err
-          or f"filename={chosen.get('filename', 'Unnamed')}\n"
-          f"file_id={chosen.get('id')}\n\n{(body or {}).get('content', '')}"
+        if err:
+          return err
+        paged = self._page(
+          {
+            "file_id": chosen.get("id"),
+            "filename": chosen.get("filename", "Unnamed"),
+            "content": str((body or {}).get("content", "")),
+          },
+          offset,
+          max_chars,
         )
+        return json.dumps(paged, indent=2, ensure_ascii=False)
 
       current = max(1, page)
       preview_cap = max(1, min(max_content_items, 50))
@@ -1259,7 +1309,8 @@ class Tools:
         )
         if err:
           return err
-        items = (data or {}).get("items", [])
+        raw_items = (data or {}).get("items", [])
+        items = raw_items
         if exact_filename:
           items = [
             item
@@ -1267,30 +1318,33 @@ class Tools:
             if self._file_item(item).get("filename", "").casefold()
             == exact_filename.strip().casefold()
           ]
-        if not items:
-          return (
-            f"No matching knowledge files found.\nquery={clean_query}\npage={current}"
-          )
-        result = [f"Search results for: {clean_query}", f"page={current}", ""]
+        rows = []
         for index, item in enumerate(items):
           file_data = self._file_item(item)
           filename = file_data.get("filename", file_data.get("name", "Unnamed"))
           file_id = file_data.get("id")
-          result.append(f"- {filename} (file_id={file_id})")
+          row: dict[str, Any] = {"file_id": file_id, "filename": filename}
           if include_content and file_id and index < preview_cap:
             content_data, content_error = await self._request(
               session, "GET", f"/files/{file_id}/data/content"
             )
             if content_error:
-              result.append(f"  content_preview_error={content_error}")
+              row["content_preview_error"] = content_error
             else:
               content = (content_data or {}).get("content", "")
-              result.append(
-                f"  content_preview={content[:1000]}"
-                if content
-                else "  content_preview=<empty>"
-              )
-      return "\n".join(result)
+              row["content_preview"] = content[:500] if content else ""
+          rows.append(row)
+      total = (data or {}).get("total")
+      more = current * 30 < total if isinstance(total, int) else len(raw_items) == 30
+      return self._list_page(
+        rows,
+        offset,
+        max_results,
+        page=current,
+        more=more,
+        query=clean_query,
+        total_count=total,
+      )
 
     detail = f"Query: {query}\nPage: {page}"
     if exact_filename:

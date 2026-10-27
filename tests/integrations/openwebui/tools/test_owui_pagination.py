@@ -365,3 +365,227 @@ def test_google_lists_end_without_a_continuation_token(name):
     getattr(tool, name)(**({} if name == "agenda" else {"query": "query"}))
   )["result"]
   assert out["next_page_token"] is None
+
+
+def test_github_tree_pages_fit_bytes_strip_blob_urls_and_accept_path_alias():
+  byte_limit = 2048
+  expected_tree = "root-tree-sha"
+  entries = [
+    {
+      "path": f"src/file_{i:03d}.py",
+      "mode": "100644",
+      "type": "blob",
+      "sha": f"{i:040x}",
+      "size": 120 + i,
+      "url": f"https://api.github.com/repos/o/r/git/blobs/{i:040x}",
+    }
+    for i in range(60)
+  ] + [
+    {"path": "src", "mode": "040000", "type": "tree", "sha": "d" * 40},
+    {"path": "src_extra/skip.py", "mode": "100644", "type": "blob", "sha": "e" * 40},
+    {"path": "docs/guide.md", "mode": "100644", "type": "blob", "sha": "f" * 40},
+  ]
+  tool = github.client()
+  tool.valves.max_output_bytes = byte_limit
+
+  async def request(*args, **kwargs):
+    return {"sha": expected_tree, "truncated": False, "tree": entries}
+
+  tool._request = request
+  offset, seen = 0, []
+  for _ in range(20):
+    raw = asyncio.run(tool.list_tree("o/r", ref="main", offset=offset, max_results=200))
+    encoded = json.dumps(raw, indent=2, ensure_ascii=False).encode("utf-8")
+    assert len(encoded) <= byte_limit
+    result = raw["result"]
+    assert result["tree_sha"] == expected_tree and result["count"] > 0
+    assert all("url" not in item and "mode" not in item for item in result["tree"])
+    seen.extend(item["path"] for item in result["tree"])
+    offset = result["next_offset"]
+    if offset is None:
+      assert result["truncated"] is False
+      break
+  else:
+    pytest.fail("Tree paging did not finish")
+  assert seen == [item["path"] for item in entries]
+  filtered = asyncio.run(
+    tool.list_tree("o/r", ref="main", path="src", entry_type="blob", max_results=200)
+  )["result"]
+  assert all(
+    item["path"].startswith("src/") and item["type"] == "blob"
+    for item in filtered["tree"]
+  )
+  assert "src_extra/skip.py" not in [item["path"] for item in filtered["tree"]]
+
+
+def test_github_recent_issues_compact_and_fit_bytes():
+  byte_limit = 2048
+  tool = github.client()
+  tool.valves.max_output_bytes = byte_limit
+  rows = [
+    {
+      "id": i,
+      "node_id": f"issue-{i}",
+      "number": i,
+      "html_url": f"https://github.com/o/r/issues/{i}",
+      "title": f"Issue {i}",
+      "state": "open",
+      "body": "x" * 20000,
+      "user": {"login": "alice", "avatar_url": "y" * 5000},
+    }
+    for i in range(12)
+  ]
+
+  async def request(*args, **kwargs):
+    return rows
+
+  tool._request = request
+  out = asyncio.run(tool.list_recent_issues(top_k=12, offset=0))
+  encoded = json.dumps(out, indent=2, ensure_ascii=False).encode("utf-8")
+  assert len(encoded) <= byte_limit
+  result = out["result"]
+  assert result["count"] > 0 and result["next_offset"] == result["count"]
+  assert all("body" not in row and "user" not in row for row in result["issues"])
+
+
+def test_google_lists_fit_bytes_and_read_document_accepts_document_id():
+  byte_limit = 1536
+  expected_doc = "doc-42"
+  tool = google.reader()
+  tool.valves.max_output_bytes = byte_limit
+  messages = [
+    {
+      "id": f"m-{i}",
+      "threadId": "t-1",
+      "snippet": "s" * 200,
+      "payload": {"headers": [{"name": "Subject", "value": f"Topic {i}"}]},
+    }
+    for i in range(15)
+  ]
+
+  async def request(method, url, **kwargs):
+    if url.endswith("/messages"):
+      return {
+        "messages": [{"id": row["id"]} for row in messages],
+        "nextPageToken": "p2",
+      }
+    if "/messages/m-" in url:
+      idx = int(url.rsplit("m-", 1)[1])
+      return messages[idx]
+    if "/threads/" in url:
+      return {"messages": messages}
+    if "/events" in url:
+      return {
+        "items": [
+          {
+            "id": f"e-{i}",
+            "summary": "Event " + ("x" * 160),
+            "start": {"dateTime": "2026-10-06T09:00:00Z"},
+            "end": {"dateTime": "2026-10-06T10:00:00Z"},
+          }
+          for i in range(15)
+        ],
+        "nextPageToken": "p2",
+      }
+    if url.endswith("/files"):
+      return {
+        "files": [{"id": f"f-{i}", "name": "File " + ("y" * 160)} for i in range(15)],
+        "nextPageToken": "p2",
+      }
+    if kwargs.get("raw"):
+      return "hello world"
+    return {"id": expected_doc, "name": "Spec", "mimeType": "text/plain"}
+
+  tool._request = request
+  for fn, args, kwargs in (
+    (tool.search_mail, ("q",), {"max_results": 15}),
+    (tool.read_thread, ("t-1",), {"max_results": 15}),
+    (tool.agenda, (), {"max_results": 15}),
+    (tool.search_files, ("q",), {"max_results": 15}),
+  ):
+    out = asyncio.run(fn(*args, **kwargs))
+    encoded = json.dumps(out, indent=2, ensure_ascii=False).encode("utf-8")
+    assert len(encoded) <= byte_limit
+    result = out["result"]
+    assert result["count"] > 0 and result["next_offset"] == result["count"]
+  mail_rows = asyncio.run(tool.search_mail("q", max_results=2))["result"]["messages"]
+  assert all("text" not in row for row in mail_rows)
+  doc = asyncio.run(tool.read_document(document_id=expected_doc, max_chars=50))[
+    "result"
+  ]
+  assert doc["file_id"] == expected_doc and doc["text"] == "hello world"
+
+
+def test_manager_knowledge_tree_and_search_fit_bytes_and_accept_path_prefix():
+  byte_limit = 1536
+  root_listing = {
+    "directories": [
+      {"id": "d-docs", "name": "docs"},
+      {"id": "d-other", "name": "other"},
+    ],
+    "items": [{"file": {"id": "f-root", "filename": "README.md"}}],
+    "total": 1,
+  }
+  docs_listing = {
+    "directories": [],
+    "items": [
+      {"file": {"id": f"f-{i}", "filename": f"guide_{i:02d}.md"}} for i in range(25)
+    ],
+    "total": 25,
+  }
+  tool, _ = manager.make_tool()
+  tool.valves.permissions = "Allow reads"
+  tool.valves.max_output_bytes = byte_limit
+
+  async def request(session, method, path, **kwargs):
+    params = kwargs.get("params") or {}
+    if path == "/knowledge/k":
+      return {"id": "k", "name": "Docs KB"}, None
+    if path == "/knowledge/k/files":
+      if params.get("directory_id") == "d-docs":
+        return docs_listing, None
+      if params.get("directory_id") == "d-other":
+        return {"directories": [], "items": [], "total": 0}, None
+      return root_listing, None
+    if path == "/knowledge/search/files":
+      return {
+        "items": [
+          {"file": {"id": f"s-{i}", "filename": f"match_{i:02d}.md"}} for i in range(25)
+        ],
+        "total": 25,
+      }, None
+    if path.startswith("/files/") and path.endswith("/data/content"):
+      return {"content": "preview " * 80}, None
+    return {}, None
+
+  tool._request = request
+  offset, seen = 0, []
+  for _ in range(15):
+    raw = asyncio.run(
+      tool.list_knowledge_files(
+        "k",
+        tree=True,
+        path_prefix="docs/",
+        offset=offset,
+        max_results=50,
+        __request__=object(),
+      )
+    )
+    assert len(raw.encode("utf-8")) <= byte_limit
+    out = json.loads(raw)
+    assert out["count"] > 0
+    seen.extend(row["path"] for row in out["items"])
+    offset = out["next_offset"]
+    if offset is None:
+      break
+  else:
+    pytest.fail("Knowledge tree paging did not finish")
+  assert seen == [f"docs/guide_{i:02d}.md" for i in range(25)]
+  search_raw = asyncio.run(
+    tool.search_knowledge_files(
+      "guide", include_content=True, offset=0, max_results=25, __request__=object()
+    )
+  )
+  assert len(search_raw.encode("utf-8")) <= byte_limit
+  search_out = json.loads(search_raw)
+  assert search_out["count"] > 0 and search_out["next_offset"] == search_out["count"]

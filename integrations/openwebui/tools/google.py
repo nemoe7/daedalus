@@ -3,7 +3,7 @@ title: Google
 author: nemo
 description: Gmail, Calendar, Drive, and Docs for Open WebUI. Read and write approval follows permission mode.
 required_open_webui_version: 0.10.0
-version: 1.0.5
+version: 1.0.6
 licence: nemoe7 Noncommercial and Public-Interest License 1.2.0
 """
 
@@ -106,18 +106,25 @@ class Tools:
     if isinstance(value, (dict, list)):
       pending.append(value)
     keys = {
-      "id", "sha", "node_id", "html_url", "url", "file_id", "thread_id", "skill_id", "version_id",
+      "id", "sha", "tree_sha", "node_id", "html_url", "url", "file_id", "directory_id",
+      "thread_id", "message_id", "document_id", "calendar_id", "skill_id", "version_id",
       "tool_id", "function_id", "knowledge_id", "repository_full_name", "repo_full_name", "commit_sha", "blob_sha",
     }
     for _ in range(100):
       if not pending:
         break
-      row = pending.pop()
+      row = pending.pop(0)
       if isinstance(row, list):
         pending.extend(item for item in row[:100] if isinstance(item, (dict, list)))
         continue
       for key, item in row.items():
-        if key in keys and key not in result["identifiers"] and isinstance(item, (str, int)):
+        if (
+          key in keys
+          and key not in result["identifiers"]
+          and isinstance(item, (str, int))
+          and not isinstance(item, bool)
+          and item != ""
+        ):
           result["identifiers"][key] = item
           if self._output_size(result) > limit:
             del result["identifiers"][key]
@@ -150,6 +157,42 @@ class Tools:
         upper = middle - 1
     if lower == 0 and start < len(text):
       raise ValueError("Output metadata leaves no room for text. Use a smaller result.")
+    return page(lower)
+
+  def _list_page(
+    self,
+    payload: dict,
+    field: str,
+    items: list,
+    offset: int,
+    max_results: int,
+    *,
+    cap: int = 50,
+  ) -> dict:
+    start = min(max(0, int(offset)), len(items))
+    upper = min(max(1, int(max_results)), cap, len(items) - start)
+
+    def page(count):
+      end = start + count
+      return {
+        **payload,
+        field: items[start:end],
+        "count": count,
+        "total_count": len(items),
+        "offset": start,
+        "next_offset": end if end < len(items) else None,
+        "truncated": end < len(items),
+      }
+
+    lower = 0
+    while lower < upper:
+      middle = (lower + upper + 1) // 2
+      if self._output_size({"result": page(middle)}) <= self.valves.max_output_bytes:
+        lower = middle
+      else:
+        upper = middle - 1
+    if lower == 0 and start < len(items):
+      return page(1)
     return page(lower)
 
   def __init__(self):
@@ -420,12 +463,14 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     page_token: str = "",
+    offset: int = 0,
   ) -> dict:
     """Search Gmail and return the newest matches with their headers and snippets.
 
     :param query: the Gmail search, for example from:ana newer_than:7d or subject:invoice
     :param max_results: how many messages to read, up to 50. Zero uses the valve
     :param page_token: next_page_token from the previous result, or empty for the first page
+    :param offset: message offset within the fetched search page
     """
 
     async def run():
@@ -443,8 +488,19 @@ class Tools:
             "metadataHeaders": ["From", "To", "Subject", "Date"],
           },
         )
-        out.append(self._message(message))
-      return self._ok({"messages": out, "count": len(out), "next_page_token": found.get("nextPageToken")})
+        row = self._message(message)
+        row.pop("text", None)
+        out.append(row)
+      return self._ok(
+        self._list_page(
+          {"next_page_token": found.get("nextPageToken")},
+          "messages",
+          out,
+          offset,
+          limit,
+          cap=50,
+        )
+      )
 
     return await self._read(
       "read Gmail",
@@ -475,17 +531,20 @@ class Tools:
         params={"format": "metadata", "metadataHeaders": ["From", "To", "Subject", "Date"]}
       )
       items = data.get("messages") or []
-      start = min(max(0, int(offset)), len(items))
-      end = min(start + self._limit(max_results), len(items))
       messages = []
-      for item in items[start:end]:
+      for item in items:
         message = self._message({**item, "payload": {**(item.get("payload") or {}), "body": {}, "parts": []}})
         message.pop("text")
         messages.append(message)
       return self._ok(
-        {"thread_id": thread_id, "messages": messages, "count": len(messages),
-         "offset": start, "next_offset": end if end < len(items) else None,
-         "total_count": len(items), "truncated": end < len(items)}
+        self._list_page(
+          {"thread_id": thread_id},
+          "messages",
+          messages,
+          offset,
+          self._limit(max_results),
+          cap=50,
+        )
       )
 
     return await self._read(
@@ -580,6 +639,7 @@ class Tools:
     page_token: str = "",
     time_min: str = "",
     time_max: str = "",
+    offset: int = 0,
   ) -> dict:
     """Read the next events of a calendar, the primary one by default.
 
@@ -589,6 +649,7 @@ class Tools:
     :param time_min: reuse the previous result from value when reading another page
     :param time_max: reuse the previous result to value when reading another page
     :param page_token: next_page_token from the previous result, or empty for the first page
+    :param offset: event offset within the fetched agenda page
     """
 
     async def run():
@@ -596,6 +657,7 @@ class Tools:
       now = time.time()
       start = time_min or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
       end = time_max or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now + span * 86400))
+      limit = self._limit(max_results)
       data = await self._request(
         "GET",
         f"{CALENDAR}/calendars/{calendar_id or self.valves.calendar_id or 'primary'}/events",
@@ -604,7 +666,7 @@ class Tools:
           "timeMax": end,
           "singleEvents": "true",
           "orderBy": "startTime",
-          "maxResults": self._limit(max_results),
+          "maxResults": limit,
           "pageToken": page_token or None,
         },
       )
@@ -623,7 +685,14 @@ class Tools:
         for item in data.get("items") or []
       ]
       return self._ok(
-        {"events": events, "count": len(events), "from": start, "to": end, "next_page_token": data.get("nextPageToken")}
+        self._list_page(
+          {"from": start, "to": end, "next_page_token": data.get("nextPageToken")},
+          "events",
+          events,
+          offset,
+          limit,
+          cap=50,
+        )
       )
 
     return await self._read(
@@ -694,31 +763,41 @@ class Tools:
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     page_token: str = "",
+    offset: int = 0,
   ) -> dict:
     """Search Drive and return the matching files.
 
     :param query: a Drive query, or plain words. Plain words search the full text
     :param max_results: how many files, up to 50. Zero uses the valve
     :param page_token: next_page_token from the previous result, or empty for the first page
+    :param offset: file offset within the fetched search page
     """
 
     async def run():
       text = query or ""
       if "contains" not in text and "=" not in text:
         text = f"fullText contains '{text.replace(chr(39), chr(92) + chr(39))}'"
+      limit = self._limit(max_results)
       data = await self._request(
         "GET",
         f"{DRIVE}/files",
         params={
           "q": text,
-          "pageSize": self._limit(max_results),
+          "pageSize": limit,
           "pageToken": page_token or None,
           "fields": "nextPageToken,files(id,name,mimeType,modifiedTime,webViewLink,owners(displayName))",
         },
       )
+      files = data.get("files") or []
       return self._ok(
-        {"files": data.get("files") or [], "count": len(data.get("files") or []),
-         "next_page_token": data.get("nextPageToken")}
+        self._list_page(
+          {"next_page_token": data.get("nextPageToken")},
+          "files",
+          files,
+          offset,
+          limit,
+          cap=50,
+        )
       )
 
     return await self._read(
@@ -731,38 +810,43 @@ class Tools:
 
   async def read_document(
     self,
-    file_id: str,
+    file_id: str = "",
     max_chars: int = 20000,
     __user__: dict | None = None,
     __event_call__: Callable | None = None,
     offset: int = 0,
+    document_id: str = "",
   ) -> dict:
     """Read a text range from a Drive file, exporting Google Docs and downloading other files.
 
     :param file_id: the file id from search_files
     :param max_chars: the text limit, up to 200000 and subject to the output byte limit
     :param offset: character offset in the document text
+    :param document_id: alias for file_id to match append_to_document
     """
+    target_id = (file_id or document_id).strip()
+    if not target_id:
+      raise GoogleError(422, "Give file_id or document_id.", "GET", "")
 
     async def run():
       meta = await self._request(
-        "GET", f"{DRIVE}/files/{file_id}", params={"fields": "id,name,mimeType"}
+        "GET", f"{DRIVE}/files/{target_id}", params={"fields": "id,name,mimeType"}
       )
       kind = meta.get("mimeType") or ""
       if kind == "application/vnd.google-apps.document":
         text = await self._request(
           "GET",
-          f"{DRIVE}/files/{file_id}/export",
+          f"{DRIVE}/files/{target_id}/export",
           params={"mimeType": "text/plain"},
           raw=True,
         )
       else:
         text = await self._request(
-          "GET", f"{DRIVE}/files/{file_id}", params={"alt": "media"}, raw=True
+          "GET", f"{DRIVE}/files/{target_id}", params={"alt": "media"}, raw=True
         )
       return self._ok(
         self._page({
-          "file_id": file_id,
+          "file_id": target_id,
           "name": meta.get("name"),
           "mime_type": kind,
           "text": text,
@@ -771,7 +855,7 @@ class Tools:
 
     return await self._read(
       "read a Drive file",
-      str(file_id),
+      target_id,
       run,
       __user__=__user__,
       __event_call__=__event_call__,
