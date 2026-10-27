@@ -1,0 +1,29 @@
+[design]
+path = "docs/design.md"
+
+[fonts]
+sans = '"Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif'
+mono = '"Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace'
+prefer_project_css = true
+files = [
+  { path = "daedalus/dashboard/ui/fonts/inter-var.woff2", family = "Inter", weight = "100 900", style = "normal" },
+  { path = "daedalus/dashboard/ui/fonts/monaspace-neon-var.woff2", family = "Monaspace Neon", weight = "200 800", style = "normal" },
+]
+
+[annotate]
+scale = 2
+renderer = "auto"
+
+[board]
+stylesheet = "daedalus/dashboard/ui/style.css"
+columns = 2
+scale = 2
+renderer = "auto"
+wireframe = false
+
+[audit]
+named_breakpoints = ["75em", "60em", "40em", "30em"]
+viewports = ["1440x900", "768x1024", "390x844"]
+widths = [1440, 768, 390]
+report_widths = [1440, 768, 390]
+wireframe = false
