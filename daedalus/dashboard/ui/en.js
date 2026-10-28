@@ -316,7 +316,7 @@ globalThis.DAEDALUS_LOCALE = {
   "provider.model_pattern.label": "Model pattern",
   "provider.pattern.delete_title": "Delete the pattern",
   "provider.pattern.exists_text": "The pattern {pattern} exists.",
-  "provider.pattern.hint": "Exact: the whole name. Glob: * or ?. Regex: starts with ^. A leading ! reverses the match.",
+  "provider.pattern.hint": "Exact matches a full name, globs use * or ?, regex starts with ^, and leading ! inverts matches.",
   "provider.pattern.required_text": "A pattern cannot be empty.",
   "provider.provider_key_placeholder": "Provider key",
   "provider.provider_values.hint": "Catalog values for each model of the provider. A model override has priority.",
