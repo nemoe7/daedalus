@@ -5266,7 +5266,6 @@
     "hooks",
     "max_input_tokens",
     "max_output_tokens",
-    "max_tokens",
     "mode",
     "name",
     "order",

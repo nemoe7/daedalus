@@ -46,23 +46,21 @@ def test_nonfinite_token_limits(
 ) -> None:
   path = tmp_path / "limits.sqlite3"
   monkeypatch.setattr(store, "MODELS_DB", path)
-  columns = ("max_input_tokens", "max_output_tokens", "max_tokens")
-  good = dict(zip(columns, (2048, 512, 2560), strict=True))
+  columns = ("max_input_tokens", "max_output_tokens")
+  good = dict(zip(columns, (2048, 512), strict=True))
   bad = dict.fromkeys(columns, 1 if legacy else value)
   store.write_store([{"id": "p/good", **good}, {"id": "p/bad", **bad}])
   with sqlite3.connect(path) as connection:
     if legacy:
       connection.execute(
-        "UPDATE models SET max_input_tokens = ?, max_output_tokens = ?, "
-        "max_tokens = ? WHERE id = ?",
-        (value, value, value, "p/bad"),
+        "UPDATE models SET max_input_tokens = ?, max_output_tokens = ? WHERE id = ?",
+        (value, value, "p/bad"),
       )
     else:
       assert connection.execute(
-        "SELECT max_input_tokens, max_output_tokens, max_tokens "
-        "FROM models WHERE id = ?",
+        "SELECT max_input_tokens, max_output_tokens FROM models WHERE id = ?",
         ("p/bad",),
-      ).fetchone() == (None, None, None)
+      ).fetchone() == (None, None)
   connection.close()
   rows = {row["id"]: row for row in store.stored_rows()}
   assert all(rows["p/bad"][key] is None for key in columns)

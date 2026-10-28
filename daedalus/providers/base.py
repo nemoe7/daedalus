@@ -99,12 +99,10 @@ def count(value: Any) -> int | None:
 
 
 def limits(max_input: Any = None, max_output: Any = None) -> dict[str, Any]:
-  """Token limit columns, with `max_tokens` as a copy of the output limit."""
-  output = count(max_output)
+  """Read positive input and output token limit columns."""
   return {
     "max_input_tokens": count(max_input),
-    "max_output_tokens": output,
-    "max_tokens": output,
+    "max_output_tokens": count(max_output),
   }
 
 
