@@ -2177,9 +2177,11 @@ def test_the_fallback_chain_opens_in_a_modal() -> None:
   )
   desktop_css = css.split("@media (max-width:", 1)[0]
   assert (
-    ".chain ol, .chain-modal ol { list-style: none;" in desktop_css
-    and '<span class="num">${i + 1}.</span>' in app
-  ), "desktop chain modal suppresses native ol markers to avoid duplicate step numbers"
+    "--indent: 2ch; list-style-type: decimal; list-style-position: outside;"
+    in desktop_css
+    and "padding-inline-start: 2ch;" in desktop_css
+    and '<span class="num">${i + 1}.</span>' not in app
+  ), "chain modal uses Clause 15 outside decimal markers without inline ordinals"
 
 
 def test_keys_page_holds_its_labels_on_one_line() -> None:
@@ -2634,9 +2636,9 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
     "{ font-size: 13px; }"
   ) in mobile_css, "1 text size holds every phone card"
   assert "user-select" not in mobile_css, "the phone card keeps the text selection"
-  assert (
-    ".chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }"
-  ) in mobile_css, "the phone dialog keeps its own step list"
+  assert (".chain-modal ol { margin: 4px 0 0; }") in mobile_css, (
+    "the phone dialog keeps its own step list"
+  )
   assert ".caret" not in mobile_css, "no chevron reaches the phone cards"
   assert ".chain-open" not in mobile_css, "no chain pill reaches the phone cards"
   assert ".requests .mobile-request-meta" not in mobile_css, (

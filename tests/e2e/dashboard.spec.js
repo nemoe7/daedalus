@@ -417,10 +417,11 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/4
   await page.locator("#live-toggle").click();
   await page.locator(".requests tr.request.has-chain").first().click();
   await expect(page.locator("#chain-modal")).toBeVisible();
-  const chainListStyle = await page.evaluate(
-    () => getComputedStyle(document.querySelector("#chain-modal ol")).listStyleType,
-  );
-  expect(chainListStyle).toBe("none");
+  const chainListStyle = await page.evaluate(() => {
+    const ol = getComputedStyle(document.querySelector("#chain-modal ol"));
+    return { type: ol.listStyleType, position: ol.listStylePosition };
+  });
+  expect(chainListStyle).toEqual({ type: "decimal", position: "outside" });
   await page.keyboard.press("Escape");
 
   await open(page, "#/requests", 960, 900);

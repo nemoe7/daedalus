@@ -814,9 +814,9 @@ const hasChain = (r) => {
 };
 
 function chainSteps(r) {
-  const steps = chainAttempts(r).map((a, i) => `
+  const steps = chainAttempts(r).map((a) => `
     <li class="step ${a.result === "answered" ? "good" : "bad"}">
-      <span class="num">${i + 1}.</span> <b>${modelName(a.model)}</b>
+      <b>${modelName(a.model)}</b>
       <span class="result">${esc(a.result)}</span> <span class="muted num">${seconds(a.seconds)}</span>
       ${"effort" in a ? `<span class="from">${t("request.chain.effort_text", { effort: esc(shortEffort(sentText(a, r.effort))) })}</span>` : ""}
       ${a.weight_change ? `<span class="from">${esc(weightText(a))}</span>` : ""}
