@@ -1,6 +1,6 @@
 # Recipe: Relative timestamps
 
-Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested. Keep the surrounding text face, and add `font-variant-numeric: tabular-nums` where stamps stack in a column.
+Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested. Keep the surrounding text face. Raw ISO or UTC timestamps trigger `NUL006` and `NUA310` unless marked `nonuu` on intentional log surfaces.
 
 ![Relative Timestamps Dark-Mode Example](../examples/relative-timestamps.png)
 
@@ -44,5 +44,33 @@ function relativeTime(value, { compact = false, includeSeconds = false, now = Da
   }
   const years = Math.max(1, Math.floor(days / 365));
   return compact ? `${years}yr ago` : (years === 1 ? 'last year' : `${years} years ago`);
+}
+
+function mountRelativeTimers(root = document) {
+  const selector = '[data-timestamp], time[datetime]';
+  const nodes = [
+    ...(root.matches?.(selector) ? [root] : []),
+    ...root.querySelectorAll(selector),
+  ];
+  const refresh = () => {
+    const now = Date.now();
+    for (const node of nodes) {
+      const value = node.getAttribute('data-timestamp') || node.getAttribute('datetime');
+      if (!value) continue;
+      const stamp = new Date(value);
+      if (Number.isNaN(stamp.getTime())) continue;
+      node.textContent = relativeTime(stamp, {
+        compact: node.getAttribute('data-compact') === 'true',
+        includeSeconds: node.getAttribute('data-include-seconds') === 'true',
+        now,
+      });
+      node.title = stamp.toLocaleString();
+    }
+  };
+  refresh();
+  if (!nodes.length) return () => {};
+  const interval = nodes.some(node => node.getAttribute('data-include-seconds') === 'true') ? 1000 : 15000;
+  const timer = setInterval(refresh, interval);
+  return () => clearInterval(timer);
 }
 ```

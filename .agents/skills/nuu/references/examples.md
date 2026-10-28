@@ -78,6 +78,48 @@ Pass: `docs/design.md` entry, recipe, and all five house viewport screenshots in
 
 ![Clause 13](examples/new-pattern-entry-and-shot.png)
 
+## 16. Heading and body line-height bands
+
+Pass: headings (`h1` to `h6`) within `1.1` to `1.3x` font-size (`1.2x` default) and non-heading prose within `1.3` to `1.5x`. Fail: loose `1.65x` heading or cramped `1.05x` body copy (`NUM212`).
+
+![Clause 16](examples/line-height-bands.png)
+
+## 17. Heading-only negative letter-spacing
+
+Pass: headings (`h1` to `h6`) tracked within `-0.005em` to `-0.02em` (`-0.015em` default) and non-heading prose at `0`. Fail: over-tightened `-0.05em` heading or tracked body copy (`NUM213`).
+
+![Clause 17](examples/heading-letter-spacing.png)
+
+## 18. Left-aligned multi-line prose
+
+Pass: left-aligned (`text-align: start`) prose over `3` lines and short centered hero callouts of at most `3` lines. Fail: centered prose over `3` lines or `text-align: justify` (`NUM214`).
+
+![Clause 18](examples/text-alignment.png)
+
+## 19. Standalone prose container and measure width
+
+Pass: multi-line prose and its standalone container sized within `50` to `75ch` (`65ch` default) so `NUM205` ink ratio stays full without exemptions. Fail: `105ch` full-bleed lines or narrow `30ch` standalone prose (`NUM215`).
+
+![Clause 19](examples/body-text-width.png)
+
+## 20. Card and dialog font-size hierarchy
+
+Pass: at most `3` ramp font sizes per card or dialog, varying font-weight and `--muted` before introducing new sizes. Fail: `4` or more distinct font sizes inside one card (`NUM216`).
+
+![Clause 20](examples/font-size-hierarchy.png)
+
+## 21. Proximity spacing between and within groups
+
+Pass: inter-group gaps at least `1.5x` intra-group gaps while both snap to the Clause 6 spacing scale (`4 px` intra, `16 px` inter = `4.0x`). Fail: `12 px` label-to-input gap exceeding an `8 px` field-group gap (`NUM217`).
+
+![Clause 21](examples/proximity-spacing.png)
+
+## 22 & 23. Inline card alignment, house fonts, uppercase discipline, and primary actions
+
+Pass: stacked card items aligned on one inline edge, house font tokens (`--font-sans`, `--font-mono`), uppercase limited to `.eyebrow`, and one explicit primary verb button (`Delete repo`). Fail: ragged inline insets, decorative fonts, uppercase prose, or competing `Yes`/`No` primary buttons (`NUM218`, `NUL008`).
+
+![Clauses 22 and 23](examples/core-principles.png)
+
 ## Recipe and Audit-Rule Examples
 
 - **Modal `.close-button` and confirmation (`recipes/modal-manager.md`):**

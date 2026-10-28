@@ -7,8 +7,8 @@ Pair every `<input type="range">` with visible `min` and `max` endpoint labels, 
 ## Rules
 
 - Always declare explicit `min`, `max`, and `step` attributes on `<input type="range">` and render tick marks along the track at every `step` interval (`<datalist>` or `.range-ticks`).
-- Render tabular `min` and `max` endpoint labels and a live `<output for="...">` value bubble that updates on `input` without shifting adjacent controls (`NUA309`, `NUL005`).
-- Keep the thumb hit target at least `24x24 px` (`NUA303`) with a `2 px` solid `var(--focus)` outline and `2 px` offset on `:focus-visible` (`NUA304`).
+- Render tabular `min` and `max` endpoint labels and a live `<output for="...">` value bubble that updates on `input` without shifting adjacent controls.
+- Keep the thumb hit target at least `24x24 px` with a `2 px` solid `var(--focus)` outline and `2 px` offset on `:focus-visible` (`NUA307`, `NUA308`).
 
 ## Markup and styles
 

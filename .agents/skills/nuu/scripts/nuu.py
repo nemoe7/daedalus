@@ -170,10 +170,10 @@ def load_rule_descriptions(home: Path = HOME) -> dict[str, str]:
 VERSION = _load_version()
 RULE_DESCRIPTIONS = load_rule_descriptions()
 KNOWN_NUU_RULES = {
-  *(f"NUL00{i}" for i in range(1, 7)),
+  *(f"NUL00{i}" for i in range(1, 9)),
   *(f"NUI00{i}" for i in range(1, 4)),
   *(f"NUB10{i}" for i in range(1, 5)),
-  *(f"NUM{i}" for i in range(201, 211)),
+  *(f"NUM{i}" for i in range(201, 219) if i != 204),
   *(f"NUA{i}" for i in range(301, 311)),
   *RULE_DESCRIPTIONS,
 }
@@ -386,6 +386,33 @@ def extract(root):
 
 class SourcePage(HTMLParser):
   RAW_TEXT_TAGS = ("script", "style", "code", "pre", "textarea", "template")
+  VAGUE_BUTTON_LABELS = frozenset({"yes", "no", "okay", "ok"})
+  PRIMARY_BUTTON_CLASSES = frozenset(
+    {
+      "primary",
+      "button--accent",
+      "btn-primary",
+      "button-primary",
+    }
+  )
+  VOID_TAGS = frozenset(
+    {
+      "area",
+      "base",
+      "br",
+      "col",
+      "embed",
+      "hr",
+      "img",
+      "input",
+      "link",
+      "meta",
+      "param",
+      "source",
+      "track",
+      "wbr",
+    }
+  )
 
   def __init__(self, path):
     super().__init__(convert_charrefs=True)
@@ -393,6 +420,9 @@ class SourcePage(HTMLParser):
     self.labels, self.ids, self.controls = set(), set(), []
     self.label_depth = 0
     self.raw_text_depth = 0
+    self.tag_depth = 0
+    self.card_scopes = []
+    self.button_stack = []
 
   def finding(self, rule, criterion, evidence, position):
     line, column = position
@@ -409,8 +439,34 @@ class SourcePage(HTMLParser):
       }
     )
 
+  @classmethod
+  def _is_primary_button(cls, attrs: dict) -> bool:
+    classes = set((attrs.get("class") or "").split())
+    if classes & cls.PRIMARY_BUTTON_CLASSES:
+      return True
+    return (attrs.get("data-variant") or "").strip().lower() == "primary"
+
+  def _check_button_action(self, attrs: dict, label_text: str, pos: tuple[int, int]):
+    cleaned = re.sub(r"[.!?\s]+$", "", label_text.strip())
+    if cleaned and cleaned.casefold() in self.VAGUE_BUTTON_LABELS:
+      self.finding(
+        "NUL008",
+        "action-hierarchy",
+        f"Button uses vague label '{label_text.strip()}' instead of an explicit action",
+        pos,
+      )
+    if self.card_scopes and self._is_primary_button(attrs):
+      self.card_scopes[-1][2].append(pos)
+
   def handle_starttag(self, tag, attributes):
     attrs = dict(attributes)
+    pos = self.getpos()
+    classes = set((attrs.get("class") or "").split())
+    role = (attrs.get("role") or "").strip().lower()
+    if tag not in self.VOID_TAGS:
+      self.tag_depth += 1
+      if tag == "dialog" or role in {"dialog", "alertdialog"} or "card" in classes:
+        self.card_scopes.append((tag, self.tag_depth, []))
     if tag in self.RAW_TEXT_TAGS:
       self.raw_text_depth += 1
     if attrs.get("id"):
@@ -420,17 +476,48 @@ class SourcePage(HTMLParser):
       if attrs.get("for"):
         self.labels.add(attrs["for"])
     if tag == "img" and "alt" not in attrs:
-      self.finding("NUL001", "1.1.1", "Image has no alt attribute", self.getpos())
+      self.finding("NUL001", "1.1.1", "Image has no alt attribute", pos)
+    if tag == "button":
+      self.button_stack.append((attrs, pos, []))
     if tag in {"input", "select", "textarea"}:
-      self.controls.append((attrs, bool(self.label_depth), self.getpos()))
+      self.controls.append((attrs, bool(self.label_depth), pos))
+      if tag == "input" and (attrs.get("type") or "").lower() in {
+        "button",
+        "submit",
+        "reset",
+      }:
+        self._check_button_action(
+          attrs, attrs.get("value") or attrs.get("aria-label") or "", pos
+        )
 
   def handle_endtag(self, tag):
+    if tag == "button" and self.button_stack:
+      attrs, pos, chunks = self.button_stack.pop()
+      label = "".join(chunks).strip() or (attrs.get("aria-label") or "").strip()
+      self._check_button_action(attrs, label, pos)
+    if (
+      self.card_scopes
+      and self.card_scopes[-1][0] == tag
+      and self.card_scopes[-1][1] == self.tag_depth
+    ):
+      _, _, primaries = self.card_scopes.pop()
+      if len(primaries) > 1:
+        self.finding(
+          "NUL008",
+          "action-hierarchy",
+          f"Card or dialog contains {len(primaries)} primary buttons (at most 1 allowed)",
+          primaries[1],
+        )
+    if tag not in self.VOID_TAGS:
+      self.tag_depth = max(0, self.tag_depth - 1)
     if tag in self.RAW_TEXT_TAGS:
       self.raw_text_depth = max(0, self.raw_text_depth - 1)
     if tag == "label":
       self.label_depth = max(0, self.label_depth - 1)
 
   def handle_data(self, data):
+    if self.button_stack and data:
+      self.button_stack[-1][2].append(data)
     if self.raw_text_depth > 0 or not data:
       return
     match = RAW_UI_TIMESTAMP_RE.search(data)
@@ -443,6 +530,15 @@ class SourcePage(HTMLParser):
       )
 
   def finish(self):
+    while self.card_scopes:
+      _, _, primaries = self.card_scopes.pop()
+      if len(primaries) > 1:
+        self.finding(
+          "NUL008",
+          "action-hierarchy",
+          f"Card or dialog contains {len(primaries)} primary buttons (at most 1 allowed)",
+          primaries[1],
+        )
     for attrs, nested, position in self.controls:
       direct = any((attrs.get(name) or "").strip() for name in ("aria-label", "title"))
       references = set((attrs.get("aria-labelledby") or "").split()) & self.ids
@@ -543,10 +639,14 @@ def _has_design_doc(root: Path, design_doc_rel: str | None = None) -> bool:
 
 def lint(root):
   findings, coverage, marks, suppressions, deviations = [], [], [], [], []
+  nonuu_by_path = {}
+  list_rules = []
+  list_reset = {"indent": False, "padding": False, "position": False}
   for path in files(root, {".html", ".css", ".js", ".jsx", ".ts", ".tsx"}):
     text = path.read_text(encoding="utf-8")
     lines = text.splitlines()
     file_ids, line_ids, file_marks, file_supps = collect_nonuu_markers(path, lines)
+    nonuu_by_path[path] = (file_ids, line_ids)
     marks.extend(file_marks)
     suppressions.extend(file_supps)
     deviations.extend(collect_deviation_markers(path, lines))
@@ -572,6 +672,84 @@ def lint(root):
         text,
         flags=re.DOTALL,
       )
+      list_selector = re.compile(
+        r"(?:^|[\s>+~,:()])(?:ul|ol|li)(?=$|[\s.#:\[>+~),])", re.IGNORECASE
+      )
+      list_container = re.compile(
+        r"(?:^|[\s>+~,:()])(?:ul|ol)(?=$|[\s.#:\[>+~),])", re.IGNORECASE
+      )
+      for list_match in re.finditer(r"([^{}@]+)\{([^{}]*)\}", clean):
+        selector_text = list_match[1]
+        if not list_selector.search(selector_text):
+          continue
+        declarations = {}
+        for declaration in list_match[2].split(";"):
+          if ":" not in declaration:
+            continue
+          name, value = declaration.split(":", 1)
+          declarations[name.strip().lower()] = re.sub(
+            r"\s*!important\s*$", "", value.strip(), flags=re.IGNORECASE
+          ).lower()
+        list_properties = {
+          "list-style",
+          "list-style-position",
+          "list-style-type",
+          "padding",
+          "padding-inline-start",
+          "padding-left",
+          "padding-right",
+          "--indent",
+        }
+        if not list_properties.intersection(declarations):
+          continue
+        rule_line = text.count("\n", 0, list_match.start(1)) + 1
+        list_rules.append((path, rule_line))
+        if list_container.search(selector_text):
+          list_reset["indent"] |= declarations.get("--indent") == "2ch"
+          list_reset["padding"] |= declarations.get("padding-inline-start") == "2ch"
+          list_reset["position"] |= declarations.get("list-style-position") == "outside"
+        inside_match = re.search(
+          r"(?:list-style-position\s*:\s*inside\b|list-style\s*:[^;}]*\binside\b)",
+          list_match[2],
+          re.IGNORECASE,
+        )
+        if inside_match:
+          line = text.count("\n", 0, list_match.start(2) + inside_match.start()) + 1
+          current.append(
+            {
+              "rule": "NUL007",
+              "path": str(path),
+              "line": line,
+              "column": 1,
+              "severity": "review",
+              "status": "source_candidate",
+              "evidence": "list-style-position: inside",
+              "criterion": "clause-15",
+            }
+          )
+        for indent_match in re.finditer(
+          r"(?<![\w-])(--indent|padding-inline-start)\s*:\s*([^;}]+)",
+          list_match[2],
+          re.IGNORECASE,
+        ):
+          value = re.sub(
+            r"\s*!important\s*$", "", indent_match[2].strip(), flags=re.IGNORECASE
+          ).lower()
+          if value == "2ch":
+            continue
+          line = text.count("\n", 0, list_match.start(2) + indent_match.start(1)) + 1
+          current.append(
+            {
+              "rule": "NUL007",
+              "path": str(path),
+              "line": line,
+              "column": 1,
+              "severity": "review",
+              "status": "source_candidate",
+              "evidence": f"{indent_match[1]}: {indent_match[2].strip()}",
+              "criterion": "clause-15",
+            }
+          )
       if not _has_custom_focus_ring(clean):
         for match in re.finditer(
           r"outline\s*:\s*(?:none|0(?:px)?)\s*(?:!important\s*)?[;}]", clean
@@ -641,6 +819,35 @@ def lint(root):
       ignored = file_ids | (line_ids[ln - 1] if 0 < ln <= len(line_ids) else set())
       if finding["rule"] not in ignored:
         findings.append(finding)
+  if list_rules and not all(list_reset.values()):
+    reported_paths = {
+      finding["path"] for finding in findings if finding.get("rule") == "NUL007"
+    }
+    for list_path, list_line in list_rules:
+      if str(list_path) in reported_paths:
+        continue
+      file_ids, line_ids = nonuu_by_path[list_path]
+      ignored = file_ids | (
+        line_ids[list_line - 1] if 0 < list_line <= len(line_ids) else set()
+      )
+      if "NUL007" in ignored:
+        continue
+      findings.append(
+        {
+          "rule": "NUL007",
+          "path": str(list_path),
+          "line": list_line,
+          "column": 1,
+          "severity": "review",
+          "status": "source_candidate",
+          "evidence": (
+            "List CSS lacks --indent: 2ch, padding-inline-start: 2ch, "
+            "or list-style-position: outside"
+          ),
+          "criterion": "clause-15",
+        }
+      )
+      break
   design_doc_rel = _resolve_design_doc_rel(root)
   design_doc_path = (
     Path(design_doc_rel)
@@ -1027,7 +1234,9 @@ def browser(args):
       capture["house_measurements"] = check_measurements(
         capture.get("measurements", {}), sheet
       )
-      capture["density_findings"] = check_density(capture.get("measurements", {}))
+      density_report = dict(capture.get("measurements") or {})
+      density_report["overlaps"] = capture.get("overlaps")
+      capture["density_findings"] = check_density(density_report)
       location = {
         "width": capture["width"],
         "scheme": capture["scheme"],
@@ -1036,8 +1245,10 @@ def browser(args):
       result.setdefault("findings", []).extend(
         {
           "rule": (
-            "NUM202"
-            if ": font-size is " in finding or ": letter-spacing is " in finding
+            finding.split()[0]
+            if re.match(r"^NUM2\d\d\b", finding)
+            else "NUM202"
+            if ": font-size is " in finding
             else "NUM203"
             if ": border-radius" in finding
             else "NUM201"

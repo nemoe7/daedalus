@@ -1,6 +1,6 @@
 # Recipe: Live dot
 
-Use an `8x8 px` pulsing dot (`.dot`, with `.dot-sm` `6 px` and `.dot-lg` `10 px`) for live indicators (`NUA309`, `NUL005`). The dot sits in the `16x16 px` slot the idle glyph uses, so a state change moves nothing, and the row text names the state since the dot is `aria-hidden`.
+Use an `8x8 px` pulsing dot (`.dot`, with `.dot-sm` `6 px` and `.dot-lg` `10 px`) for live indicators. The dot sits in the `16x16 px` slot the idle glyph uses, so a state change moves nothing, and the row text names the state since the dot is `aria-hidden`.
 
 ![Live Dot Dark-Mode Example](../examples/live-dot.png)
 

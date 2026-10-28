@@ -209,7 +209,7 @@ cat <<'EOF'
 commitlint: ok
 gitignore: ok
 arena-preview: ok
-next action: `start_process`: `arena-preview --serve --port 8000`
+next action: `start_process`: `arena-preview serve --port 8000`
 EOF
 
 # 8. Install the DEBUG gate trap last in ~/.bash_profile.

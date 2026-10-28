@@ -18,27 +18,39 @@
 | `walk` | Run deterministic dark-mode browser walk steps or capture named view PNGs for `nuu board` | `[target]`, `-s, --script <py>`, `-V, --views`, `-o, --out <dir>` |
 | `inspect`, `flow`, `a11y`, `live`, `audit`, `collect` | Run source, measure, flow, deviation (`--deviations`), and rendered a11y checks | `-p, --project <path>`, `-o, --output <path>`, `-u, --url <url>`, `-d, --artifacts <dir>`, `-w, --widths <px...>`, `-s, --selector <css>`, `-r, --ready <selector>`, `-a, --a11y`, `-e, --engine <name>`, `-x, --executable <path>`, `-t, --timeout <s>`, `-f, --flow <json>`, `-P, --profile <project\|house>`, `-E, --edit <path>`, `-A, --authorize-edit`, `-O, --overlaps`, `-W, --wireframe`, `-D, --deviations` |
 
-## Audit Coverage (`NUL001`–`NUA309`)
+## Audit Coverage
 
 Suppress a rule-ID finding on a line with `nonuu: <ID>`. Record an approved house-style deviation note for maintainers (without a rule ID) with `nuu-deviation: <reason>`. Agents MUST NEVER add `nuu-deviation:` automatically and ALWAYS require explicit user approval.
 
 | Code | Pass | Condition |
 | --- | --- | --- |
-| `NUL001`–`NUL005` | Source (`lint`) | Missing image `alt` (`NUL001`), missing control naming or raw colour literal (`NUL002`), `outline: none` / `0` (`NUL003`), missing `docs/design.md` (`NUL004`), or hover/focus/active rule changing layout dimensions (`NUL005`) |
+| `NUI001`–`NUI003` | Icons (`audit`) | Missing icon license (`NUI001`), non-ladder icon (`NUI002`), or mixed inline icon sizes (`NUI003`) |
+| `NUL001`–`NUL006` | Source (`lint`) | Missing `alt` (`NUL001`), unnamed control (`NUL002`), `outline: 0` (`NUL003`), missing `design.md` (`NUL004`), hover shift (`NUL005`), raw timestamp (`NUL006`) |
+| `NUL007` | Source (`lint`) | List CSS uses `list-style-position: inside` or omits the `2ch` hanging-indent reset |
+| `NUL008` | Source (`lint`) | Multiple primary buttons or vague Yes/No/Okay labels |
 | `NUB101`–`NUB103` | Browser (`inspect`, `flow`) | Horizontal overflow (`NUB101`), uncaught `pageerror` or `console.error` during load, resize, or flow (`NUB102`), or flow step timeout, missing selector, or failed assertion (`NUB103`) |
 | `NUB104` | Browser (`--ready`) | Declared `--ready SELECTOR` did not match a visible element within the timeout |
-| `NUM201`–`NUM204` | Measure (`--measure`) | Off-scale spacing (`4/8/12/16/24/32/48 px` or `8 px` scale) (`NUM201`), off-ramp typography (`11/12/14/16/18/22/28 px`, weights `400-700`) (`NUM202`), unapproved border radius (`0/4/6/10/9999 px`) (`NUM203`), or text contrast below 4.5:1 (`3:1` large text) (`NUM204`) |
+| `NUM201`–`NUM203` | Measure (`--measure`) | Off-scale spacing except validated `2ch` list padding under `NUM211` (`NUM201`), off-ramp typography (`NUM202`), or unapproved border radius (`0/4/6/10/9999 px`) (`NUM203`) |
 | `NUM205`–`NUM208` | Density (`density`, `--density`) | Main-layout (`<main>`, `[role="main"]`) ink ratio < 0.40 or other row ink ratio < 0.75 (`NUM205`), sibling gap > 320 px (`NUM206`), form input ending more than 24 px before its row edge with no control after it (`NUM207`), or non-symmetric icon button (`NUM208`) |
-| `NUM209`–`NUM210` | Density (`-C`, `-O`) | Non-scrolling container clipping child content (`NUM209`) or unintended sibling box overlap (`NUM210`) |
-| `NUA301` | Rendered `a11y` | Landmarks (`<main>` or `[role="main"]`) and skip-link target missing or broken |
-| `NUA302` | Rendered `a11y` | Visible interactive control without an accessible name or with `aria-hidden="true"` while focusable |
-| `NUA303` | Rendered `a11y` | Visible interactive control with bounding box smaller than `24x24` CSS px (WCAG 2.5.8 AA floor, e.g. `16x16 px` bare icon button instead of `32x32 px`) |
-| `NUA304` | Rendered `a11y` | Interactive control whose `:focus-visible` ring clips or matches its unfocused outline/box-shadow (instead of a 2 px solid `var(--focus)` ring with `>= 3:1` contrast) |
-| `NUA305` | Rendered `a11y` | Invalid `role`, missing required ARIA state (`aria-checked`, `aria-expanded`, `aria-selected`), or broken `aria-labelledby` / `aria-describedby` / `aria-controls` ID target |
-| `NUA306` | Rendered `a11y` | Stylesheet animation or transition without a `@media (prefers-reduced-motion: reduce)` rule |
-| `NUA307` | Rendered `a11y` | Interactive control that renders a visible focus outline on pointer focus before keyboard navigation |
-| `NUA308` | Rendered `a11y` | Interactive control focus ring, shadow, or tooltip clipped by an overflow or mask ancestor |
-| `NUA309` | Rendered `a11y` | Interactive control that changes width or height across hover, focus, active, or loading states |
+| `NUM209`–`NUM210` | Density (`-C`, `-O`) | Non-scrolling container clips child content (`NUM209`) or sibling boxes overlap (`NUM210`) |
+| `NUM211` | Measure (`--measure`) | List markers sit outside in a `2ch` hanging-indent slot, and wrapped lines align with the first line |
+| `NUM212` | Measure (`--measure`) | Heading (h1-h6) line-height outside 1.1-1.3x font-size or non-heading line-height outside 1.3-1.5x |
+| `NUM213` | Measure (`--measure`) | Heading (h1-h6) letter-spacing outside -0.005em to -0.02em or non-zero letter-spacing on non-headings |
+| `NUM214` | Measure (`--measure`) | Centered prose over 3 lines or justified text alignment |
+| `NUM215` | Measure (`--measure`) | Multi-line prose or standalone prose container outside 50 to 75ch on desktop |
+| `NUM216` | Measure (`--measure`) | Card or dialog mixes more than 3 distinct font sizes |
+| `NUM217` | Measure (`--measure`) | Inter-group gap is smaller than 1.5x the adjacent intra-group gap |
+| `NUM218` | Measure (`--measure`) | Ragged inline card insets, non-house font families, or uppercase text outside .eyebrow |
+| `NUA301` | Rendered `a11y` | Visible interactive control without an accessible name |
+| `NUA302` | Rendered `a11y` | Broken `aria-labelledby`, `aria-describedby`, `aria-controls`, or `aria-owns` ID target |
+| `NUA303` | Rendered `a11y` | Interactive control nested inside another interactive control |
+| `NUA304` | Rendered `a11y` | Duplicate `id` attribute across elements in the document |
+| `NUA305` | Rendered `a11y` | Heading hierarchy skips one or more heading levels |
+| `NUA306` | Rendered `a11y` | Rendered text contrast below `4.5:1` (`3:1` on large text) |
+| `NUA307` | Rendered `a11y` | Interactive control shows a visible focus outline on pointer focus before keyboard navigation |
+| `NUA308` | Rendered `a11y` | Focus halo or visible tooltip extends outside an overflow-clipping ancestor |
+| `NUA309` | Rendered `a11y` | Interactive control changes dimensions on focus, `aria-busy`, disabled state, or a measured flow action |
+| `NUA310` | Rendered `a11y` | Visible raw ISO or unadjusted UTC or offset timestamp in rendered text |
 
 ![Measure Rules NUM201-NUM204 Dark-Mode Example](examples/rule-num201-204.png)
 
@@ -52,7 +64,7 @@ Suppress a rule-ID finding on a line with `nonuu: <ID>`. Record an approved hous
 - [references/recipes/range-sliders.md](recipes/range-sliders.md): `<input type="range">` with `step` ticks, min/max endpoint labels, and live `<output>` bubble.
 - [references/recipes/relative-timestamps.md](recipes/relative-timestamps.md): relative timestamps (`just now`, `Xmin ago`, `yesterday`), full or abbreviated by width.
 - [references/recipes/loading-bar.md](recipes/loading-bar.md): 200 ms delayed 2 px edge bar and fixed-slot inline control loading.
-- [references/recipes/live-dot.md](recipes/live-dot.md): `8x8 px` pulsing `.dot` (`NUA309`, `NUL005`) inside a fixed `16x16 px` slot.
+- [references/recipes/live-dot.md](recipes/live-dot.md): `8x8 px` pulsing `.dot` in a fixed `16x16 px` slot, with row text naming the state.
 - [references/recipes/scroll-edge-fade.md](recipes/scroll-edge-fade.md): scroll-driven CSS edge-fade mask (`@supports (animation-timeline: scroll(self))`).
 - [references/recipes/floating-overlay-scroll-fade.md](recipes/floating-overlay-scroll-fade.md): full-bleed scroll container fade behind floating header and composer overlays.
 - [references/recipes/scrollbars.md](recipes/scrollbars.md): thin 10 px rounded-thumb scrollbar (`#302e2c`) without arrow buttons or hover highlights unless keyboard navigation is active.

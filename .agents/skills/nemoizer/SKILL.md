@@ -13,9 +13,10 @@ compatibility: Python 3.11+, with Node.js and Acorn for JavaScript checks.
 | `transmit` | send |
 | `pick` | select |
 | `kind` | type |
+| `name` | specify |
 | `repository` | repo |
 
-Read references/rules.md for lint IDs and meanings.
+Read references/rules.md for lint IDs and meanings. `name` rotates only as a verb.
 
 ```bash
 python3 skills/nemoizer/scripts/nemoize.py .
@@ -91,3 +92,8 @@ Limit sentences to 20 words for unclassified prose, 25 for explicit description 
 - Prefer named constants for expected contract values.
 - Assert pixel/config/implementation measurements through growth/presence/absence.
 - Keep exact expected text only for executable/protocol/verbatim-data contracts.
+
+## Learn
+
+- On `/nemoizer learn`, survey repo prose patterns, cite target rules, and publish a maintainer handoff.
+

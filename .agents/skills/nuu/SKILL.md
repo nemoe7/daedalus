@@ -40,6 +40,15 @@ One short specification for every page we ship, paired with a small command-line
 12. Read padding, margin, gap, and size per element from the rendered page, compare each with the sheet, and check the house viewports (`1920x957`, `1080x2437`, `958x958`, and `411x799`, plus `855x325` landscape).
 13. When a page needs a new pattern, add the entry, the house viewports (`1920x957`, `1080x2437`, `958x958`, and `411x799`, plus `855x325`), and screenshots in one PR.
 14. Inline suppression markers (`nonuu: RULE_ID`) silence false-positive findings on that line and appear in `lint`, `audit`, and `collect` output. Approved house-style deviations use `nuu-deviation: <reason>` in comments or `docs/design.md` (`nuu collect --deviations`). Agents MUST NEVER add `nuu-deviation:` without explicit user approval.
+15. Use outside list markers with a `2ch` hanging indent slot (`--indent: 2ch; padding-inline-start: 2ch; list-style-position: outside`) and native `disc` marker size so wrapped lines align with the first line (`NUL007`, `NUM211`).
+16. Keep heading (h1 to h6) line-height within 1.1 to 1.3x font-size and non-heading line-height within 1.3 to 1.5x (NUM212).
+17. Keep heading (h1 to h6) letter-spacing within -0.5% to -2% (-0.005em to -0.02em) and non-heading letter-spacing at 0 (NUM213).
+18. Left-align prose over 3 lines, forbid justified text, and center at most 3 lines (NUM214).
+19. Cap multi-line prose and its container within 50 to 75ch (65ch default) (NUM215).
+20. Use at most 3 ramp font sizes per card or dialog, varying weight and --muted first (NUM216).
+21. Keep inter-group gaps at least 1.5x intra-group gaps while snapping both to the Clause 6 scale (NUM217).
+22. Align stacked card items on one inline edge, use only house fonts, and keep uppercase on .eyebrow (NUM218).
+23. Use at most one primary button per card or dialog and name the action instead of Yes/No (NUL008).
 
 Component and interaction patterns live in `references/recipes/`: [modal-manager.md](references/recipes/modal-manager.md) (top-right `.close-button` and delete confirmation), [range-sliders.md](references/recipes/range-sliders.md) (step ticks and `<output>` bubbles), [relative-timestamps.md](references/recipes/relative-timestamps.md) (relative ages, full or abbreviated by width), [loading-bar.md](references/recipes/loading-bar.md) (200 ms delayed edge bar and fixed-slot controls), [scrollbars.md](references/recipes/scrollbars.md) (`10 px` rounded thumb without arrow buttons), and [overflow-and-clipping.md](references/recipes/overflow-and-clipping.md) (unclipped focus rings, shadows, and tooltips).
 
@@ -55,12 +64,12 @@ Component and interaction patterns live in `references/recipes/`: [modal-manager
 
 - `AGENTS.md`: mandatory agent workflow rules for `nuu` (`--wireframe` / `-W`, `nuu walk`, `nuu board`, and `nuu.toml`).
 - `references/nuu.toml`: default configuration (`Inter` / `Monaspace Neon` font stack, scale, and board defaults).
-- `references/nuu.md`: CLI flags, exit codes, rule codes (`NUL001`–`NUA309`), and recipe index.
+- `references/nuu.md`: CLI flags, exit codes, rule codes (`NUI001`–`NUI003`, `NUL001`–`NUL008`, `NUB101`–`NUB104`, `NUM201`–`NUM218`, `NUA301`–`NUA310`), and recipe index.
 - `references/style.css`: house tokens, type ramp, `4 px` default scale (`8 px` opt-in via `:root[data-scale="8"]`), `.close-button`, and states.
 - `references/examples.md`: dark-mode correct and incorrect UI pairs per clause, recipe, and audit rule.
 - `references/design-document.md`: sections and a filled example for `docs/design.md`.
 - `references/recipes/offline-fonts.md`: bundled and offline font loading without reload jitter.
-- `references/recipes/live-dot.md`: `8x8 px` pulsing dot (`NUA309`, `NUL005`) that occupies the idle glyph slot without shifting row height.
+- `references/recipes/live-dot.md`: `8x8 px` pulsing dot in the fixed `16x16 px` glyph slot, with row text naming the state.
 - `references/recipes/loading-bar.md`: subtle `2px` edge loading bar (`200ms` delay, `aria-busy="true"`, compositor-only `scaleX`, static `prefers-reduced-motion` fallback) and fixed-slot inline control loading.
 - `references/recipes/page-memory.md`: content-versioned in-memory view cache, optimistic writes, and URL/`localStorage` state persistence.
 - `references/recipes/modal-manager.md`: shared `<dialog>` modal manager with `showModal()`, top-right `.close-button` (`-8 px` margin, focus/hover `--text` shift), and delete confirmation.
@@ -70,3 +79,8 @@ Component and interaction patterns live in `references/recipes/`: [modal-manager
 - `references/recipes/floating-overlay-scroll-fade.md`: full-bleed scroll container fade behind floating header and composer overlays (`backdrop-filter: blur()`, `padding-inline`, and `@supports (animation-timeline: scroll(self))`).
 - `references/recipes/scrollbars.md`: thin `10px` rounded-thumb scrollbar (`#302e2c`) on `var(--bg)` without arrow buttons or hover highlights unless keyboard navigation is active.
 - `references/recipes/overflow-and-clipping.md`: anti-clipping and anti-overlap rules (`NUM209`, `NUM210`, `NUA308`) for flex/grid rows, focus rings, sticky headers, and viewport-clamped tooltips.
+
+## Learn
+
+- On `/nuu learn`, survey repo UI patterns, cite target clauses, and publish a maintainer handoff.
+

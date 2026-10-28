@@ -696,6 +696,84 @@ def workflow_name_spans(source: str) -> list[tuple[str, int, int]]:
   return spans
 
 
+JS_TEST_SUFFIXES = (
+  ".test.js",
+  ".test.cjs",
+  ".test.mjs",
+  ".spec.js",
+  ".spec.cjs",
+  ".spec.mjs",
+)
+JS_UI_SINK_RE = re.compile(
+  r"(?:\b(?:textContent|innerText|title|placeholder|label|statusText|connectionBase)\s*[+]?="
+  r"|[\"\']?(?:aria-label|title|placeholder|label)[\"\']?\s*:"
+  r"|\bsetAttribute\s*\(\s*[\"\'](?:aria-label|title|placeholder)[\"\']\s*,"
+  r"|\b(?:setConnection|reportStatusLine|copyFrom|label|setStatus|showStatus|toast|alert|confirm)\s*\()"
+)
+JS_UI_HELPER_VAR_RE = re.compile(
+  r"\b(?:const|let|var)\s+(?:blocked|message|status|hint|summary|warning|reason)\s*="
+)
+JS_STRING_LITERAL_RE = re.compile(
+  r'"([^"\\\n]*(?:\\.[^"\\\n]*)*)"'
+  r"|'([^'\\\n]*(?:\\.[^'\\\n]*)*)'"
+  r"|`([^`\\]*(?:\\.[^`\\]*)*)`"
+)
+
+
+def js_ui_prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
+  """Collect UI labels and DOM prose strings from JS files for full prose checks.
+
+  NMU100 keeps its <=6-word cap in ui_label_spans so filler-article checks apply
+  only to compact button/tab labels rather than full sentences, whereas this
+  extractor feeds all UI labels and longer UI messages into prose_review.
+  """
+  lower_name = path.name.lower()
+  if path.suffix.lower() not in JAVASCRIPT_SUFFIXES or lower_name.endswith(
+    JS_TEST_SUFFIXES
+  ):
+    return []
+  spans: list[tuple[str, int, int]] = []
+  seen: set[tuple[str, int]] = set()
+  for label_text, first, last in ui_label_spans(path, source):
+    if (label_text, first) not in seen and "{" not in label_text:
+      seen.add((label_text, first))
+      spans.append((label_text, first, last))
+  lines = source.splitlines()
+  for idx, raw_line in enumerate(lines):
+    if not (JS_UI_SINK_RE.search(raw_line) or JS_UI_HELPER_VAR_RE.search(raw_line)):
+      continue
+    chunk = raw_line
+    end_idx = idx
+    while (
+      end_idx + 1 < len(lines)
+      and end_idx - idx < 6
+      and not chunk.rstrip().endswith((";", "{", "}"))
+    ):
+      end_idx += 1
+      chunk += "\n" + lines[end_idx]
+    for match in JS_STRING_LITERAL_RE.finditer(chunk):
+      raw = next(group for group in match.groups() if group is not None)
+      clean = re.sub(r"\$\{[^}]*\}", "item", raw)
+      clean = re.sub(r"^[·•|\-\s:]+", "", clean).strip()
+      if (
+        len(clean) < 4
+        or "<" in clean
+        or "{" in clean
+        or "}" in clean
+        or "://" in clean
+        or re.match(r"^[a-z]+/[a-z0-9.+-]+;", clean)
+      ):
+        continue
+      if " " not in clean or len(re.findall(r"[A-Za-z]{2,}", clean)) < 2:
+        continue
+      line_no = idx + 1 + chunk[: match.start()].count("\n")
+      end_line = line_no + raw.count("\n")
+      if (clean, line_no) not in seen:
+        seen.add((clean, line_no))
+        spans.append((clean, line_no, end_line))
+  return spans
+
+
 def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
   """Extract prose with source lines, joining adjacent comment lines."""
   if path.suffix == ".py":
@@ -708,6 +786,8 @@ def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
   else:
     if path.suffix == ".html" and not is_jinja_file(path):
       docs = html_visible_prose(source)
+    elif path.suffix.lower() in JAVASCRIPT_SUFFIXES:
+      docs = js_ui_prose_spans(path, source)
     elif is_workflow_yaml(path, source):
       docs = workflow_name_spans(source)
     else:

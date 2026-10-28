@@ -52,11 +52,23 @@
   --gutter: var(--space-4);
   --touch: 44px;
   --focus-ring: 2px;
+  --indent: 2ch;
 
   /* Motion: one curve, one band */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --fast: 150ms;
   --slow: 220ms;
+}
+
+ul,
+ol {
+  --indent: 2ch;
+  padding-inline-start: 2ch;
+  list-style-position: outside;
+}
+
+ul {
+  list-style-type: disc;
 }
 
 :root[data-scale="8"] {
@@ -144,6 +156,44 @@ body {
 }
 
 /* Type */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.title,
+.panel-title {
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+p,
+li,
+blockquote,
+dd {
+  text-align: start;
+  max-width: 65ch;
+}
+
+.prose,
+article {
+  width: min(100%, 65ch);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field-group,
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 .eyebrow {
   margin: 0;
   color: var(--muted);

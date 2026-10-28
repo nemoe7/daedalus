@@ -710,7 +710,7 @@ def model_ladder(value):
 
 
 def first_rung(model):
-  "Return model used for token counts. First model is highest ladder rung."
+  "Return the model used for token counts. The first model is the highest ladder rung."
   return model[0] if isinstance(model, (list, tuple)) else model
 
 
