@@ -127,3 +127,24 @@ def test_current_file(tmp_path: Path) -> None:
     rows = database.execute("SELECT id, mode FROM models").fetchall()
   database.close()
   assert rows == [("groq/a", "chat")], rows
+
+
+def test_migrate_drops_retired_max_tokens_column(tmp_path: Path) -> None:
+  """Upgrading from 0010 drops max_tokens while keeping input and output token limits."""
+  target = tmp_path / "models.sqlite3"
+  store.migrate(target, "0010")
+  with sqlite3.connect(target) as database:
+    database.execute(
+      "INSERT INTO models (id, provider, slug, max_input_tokens, max_output_tokens, max_tokens) "
+      "VALUES ('mistral/codestral-2508', 'mistral', 'codestral-2508', 256000, 128000, 128000)"
+    )
+  database.close()
+  store.migrate(target)
+  with sqlite3.connect(target) as database:
+    columns = {row[1] for row in database.execute("PRAGMA table_info(models)")}
+    kept = database.execute(
+      "SELECT id, max_input_tokens, max_output_tokens FROM models"
+    ).fetchall()
+  database.close()
+  assert "max_tokens" not in columns
+  assert kept == [("mistral/codestral-2508", 256000, 128000)]

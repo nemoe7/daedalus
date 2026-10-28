@@ -1657,8 +1657,11 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
 def test_the_rebuild_diff_strikes_the_old_value() -> None:
   """Old diff chips carry a strike class, and the CSS strikes them."""
   run_app_js(
-    "diffModel",
+    "DIFF_LABELS, diffModel",
     """
+assert(!("max_tokens" in probe.DIFF_LABELS), "retired max_tokens stays out of DIFF_LABELS");
+assert(probe.DIFF_LABELS.max_output_tokens === LOCALE["model.column.output_column"],
+  "output limit label stays mapped");
 const entry = 'z-ai/glm-4.7-flash: supported_efforts ["low", "max"]->["none", "max"], '
   + 'max_input_tokens 4096->8192';
 const changed = probe.diffModel(entry);

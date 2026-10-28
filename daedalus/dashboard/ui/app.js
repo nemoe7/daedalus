@@ -4082,7 +4082,6 @@ const DIFF_LABELS = {
   mode: t("model.column.type_column"),
   max_input_tokens: t("model.column.context_column"),
   max_output_tokens: t("model.column.output_column"),
-  max_tokens: t("model.column.tokens_column"),
   rpm: t("model.column.rpm_column"),
   tpm: t("model.column.tpm_column"),
   tier: t("model.column.tier_column"),

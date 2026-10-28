@@ -21,7 +21,6 @@ COLUMNS = (
   "mode",
   "max_input_tokens",
   "max_output_tokens",
-  "max_tokens",
   "rpm",
   "tpm",
   "reasoning_effort",
@@ -45,7 +44,7 @@ MIGRATIONS = Path(__file__).with_name("migrations")
 TEXT_COLUMNS = frozenset(
   {"mode", "reasoning_effort", "supported_efforts", "tier", "name"}
 )
-TOKEN_COLUMNS = frozenset({"max_input_tokens", "max_output_tokens", "max_tokens"})
+TOKEN_COLUMNS = frozenset({"max_input_tokens", "max_output_tokens"})
 # Rows that enter the chat chains. No catalog match gives no mode.
 ROUTABLE_MODES = (None, "chat")
 

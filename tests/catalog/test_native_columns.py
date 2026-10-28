@@ -63,7 +63,6 @@ def test_gemini() -> None:
     "mode": "chat",
     "max_input_tokens": 1048576,
     "max_output_tokens": 65536,
-    "max_tokens": 65536,
   }, "no thinking field leaves the column to LiteLLM"
   embed = discovery.native_columns(
     "gemini", {"supportedGenerationMethods": ["embedContent"]}
@@ -100,7 +99,10 @@ def test_openrouter_shape() -> None:
   }
   for name in ("kilo", "openrouter"):
     found = discovery.native_columns(name, row)
-    assert found["max_input_tokens"] == 2000 and found["max_tokens"] == 500, found
+    assert found["max_input_tokens"] == 2000 and found["max_output_tokens"] == 500, (
+      found
+    )
+    assert "max_tokens" not in found
     assert found["supports_tool_choice"] is True, found
     assert found["supports_parallel_function_calling"] is False, found
     assert found["supports_pdf_input"] is True and found["reasoning_effort"] == "high"
@@ -217,7 +219,8 @@ def test_discovery_token_conversion_failure(unparseable_count) -> None:
   assert not skipped
   found = rows["groq/example"]
   assert "max_input_tokens" not in found
-  assert found["max_output_tokens"] == found["max_tokens"] == 4096
+  assert found["max_output_tokens"] == 4096
+  assert "max_tokens" not in found
   assert found["supports_function_calling"] is True
 
 

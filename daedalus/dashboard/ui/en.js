@@ -182,7 +182,6 @@ globalThis.DAEDALUS_LOCALE = {
   "model.column.reasoning_column": "Reasoning",
   "model.column.rpm_column": "RPM",
   "model.column.tier_column": "Tier",
-  "model.column.tokens_column": "Tokens",
   "model.column.tools_column": "Tools",
   "model.column.tpm_column": "TPM",
   "model.column.type_column": "Type",
