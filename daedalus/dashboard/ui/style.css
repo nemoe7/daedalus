@@ -543,14 +543,18 @@ tr.live-row td { background: var(--field); }
 .chain-modal .chain-body { width: auto; min-width: 0; }
 .step b { overflow-wrap: anywhere; }
 .chain-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 12px; }
-.chain ol, .chain-modal ol { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.chain ol, .chain-modal ol {
+  --indent: 2ch; list-style-type: decimal; list-style-position: outside;
+  margin: 8px 0 0; padding-block: 0; padding-inline-end: 0; padding-inline-start: 2ch; display: grid; gap: 8px;
+}
+.chain ol > li::marker, .chain-modal ol > li::marker { font-variant-numeric: tabular-nums; }
 .step { font-size: 13px; }
 .step .result { font-weight: 600; margin-left: 6px; }
 .step.good .result { color: var(--ok); }
 .step.bad .result { color: var(--bad); }
 .cool { color: var(--orange); }
 .step pre {
-  margin: 4px 0 0 20px; padding: 8px 10px; border-radius: 6px; background: var(--panel);
+  margin: 4px 0 0; padding: 8px 10px; border-radius: 6px; background: var(--panel);
   border: 1px solid var(--line); font: 12px/1.5 var(--mono); white-space: pre-wrap;
   overflow-wrap: anywhere; max-height: 180px; overflow: auto; user-select: text;
 }
@@ -1112,7 +1116,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .requests-bar select { flex: 1 1 8rem; }
   section[data-page="requests"] .requests-bar #request-clear.off { display: none; }
   .requests-bar .hint { display: none; }
-  .chain-modal ol { list-style: none; margin: 5px 0 0; padding: 0; }
+  .chain-modal ol { margin: 4px 0 0; }
   .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
   .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
   .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
