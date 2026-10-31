@@ -38,7 +38,7 @@ Between 2 regexes, the longer regex wins. A tie goes to the higher tier.
 Pool names follow one convention. A pool name is a two-syllable Greek adjective that ends
 in -os.
 
-A request that names a pool goes to that tier. No classifier runs.
+A request for a pool goes to that tier. No classifier runs.
 
 A tier that holds no model falls back. The rule is promote then demote. In
 order, the chain starts at the pool's tier, walks up to TIER-A, and then walks down from

@@ -89,7 +89,7 @@ daedalus skips each provider that has no key. A `client_keys` value can read oth
 
 [`config/daedalus.yml`](../config/daedalus.yml). Each key is optional. A missing key uses the default. An unknown key stops the start.
 
-The 2 old groups, `session_affinity` and `parallel`, also stop the server from starting. The error names the `affinity.mode` that replaces each one.
+The 2 old groups, `session_affinity` and `parallel`, stop server start too. The error names the `affinity.mode` that replaces each one.
 
 The shipped file holds changes from defaults only. The **Settings** page writes changed keys only. A cleared field loses its line, and the default applies.
 

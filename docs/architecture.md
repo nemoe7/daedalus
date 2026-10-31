@@ -22,7 +22,7 @@ daedalus provides an OpenAI endpoint. It routes requests to a free model of the 
 
 ## Request flow
 
-The first chart shows the gate and the model name. The next two follow the ladder, from the filters to the last error.
+Chart 1 shows the gate and the model name. Next 2 show the ladder, from filter to final error.
 
 ```mermaid
 flowchart LR
@@ -59,7 +59,7 @@ flowchart LR
 | Vision filter | A request with an `image_url` part skips the models without `supports_vision` true. See [API](api.md#chat-completions). |
 | Context filter | Tokens = characters / 4, input only. A smaller-context model leaves the list. |
 | No model fits | The client gets 400 `context_length_exceeded`. |
-| Error | The next model gets the request. The client sees only the last error. |
+| Error | Next model gets the request. Client sees only the last error. |
 | Stream | When a stream stops, the next model continues the answer. |
 | Client cancel | A client close before the last byte stops the request. No fault, no next model. |
 
@@ -247,8 +247,8 @@ The Notifications page shows 1 notice when a known provider limit resets. It che
 | Sources | Provider reset headers, Gemini 429 quota details, OpenRouter request headers, Kilo hourly counts, and the Cloudflare UTC day |
 | Scope | Provider, client lane, limit type, and limit span |
 | Pending reset | 1 for each scope. Only a newer boundary replaces it. |
-| Time of the notice | The known reset boundary, not the time of the page refresh |
-| Limits row | The remembered allowance returns to full and the elapsed reset time clears at the boundary |
+| Time of the notice | Known reset boundary, not the time of a page refresh |
+| Limits row | Remembered allowance returns to full, and elapsed reset time clears at the boundary |
 | Storage | The limits JSON row in `.daedalus-state/models.sqlite3`, including the newest 50 notices |
 
 ## Session affinity
@@ -339,9 +339,9 @@ A loop counts against the model that made it. See [ADR 4](adr/0004-penalties.md#
 
 | Loop | Found by | Next step |
 | --- | --- | --- |
-| Tool | 3 same-tool-and-arguments calls since the last user message, the last in the last assistant message | The model that made the call is the last fallback |
-| Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: the next model continues. No stream: the next model gets the request. |
-| Answer | The same, in the answer text | As thinking. The next model continues after the first copy of the passage. |
+| Tool | 3 same-tool-and-arguments calls since a user message, the last 1 in the last assistant message | Model that made the call is the last fallback |
+| Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: next model continues. No stream: next model gets the request. |
+| Answer | Same, in the answer text | As thinking. Next model continues after the first copy of the passage. |
 | Log | Tool: `loop=N` on the Requests page. Thinking and answer: the result `loop`. | - |
 
 ## Media pools
@@ -358,7 +358,7 @@ A loop counts against the model that made it. See [ADR 4](adr/0004-penalties.md#
 | Weights | The same weights as the chat models |
 | Skip | A model that cannot do the request leaves it, with no fault. |
 | Try again | The same key and content as an earlier answered pool request. Transcription: audio and fields. Built in, with no hook. |
-| Models of a try again | The models that answered this content leave. Then the list starts again at the top. |
+| Models of a try again | Models that answered this content leave. Then the list restarts at the top. |
 | Log | `retry=N` |
 | Expiry | 1 h with no repeat of the message, in memory only |
 | Embeddings and speech | No pool. `provider/slug` only. |

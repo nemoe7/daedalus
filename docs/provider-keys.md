@@ -7,7 +7,7 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 1. Go to <https://dash.cloudflare.com> and sign in. A new account needs no payment method.
 2. In the left menu, select **AI**, then **Workers AI**.
 3. Under **Use REST API**, select **Create Workers AI API Token**.
-4. Copy the token and the **Account ID** in the right sidebar.
+4. Copy the token and **Account ID** from the right sidebar.
 
 ## Google Gemini
 

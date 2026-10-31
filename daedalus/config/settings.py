@@ -407,7 +407,7 @@ def hook_order(name: str, value: Any) -> dict[str, list[str]]:
 
 
 def schedule_value(name: str, key: str, value: Any) -> float:
-  """Validate catalog schedule hours: `every` divides 24 or equals 0, and `anchor` is 0..23."""
+  """Check catalog schedule hours: `every` divides 24 or is 0, and `anchor` ranges 0..23."""
   if (
     isinstance(value, bool)
     or not isinstance(value, int | float)
