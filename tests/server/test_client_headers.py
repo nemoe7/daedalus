@@ -262,3 +262,37 @@ async def test_the_upstream_hook_reaches_images(
   assert response.status_code == 200, response.text
   assert SEEN[-1]["x-title"] == "opencode", SEEN[-1]
   assert json.loads(BODIES[-1])["quality"] == "low", BODIES[-1]
+
+
+async def test_the_answer_hook_runs_at_the_end_of_a_stream(
+  client: httpx.AsyncClient, state_folder
+) -> None:
+  """A finished stream runs the answer hook once, with the whole text."""
+  note = state_folder / "answer.txt"
+  path = state_folder / "hooks" / "note.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_answer(value, model):\n"
+    f"  open({str(note)!r}, 'w').write(value['choices'][0]['message']['content'])\n",
+    encoding="utf-8",
+  )
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "provider-key",
+        "hooks": [{"on-answer": "hooks/note.py"}],
+        "tier": {"TIER-D": ["x"]},
+      }
+    }
+  )
+  store.write_store([{"id": "p/x"}])
+  body = {
+    "model": "p/x",
+    "messages": [{"role": "user", "content": "hi"}],
+    "stream": True,
+  }
+  response = await client.post("/v1/chat/completions", json=body)
+  assert response.status_code == 200, response.text
+  assert "[DONE]" in response.text, response.text
+  assert note.read_text(encoding="utf-8") == "hi", note.read_text(encoding="utf-8")

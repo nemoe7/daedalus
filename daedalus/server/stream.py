@@ -56,6 +56,25 @@ async def sse_data(
     await chunks.aclose()
 
 
+def answer_note(chunk: dict[str, Any], text: str, model: str) -> dict[str, Any]:
+  """The whole answer of a finished stream, in the shape of a chat answer."""
+  rows = chunk.get("choices") or []
+  first = rows[0] if rows and isinstance(rows[0], dict) else {}
+  return {
+    "id": chunk.get("id") or "",
+    "object": "chat.completion",
+    "model": model,
+    "choices": [
+      {
+        "index": 0,
+        "message": {"role": "assistant", "content": text},
+        "finish_reason": first.get("finish_reason") or "stop",
+      }
+    ],
+    "usage": chunk.get("usage") or {},
+  }
+
+
 def provider_count(usage: object) -> dict[str, Any] | None:
   """The input and output tokens of an OpenAI `usage` object, marked as a provider count."""
   if not isinstance(usage, dict) or not isinstance(usage.get("prompt_tokens"), int):
@@ -207,6 +226,8 @@ async def relay(
 ) -> AsyncIterator[bytes]:
   """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
   identifier, sent, tool = None, [], False
+  # Last chunk holds the id, finish reason, and count of a finished stream.
+  chunk: dict[str, Any] = {}
   attempts = [] if attempts is None else attempts
   chunk_hooks = hook_files or []
   state = stream_context or {}
@@ -217,6 +238,10 @@ async def relay(
       while True:
         data = pending.pop(0) if pending else await anext(events)
         if data == "[DONE]":
+          # An answer hook records the finished stream, and its return cannot change the sent text.
+          hooks.run(
+            "on-answer", config, model, answer_note(chunk, "".join(sent), model)
+          )
           yield b"data: [DONE]\n\n"
           return
         chunk = json.loads(data)
