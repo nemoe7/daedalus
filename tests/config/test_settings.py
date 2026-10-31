@@ -511,6 +511,22 @@ def test_hooks_dir_names_the_folder() -> None:
     assert "hooks.dir" in str(error.value)
 
 
+def test_hooks_values_hold_a_map_for_each_file() -> None:
+  """`hooks.values` accepts 1 map of values per hook name, and rejects another shape."""
+  values = {"note.py": {"target": "kilo", "attempts": 3, "enabled": True}}
+  text = "hooks:\n  values:\n    note.py:\n      target: kilo\n      attempts: 3\n      enabled: true\n"
+  assert settings.parse(text)["hooks"]["values"] == values
+  for bad in (
+    "hooks:\n  values: [1]\n",
+    "hooks:\n  values:\n    note.py: 1\n",
+    "hooks:\n  values:\n    note.py:\n      target: [1]\n",
+    "hooks:\n  values:\n    'bad name.py': {}\n",
+  ):
+    with pytest.raises(settings.SettingsError) as error:
+      settings.parse(bad)
+    assert "hooks.values" in str(error.value), error.value
+
+
 def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
   """Hook sources validate repo, path, ref, and update fields."""
   assert settings.parse("")["hooks"]["sources"] == settings.DEFAULTS["hooks"]["sources"]

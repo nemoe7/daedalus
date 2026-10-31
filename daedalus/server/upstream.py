@@ -765,10 +765,22 @@ def rejected(
 
 
 async def post(
-  candidate: str, url: str, headers: dict[str, str], **content: Any
+  candidate: str,
+  url: str,
+  headers: dict[str, str],
+  config: Mapping[str, Any] | None = None,
+  **content: Any,
 ) -> httpx.Response:
-  """Send one request without a stream, and fail on an upstream error status."""
+  """Send one request without a stream, with the model hook, and fail on an upstream error status."""
   started = time.perf_counter()
+  # A media hook gets the JSON body, or the form fields of a multipart request.
+  field = next(
+    (name for name in ("json", "data") if isinstance(content.get(name), dict)), None
+  )
+  if config is not None and field is not None:
+    content[field] = hooks.run(
+      "on-upstream", config, candidate, dict(content[field]), headers=headers
+    )
   # A whole answer can take longer than the wait for one stream chunk.
   timeout = httpx.Timeout(TIMEOUT_SECONDS)
   response = await get_client().post(

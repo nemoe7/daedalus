@@ -25,6 +25,8 @@ ROOT = Path(".")
 DIR = "hooks"
 DISABLED: set[str] = set()
 ORDER: dict[str, list[str]] = {}
+# The stored values of each hook file, by file name, set at start.
+VALUES: dict[str, dict[str, Any]] = {}
 # Each hook surface, and the function that its file defines.
 SURFACES = {
   "on-catalog": "on_catalog",
@@ -50,9 +52,15 @@ META_KEYS = (
   "title",
   "description",
   "license",
+  "settings",
 )
 SCOPES = ("global", "provider", "yaml", "model", "client")
+# The types of 1 declared setting, and the key of its name.
+FIELD_TYPES = ("text", "number", "boolean", "choice")
+FIELD_KEYS = ("key", "label", "type", "default", "minimum", "maximum", "choices")
 META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# The key of 1 declared setting of a hook file.
+SETTING_KEY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 # The head of a file that holds the frontmatter block.
 HEAD = 60
 # 1 comparison of a `requires` value: an operator and a dotted version.
@@ -201,7 +209,108 @@ def meta_check(text: str) -> tuple[dict[str, Any] | None, str | None]:
     value = found.get(key)
     if value is not None and (not isinstance(value, str) or not value.strip()):
       return None, f"{key} must be 1 text"
+  _, problem = fields_ok(found.get("settings"))
+  if problem:
+    return None, problem
   return found, None
+
+
+def fields_ok(settings: Any) -> tuple[list[dict[str, Any]], str | None]:
+  """The declared settings of a block, and the reason they are not usable."""
+  if settings is None:
+    return [], None
+  if not isinstance(settings, list):
+    return [], "settings must be a list of fields"
+  found = []
+  for field in settings:
+    if not isinstance(field, dict):
+      return [], "each setting needs a key"
+    for key in field:
+      if key not in FIELD_KEYS:
+        return [], f"unknown setting key {key!r}"
+    name = field.get("key")
+    if not isinstance(name, str) or not SETTING_KEY.fullmatch(name):
+      return [], "a setting key is 1 to 40 letters, digits, dots, dashes or underscores"
+    kind = field.get("type", "text")
+    if kind not in FIELD_TYPES:
+      return [], f"setting {name}: type must be 1 of {', '.join(FIELD_TYPES)}"
+    default = field.get("default")
+    if default is not None and not value_ok(kind, default, field):
+      return [], f"setting {name}: the default does not fit {kind}"
+    low, high = field.get("minimum"), field.get("maximum")
+    if kind == "number":
+      for end in (low, high):
+        if end is not None and (
+          isinstance(end, bool) or not isinstance(end, int | float)
+        ):
+          return [], f"setting {name}: minimum and maximum must be numbers"
+      if low is not None and high is not None and low > high:
+        return [], f"setting {name}: minimum is above maximum"
+    choices = field.get("choices")
+    if kind == "choice" and (
+      not isinstance(choices, list) or not choices or not all(map(str, choices))
+    ):
+      return [], f"setting {name}: a choice needs its options"
+    found.append(
+      {
+        "key": name,
+        "label": str(field.get("label") or name),
+        "type": kind,
+        "default": default,
+        "minimum": low,
+        "maximum": high,
+        "choices": [str(choice) for choice in choices] if choices else [],
+      }
+    )
+  return found, None
+
+
+def fields(path: Path | str) -> list[dict[str, Any]]:
+  """The settings that 1 hook file declares, and no entry when its block has no list."""
+  found, _ = meta_file(Path(path))
+  declared, _ = fields_ok(found.get("settings") if found else None)
+  return declared
+
+
+def set_values(values: Mapping[str, Any] | None) -> None:
+  """Set the stored values of the hook files: 1 map of values for each file name."""
+  global VALUES
+  found: dict[str, dict[str, Any]] = {}
+  if isinstance(values, Mapping):
+    for name, entries in values.items():
+      if isinstance(entries, Mapping):
+        found[str(name)] = dict(entries)
+  VALUES = found
+
+
+def values(path: Path | str) -> dict[str, Any]:
+  """The stored values of 1 hook file, with the declared default for each wrong or missing 1."""
+  declared = fields(path)
+  if not declared:
+    return {}
+  stored = VALUES.get(Path(path).name) or {}
+  found = {}
+  for field in declared:
+    value = stored.get(field["key"], field["default"])
+    found[field["key"]] = (
+      value if value_ok(field["type"], value, field) else field["default"]
+    )
+  return found
+
+
+def value_ok(kind: str, value: Any, field: Mapping[str, Any]) -> bool:
+  """True when `value` fits the type and the ends of 1 declared setting."""
+  if kind == "text":
+    return isinstance(value, str)
+  if kind == "boolean":
+    return isinstance(value, bool)
+  if kind == "number":
+    if isinstance(value, bool) or not isinstance(value, int | float):
+      return False
+    low, high = field.get("minimum"), field.get("maximum")
+    return (low is None or value >= low) and (high is None or value <= high)
+  choices = field.get("choices") or []
+  return isinstance(value, str) and value in choices
 
 
 def meta_file(path: Path) -> tuple[dict[str, Any] | None, str | None]:
@@ -352,6 +461,9 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       "surfaces": gate,
       "enabled": enabled(path) and problem is None,
       "problem": problem or "",
+      # Fields of the drill-down page, and their values for the operator.
+      "settings": fields(path),
+      "values": values(path),
     }
     if named is not None:
       ripe = [

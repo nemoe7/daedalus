@@ -939,6 +939,16 @@ const DEMO_FIXTURES = __FIXTURES__;
     DEMO_FIXTURES.login.session = true;
     return json({ ok: true, session: "demo" });
   };
+  // The Hooks card reads the stored value of each declared field again, as the server does.
+  const hook_row_values = () => {
+    const stored = DEMO_FIXTURES.settings.file.hooks?.values || {};
+    for (const row of DEMO_FIXTURES.settings.hook_rows || []) {
+      const saved = stored[row.name] || {};
+      row.values = Object.fromEntries((row.settings || []).map(
+        (entry) => [entry.key, saved[entry.key] === undefined ? entry.default : saved[entry.key]],
+      ));
+    }
+  };
   const settings_saved = async (init) => {
     const { text, changes } = await body_of(init);
     if (typeof text === "string") {
@@ -948,6 +958,7 @@ const DEMO_FIXTURES = __FIXTURES__;
       if (error) return bad(error, 422);
       DEMO_FIXTURES.settings.text = text;
       DEMO_FIXTURES.settings.file = read.value || {};
+      hook_row_values();
       return json({ ok: true, text });
     }
     if (!changes || typeof changes !== "object") return bad("The changes must be an object.", 400);
@@ -984,6 +995,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     for (const group of Object.keys(file)) {
       if (!Object.keys(file[group]).length) delete file[group];
     }
+    hook_row_values();
     return json({ ok: true, text: DEMO_FIXTURES.settings.text });
   };
   // Simulate provider plans, caps, and balances with captured values from real plans.

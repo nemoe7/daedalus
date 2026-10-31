@@ -13,7 +13,7 @@ openrouter:
         - on-upstream: hooks/or_cheapest_output.py
 ```
 
-The `hooks` key works like `order`. A `models` entry has priority. The provider block in the `{provider}.yml` file of the model comes next, then the provider block in the main file.
+The `hooks` key works like `order`. A `models` entry has priority. Then 1 provider block comes from the `{provider}.yml` file of that model, then 1 from the main provider file.
 
 A model with `hooks: []` names no explicit hooks. Matching installed files can still attach through their frontmatter.
 
@@ -62,7 +62,8 @@ flowchart LR
 
 ### `on-request`
 
-Before the chain of a chat request, and again on a repeat with the count.
+Before the chain of a chat request, and again on a repeat with the count. A media request runs the
+same surface once, before it selects a model.
 
 `on_request(value, model, headers)`
 
@@ -73,6 +74,9 @@ Before the chain of a chat request, and again on a repeat with the count.
 | `headers` | The client headers |
 
 A returned `body` dict replaces the request body before chain selection. The `model` argument remains the validated request model. The final value dict reaches `on-prompt` as `request_values`.
+
+A media request honors a returned `body` alone, and ignores `key` and `count`. Its `body` holds the
+JSON body, or the form fields of a multipart request. The `digest` is 1 hash of that body.
 
 ### `on-catalog`
 
@@ -103,7 +107,7 @@ Before the first attempt of a chat request, when the chain holds a reasoning mod
 
 ### `on-upstream`
 
-Before each chat request to the provider, streams, and fallbacks included.
+Before each request to a provider: chat, streams, fallbacks, embeddings, speech, transcription, images, and image edits.
 
 `on_upstream(body, model, headers)`
 
@@ -113,15 +117,36 @@ Before each chat request to the provider, streams, and fallbacks included.
 | `model` | `provider/slug` |
 | `headers` | Changeable |
 
+A multipart request hands the hook its form fields, and the files stay as they are.
+
+The headers of the hook win over the client headers. This example presents a client as OpenCode,
+whichever client sent the request:
+
+```python
+OPENCODE = {
+  "user-agent": "opencode/unknown/0.0.0/cli",
+  "http-referer": "https://opencode.ai/",
+  "x-title": "opencode",
+}
+
+
+def on_upstream(body: dict, model: str, headers: dict) -> None:
+  headers.update(OPENCODE)
+```
+
+The hook of a provider card covers every model of that provider, so 1 `hooks` entry on the card
+sets the identity of the whole provider.
+
 ### `on-answer`
 
-After a full chat answer comes back, before the client gets it.
+After a full chat answer comes back, before the client gets it. A finished stream runs it once, at
+the end, with the text that the stream sent.
 
 `on_answer(answer, model)`
 
 | Argument | Value |
 | --- | --- |
-| `answer` | The answer in the OpenAI format. A stream has no `on-answer` surface |
+| `answer` | The answer in the OpenAI format. A streamed answer arrives after the text left |
 
 ### `on-chunk`
 
@@ -155,7 +180,7 @@ On `POST /v1/hook/<file>`, for the file the path names.
 | `pin` | The slot and the model of the last answer of the chat |
 | `level` | The reasoning level of that answer |
 
-The route passes each argument that the file names. It answers with the dict that the function returns.
+Each argument named in 1 file reaches the route, which answers with the dict that the function returns.
 
 ### `on-init`
 
@@ -163,7 +188,7 @@ At the dashboard load, for each enabled request hook file.
 
 `on_init()`
 
-No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat selected another model, N times"]]`.
+No arguments. It returns rows of the code legend of the dashboard, such as `[["rtN", "A repeat selected another model, N times"]]`.
 
 A request-level surface, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `surfaces` block in its frontmatter joins its surfaces without a key there:
 
@@ -288,19 +313,52 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `title` | text | The short name of the hook |
 | `description` | text | One line of what the hook does |
 | `license` | text | The license of the file |
+| `settings` | list of fields | The values that the hook asks for, shown in the Hooks page |
 
 A file with no block still runs. The manager takes the name from the file name, applies no scope, and
 writes 1 warning line. The scope rules:
 
 1. `global` runs the hook for every model and for every request surface.
-2. `provider` runs the hook when the name of the model holds 1 of the targets.
-3. `yaml` runs the hook for the models that the `{provider}.yml` file of 1 of the targets names in
-   its `models`. The main provider file stays out.
+2. `provider` runs the hook when the model name holds 1 target.
+3. `yaml` runs the hook for models that the `{provider}.yml` file of 1 target names in its
+   `models`. The main provider file stays out.
 4. `model` runs the hook for the named model ids alone.
-5. `client` runs the hook for a request of 1 of the named client apps. The base names the app from
-   the request headers, such as `OWUI` or `Kilo`.
+5. `client` runs the hook for a request of 1 named client app. The base names the app from request
+   headers, such as `OWUI` or `Kilo`.
 6. A request surface accepts `provider`, `yaml`, `model`, and `client` too.
 7. `on-http` needs no scope, because the route names the file.
+
+## Settings of a hook
+
+A hook file may ask for values of its own. The block holds 1 `settings` list, and the Hooks page
+shows 1 field for each entry.
+
+```yaml
+# settings:
+#   - key: target
+#     label: Target app
+#     default: opencode
+#   - key: attempts
+#     label: Attempts
+#     type: number
+#     minimum: 1
+#     maximum: 10
+#     default: 3
+```
+
+| Key | Value |
+| --- | --- |
+| `key` | The name of the value, of up to 40 letters, digits, dots, dashes or underscores |
+| `label` | The text of the field, and the key when absent |
+| `type` | `text`, `number`, `boolean`, or `choice`. Text when absent |
+| `default` | The value before the operator saves 1 |
+| `minimum`, `maximum` | The ends of a number |
+| `choices` | The options of a choice |
+
+The values live in `hooks.values` of the settings file, 1 map for each hook file name, so a file
+update keeps them. A hook reads its values with `hooks.values(__file__)`, from
+[`daedalus.providers.hooks`](../daedalus/providers/hooks.py). A value that is absent or does not fit
+the field takes the default.
 
 ## Sources and the lock
 

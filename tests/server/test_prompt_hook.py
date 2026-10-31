@@ -432,6 +432,24 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
   )
 
 
+def test_the_shipped_hook_reads_the_declared_cap() -> None:
+  """Model turn cap follows the value that Hooks page saves."""
+  module = shipped_module()
+  answer, newest = "a" * 900, "thanks"
+  messages = [
+    {"role": "user", "content": "Write a Python function that reverses a string."},
+    {"role": "assistant", "content": answer},
+    {"role": "user", "content": newest},
+  ]
+  hooks.set_values({"owui_auto_reasoning_effort.py": {"answer_chars": 100}})
+  try:
+    text = module._newest(messages, "")
+  finally:
+    hooks.set_values({})
+  assert text == f"{answer[-100:]}\n{newest}"
+  assert len(text) < module.ANSWER_CHARS, "the saved cap is below the default"
+
+
 def test_the_shipped_hook_ladders_the_catalog_efforts(
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:

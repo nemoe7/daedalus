@@ -39,7 +39,7 @@ def on_upstream(body, model, headers):
     body["provider"]["allow_fallbacks"] = False
 ```
 
-Copy the file under a new name, keep the functions you need, and name the copy in the `hooks` list of the model or the provider. The surfaces, the frontmatter, the GitHub sources, and the errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
+Copy the file under a new name, keep the functions you need, and put the copy in the `hooks` list of the model or the provider. Surfaces, frontmatter, GitHub sources, and errors are in [Hooks](docs/hooks.md). Each shipped file has its own page under [`docs/hooks`](docs/hooks).
 
 ## Quick start
 
@@ -59,9 +59,9 @@ Copy the file under a new name, keep the functions you need, and name the copy i
 
    On Windows, winget installs Docker Desktop. Restart Windows, start Docker Desktop once, then run the command again. On Linux, the official script `get.docker.com` installs Docker.
 
-   In a git checkout, the install scripts use the checkout folder. Add `--dev`, for example
-   `install.cmd --dev`, to run the dev image with [`compose.dev.yml`](compose.dev.yml). With the source in the folder,
-   the script builds the image. Without the source, it pulls `ghcr.io/nemoe7/daedalus:dev`.
+   In a git checkout, install scripts use the checkout folder. Add `--dev`, for example
+   `install.cmd --dev`, to run the dev image with [`compose.dev.yml`](compose.dev.yml). With source in the folder,
+   the script builds the image. Without source, it pulls `ghcr.io/nemoe7/daedalus:dev`.
 
 2. Open the dashboard at `http://localhost:3357/`. Sign in with `DAEDALUS_USERNAME` (default `admin`) and `DAEDALUS_PASSWORD` (default `DAEDALUS_MASTER_KEY`).
 3. On **Providers**, save each **API key** (plus Cloudflare Account ID) and click the Catalog chip to rebuild models. Saved keys live in state, while [`config/providers/free.yml`](config/providers/free.yml) keeps `env:NAME` references ([Configuration](docs/configuration.md)).

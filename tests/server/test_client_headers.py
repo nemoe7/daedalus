@@ -13,6 +13,7 @@ from daedalus.server.upstream import set_client
 
 MASTER = "test-master-key-0001"
 SEEN: list[httpx.Headers] = []
+BODIES: list[bytes] = []
 SENT = {
   "Authorization": f"Bearer {MASTER}",
   "HTTP-Referer": "https://kilocode.ai",
@@ -32,6 +33,7 @@ SENT = {
 
 def upstream(request: httpx.Request) -> httpx.Response:
   SEEN.append(request.headers)
+  BODIES.append(request.content)
   if request.url.path.endswith("/images/generations"):
     return httpx.Response(200, json={"created": 1, "data": [{"b64_json": "AA=="}]})
   if json.loads(request.content).get("stream"):
@@ -65,6 +67,7 @@ async def client():
   media.REPEATS.clear()
   dashboard.HISTORY.clear()
   SEEN.clear()
+  BODIES.clear()
   async with httpx.AsyncClient(transport=httpx.MockTransport(upstream)) as outer:
     set_client(outer)
     transport = httpx.ASGITransport(app=api.app)
@@ -228,3 +231,68 @@ async def test_a_named_pool_repeat_selects_another_model(
   assert change["from_model"] != change["to_model"], change
   assert change["from_pool"] == change["to_pool"], change
   assert change["reason"] == "rt1", change
+
+
+async def test_the_upstream_hook_reaches_images(
+  client: httpx.AsyncClient, state_folder
+) -> None:
+  """The on-upstream hook runs for an image request, and can change its headers and body."""
+  path = state_folder / "hooks" / "identity.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_upstream(body, model, headers):\n"
+    "  headers['x-title'] = 'opencode'\n"
+    "  body['quality'] = 'low'\n",
+    encoding="utf-8",
+  )
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "provider-key",
+        "hooks": [{"on-upstream": "hooks/identity.py"}],
+        "tier": {"TIER-D": ["x"]},
+      }
+    }
+  )
+  store.write_store([{"id": "p/x"}, {"id": "p/img", "mode": "image_generation"}])
+  response = await client.post(
+    "/v1/images/generations", json={"model": "p/img", "prompt": "a"}
+  )
+  assert response.status_code == 200, response.text
+  assert SEEN[-1]["x-title"] == "opencode", SEEN[-1]
+  assert json.loads(BODIES[-1])["quality"] == "low", BODIES[-1]
+
+
+async def test_the_answer_hook_runs_at_the_end_of_a_stream(
+  client: httpx.AsyncClient, state_folder
+) -> None:
+  """A finished stream runs the answer hook once, with the whole text."""
+  note = state_folder / "answer.txt"
+  path = state_folder / "hooks" / "note.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_answer(value, model):\n"
+    f"  open({str(note)!r}, 'w').write(value['choices'][0]['message']['content'])\n",
+    encoding="utf-8",
+  )
+  config.set_config(
+    {
+      "p": {
+        "api_base": "https://p.test/v1",
+        "api_key": "provider-key",
+        "hooks": [{"on-answer": "hooks/note.py"}],
+        "tier": {"TIER-D": ["x"]},
+      }
+    }
+  )
+  store.write_store([{"id": "p/x"}])
+  body = {
+    "model": "p/x",
+    "messages": [{"role": "user", "content": "hi"}],
+    "stream": True,
+  }
+  response = await client.post("/v1/chat/completions", json=body)
+  assert response.status_code == 200, response.text
+  assert "[DONE]" in response.text, response.text
+  assert note.read_text(encoding="utf-8") == "hi", note.read_text(encoding="utf-8")

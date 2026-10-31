@@ -1,0 +1,9 @@
+# The skills folder carries code copied from other repos, so the scan skips it.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Copied third-party code under .agents"
+paths = [
+  '''(^|/)\.agents/''',
+]

@@ -6,12 +6,12 @@ reasoning level. The optional Open WebUI Filter sends controls to this hook.
 
 | Item | Value |
 | --- | --- |
-| Runs | `on_request` before the chain of a chat request. `on_prompt` before the first attempt. `on_chunk` on the final chunk |
-| Writes | `value["key"]` and `value["code"]` on the repeat. `value["reasoning_effort"]` on the level. `usage.daedalus.line` on the chunk |
+| Runs | `on_request` before a chat request. `on_prompt` before the first attempt. `on_chunk` on the final chunk |
+| Writes | `value["key"]` and `value["code"]` on a repeat. `value["reasoning_effort"]` on a level. `usage.daedalus.line` on a chunk |
 | Named by | its own frontmatter block: `surfaces: [on-request, on-prompt, on-chunk]`, `scope: client`, `targets: [OWUI]`. The `hooks` keys of [`config/daedalus.yml`](../../config/daedalus.yml) run it first |
 | Serves | The Open WebUI client, from the `client` scope of its block, and `x-openwebui-chat-id` header |
 
-The first chart shows the repeat key of `on_request`. The second shows the level of `on_prompt`.
+Chart 1 shows the repeat key of `on_request`. Chart 2 shows the level of `on_prompt`.
 
 ```mermaid
 flowchart LR
@@ -30,8 +30,9 @@ flowchart LR
 ## The level of a call
 
 The `on_prompt` surface reads the heuristics v2 tier of the newest user turn and of the newest
-model turn. Each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
-characters, because a long answer would make the read too large.
+model turn. Each turn of a chat gets its own level. The model part keeps at most `answer_chars`
+characters, 500 by default, because a long answer would make the read too large. The `settings`
+block of the file declares that cap, and the Hooks page sets it from 100 to 4000.
 
 The tier indexes the `supported_reasoning_efforts` list of the model: `TIER-D` is step 0, the lowest effort the model accepts, and
 each tier above is 1 step up. The key of the model, or of its block, wins first. Then the

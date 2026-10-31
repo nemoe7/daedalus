@@ -153,3 +153,25 @@ async def test_first_content_waits_for_content() -> None:
     events('{"choices":[{"delta":{}}]}', chunk(content="hi"), chunk(content="there"))
   )
   assert kept == ['{"choices":[{"delta":{}}]}', chunk(content="hi")]
+
+
+def test_answer_note_reads_the_finished_stream() -> None:
+  """Last chunk gives the id, finish reason, and count of a whole answer."""
+  chunk = {
+    "id": "x",
+    "choices": [{"finish_reason": "length"}],
+    "usage": {"total_tokens": 3},
+  }
+  note = stream.answer_note(chunk, "hi", "p/x")
+  assert note["id"] == "x"
+  assert note["choices"][0]["message"]["content"] == "hi"
+  assert note["choices"][0]["finish_reason"] == "length"
+  assert note["usage"] == {"total_tokens": 3}
+
+
+def test_answer_note_holds_an_empty_stream() -> None:
+  """A stream that ends before any chunk still gives a whole answer."""
+  note = stream.answer_note({}, "", "p/x")
+  assert note["choices"][0]["message"]["content"] == ""
+  assert note["choices"][0]["finish_reason"] == "stop"
+  assert note["usage"] == {}
