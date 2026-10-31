@@ -1,9 +1,11 @@
 """Every workflow file: its name, its triggers, its permissions, and its tools."""
 
+import re
 import shlex
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -405,3 +407,12 @@ def test_the_ci_workflow_runs_the_prose_linter() -> None:
   ]
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer --selftest" in runs
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer ." in runs
+
+
+def test_the_scanner_skips_the_skills_folder() -> None:
+  """The scanner config excludes copied skill code from the secret scan."""
+  config = tomllib.loads(Path(".gitleaks.toml").read_text(encoding="utf-8"))
+  assert config["extend"]["useDefault"] is True
+  pattern = next(item for item in config["allowlists"][0]["paths"] if ".agents" in item)
+  assert re.search(pattern, ".agents/skills/arena-skill/assets/mermaid.min.js")
+  assert not re.search(pattern, "daedalus/server/api.py")
