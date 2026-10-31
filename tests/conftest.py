@@ -40,6 +40,7 @@ SETTINGS = (
       "REQUEST_HOOKS",
     )
   ),
+  (media, "REQUEST_HOOKS"),
   *(
     (api.PENALTIES, name)
     for name in (
