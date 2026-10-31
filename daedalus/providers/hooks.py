@@ -461,6 +461,9 @@ def rows(named: dict[str, Any] | None = None) -> list[dict[str, Any]]:
       "surfaces": gate,
       "enabled": enabled(path) and problem is None,
       "problem": problem or "",
+      # Fields of the drill-down page, and their values for the operator.
+      "settings": fields(path),
+      "values": values(path),
     }
     if named is not None:
       ripe = [

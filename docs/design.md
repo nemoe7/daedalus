@@ -133,6 +133,10 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
 8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
 
+### Hook Page
+
+A hook row with declared fields carries a `chevron_right` button. The button swaps the table for the `.hook-page` of that hook. The page holds the `‹` back button, the hook title, 1 `.field` for each declared field with its saved value, and 1 primary `Save` for `hooks.values`. Rows without fields keep the `chevron` out, and the back button returns to the table.
+
 ## 8. Motion, Interaction, and States
 
 ### Motion Tokens
@@ -200,6 +204,7 @@ Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-10-31 | Added `.hook-page` as the per-hook drill-down of the `Hooks` card: `.hook-bar` back button, `.hook-heading` title, 1 `.field` for each field that the hook declares, and 1 primary `Save`. The row chevron appears only on a hook with fields. | `Settings` `Hooks` (`daedalus/dashboard/ui/style.css`, `app.js`, `en.js`, `scripts/pages_demo.py`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-28 | Switched `.chain ol` and `.chain-modal ol` to Clause 15 `2ch` outside `decimal` markers, removed inline `.num` step prefixes, and aligned `.step pre` with step content. | `Requests` `#chain-modal` (`daedalus/dashboard/ui/style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-27 | Adopted `relative-timestamps`, `live-dot`, house radii, `16x16` Lucide glyphs, `.theme-seg`, optimistic writes, `nuu` breakpoints, scoped `NUM205`, GSAP, and symmetric `.tile` tokens. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/`, `nuu.toml`, `scripts/pages_demo.py`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-27 | Suppressed native `<ol>` decimal markers and aligned `8px` grid spacing on `.chain-modal ol` across desktop viewports so step rows render a single `1.` ordinal. | `Requests` `#chain-modal` (`daedalus/dashboard/ui/style.css`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |

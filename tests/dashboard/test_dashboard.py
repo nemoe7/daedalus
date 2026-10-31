@@ -4533,6 +4533,8 @@ def test_hook_rows_and_update(
     "runs": [],
     "enabled": True,
     "problem": "",
+    "settings": [],
+    "values": {},
     "record": {},
   }, rows
   before = {

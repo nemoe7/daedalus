@@ -133,7 +133,7 @@ const state = {
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
-  source: null, env: [], memory: {},
+  source: null, env: [], memory: {}, hookOpen: "",
 };
 
 const REQUEST_PAGES = 32;
@@ -2102,8 +2102,48 @@ function updateFails(answer) {
 }
 
 // Manage the hook folder, sources, loaded files, and updates.
+// One hook page: the fields that the file declares, with the save that writes them.
+function hookPage(row) {
+  const values = row.values || {};
+  const control = (entry) => {
+    const at = `data-hook-field="${esc(row.name)}" data-hook-key="${esc(entry.key)}"`;
+    const label = `aria-label="${esc(entry.label)}"`;
+    const value = values[entry.key];
+    if (entry.type === "boolean") {
+      return `<input type="checkbox" role="switch" class="switch" ${at} ${value ? "checked" : ""} ${label}>`;
+    }
+    if (entry.type === "choice") {
+      return `<span class="input"><select ${at} ${label}>${[...(entry.choices || [])].map((choice) =>
+        `<option value="${esc(choice)}"${choice === value ? " selected" : ""}>${esc(choice)}</option>`).join("")}</select></span>`;
+    }
+    if (entry.type === "number") {
+      const min = entry.minimum === null || entry.minimum === undefined ? "" : ` min="${esc(entry.minimum)}"`;
+      const max = entry.maximum === null || entry.maximum === undefined ? "" : ` max="${esc(entry.maximum)}"`;
+      return `<span class="input"><input type="number" ${at} ${label} step="any"${min}${max}
+        value="${esc(value ?? "")}"></span>`;
+    }
+    return `<span class="input"><input type="text" ${at} ${label} spellcheck="false"
+      value="${esc(value ?? "")}"></span>`;
+  };
+  const fields = (row.settings || []).map((entry) => field(entry.label, "", control(entry),
+    `hooks.values.${row.name}.${entry.key}`)).join("")
+    || `<em class="none">${t("hook.empty.field_text")}</em>`;
+  const back = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${t("hook.page.back_text")}</span>`, {
+    variant: "ghost hook-back", attrs: { "data-hook-back": true },
+  });
+  const save = actionButton(t("action.save_button"), {
+    variant: "primary", attrs: { "data-hook-save": row.name, "aria-label": t("hook.page.save_named_label", { name: row.name }) },
+  });
+  return `<div class="hook-page" data-hook-page="${esc(row.name)}">
+    <div class="hook-bar">${back}<h3 class="hook-heading">${esc(row.title || row.name)}</h3></div>
+    ${fields}<div class="pills">${save}</div>
+    <div class="sub">${t("hook.page.hint")}</div></div>`;
+}
+
 function hooksManager() {
   const rows = state.settings.hook_rows || [];
+  const open = rows.find((row) => row.name === state.hookOpen);
+  if (open) return hookPage(open);
   const sources = listValue("hooks", "sources");
   const at = Math.min(state.hooksSource ?? 0, Math.max(0, sources.length - 1));
   const options = sources.length
@@ -2123,7 +2163,10 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
-      <td class="end">${actionButton(icon("trash"), {
+      <td class="end">${(row.settings || []).length ? actionButton(icon("chevron_right"), {
+        variant: "ghost",
+        attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("hook.action.open_named_label", { name: row.name }) },
+      }) : ""}${actionButton(icon("trash"), {
         variant: "ghost danger",
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
       })}</td></tr>`;
@@ -2191,6 +2234,39 @@ async function addHookSource() {
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
   }
+}
+
+function openHookPage(name) {
+  state.hookOpen = name;
+  renderSettings();
+}
+
+function closeHookPage() {
+  state.hookOpen = "";
+  renderSettings();
+}
+
+// Read the fields of the page into 1 map, then save every map under its file name.
+function hookPageValues(name) {
+  const found = {};
+  for (const input of document.querySelectorAll("[data-hook-field]")) {
+    if (input.dataset.hookField !== name) continue;
+    const key = input.dataset.hookKey;
+    if (input.type === "checkbox") found[key] = input.checked;
+    else if (input.type === "number") found[key] = input.value.trim() === "" ? null : Number(input.value);
+    else found[key] = input.value;
+  }
+  return found;
+}
+
+async function saveHookPage(name) {
+  const values = { ...(setting("hooks", "values") || {}) };
+  values[name] = hookPageValues(name);
+  await guarded(async () => {
+    await call("settings", { method: "PUT", body: JSON.stringify({ changes: { hooks: { values } } }) });
+    await loadSettings();
+  });
+  hooksNote(t("hook.page.saved_text", { name }));
 }
 
 async function takeHooks() {
@@ -5263,6 +5339,11 @@ $("settings").addEventListener("click", async (event) => {
   if (move) return moveHookFile(JSON.parse(move.dataset.hookMove));
   if (event.target.closest("[data-hook-drop]")) return dropHookFile(event.target.closest("[data-hook-drop]"));
   if (event.target.closest("[data-hooks-update]")) return runHooksUpdate(event.target.closest("[data-hooks-update]"));
+  const hookOpen = event.target.closest("[data-hook-open]");
+  if (hookOpen) return openHookPage(hookOpen.dataset.hookOpen);
+  if (event.target.closest("[data-hook-back]")) return closeHookPage();
+  const hookSave = event.target.closest("[data-hook-save]");
+  if (hookSave) return saveHookPage(hookSave.dataset.hookSave);
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {

@@ -741,6 +741,8 @@ def test_rows_report_the_folder() -> None:
       "surfaces": ["on-answer"],
       "enabled": True,
       "problem": "",
+      "settings": [],
+      "values": {},
     }
     assert found["off.py"]["enabled"] is False
     assert found["plain.py"]["version"] == "" and found["plain.py"]["enabled"] is True
@@ -827,3 +829,28 @@ def test_values_use_the_stored_1_or_the_default() -> None:
   hooks.set_values({})
   assert hooks.values(path) == {"target": "opencode", "attempts": 3, "mode": "fast"}
   assert hooks.values(hooks.ROOT / "hooks" / "absent.py") == {}
+
+
+def test_rows_carry_the_declared_settings_and_their_values() -> None:
+  """A row gives the fields of its file and the value of each, so the page can draw them."""
+  try:
+    hooks.set_installed("rows4")
+    scoped(
+      "valued.py",
+      ANSWER % "valued",
+      "# ---\n# settings:\n#   - key: attempts\n#     type: number\n#     minimum: 1\n#     default: 3\n"
+      "#   - key: mode\n#     type: choice\n#     choices: [fast, slow]\n#     default: fast\n# ---\n",
+    )
+    scoped("bare.py", ANSWER % "bare", "")
+    hooks.set_values({"valued.py": {"attempts": 5}})
+    found = {row["name"]: row for row in hooks.rows()}
+    assert [field["key"] for field in found["valued.py"]["settings"]] == [
+      "attempts",
+      "mode",
+    ]
+    assert found["valued.py"]["values"] == {"attempts": 5, "mode": "fast"}
+    assert found["bare.py"]["settings"] == []
+    assert found["bare.py"]["values"] == {}
+  finally:
+    hooks.set_values({})
+    hooks.set_installed()

@@ -518,6 +518,12 @@ table.limits td.num .weight { justify-content: flex-end; }
 .card[data-section="hooks"] .hook-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .card[data-section="hooks"] .hook-order li { display: flex; align-items: center; gap: 6px; }
 .card[data-section="hooks"] .hook-order li .cell-value { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+/* A hook page replaces the table: back button, title, declared fields, and save. */
+.hook-page { display: grid; gap: 12px; }
+.hook-bar { display: flex; align-items: center; gap: 6px; margin-left: -6px; }
+.hook-page .hook-back { display: inline-flex; color: var(--accent-text); border: 0; background: transparent; padding: 4px 6px; }
+.hook-heading { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
+.hook-page .field { max-width: 24rem; }
 tr.live-row td { background: var(--field); }
 .ico-svg {
   display: inline-grid; place-items: center; width: 16px; height: 16px;
@@ -1064,6 +1070,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .undo-text { min-height: 44px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
+  [data-hook-open], .hook-page .hook-back { min-height: 44px; min-width: 44px; }
   .pills { gap: 8px 6px; }
   .pills [data-drop], .pills [data-setting-drop],
   .pills [data-add], .pills [data-setting-add] { position: relative; }
