@@ -139,13 +139,14 @@ sets the identity of the whole provider.
 
 ### `on-answer`
 
-After a full chat answer comes back, before the client gets it.
+After a full chat answer comes back, before the client gets it. A finished stream runs it once, at
+the end, with the text that the stream sent.
 
 `on_answer(answer, model)`
 
 | Argument | Value |
 | --- | --- |
-| `answer` | The answer in the OpenAI format. A stream has no `on-answer` surface |
+| `answer` | The answer in the OpenAI format. A streamed answer arrives after the text left |
 
 ### `on-chunk`
 
