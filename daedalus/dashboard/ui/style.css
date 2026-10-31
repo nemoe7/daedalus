@@ -524,6 +524,9 @@ table.limits td.num .weight { justify-content: flex-end; }
 .hook-page .hook-back { display: inline-flex; color: var(--accent-text); border: 0; background: transparent; padding: 4px 6px; }
 .hook-heading { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
 .hook-page .field { max-width: 24rem; }
+.hook-page #hook-page-note { margin: 0; }
+.hook-page #hook-page-note:empty { display: none; }
+.hook-page #hook-page-note.bad { color: var(--bad); }
 tr.live-row td { background: var(--field); }
 .ico-svg {
   display: inline-grid; place-items: center; width: 16px; height: 16px;

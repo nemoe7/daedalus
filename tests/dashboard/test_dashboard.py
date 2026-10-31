@@ -4506,6 +4506,29 @@ assert.strictEqual(parts('https://github.com/owner/name'), '{"repo":"owner/name"
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_hook_page_rejects_a_value_out_of_range() -> None:
+  """A page save checks each value against its field, so a wrong 1 names how to set it."""
+  code = _app_js_vm(
+    """
+const row = { settings: [
+  { key: 'chars', label: 'Answer characters', type: 'number', minimum: 100, maximum: 4000 },
+  { key: 'mode', label: 'Mode', type: 'choice', choices: ['fast', 'slow'] },
+  { key: 'target', label: 'Target', type: 'text' },
+] };
+assert.strictEqual(sandbox.hookPageProblem(row, { chars: 500, mode: 'fast', target: 'kilo' }), null);
+assert.strictEqual(sandbox.hookPageProblem(row, { chars: 50, mode: 'fast' }).key, 'chars');
+assert.strictEqual(sandbox.hookPageProblem(row, { chars: 50, mode: 'fast' }).text,
+  'Set Answer characters to at least 100.');
+assert.strictEqual(sandbox.hookPageProblem(row, { chars: 5000, mode: 'fast' }).text,
+  'Set Answer characters to at most 4000.');
+assert.strictEqual(sandbox.hookPageProblem(row, { chars: 500, mode: 'later' }).text,
+  'Pick Mode from the list.');
+assert.strictEqual(sandbox.hookPageProblem({ settings: [] }, {}), null, 'no field is no problem');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_hook_rows_and_update(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

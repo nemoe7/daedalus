@@ -2137,6 +2137,7 @@ function hookPage(row) {
   return `<div class="hook-page" data-hook-page="${esc(row.name)}">
     <div class="hook-bar">${back}<h3 class="hook-heading">${esc(row.title || row.name)}</h3></div>
     ${fields}<div class="pills">${save}</div>
+    <div class="sub" id="hook-page-note" role="status"></div>
     <div class="sub">${t("hook.page.hint")}</div></div>`;
 }
 
@@ -2236,6 +2237,14 @@ async function addHookSource() {
   }
 }
 
+// The line under the save: 1 problem or 1 saved value, kept on the page.
+function hookPageNote(text, bad = false) {
+  const note = $("hook-page-note");
+  if (!note) return;
+  note.textContent = text;
+  note.classList.toggle("bad", Boolean(bad));
+}
+
 function openHookPage(name) {
   state.hookOpen = name;
   renderSettings();
@@ -2259,14 +2268,47 @@ function hookPageValues(name) {
   return found;
 }
 
+// The 1st field that fails, with the text that says how to set it.
+function hookPageProblem(row, values) {
+  for (const entry of row.settings || []) {
+    const value = values[entry.key];
+    if (entry.type === "choice") {
+      if (!(entry.choices || []).includes(value))
+        return { key: entry.key, text: t("hook.page.choice_problem", { label: entry.label }) };
+      continue;
+    }
+    if (entry.type !== "number") continue;
+    if (typeof value !== "number" || !Number.isFinite(value))
+      return { key: entry.key, text: t("hook.page.number_problem", { label: entry.label }) };
+    if (entry.minimum !== null && entry.minimum !== undefined && value < entry.minimum)
+      return { key: entry.key, text: t("hook.page.least_problem", { label: entry.label, minimum: entry.minimum }) };
+    if (entry.maximum !== null && entry.maximum !== undefined && value > entry.maximum)
+      return { key: entry.key, text: t("hook.page.most_problem", { label: entry.label, maximum: entry.maximum }) };
+  }
+  return null;
+}
+
 async function saveHookPage(name) {
+  const row = (state.settings.hook_rows || []).find((item) => item.name === name) || {};
+  const found = hookPageValues(name);
+  const problem = hookPageProblem(row, found);
+  const input = problem
+    ? document.querySelector(`[data-hook-field="${name}"][data-hook-key="${problem.key}"]`)
+    : null;
+  if (problem) {
+    input?.setAttribute("aria-invalid", "true");
+    input?.focus();
+    hookPageNote(problem.text, true);
+    return;
+  }
   const values = { ...(setting("hooks", "values") || {}) };
-  values[name] = hookPageValues(name);
+  values[name] = found;
   await guarded(async () => {
     await call("settings", { method: "PUT", body: JSON.stringify({ changes: { hooks: { values } } }) });
     await loadSettings();
   });
   hooksNote(t("hook.page.saved_text", { name }));
+  hookPageNote(t("hook.page.saved_text", { name }));
 }
 
 async function takeHooks() {
