@@ -103,7 +103,7 @@ Before the first attempt of a chat request, when the chain holds a reasoning mod
 
 ### `on-upstream`
 
-Before each chat request to the provider, streams, and fallbacks included.
+Before each request to a provider: chat, streams, fallbacks, embeddings, speech, transcription, images, and image edits.
 
 `on_upstream(body, model, headers)`
 
@@ -112,6 +112,26 @@ Before each chat request to the provider, streams, and fallbacks included.
 | `body` | The upstream JSON body, native format for native APIs |
 | `model` | `provider/slug` |
 | `headers` | Changeable |
+
+A multipart request hands the hook its form fields, and the files stay as they are.
+
+The headers of the hook win over the client headers. This example presents a client as OpenCode,
+whichever client sent the request:
+
+```python
+OPENCODE = {
+  "user-agent": "opencode/unknown/0.0.0/cli",
+  "http-referer": "https://opencode.ai/",
+  "x-title": "opencode",
+}
+
+
+def on_upstream(body: dict, model: str, headers: dict) -> None:
+  headers.update(OPENCODE)
+```
+
+The hook of a provider card covers every model of that provider, so 1 `hooks` entry on the card
+sets the identity of the whole provider.
 
 ### `on-answer`
 

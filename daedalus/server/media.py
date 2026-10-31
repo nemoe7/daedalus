@@ -29,7 +29,7 @@ COOLDOWNS: cooldowns.Cooldowns | None = None
 PACING: pacing.Pacing | None = None
 REPEATS = retries.Retries()
 TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
-Call = Callable[[providers.OpenAIProvider, str, str], Awaitable[Any]]
+Call = Callable[[providers.OpenAIProvider, str, str, dict], Awaitable[Any]]
 
 
 def _record_weight_change(attempt: dict, model: str, factor: float) -> None:
@@ -201,7 +201,7 @@ async def attempt(
     started = time.perf_counter()
     try:
       provider, slug = providers.provider_for(candidate, config, client)
-      pending = call(provider, slug, candidate)
+      pending = call(provider, slug, candidate, config)
     except providers.ProviderError as exc:
       if not pooled:
         logger.warning("media %s failed: %s", candidate, upstream.failure_text(exc))
@@ -307,12 +307,12 @@ async def embeddings(request: Request) -> Response:
     return invalid("encoding_format must be float or base64")
 
   def call(
-    provider: providers.OpenAIProvider, slug: str, model: str
+    provider: providers.OpenAIProvider, slug: str, model: str, config: dict
   ) -> Awaitable[dict]:
     url, payload, headers = provider.embed_request(slug, body)
 
     async def send() -> dict:
-      response = await upstream.post(model, url, headers, json=payload)
+      response = await upstream.post(model, url, headers, config, json=payload)
       return provider.embeddings(response.json(), model)
 
     return send()
@@ -364,12 +364,12 @@ async def transcriptions(request: Request) -> Response:
   audio = (upload.filename or "audio", await upload.read(), media)
 
   def call(
-    provider: providers.OpenAIProvider, slug: str, candidate: str
+    provider: providers.OpenAIProvider, slug: str, candidate: str, config: dict
   ) -> Awaitable[tuple[bytes, str]]:
     url, content, headers = provider.transcribe_request(slug, fields, audio)
 
     async def send() -> tuple[bytes, str]:
-      response = await upstream.post(candidate, url, headers, **content)
+      response = await upstream.post(candidate, url, headers, config, **content)
       return provider.transcription(response, fields)
 
     return send()
@@ -396,12 +396,12 @@ async def speech(request: Request) -> Response:
     return invalid("response_format must be mp3, opus, aac, flac, wav or pcm")
 
   def call(
-    provider: providers.OpenAIProvider, slug: str, model: str
+    provider: providers.OpenAIProvider, slug: str, model: str, config: dict
   ) -> Awaitable[tuple[bytes, str]]:
     url, content, headers = provider.speech_request(slug, body)
 
     async def send() -> tuple[bytes, str]:
-      response = await upstream.post(model, url, headers, **content)
+      response = await upstream.post(model, url, headers, config, **content)
       return provider.speech(response, body)
 
     return send()
@@ -457,12 +457,12 @@ async def images(request: Request) -> Response:
     return invalid(problem)
 
   def call(
-    provider: providers.OpenAIProvider, slug: str, model: str
+    provider: providers.OpenAIProvider, slug: str, model: str, config: dict
   ) -> Awaitable[dict]:
     url, content, headers = provider.image_request(slug, body)
 
     async def send() -> dict:
-      response = await upstream.post(model, url, headers, **content)
+      response = await upstream.post(model, url, headers, config, **content)
       return provider.images(response, body)
 
     return send()
@@ -518,12 +518,12 @@ async def edits(request: Request) -> Response:
   mask_file = await upload(mask) if isinstance(mask, UploadFile) else None
 
   def call(
-    provider: providers.OpenAIProvider, slug: str, candidate: str
+    provider: providers.OpenAIProvider, slug: str, candidate: str, config: dict
   ) -> Awaitable[dict]:
     url, content, headers = provider.edit_request(slug, body, images, mask_file)
 
     async def send() -> dict:
-      response = await upstream.post(candidate, url, headers, **content)
+      response = await upstream.post(candidate, url, headers, config, **content)
       return provider.images(response, body)
 
     return send()
