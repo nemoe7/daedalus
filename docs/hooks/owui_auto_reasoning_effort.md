@@ -30,8 +30,9 @@ flowchart LR
 ## The level of a call
 
 The `on_prompt` surface reads the heuristics v2 tier of the newest user turn and of the newest
-model turn. Each turn of a chat gets its own level. The model part keeps at most `ANSWER_CHARS`, 500
-characters, because a long answer would make the read too large.
+model turn. Each turn of a chat gets its own level. The model part keeps at most `answer_chars`
+characters, 500 by default, because a long answer would make the read too large. The `settings`
+block of the file declares that cap, and the Hooks page sets it from 100 to 4000.
 
 The tier indexes the `supported_reasoning_efforts` list of the model: `TIER-D` is step 0, the lowest effort the model accepts, and
 each tier above is 1 step up. The key of the model, or of its block, wins first. Then the
