@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.9
+# version: 1.0.10
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -7,6 +7,13 @@
 # title: Auto reasoning effort
 # description: The Open WebUI reasoning level and try-again rule.
 # license: nemoe7 Noncommercial and Public-Interest License 1.2.0
+# settings:
+#   - key: answer_chars
+#     label: Answer characters
+#     type: number
+#     minimum: 100
+#     maximum: 4000
+#     default: 500
 # ---
 
 import logging
@@ -14,6 +21,7 @@ from functools import cache
 from typing import Any
 
 from daedalus import store
+from daedalus.providers import hooks
 from daedalus.routing import classifier, router
 
 logger = logging.getLogger("daedalus.hooks")
@@ -28,7 +36,8 @@ TIER_OF = {level: tier for tier, level in LEVELS.items()}
 # The top of the ladder, `TIER-A`.
 TOP = max(router.TIERS)
 
-# Characters of model turn that join read. A long answer would bloat read.
+# Characters of model turn that join read, unless the hook settings lower or raise the cap.
+# A long answer would bloat read.
 ANSWER_CHARS = 500
 
 CONTROL = "_daedalus_auto_effort"
@@ -50,6 +59,11 @@ def _text(content: Any) -> str:
   return ""
 
 
+def _answer_chars() -> int:
+  """Cap of model turn that hook settings declare, else shipped 1."""
+  return int(hooks.values(__file__).get("answer_chars", ANSWER_CHARS))
+
+
 def _newest(messages: Any, prompt: str) -> str:
   """The newest user turn and model turn in reading order, the model part capped, else the prompt.
 
@@ -58,6 +72,7 @@ def _newest(messages: Any, prompt: str) -> str:
   """
   if not isinstance(messages, list):
     return prompt or ""
+  cap = _answer_chars()
   found: dict[str, tuple[int, str]] = {}
   for index in range(len(messages) - 1, -1, -1):
     message = messages[index]
@@ -68,7 +83,7 @@ def _newest(messages: Any, prompt: str) -> str:
       continue
     text = _text(message.get("content"))
     if role == "assistant":
-      text = text[-ANSWER_CHARS:]
+      text = text[-cap:]
     if text:
       found[role] = (index, text)
     if len(found) == 2:
