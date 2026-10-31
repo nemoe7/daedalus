@@ -748,3 +748,82 @@ def test_rows_report_the_folder() -> None:
     assert "on-later" in found["bad.py"]["problem"]
   finally:
     hooks.set_installed()
+
+
+def test_meta_settings_block() -> None:
+  """A file declares its settings, and each field carries its type and ends."""
+  path = hooks.ROOT / "hooks" / "fields.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "# ---\n"
+    "# settings:\n"
+    "#   - key: target\n"
+    "#     label: Target app\n"
+    "#   - key: attempts\n"
+    "#     type: number\n"
+    "#     minimum: 1\n"
+    "#     maximum: 10\n"
+    "#     default: 3\n"
+    "# ---\n"
+    "def on_answer(answer, model):\n  return {}\n",
+    encoding="utf-8",
+  )
+  assert hooks.meta_problem(path) is None
+  found = hooks.fields(path)
+  assert [(field["key"], field["type"]) for field in found] == [
+    ("target", "text"),
+    ("attempts", "number"),
+  ]
+  assert found[1]["default"] == 3
+  assert (found[1]["minimum"], found[1]["maximum"]) == (1, 10)
+
+
+def test_meta_settings_problems() -> None:
+  """A broken setting names the reason, and the file has no usable block."""
+  cases = (
+    ("# ---\n# settings: 1\n# ---\n", "list"),
+    ("# ---\n# settings:\n#   - label: x\n# ---\n", "key"),
+    ("# ---\n# settings:\n#   - key: a\n#     type: date\n# ---\n", "type"),
+    ("# ---\n# settings:\n#   - key: a\n#     colour: red\n# ---\n", "colour"),
+    (
+      "# ---\n# settings:\n#   - key: a\n#     type: number\n#     minimum: 5\n#     maximum: 1\n# ---\n",
+      "minimum",
+    ),
+    ("# ---\n# settings:\n#   - key: a\n#     type: choice\n# ---\n", "options"),
+  )
+  for text, part in cases:
+    path = hooks.ROOT / "hooks" / "bad_setting.py"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text + "def on_answer(a, m):\n  return {}\n", encoding="utf-8")
+    problem = hooks.meta_problem(path)
+    assert problem and part in problem, (part, problem)
+    assert hooks.fields(path) == []
+
+
+def test_values_use_the_stored_1_or_the_default() -> None:
+  """A stored value wins, and a wrong or missing 1 takes the declared default."""
+  path = hooks.ROOT / "hooks" / "valued.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "# ---\n"
+    "# settings:\n"
+    "#   - key: target\n"
+    "#     default: opencode\n"
+    "#   - key: attempts\n"
+    "#     type: number\n"
+    "#     minimum: 1\n"
+    "#     maximum: 10\n"
+    "#     default: 3\n"
+    "#   - key: mode\n"
+    "#     type: choice\n"
+    "#     choices: [fast, slow]\n"
+    "#     default: fast\n"
+    "# ---\n"
+    "def on_answer(answer, model):\n  return {}\n",
+    encoding="utf-8",
+  )
+  hooks.set_values({"valued.py": {"target": "kilo", "attempts": 99, "mode": "fast"}})
+  assert hooks.values(path) == {"target": "kilo", "attempts": 3, "mode": "fast"}
+  hooks.set_values({})
+  assert hooks.values(path) == {"target": "opencode", "attempts": 3, "mode": "fast"}
+  assert hooks.values(hooks.ROOT / "hooks" / "absent.py") == {}

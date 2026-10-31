@@ -313,6 +313,7 @@ frontmatter block, so the manager knows its version and its scope without a run 
 | `title` | text | The short name of the hook |
 | `description` | text | One line of what the hook does |
 | `license` | text | The license of the file |
+| `settings` | list of fields | The values that the hook asks for, shown in the Hooks page |
 
 A file with no block still runs. The manager takes the name from the file name, applies no scope, and
 writes 1 warning line. The scope rules:
@@ -326,6 +327,38 @@ writes 1 warning line. The scope rules:
    the request headers, such as `OWUI` or `Kilo`.
 6. A request surface accepts `provider`, `yaml`, `model`, and `client` too.
 7. `on-http` needs no scope, because the route names the file.
+
+## Settings of a hook
+
+A hook file may ask for values of its own. The block holds 1 `settings` list, and the Hooks page
+shows 1 field for each entry.
+
+```yaml
+# settings:
+#   - key: target
+#     label: Target app
+#     default: opencode
+#   - key: attempts
+#     label: Attempts
+#     type: number
+#     minimum: 1
+#     maximum: 10
+#     default: 3
+```
+
+| Key | Value |
+| --- | --- |
+| `key` | The name of the value, of up to 40 letters, digits, dots, dashes or underscores |
+| `label` | The text of the field, and the key when absent |
+| `type` | `text`, `number`, `boolean`, or `choice`. Text when absent |
+| `default` | The value before the operator saves 1 |
+| `minimum`, `maximum` | The ends of a number |
+| `choices` | The options of a choice |
+
+The values live in `hooks.values` of the settings file, 1 map for each hook file name, so a file
+update keeps them. A hook reads its values with `hooks.values(__file__)`, from
+[`daedalus.providers.hooks`](../daedalus/providers/hooks.py). A value that is absent or does not fit
+the field takes the default.
 
 ## Sources and the lock
 
