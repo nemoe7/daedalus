@@ -91,4 +91,8 @@ extend-exclude = [
 "**/*.js" = ["NMO100"]
 "hooks/*.py" = ["NMO100", "NMP101", "STE200"]
 "integrations/openwebui/**/*.py" = ["NMO100", "STE200"]
+# Tool parameters keep the names that the tool call sends, such as `repositories`.
+"integrations/openwebui/tools/github.py" = ["NMO901"]
+# A migration step on the main branch keeps its text, and a new step replaces it.
+"daedalus/store/migrations/versions/*.py" = ["NMO901", "NMO902"]
 
