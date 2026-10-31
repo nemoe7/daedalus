@@ -2,6 +2,7 @@
 
 import math
 import re
+from collections.abc import Mapping
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "sources": [],
     "disabled": [],
     "order": {},
+    "values": {},
     "on-request": [],
     "on-prompt": [],
     "on-chunk": [],
@@ -149,6 +151,8 @@ TIME_FORMATS = ("24h", "12h")
 # A folder at the root that holds the hook files, and the name of 1 hook file.
 DIR_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 HOOK_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
+# The key of 1 stored value of a hook file.
+VALUE_KEY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
 # Parts of a source-qualified hook identity. The whole identity is at most 512 characters.
 HOOK_PART = re.compile(r"[A-Za-z0-9._-]{1,100}")
 # The GitHub repo of the update check, as owner/name.
@@ -173,6 +177,27 @@ def unit_interval(name: str, value: Any) -> float:
   ):
     raise SettingsError(f"{name} must be a number from 0 to 1")
   return float(value)
+
+
+def hook_values(name: str, value: Any) -> dict[str, dict[str, Any]]:
+  """The stored values of the hook files: 1 map of names, and 1 map of values for each."""
+  if not isinstance(value, Mapping):
+    raise SettingsError(f"{name} must be a map of a hook name to its values")
+  found: dict[str, dict[str, Any]] = {}
+  for hook_name, entries in value.items():
+    if not isinstance(hook_name, str) or not HOOK_NAME.fullmatch(hook_name):
+      raise SettingsError(f"{name}: {hook_name!r} is not a hook name")
+    if not isinstance(entries, Mapping):
+      raise SettingsError(f"{name}.{hook_name} must be a map of keys to values")
+    for key, item in entries.items():
+      if not isinstance(key, str) or not VALUE_KEY.fullmatch(key):
+        raise SettingsError(f"{name}.{hook_name}: {key!r} is not a setting key")
+      if item is not None and not isinstance(item, str | int | float | bool):
+        raise SettingsError(
+          f"{name}.{hook_name}.{key} must be 1 text, number, boolean, or empty"
+        )
+    found[hook_name] = dict(entries)
+  return found
 
 
 def check(group: str, key: str, value: Any) -> Any:
@@ -204,6 +229,8 @@ def check(group: str, key: str, value: Any) -> Any:
       return name_list(name, value)
     if key == "order":
       return hook_order(name, value)
+    if key == "values":
+      return hook_values(name, value)
     return hook_paths(name, value)
   if group == "personalization":
     if key in POOL_KEYS:
