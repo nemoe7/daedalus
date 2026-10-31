@@ -15,6 +15,7 @@ from starlette.datastructures import UploadFile
 
 from daedalus import dashboard, providers, store
 from daedalus.config import get_config
+from daedalus.providers import hooks
 from daedalus.routing import cooldowns, pacing, penalties, retries, router
 from daedalus.server import access, stream, upstream
 from daedalus.store import keys
@@ -28,6 +29,8 @@ PENALTIES: penalties.Penalties | None = None
 COOLDOWNS: cooldowns.Cooldowns | None = None
 PACING: pacing.Pacing | None = None
 REPEATS = retries.Retries()
+# The request hook files of the settings, set at start.
+REQUEST_HOOKS: dict[str, str] = {}
 TRANSCRIPTION_POOL, IMAGE_POOL = router.MEDIA_POOLS
 Call = Callable[[providers.OpenAIProvider, str, str, dict], Awaitable[Any]]
 
@@ -105,6 +108,32 @@ def models_for(
   return (
     PENALTIES.order(groups) if PENALTIES else [m for group in groups for m in group]
   )
+
+
+def request_body(request: Request, body: dict[str, Any], model: str) -> dict[str, Any]:
+  """Body after the request hooks, or the same body when no file fits."""
+  config = get_config()
+  app = getattr(request.state, "app", "") or ""
+  if not hooks.request_paths(REQUEST_HOOKS, config, "on-request", model, app):
+    return body
+  digest = hashlib.sha256(
+    json.dumps(body, sort_keys=True, default=str).encode()
+  ).hexdigest()
+  values = hooks.run_request(
+    "on-request",
+    config,
+    REQUEST_HOOKS,
+    model,
+    {"key": None, "digest": digest, "count": None, "body": body},
+    app=app,
+    headers=dict(request.headers),
+  )
+  found = values.get("body")
+  if not isinstance(found, dict):
+    return body
+  # The model of the request stays as validated, as it does for a chat request.
+  found["model"] = model
+  return found
 
 
 def failed(status: int, candidate: str = "", detail: str = "") -> JSONResponse:
@@ -305,6 +334,7 @@ async def embeddings(request: Request) -> Response:
   encoding = body.get("encoding_format", "float")
   if encoding not in ("float", "base64"):
     return invalid("encoding_format must be float or base64")
+  body = request_body(request, body, body["model"])
 
   def call(
     provider: providers.OpenAIProvider, slug: str, model: str, config: dict
@@ -360,6 +390,7 @@ async def transcriptions(request: Request) -> Response:
         return invalid(f"response_format must be {', '.join(supported)}")
     except providers.ProviderError:
       pass
+  fields = request_body(request, fields, model)
   media = upload.content_type or "application/octet-stream"
   audio = (upload.filename or "audio", await upload.read(), media)
 
@@ -394,6 +425,7 @@ async def speech(request: Request) -> Response:
     return invalid("input must be a string")
   if body.get("response_format", "mp3") not in SPEECH_FORMATS:
     return invalid("response_format must be mp3, opus, aac, flac, wav or pcm")
+  body = request_body(request, body, body["model"])
 
   def call(
     provider: providers.OpenAIProvider, slug: str, model: str, config: dict
@@ -455,6 +487,7 @@ async def images(request: Request) -> Response:
   problem = image_error(body)
   if problem:
     return invalid(problem)
+  body = request_body(request, body, body["model"])
 
   def call(
     provider: providers.OpenAIProvider, slug: str, model: str, config: dict
@@ -513,6 +546,7 @@ async def edits(request: Request) -> Response:
   problem = image_error(body)
   if problem:
     return invalid(problem)
+  body = request_body(request, body, model)
   images = [await upload(item) for item in files]
   mask = form.get("mask")
   mask_file = await upload(mask) if isinstance(mask, UploadFile) else None

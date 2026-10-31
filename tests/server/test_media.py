@@ -726,3 +726,39 @@ def client(fake: Upstream):
     patch.setattr(media, "get_config", lambda: CONFIG)
     patch.setattr(api, "get_config", lambda: CONFIG)
     yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
+
+
+def test_a_request_hook_rewrites_a_media_body(
+  fake: Upstream, client: TestClient, state_folder
+) -> None:
+  """The request hook runs for an embeddings request, and a returned body wins."""
+  path = state_folder / "hooks" / "media.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_request(value, model, headers):\n  value['body']['dimensions'] = 16\n",
+    encoding="utf-8",
+  )
+  media.REQUEST_HOOKS = api.REQUEST_HOOKS = {"on-request": "hooks/media.py"}
+  body = {"model": "mistral/mistral-embed-2312", "input": "hi", "dimensions": 8}
+  response = client.post("/v1/embeddings", json=body)
+  assert response.status_code == 200, response.text
+  sent = json.loads(fake.sent[-1].content)
+  assert sent["output_dimension"] == 16, sent
+
+
+def test_a_request_hook_rewrites_media_form_fields(
+  fake: Upstream, client: TestClient, state_folder
+) -> None:
+  """The request hook runs for a transcription, and the form fields carry its change."""
+  path = state_folder / "hooks" / "fields.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(
+    "def on_request(value, model, headers):\n  value['body']['language'] = 'fr'\n",
+    encoding="utf-8",
+  )
+  media.REQUEST_HOOKS = api.REQUEST_HOOKS = {"on-request": "hooks/fields.py"}
+  data = {"model": "mistral/voxtral-mini-latest", "language": "en"}
+  response = client.post("/v1/audio/transcriptions", data=data, files=AUDIO)
+  assert response.status_code == 200, response.text
+  fields = form_fields(fake.sent[-1])
+  assert fields["language"] == ["fr"], fields

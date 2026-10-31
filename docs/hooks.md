@@ -62,7 +62,8 @@ flowchart LR
 
 ### `on-request`
 
-Before the chain of a chat request, and again on a repeat with the count.
+Before the chain of a chat request, and again on a repeat with the count. A media request runs the
+same surface once, before it selects a model.
 
 `on_request(value, model, headers)`
 
@@ -73,6 +74,9 @@ Before the chain of a chat request, and again on a repeat with the count.
 | `headers` | The client headers |
 
 A returned `body` dict replaces the request body before chain selection. The `model` argument remains the validated request model. The final value dict reaches `on-prompt` as `request_values`.
+
+A media request honors a returned `body` alone, and ignores `key` and `count`. Its `body` holds the
+JSON body, or the form fields of a multipart request. The `digest` is 1 hash of that body.
 
 ### `on-catalog`
 
