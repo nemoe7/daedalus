@@ -1677,7 +1677,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   REQUEST_HOOKS = {
     key: value for key, value in hook_values.items() if key.startswith("on-")
   }
-  # The media routes run the same request surface, so they read the same files.
+  # Media routes run the same request surface, so they read the same files.
   media.REQUEST_HOOKS = REQUEST_HOOKS
   hooks.set_values(hook_values["values"])
   hooks.set_installed(hook_values["dir"], hook_values["disabled"], hook_values["order"])

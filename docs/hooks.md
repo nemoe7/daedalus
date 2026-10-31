@@ -13,7 +13,7 @@ openrouter:
         - on-upstream: hooks/or_cheapest_output.py
 ```
 
-The `hooks` key works like `order`. A `models` entry has priority. The provider block in the `{provider}.yml` file of the model comes next, then the provider block in the main file.
+The `hooks` key works like `order`. A `models` entry has priority. Then 1 provider block comes from the `{provider}.yml` file of that model, then 1 from the main provider file.
 
 A model with `hooks: []` names no explicit hooks. Matching installed files can still attach through their frontmatter.
 
@@ -180,7 +180,7 @@ On `POST /v1/hook/<file>`, for the file the path names.
 | `pin` | The slot and the model of the last answer of the chat |
 | `level` | The reasoning level of that answer |
 
-The route passes each argument that the file names. It answers with the dict that the function returns.
+Each argument named in 1 file reaches the route, which answers with the dict that the function returns.
 
 ### `on-init`
 
@@ -188,7 +188,7 @@ At the dashboard load, for each enabled request hook file.
 
 `on_init()`
 
-No arguments. It returns the rows of the code legend of the dashboard, such as `[["rtN", "A repeat selected another model, N times"]]`.
+No arguments. It returns rows of the code legend of the dashboard, such as `[["rtN", "A repeat selected another model, N times"]]`.
 
 A request-level surface, such as `on-request`, takes its files from the `hooks` group of [`config/daedalus.yml`](../config/daedalus.yml), because no provider owns the request yet. An installed file with a `surfaces` block in its frontmatter joins its surfaces without a key there:
 
@@ -319,12 +319,12 @@ A file with no block still runs. The manager takes the name from the file name, 
 writes 1 warning line. The scope rules:
 
 1. `global` runs the hook for every model and for every request surface.
-2. `provider` runs the hook when the name of the model holds 1 of the targets.
-3. `yaml` runs the hook for the models that the `{provider}.yml` file of 1 of the targets names in
-   its `models`. The main provider file stays out.
+2. `provider` runs the hook when the model name holds 1 target.
+3. `yaml` runs the hook for models that the `{provider}.yml` file of 1 target names in its
+   `models`. The main provider file stays out.
 4. `model` runs the hook for the named model ids alone.
-5. `client` runs the hook for a request of 1 of the named client apps. The base names the app from
-   the request headers, such as `OWUI` or `Kilo`.
+5. `client` runs the hook for a request of 1 named client app. The base names the app from request
+   headers, such as `OWUI` or `Kilo`.
 6. A request surface accepts `provider`, `yaml`, `model`, and `client` too.
 7. `on-http` needs no scope, because the route names the file.
 

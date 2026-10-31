@@ -29,8 +29,7 @@ A request with an `image_url` part in any message skips the models without visio
 same chains and with the same silent skip. The value `supports_vision` decides, in the same
 order: config, then discovery, then LiteLLM. A row with no value has no vision.
 
-`daedalus/auto` with `tools` runs the classifier and follows the chain of the required
-tier.
+`daedalus/auto` with `tools` runs the classifier, then follows the required tier chain.
 
 A request for one `provider/slug` goes to that model, with no skip.
 

@@ -72,7 +72,7 @@ class FakeSession:
 
 
 def public_names():
-  """Return sorted public async tool names on `Tools`."""
+  """Return sorted public async tools of `Tools`."""
   names = []
   for name in dir(Tools):
     if name.startswith("_"):
