@@ -21,3 +21,8 @@ viewports = ["1920x957", "1080x2437", "958x958", "855x325", "411x799"]
 widths = [1920, 1080, 958, 855, 411]
 report_widths = [1920, 411]
 wireframe = false
+
+# TYP101 and TYP201 default to review. Set either to "error" to block.
+[checks.severity]
+TYP101 = "review"
+TYP201 = "review"

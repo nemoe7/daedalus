@@ -19,9 +19,9 @@
   --warn: #8a5a00;
   --ok: #1c7a3f;
   --focus: #2b53d6;
-  --scrollbar-thumb: #302e2c;
+  --scrollbar-thumb: #767682;
 
-  /* Type: one family, four weights, a seven-step ramp */
+  /* Type: one family, four weights, a nine-step ramp */
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --size-11: 11px;
@@ -30,8 +30,13 @@
   --size-16: 16px;
   --size-18: 18px;
   --size-22: 22px;
+  --size-24: 24px;
   --size-28: 28px;
+  --size-32: 32px;
   --eyebrow: 11px;
+  --type-title: var(--size-32);
+  --type-body: var(--size-18);
+  --type-small: var(--size-14);
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
@@ -71,6 +76,12 @@ ul {
   list-style-type: disc;
 }
 
+:root[data-density="dashboard"] {
+  --type-title: var(--size-24);
+  --type-body: var(--size-16);
+  --type-small: var(--size-12);
+}
+
 :root[data-scale="8"] {
   --space-1: 8px;
   --space-2: 16px;
@@ -96,7 +107,7 @@ ul {
     --warn: #f0bb4a;
     --ok: #6fd08c;
     --focus: #8fa8ff;
-    --scrollbar-thumb: #302e2c;
+    --scrollbar-thumb: #62626e;
   }
 }
 
@@ -117,7 +128,7 @@ ul {
   --warn: #8a5a00;
   --ok: #1c7a3f;
   --focus: #2b53d6;
-  --scrollbar-thumb: #302e2c;
+  --scrollbar-thumb: #767682;
 }
 
 :root[data-theme="dark"] {
@@ -136,7 +147,7 @@ ul {
   --warn: #f0bb4a;
   --ok: #6fd08c;
   --focus: #8fa8ff;
-  --scrollbar-thumb: #302e2c;
+  --scrollbar-thumb: #62626e;
 }
 
 *,
@@ -150,7 +161,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font);
-  font-size: var(--size-14);
+  font-size: var(--type-body);
   font-weight: var(--weight-regular);
   line-height: 1.5;
 }
@@ -203,26 +214,32 @@ article {
   text-transform: uppercase;
 }
 
+h1,
 .title {
   margin: 0;
-  font-size: var(--size-28);
+  font-size: var(--type-title);
   font-weight: var(--weight-strong);
   letter-spacing: -0.01em;
 }
 
+h2,
+h3,
+h4,
+h5,
+h6,
 .panel-title {
   margin: 0;
-  font-size: var(--size-22);
+  font-size: var(--type-body);
   font-weight: var(--weight-semibold);
 }
 
 .body {
-  font-size: var(--size-14);
+  font-size: var(--type-body);
 }
 
 .meta {
   color: var(--muted);
-  font-size: var(--size-12);
+  font-size: var(--type-small);
 }
 
 .id,
@@ -230,7 +247,7 @@ article {
 .age {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  font-size: var(--size-12);
+  font-size: var(--type-small);
 }
 
 /* Breakpoints: em, so layouts follow the reader's browser font size.
@@ -362,7 +379,7 @@ article {
 }
 
 :root:not([data-keyboard-nav="true"]) :focus-visible {
-  outline: 0; /* nonuu: NUL003 */
+  outline: 0; /* nonuu: ACC201 */
 }
 
 /* Rows and panels */
@@ -373,6 +390,19 @@ article {
   min-height: var(--row);
   padding: 0 var(--space-2);
   border-bottom: 1px solid var(--line);
+}
+
+@media (pointer: coarse) {
+  .row {
+    min-height: var(--touch);
+  }
+
+  .icon-button {
+    width: var(--touch);
+    height: var(--touch);
+    min-width: var(--touch);
+    min-height: var(--touch);
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -425,7 +455,7 @@ article {
   content: "";
   width: var(--space-1);
   height: var(--space-1);
-  border-radius: 50%;
+  border-radius: 9999px;
   background: currentColor;
 }
 
@@ -499,6 +529,8 @@ article {
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
+  border: 2px solid var(--bg);
+  background-clip: padding-box;
   border-radius: var(--space-2);
 }
 

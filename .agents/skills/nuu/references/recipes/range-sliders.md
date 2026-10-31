@@ -1,14 +1,14 @@
 # Recipe: Range sliders
 
-Pair every `<input type="range">` with visible `min` and `max` endpoint labels, `step` tick marks at every step increment (for example, `step="1"` ticks at `1..9` on a `0..10` track), and a live `<output>` value bubble synchronized on `input`.
+Pair every `<input type="range">` with visible `min` and `max` endpoint labels, major-division tick marks capped at 11 visible ticks, and a live `<output>` value bubble synchronized on `input`. Keep `step` for value selection.
 
 ![Range Sliders Dark-Mode Example](../examples/range-sliders.png)
 
 ## Rules
 
-- Always declare explicit `min`, `max`, and `step` attributes on `<input type="range">` and render tick marks along the track at every `step` interval (`<datalist>` or `.range-ticks`).
+- Declare explicit `min`, `max`, and `step` attributes on `<input type="range">`. Render at most 11 major-division ticks, keep `step` for value selection, and preserve `min`/`max` endpoint labels (`<datalist>` or `.range-ticks`).
 - Render tabular `min` and `max` endpoint labels and a live `<output for="...">` value bubble that updates on `input` without shifting adjacent controls.
-- Keep the thumb hit target at least `24x24 px` with a `2 px` solid `var(--focus)` outline and `2 px` offset on `:focus-visible` (`NUA307`, `NUA308`).
+- Keep the thumb hit target at least `24x24 px` with a `2 px` solid `var(--focus)` outline and `2 px` offset on `:focus-visible` (`ACC202`, `ACC203`).
 
 ## Markup and styles
 

@@ -121,7 +121,7 @@ async function metrics(page, selector) {
   return page.evaluate(selector => {
     const properties = ['height', 'width', 'max-width', 'padding-top', 'padding-right', 'padding-bottom',
       'padding-left', 'padding-inline-start', 'margin-top', 'margin-bottom', 'gap', 'font-size', 'font-weight',
-      'font-family', 'line-height', 'letter-spacing', 'text-align', 'text-transform', 'border-radius', 'color', 'background-color', 'outline-style',
+      'font-family', 'font-style', 'line-height', 'letter-spacing', 'text-align', 'text-transform', 'border-radius', 'color', 'background-color', 'outline-style',
       'outline-width', 'transition-duration', 'animation-duration', '--indent',
       'list-style-position', 'list-style-type', 'overflow', 'overflow-x', 'overflow-y',
       'text-overflow', 'white-space'];
@@ -168,7 +168,90 @@ async function metrics(page, selector) {
       }
       return [...sizes];
     }
+    function headingBodyAlignFor(element, style) {
+      if (!/^H[1-6]$/.test(element.tagName) || !element.parentElement) return undefined;
+      const norm = v => {
+        const s = (v || '').trim().toLowerCase();
+        if (s === 'left' || s === 'start') return 'start';
+        if (s === 'right' || s === 'end') return 'end';
+        return s;
+      };
+      const hAlign = norm(style.getPropertyValue('text-align'));
+      const sib = [...element.parentElement.children].find(
+        c => c !== element && c.tagName === 'P' && getComputedStyle(c).display !== 'none'
+      );
+      if (!sib) return undefined;
+      const bAlign = norm(getComputedStyle(sib).getPropertyValue('text-align'));
+      if (hAlign && bAlign && hAlign !== bAlign) {
+        return {heading_align: hAlign, body_align: bAlign};
+      }
+      return undefined;
+    }
+    function headingHierarchyFor(element) {
+      const role = (element.getAttribute('role') || '').toLowerCase();
+      const isCardOrDialog = element.tagName === 'DIALOG' ||
+        role === 'dialog' || role === 'alertdialog' ||
+        Boolean(element.classList?.contains('card'));
+      if (!isCardOrDialog) return undefined;
+      const heading = [...element.querySelectorAll('h1, h2, h3, h4, h5, h6')].find(
+        h => h.closest('.card, dialog, [role="dialog"], [role="alertdialog"]') === element
+      );
+      const body = [...element.querySelectorAll('p')].find(
+        p => p.closest('.card, dialog, [role="dialog"], [role="alertdialog"]') === element
+      );
+      if (!heading || !body) return undefined;
+      const hCs = getComputedStyle(heading), bCs = getComputedStyle(body);
+      const hSize = Number.parseFloat(hCs.getPropertyValue('font-size'));
+      const bSize = Number.parseFloat(bCs.getPropertyValue('font-size'));
+      const hWeight = Number.parseFloat(hCs.getPropertyValue('font-weight')) || 400;
+      const bWeight = Number.parseFloat(bCs.getPropertyValue('font-weight')) || 400;
+      if (!Number.isFinite(hSize) || !Number.isFinite(bSize)) return undefined;
+      if (hSize < bSize - 0.1 || (Math.abs(hSize - bSize) <= 0.1 && hWeight <= bWeight)) {
+        return {heading_size: hSize, heading_weight: hWeight, sub_size: bSize, sub_weight: bWeight};
+      }
+      return undefined;
+    }
+    function buttonFillColorsFor(element) {
+      const role = (element.getAttribute('role') || '').toLowerCase();
+      const classAndId = `${element.id || ''} ${typeof element.className === 'string' ? element.className : ''}`;
+      const isContainer = element.tagName === 'DIALOG' ||
+        role === 'dialog' || role === 'alertdialog' ||
+        Boolean(element.classList?.contains('card')) ||
+        /(?:^|[-_\s])(btn-group|button-group|modal-actions)(?:$|[-_\s])/i.test(classAndId);
+      if (!isContainer) return undefined;
+      const fills = new Set();
+      for (const btn of element.querySelectorAll('button, [role="button"]')) {
+        const bg = getComputedStyle(btn).getPropertyValue('background-color').trim();
+        const m = bg.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)$/i);
+        if (!m) continue;
+        const r = Number(m[1]), g = Number(m[2]), b = Number(m[3]);
+        const a = m[4] === undefined ? 1 : Number(m[4]);
+        if (a > 0.1 && Math.max(r, g, b) - Math.min(r, g, b) > 30) {
+          fills.add(`rgb(${r}, ${g}, ${b})`);
+        }
+      }
+      return fills.size >= 2 ? [...fills] : undefined;
+    }
     function groupProximityFor(element, style) {
+      const role = (element.getAttribute('role') || '').toLowerCase();
+      const isCardOrDialog = element.tagName === 'DIALOG' ||
+        role === 'dialog' || role === 'alertdialog' ||
+        Boolean(element.classList?.contains('card'));
+      if (isCardOrDialog) {
+        const heading = [...element.children].find(c => /^H[1-6]$/.test(c.tagName));
+        const body = [...element.children].find(c => c.tagName === 'P');
+        const action = [...element.children].find(c =>
+          c.tagName === 'BUTTON' || /(?:^|[-_\s])(btn-group|button-group|modal-actions)(?:$|[-_\s])/i.test(c.className || '')
+        );
+        if (heading && body && action) {
+          const hRect = heading.getBoundingClientRect();
+          const bRect = body.getBoundingClientRect();
+          const aRect = action.getBoundingClientRect();
+          const intra = Math.max(0, Number((bRect.top - hRect.bottom).toFixed(2)));
+          const inter = Math.max(0, Number((aRect.top - bRect.bottom).toFixed(2)));
+          if (intra > 0 || inter === 0) return {inter_px: inter, intra_px: intra};
+        }
+      }
       const inter = Number.parseFloat(style.getPropertyValue('gap')) ||
         Number.parseFloat(style.getPropertyValue('row-gap')) ||
         Number.parseFloat(style.getPropertyValue('column-gap'));
@@ -341,9 +424,25 @@ async function metrics(page, selector) {
         Boolean(element.closest && element.closest('header, nav, [role="banner"], [role="toolbar"], [role="navigation"]')) ||
         /(?:^|[-_\s])(topbar|toolbar|header|navbar|menubar|statusbar|action-bar|tab-bar)(?:$|[-_\s])/i.test(classAndId) ||
         (box.height > 0 && box.height <= 64 && style.getPropertyValue('justify-content') === 'space-between');
+      const isButtonGroup = (role || '').toLowerCase() === 'tablist' ||
+        /(?:^|[-_\s])(tab-nav|btn-group|button-group|modal-actions)(?:$|[-_\s])/i.test(classAndId);
+      const buttonGroupSizes = isButtonGroup
+        ? [...(element.children || [])]
+            .filter(child => child.tagName === 'BUTTON' || (child.getAttribute('role') || '').toLowerCase() === 'tab')
+            .map(child => {
+              const cs = getComputedStyle(child);
+              if (cs.display === 'none' || cs.visibility === 'hidden') return null;
+              const r = child.getBoundingClientRect();
+              return r.width > 0 && r.height > 0
+                ? {width: Number(r.width.toFixed(2)), height: Number(r.height.toFixed(2))}
+                : null;
+            })
+            .filter(Boolean)
+        : undefined;
       return {selector: selectorFor(element),
         tag, inputType, role,
         toolbarExempt,
+        ...(buttonGroupSizes && buttonGroupSizes.length >= 2 ? {button_group_sizes: buttonGroupSizes, buttonGroupSizes} : {}),
         label: element.getAttribute('aria-label'),
         labelledBy: element.getAttribute('aria-labelledby'),
         labels: element.labels ? [...element.labels].map(label => label.textContent) : [],
@@ -359,6 +458,9 @@ async function metrics(page, selector) {
         ch_px: chPxFor(style),
         in_card_or_dialog: Boolean(element.closest && element.closest('.card, dialog, [role="dialog"], [role="alertdialog"], aside, nav, table')),
         card_font_sizes: cardFontSizesFor(element),
+        heading_body_alignment: headingBodyAlignFor(element, style),
+        heading_hierarchy: headingHierarchyFor(element),
+        button_fill_colors: buttonFillColorsFor(element),
         group_proximity: groupProximityFor(element, style),
         card_inline_insets: cardInlineInsetsFor(element),
         values: Object.fromEntries(properties.map(name => [name, style.getPropertyValue(name)])),
@@ -476,7 +578,7 @@ async function a11yChecks(page) {
       if (!isVisible(control)) continue;
       if (!accessibleName(control)) {
         findings.push({
-          rule: 'NUA301',
+          rule: 'ACC003',
           severity: 'review',
           criterion: '4.1.2',
           selector: selectorFor(control),
@@ -489,7 +591,7 @@ async function a11yChecks(page) {
         const box = control.getBoundingClientRect();
         if (box.width > 0 && box.height > 0 && Math.abs(box.width - box.height) > 1) {
           findings.push({
-            rule: 'NUM208',
+            rule: 'HRC102',
             severity: 'review',
             criterion: '2.5.8',
             selector: selectorFor(control),
@@ -500,7 +602,7 @@ async function a11yChecks(page) {
       const nested = control.querySelector(interactiveSelector);
       if (nested && isVisible(nested)) {
         findings.push({
-          rule: 'NUA303',
+          rule: 'ACC005',
           severity: 'review',
           criterion: '4.1.2',
           selector: selectorFor(control),
@@ -517,7 +619,7 @@ async function a11yChecks(page) {
         const missing = raw.split(/\s+/).filter(id => id && !document.getElementById(id));
         if (missing.length) {
           findings.push({
-            rule: 'NUA302',
+            rule: 'ACC004',
             severity: 'review',
             criterion: '1.3.1',
             selector: selectorFor(element),
@@ -536,7 +638,7 @@ async function a11yChecks(page) {
     for (const [id, count] of idCounts.entries()) {
       if (count > 1) {
         findings.push({
-          rule: 'NUA304',
+          rule: 'ACC006',
           severity: 'review',
           criterion: '4.1.1',
           selector: `#${CSS.escape(id)}`,
@@ -554,7 +656,7 @@ async function a11yChecks(page) {
       if (!Number.isInteger(level) || level < 1) continue;
       if (previousLevel > 0 && level > previousLevel + 1) {
         findings.push({
-          rule: 'NUA305',
+          rule: 'ACC007',
           severity: 'review',
           criterion: '1.3.1',
           selector: selectorFor(heading),
@@ -579,7 +681,7 @@ async function a11yChecks(page) {
         if (tsMatch) {
           checkedTimestampElements.add(parent);
           findings.push({
-            rule: 'NUA310',
+            rule: 'HRC202',
             severity: 'review',
             criterion: 'relative-timestamps',
             selector: selectorFor(parent),
@@ -601,7 +703,7 @@ async function a11yChecks(page) {
       const threshold = large ? 3.0 : 4.5;
       if (ratio + 1e-4 < threshold) {
         findings.push({
-          rule: 'NUA306',
+          rule: 'ACC101',
           severity: 'review',
           criterion: '1.4.3',
           selector: selectorFor(parent),
@@ -640,7 +742,7 @@ async function a11yChecks(page) {
           const outlineW = parseFloat(fStyle.outlineWidth) || 0;
           if (outlineW > 0 && fStyle.outlineStyle !== 'none') {
             findings.push({
-              rule: 'NUA307',
+              rule: 'ACC202',
               severity: 'review',
               criterion: '2.4.7',
               selector: selectorFor(control),
@@ -700,7 +802,7 @@ async function a11yChecks(page) {
             rect.bottom + halo > aRect.bottom + 0.5
           ) {
             findings.push({
-              rule: 'NUA308',
+              rule: 'ACC203',
               severity: 'review',
               criterion: '2.4.11',
               selector: selectorFor(node),
@@ -726,7 +828,7 @@ async function a11yChecks(page) {
         const nextRect = control.getBoundingClientRect();
         if (Math.abs(nextRect.width - baseRect.width) > 0.5 || Math.abs(nextRect.height - baseRect.height) > 0.5) {
           findings.push({
-            rule: 'NUA309',
+            rule: 'ACC205',
             severity: 'review',
             criterion: 'clause-9',
             selector: selectorFor(control),
@@ -1136,13 +1238,13 @@ async function run() {
   const findings = [];
   for (const row of captures) {
     const location = {url: target, width: row.width, scheme: row.scheme, motion: row.motion};
-    if (row.status === 'failed') findings.push({rule: 'NUB104', severity: 'error', location, evidence: row.error});
-    if (row.flow.status === 'failed') findings.push({rule: 'NUB103', severity: 'error', location, evidence: row.flow});
+    if (row.status === 'failed') findings.push({rule: 'RUN102', severity: 'error', location, evidence: row.error});
+    if (row.flow.status === 'failed') findings.push({rule: 'RUN101', severity: 'error', location, evidence: row.flow});
     if (Array.isArray(row.flow?.steps)) {
       for (const stepRow of row.flow.steps) {
         if (stepRow.dimensionShift) {
           findings.push({
-            rule: 'NUA309',
+            rule: 'ACC205',
             severity: 'review',
             criterion: 'clause-9',
             selector: stepRow.selector,
@@ -1152,8 +1254,8 @@ async function run() {
         }
       }
     }
-    if (row.errors.length) findings.push({rule: 'NUB102', severity: 'review', location, evidence: row.errors});
-    if (row.measurements?.overflow) findings.push({rule: 'NUB101', severity: 'review', location, evidence: 'Horizontal overflow'});
+    if (row.errors.length) findings.push({rule: 'RUN001', severity: 'review', location, evidence: row.errors});
+    if (row.measurements?.overflow) findings.push({rule: 'SPC206', severity: 'review', location, evidence: 'Horizontal overflow'});
     if (row.a11y?.findings?.length) {
       for (const item of row.a11y.findings) {
         findings.push({...item, location});

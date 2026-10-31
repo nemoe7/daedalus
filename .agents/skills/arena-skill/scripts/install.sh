@@ -113,13 +113,36 @@ cat > "$HOOK" <<EOF || fail "cannot write $HOOK"
 # arena-preview-hook: poll the steering inbox after every agent call.
 rc=\$?
 cmd="\$(tr '\\0' ' ' < /proc/\$PPID/cmdline 2>/dev/null)"
-# The platform runs processes and probes through login shells. Those shells would otherwise count as agent calls and stamp call ends.
+# The probe names the file tool the hook saw. It prints nothing, exits 0, and stays off until the state database exists.
+_arena_preview_probe() {
+  [ -n "\$1" ] && [ -f "$REPO_ROOT/$STATE_REL/state.sqlite3" ] || return 0
+  "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --tool-probe "\$1" >/dev/null 2>&1 || :
+}
+# The platform runs processes and file tools through login shells. Those shells would otherwise count as agent calls and stamp call ends.
 # These are the shapes the gate already ignores, so the count and the stamp answer for the agent's own calls. The hook is a child of the shell that exits, so its parent carries that shell's line.
 # case: platform-shell
 case "\$cmd" in
-  *arena-workspace*|*"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*|*"/bin/bash -l -c mkdir -p '"*|*"/bin/bash -l -c [ -e '"*|*"python3 -I - <<'PY'"*)
+  *arena-workspace*)
+    # This branch exits, so the platform file tools probe here, before the shell returns.
+    for _arena_preview_word in \$cmd; do
+      case "\$_arena_preview_word" in
+        read|edit|write) _arena_preview_probe "\$_arena_preview_word"; break ;;
+      esac
+    done
+    exit "\$rc" ;;
+  *"ss -ltn"*|*"netstat -ltn"*|*"source ~/.profile"*|*"mkdir -p '/home/user'"*|*"/bin/bash -l -c mkdir -p '"*|*"/bin/bash -l -c [ -e '"*|*"python3 -I - <<'PY'"*)
     exit "\$rc" ;;
 esac
+# File tools ride ordinary shell commands too, so the hook names the verb and probes the preview.
+for _arena_preview_word in \$cmd; do
+  case "\$_arena_preview_word" in
+    cat|head|tail|grep|rg) _arena_preview_probe read ;;
+    sed|patch) _arena_preview_probe edit ;;
+    tee|cp|mv) _arena_preview_probe write ;;
+    *) continue ;;
+  esac
+  break
+done
 "$VENV/bin/python" "$REPO_ROOT/$SKILL_REL/scripts/preview.py" --reminder --rc "\$rc" --elapsed "\$SECONDS" --line "\$cmd" >&2
 exit "\$rc"
 EOF
@@ -205,12 +228,19 @@ unset _arena_preview_scripts
 EOF
 sed -i "s|__ARENA_PREVIEW_ROOT__|$REPO_ROOT|" "$PROFILE" || fail "cannot pin PATH root in $PROFILE"
 
+# A live server hot-reloads in-process, so only a down server earns the start line.
+if "$VENV/bin/python" -c 'import sys; sys.path.insert(0, "skills/refs/arena-skill/scripts"); sys.path.insert(0, ".agents/skills/arena-skill/scripts"); from pathlib import Path; import preview; sys.exit(0 if preview.preview_server_available(preview.Store(Path("arena-state"), create=False)) else 1)' >/dev/null 2>&1; then
+  NEXT_ACTION="next action: none (preview already running; hot-reloads in-process - never stop_process)"
+else
+  NEXT_ACTION='next action: `start_process`: `arena-preview serve --port 8000`'
+fi
+
 cat <<'EOF'
 commitlint: ok
 gitignore: ok
 arena-preview: ok
-next action: `start_process`: `arena-preview serve --port 8000`
 EOF
+printf '%s\n' "$NEXT_ACTION"
 
 # 8. Install the DEBUG gate trap last in ~/.bash_profile.
 GATE_TRAP_MARKER="# arena-preview-gate-trap"

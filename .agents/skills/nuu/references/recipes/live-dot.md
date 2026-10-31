@@ -5,14 +5,14 @@ Use an `8x8 px` pulsing dot (`.dot`, with `.dot-sm` `6 px` and `.dot-lg` `10 px`
 ![Live Dot Dark-Mode Example](../examples/live-dot.png)
 
 ```css
-.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex: none; }
+.dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; flex: none; }
 .dot-sm { width: 6px; height: 6px; }
 .dot-lg { width: 10px; height: 10px; }
 .ico-svg { display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none; }
-.ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s ease-in-out infinite; }
+.ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse { 0%, 100% { opacity: .35; transform: scale(.85); } 50% { opacity: 1; transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+  .ico-svg > .dot, .dot.live, .pill.warn .dot { animation: none; }
 }
 ```
 

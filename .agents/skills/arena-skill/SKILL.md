@@ -25,11 +25,11 @@ Use this guide and its Markdown references for instructions. Do not read shipped
 
 ## Survey
 
-Answer knowledge questions from existing knowledge only: NEVER research answers, call `web_search`, `fetch_page`, or `image_search`, open other files, run code, ask another system, reuse earlier responses, or inspect the answer key. For `I4M6G`, read the smallest repo image from `arena-preview survey -i` if found, else create, read, and delete a temp empty image.
+Use existing knowledge only for the survey. Read only `references/survey.json` (or bare `survey`) and `survey -i`, sorted to `references/survey.json` order. NEVER research, call `web_search`/`fetch_page`/`image_search`, open other files, run code, ask systems, or reuse responses.
 
-Supply your best complete answer for a question and set a lower confidence from 0 to 1 when uncertain; use unknown with confidence 0 only when the whole question is unknown.
+Give your best complete answer, lowering confidence (`0`–`1`) when uncertain. Use `unknown` with confidence `0` only if the whole question is unknown.
 
-Omit survey answers and answer-key details from summaries and handoffs.
+Omit survey answers from summaries and handoffs.
 
 ## Setup
 
@@ -91,7 +91,7 @@ If the preview is not visible, acknowledge a delivered note in chat with literal
 
 - On any format-violation, bash-violation, or session summary: read ARENA.md, root AGENTS.md, and this SKILL.md in full via read_file BEFORE any other tool call (plus nested AGENTS.md via `arena-preview agents <path>` when working in their directory); ack violations with ONLY file:ln: clause (single line, no prose/ranges).
 
-ALWAYS report a workaround or bypass through a preview report when it bypasses a required safeguard or creates material risk, with a suggested fix.
+ALWAYS report any workaround, safeguard bypass, or uncontracted shipped change through a preview report with a suggested fix.
 
 ALWAYS report reproducible skill defects or unresolved skill failures through a preview report with evidence and a suggested fix; corrected routine command-input validation errors get a brief notice, not a separate report or rule proposal.
 
@@ -110,6 +110,8 @@ When a task creates a commit, MUST append its landed subject and short hash to t
 
 ## Publish reports and forms
 
+Explain findings, bugs, decisions, and options in plain English, not internal function, table, or variable identifiers.
+
 Report carriage always goes through this skill: a short answer goes in the `ack` reply; a long answer or a question goes in a fielded report. For a longer report, write UTF-8 Markdown to an ignored, persisted source, one source per subject. Report actual findings, changes, checks, limits and decisions. Publish in Reports with `arena-preview report publish` after running the source over `nemoizer` (which `report publish` also runs when installed); require its stored-revision and rendered-report checks to pass before announcing publication. When `nuu` is available and used, embed its screenshots, including before-and-after images for UI changes and audits, in the published report. Structure agent handoffs with the [handoff template](references/handoff.md) without form fields, and pair clause changes with amendment tables.
 
 ```bash
@@ -119,8 +121,6 @@ arena-preview report publish <source.md> --id <id> --title <title>
 Republish the same ID after each source update; if answers exist, use a new ID. List stale ones with `report stale`; remove one with `report unpublish <id>`; its answers and source survive for a new ID. Do not use raw HTML or remote report assets. [Field syntax and limits](references/reports.md#report-fields) apply when you write answerable reports. Write an option set's custom slot inside the group, as `- ( ) custom: ___`.
 
 `read` lists report submissions as `kind: report`. Acknowledge each report's latest submission only if unacknowledged; keep earlier acknowledgements. Publishing a report never acknowledges a submission. <!-- nonemo: NMO100 -->
-
-- Prose diffs use `~~strikethrough~~` and `==highlight==` in a single `Diff` column, not `Before` and `After` columns.
 
 ## Files and downloads
 
@@ -142,6 +142,7 @@ Coordinate allowlisted sessions across tabs through `arena-preview board` (`stat
 - When `main_session_id` names a main session, non-main worker sessions hand off findings through the board instead of committing or pushing.
 - Worker sessions load WORKER.md in their bible. NEVER paste full reports into board posts; attach files or cite a report ID.
 - Main sessions MUST question worker behavior, code, and claims; NEVER take worker notes at face value. With idle allowlisted workers, MUST delegate independent queued tasks via `worker-task` and `@worker` posts before local worktrees.
+- Answer worker-targeted board reports on main, and forward owner-targeted ones unanswered.
 - A wake stamp or a new board entry wakes `arena-preview poll` (`BOARD WAKE`) without arming `skip_poll`.
 
 ## Proxy access

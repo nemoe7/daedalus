@@ -3,6 +3,7 @@
 ## Publish reports
 
 - A report source is UTF-8 `.md`, at most 2,000,000 bytes.
+- Explain findings, bugs, decisions, and options in plain English, not internal code symbols or database identifiers.
 - Report IDs have 1–80 letters, digits, hyphens or underscores; titles have 1–200 characters.
 - Source edits do not update a published report: call `publish` again.
 - A report that has answers refuses republishing under the same ID; publish its update under a new ID.
@@ -16,8 +17,6 @@
 - If an update rejects an answer, ask the owner to preserve the draft, reload and review the current report.
 
 ## Report fields
-
-In report diffs, keep leading and trailing whitespace outside `~~...~~` and `==...==` spans; do not mark whitespace-only runs. Publication rejects possible unparsed `==` or `~~` diff markers; fix the spacing around the markers, or pass `-u` / `--allow-unparsed-markers` when the literal characters are intentional.
 
 | Markdown marker | Control |
 | --- | --- |

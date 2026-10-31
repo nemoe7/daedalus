@@ -9,7 +9,7 @@ Run every command as the bare `arena-preview`; the script under the installed `a
 | `init [-z, --tz <zone>]` | Create a missing state database without starting the server. A zone names where CLI stamps print, and the TZ env wins |
 | `serve [-p, --port 8000]` | Start the shared preview with `start_process`. The gate warns when a serve names a port other than 8000 |
 | `read` | List every pending note and report answer; mark only delivered IDs Seen, and stamp the parent report read by the agent |
-| `survey [-i, --smallest-image] [<json>]` | Show the instructions, questions, and ordered JSON schema, or print the smallest repo image path with `-i, --smallest-image`. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
+| `survey [-i, --smallest-image] [<json>]` | Show the instructions, questions, and JSON schema, or print the smallest or fallback image path with `-i, --smallest-image`. Supply JSON to submit answers. The receipt has no verdict. Results stay in server RAM and appear through the connection-dot dialog |
 | `skills` | List installed and repository skill names, full descriptions, and paths; prefer installed duplicates; do not load skills |
 | `agents [<path>]` | List `AGENTS.md` paths from the repository root through the target directory or file path |
 | `note list [-p, --page N] [-s, --page-size N]` | List stored note IDs, including acknowledged and quiet notes, newest first; default page 1, 20 IDs per page, maximum 100; leave receipts and exports unchanged |

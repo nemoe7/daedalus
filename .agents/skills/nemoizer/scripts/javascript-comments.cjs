@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const { parse } = require('acorn');
 const source = fs.readFileSync(0, 'utf8');
+const spans = process.argv.includes('--spans');
 for (const sourceType of ['module', 'script']) {
   const comments = [];
   try {
@@ -14,7 +15,11 @@ for (const sourceType of ['module', 'script']) {
       locations: true,
       onComment: (block, text, start, end, first, last) => {
         if (start === 0 && source.startsWith('#!')) return;
-        comments.push([text, first.line, last.line]);
+        comments.push(
+          spans
+            ? [first.line, first.column, last.line, last.column]
+            : [text, first.line, last.line],
+        );
       },
     });
     process.stdout.write(JSON.stringify(comments));

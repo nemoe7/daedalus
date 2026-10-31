@@ -11,10 +11,10 @@ Route every modal through one native `<dialog>` element opened with `showModal()
 ## Rules
 
 - Open the shared `<dialog>` with `showModal()`, never `show()` or the `open` attribute, and never place `tabindex` on `<dialog>`.
-- Wire `aria-labelledby` to `#modal-title`, place the borderless, transparent Lucide `x` `.close-button` (`32x32 px`, `8 px` padding, `-8 px` margin) exit button at the top right (`Clause 6`) as the sole dismiss button without a redundant footer `Cancel` button, aligned to the title and content edge with a negative-margin hit box and hover/focus/active surface and color feedback, and place primary action buttons at the bottom right inside `<form method="dialog">`.
+- Wire `aria-labelledby` to `#modal-title`. Pair top-right `.close-button` (`X`) with footer `Cancel` by default. Omit `Cancel` only on informational modals, lightboxes, and mobile sheets. Keep `Cancel` mandatory on forms, unsaved edits, and delete modals, with primary actions bottom right.
 - Put `autofocus` on the first form control inside the dialog, or on the top-right `.close-button` when there are no text inputs, shifting its `X` glyph color from `var(--muted)` to `var(--text)` on `:focus-visible`.
 - Style `.close-button` as a borderless, transparent `32x32 px` control (`8 px` padding, `-8 px` margin) aligned to the content edge that reveals a surface background (`var(--surface-2)`), border (`var(--line)`), and text-color shift (`var(--text)` on hover and `:focus-visible`, `var(--accent)` on `:active`).
-- Gate every delete action behind a confirmation modal that states what will be deleted, uses the top-right `.close-button` (`X`) as the dismiss control without a redundant `Cancel` button, and places the destructive confirmation button at the bottom right.
+- Gate every delete action behind a confirmation modal specifying the target. Include both the top-right `.close-button` (`X`) and a footer `Cancel` button beside the bottom-right delete button.
 - Store `document.activeElement` before opening and restore focus to the invoking trigger on `close`.
 
 ## Shared shell and templates
@@ -36,6 +36,7 @@ Route every modal through one native `<dialog>` element opened with `showModal()
 <template data-modal-template="confirm-delete">
   <p data-slot="message"></p>
   <div data-slot="actions">
+    <button type="submit" value="cancel" class="button">Cancel</button>
     <button type="submit" value="confirm" class="button button--danger" data-slot="confirm-label">Delete</button>
   </div>
 </template>
@@ -48,7 +49,7 @@ Route every modal through one native `<dialog>` element opened with `showModal()
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding: 20px;
+  padding: var(--space-5);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);

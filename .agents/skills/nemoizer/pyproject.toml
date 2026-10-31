@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nemoizer"
-version = "0.1.10"
+version = "0.1.13"
 description = "Prose, terminology, and test-assertion linter."
 requires-python = ">=3.11"
 

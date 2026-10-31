@@ -4,7 +4,7 @@
 - **Counts:** `<N>` automated findings, `<N>` visual findings, `<N>` house-style deviations
 - **Unrun Checks:** `<check>`: `<reason skipped and when to run>` (omit line when none)
 
-## Automated Findings
+## Findings
 
 ### 1. `<Rule ID>` — `<Rule Statement>`
 
@@ -14,7 +14,7 @@
 
 ![Finding 1 Before vs After](<finding-1-before-after-board.png> =720x)
 
-## Visual Judgments
+## Visual Judgements
 
 ### 1. `<Component>` — `<Visual Observation>`
 

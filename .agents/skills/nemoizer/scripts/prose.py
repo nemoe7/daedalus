@@ -151,6 +151,24 @@ def javascript_comments(
   return tuple(comments)
 
 
+@lru_cache(maxsize=128)
+def javascript_comment_spans(
+  source: str,
+) -> tuple[tuple[tuple[int, int], tuple[int, int]], ...]:
+  """Collect exact JavaScript comment spans with the parser."""
+  result = subprocess.run(
+    ["node", str(Path(__file__).with_name("javascript-comments.cjs")), "--spans"],
+    input=source,
+    capture_output=True,
+    text=True,
+    check=True,
+  )
+  return tuple(
+    ((first_line, first_column), (last_line, last_column))
+    for first_line, first_column, last_line, last_column in json.loads(result.stdout)
+  )
+
+
 def clean_comment(text: str) -> str:
   """Strip line decoration and outer whitespace from one comment block."""
   return "\n".join(
@@ -705,7 +723,7 @@ JS_TEST_SUFFIXES = (
   ".spec.mjs",
 )
 JS_UI_SINK_RE = re.compile(
-  r"(?:\b(?:textContent|innerText|title|placeholder|label|statusText|connectionBase)\s*[+]?="
+  r"(?:\.\s*(?:textContent|innerText|title|placeholder|label|statusText|connectionBase)\s*[+]?="
   r"|[\"\']?(?:aria-label|title|placeholder|label)[\"\']?\s*:"
   r"|\bsetAttribute\s*\(\s*[\"\'](?:aria-label|title|placeholder)[\"\']\s*,"
   r"|\b(?:setConnection|reportStatusLine|copyFrom|label|setStatus|showStatus|toast|alert|confirm)\s*\()"
@@ -718,6 +736,81 @@ JS_STRING_LITERAL_RE = re.compile(
   r"|'([^'\\\n]*(?:\\.[^'\\\n]*)*)'"
   r"|`([^`\\]*(?:\\.[^`\\]*)*)`"
 )
+JS_HTML_PROSE_TAG_RE = re.compile(
+  r"<(?:p|div|span|button|a|h[1-6]|label|li|td|th|strong|em|time|article|section|header|footer|aside|main)\b",
+  re.IGNORECASE,
+)
+
+
+def _iter_js_masked_templates(source: str) -> list[tuple[str, int]]:
+  """Extract JS template literals with `${...}` replaced by `item` and line breaks preserved."""
+  results: list[tuple[str, int]] = []
+  length = len(source)
+
+  def scan_code(idx: int, stop_brace: bool = False) -> int:
+    depth = 1 if stop_brace else 0
+    while idx < length:
+      ch = source[idx]
+      nxt = source[idx + 1] if idx + 1 < length else ""
+      if ch == "/" and nxt == "/":
+        nl = source.find("\n", idx + 2)
+        idx = length if nl < 0 else nl + 1
+        continue
+      if ch == "/" and nxt == "*":
+        end = source.find("*/", idx + 2)
+        idx = length if end < 0 else end + 2
+        continue
+      if ch in {"'", '"'}:
+        quote = ch
+        idx += 1
+        while idx < length:
+          if source[idx] == "\\":
+            idx += 2
+          elif source[idx] == quote:
+            idx += 1
+            break
+          else:
+            idx += 1
+        continue
+      if ch == "`":
+        idx = scan_template(idx + 1)
+        continue
+      if stop_brace:
+        if ch == "{":
+          depth += 1
+        elif ch == "}":
+          depth -= 1
+          if depth == 0:
+            return idx + 1
+      idx += 1
+    return idx
+
+  def scan_template(start_idx: int) -> int:
+    base_line = source.count("\n", 0, start_idx - 1) + 1
+    buf: list[str] = []
+    idx = start_idx
+    while idx < length:
+      ch = source[idx]
+      nxt = source[idx + 1] if idx + 1 < length else ""
+      if ch == "\\":
+        buf.append(source[idx : idx + 2])
+        idx += 2
+        continue
+      if ch == "$" and nxt == "{":
+        expr_start = idx
+        idx = scan_code(idx + 2, stop_brace=True)
+        newlines = source.count("\n", expr_start, idx)
+        buf.append("item" + ("\n" * newlines))
+        continue
+      if ch == "`":
+        results.append(("".join(buf), base_line))
+        return idx + 1
+      buf.append(ch)
+      idx += 1
+    return idx
+
+  scan_code(0, stop_brace=False)
+  return results
 
 
 def js_ui_prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
@@ -764,14 +857,33 @@ def js_ui_prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
         or re.match(r"^[a-z]+/[a-z0-9.+-]+;", clean)
       ):
         continue
-      if " " not in clean or len(re.findall(r"[A-Za-z]{2,}", clean)) < 2:
+      if " " not in clean or len(re.findall(r"[A-Za-z]{2,}", val := clean)) < 2:
         continue
       line_no = idx + 1 + chunk[: match.start()].count("\n")
       end_line = line_no + raw.count("\n")
+      if (val, line_no) not in seen:
+        seen.add((val, line_no))
+        spans.append((val, line_no, end_line))
+  for masked, base_line in _iter_js_masked_templates(source):
+    if not JS_HTML_PROSE_TAG_RE.search(masked):
+      continue
+    for text, local_first, local_last in html_visible_prose(masked):
+      clean = re.sub(r"^[·•|\-\s:]+", "", text).strip()
+      if (
+        len(clean) < 4
+        or "{" in clean
+        or "}" in clean
+        or "://" in clean
+        or " " not in clean
+        or len(re.findall(r"[A-Za-z]{2,}", clean)) < 2
+      ):
+        continue
+      line_no = base_line + local_first - 1
+      end_line = base_line + local_last - 1
       if (clean, line_no) not in seen:
         seen.add((clean, line_no))
         spans.append((clean, line_no, end_line))
-  return spans
+  return sorted(spans, key=lambda row: row[1])
 
 
 def prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:

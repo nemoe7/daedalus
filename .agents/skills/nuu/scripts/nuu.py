@@ -31,8 +31,10 @@ from measure import (
   DEFAULT_SCALE,
   DEFAULT_SHEET,
   check_density,
+  check_severities,
   parse_sheet,
   point,
+  ruler,
 )
 from measure import check as check_measurements
 from measure import main as measure_main
@@ -62,7 +64,67 @@ SKIP = {
   ".pytest_cache",
   ".ruff_cache",
 }
-RULE_CODE_RE = re.compile(r"\b(?:NUL|NUI|NUB|NUM|NUA)\d{3}\b")
+RULE_CODE_RE = re.compile(
+  r"\b(?:TYP|SPC|HRC|ACC|ICN|DOC|RUN|NUL|NUI|NUB|NUM|NUA)\d{3}\b"
+)
+LEGACY_RULE_ALIASES = {
+  "NUI001": "ICN001",
+  "NUI002": "ICN002",
+  "NUI003": "ICN101",
+  "NUL001": "ACC001",
+  "NUL002": "ACC002",
+  "NUL003": "ACC201",
+  "NUL004": "DOC001",
+  "NUL005": "ACC204",
+  "NUL006": "HRC201",
+  "NUL007": "TYP202",
+  "NUL008": "HRC001",
+  "NUB101": "SPC206",
+  "NUB102": "RUN001",
+  "NUB103": "RUN101",
+  "NUB104": "RUN102",
+  "NUM201": "SPC001",
+  "NUM202": "TYP001",
+  "NUM203": "SPC002",
+  "NUM205": "SPC201",
+  "NUM206": "SPC202",
+  "NUM207": "SPC203",
+  "NUM208": "HRC102",
+  "NUM209": "SPC204",
+  "NUM210": "SPC205",
+  "NUM211": "TYP203",
+  "NUM212": "TYP101",
+  "NUM213": "TYP102",
+  "NUM214": "TYP103",
+  "NUM215": "TYP201",
+  "NUM216": "HRC101",
+  "NUM217": "SPC101",
+  "NUM218": "SPC102",
+  "NUA301": "ACC003",
+  "NUA302": "ACC004",
+  "NUA303": "ACC005",
+  "NUA304": "ACC006",
+  "NUA305": "ACC007",
+  "NUA306": "ACC101",
+  "NUA307": "ACC202",
+  "NUA308": "ACC203",
+  "NUA309": "ACC205",
+  "NUA310": "HRC202",
+}
+REVERSE_RULE_ALIASES = {v: k for k, v in LEGACY_RULE_ALIASES.items()}
+
+
+def expand_rule_aliases(code: str) -> set[str]:
+  aliases = {code}
+  if code in LEGACY_RULE_ALIASES:
+    aliases.add(LEGACY_RULE_ALIASES[code])
+    if code == "NUM218":
+      aliases.update({"TYP002", "TYP003"})
+  if code in REVERSE_RULE_ALIASES:
+    aliases.add(REVERSE_RULE_ALIASES[code])
+  if code in {"TYP002", "TYP003"}:
+    aliases.add("NUM218")
+  return aliases
 
 
 def _load_version(home: Path = HOME) -> str:
@@ -111,7 +173,8 @@ def load_rule_descriptions(home: Path = HOME) -> dict[str, str]:
         continue
       tagged = list(
         re.finditer(
-          r"(.*?)\(\s*`?((?:NUL|NUI|NUB|NUM|NUA)\d{3})`?\s*\)", condition_cell
+          r"(.*?)\(\s*`?((?:TYP|SPC|HRC|ACC|ICN|DOC|RUN|NUL|NUI|NUB|NUM|NUA)\d{3})`?\s*\)",
+          condition_cell,
         )
       )
       if tagged:
@@ -154,27 +217,29 @@ def load_rule_descriptions(home: Path = HOME) -> dict[str, str]:
     if 1 in clauses:
       sentences = [s.strip() for s in clauses[1].split(". ") if s.strip()]
       if len(sentences) >= 2:
-        descriptions.setdefault("NUI001", _clean_md(sentences[1]))
-        descriptions.setdefault("NUI002", _clean_md(sentences[0]))
+        descriptions.setdefault("ICN001", _clean_md(sentences[1]))
+        descriptions.setdefault("ICN002", _clean_md(sentences[0]))
     if 2 in clauses:
-      descriptions.setdefault("NUI003", _clean_md(clauses[2]))
+      descriptions.setdefault("ICN101", _clean_md(clauses[2]))
   descriptions.setdefault(
-    "NUL006", "Raw ISO or unadjusted UTC/offset timestamp in UI text or source"
+    "HRC201", "Raw ISO or unadjusted UTC/offset timestamp in UI text or source"
   )
   descriptions.setdefault(
-    "NUA310", "Visible raw ISO or unadjusted UTC/offset timestamp in rendered UI text"
+    "HRC202", "Visible raw ISO or unadjusted UTC/offset timestamp in rendered UI text"
   )
   return descriptions
 
 
 VERSION = _load_version()
 RULE_DESCRIPTIONS = load_rule_descriptions()
+for _leg, _sem in LEGACY_RULE_ALIASES.items():
+  if _sem in RULE_DESCRIPTIONS:
+    RULE_DESCRIPTIONS.setdefault(_leg, RULE_DESCRIPTIONS[_sem])
 KNOWN_NUU_RULES = {
-  *(f"NUL00{i}" for i in range(1, 9)),
-  *(f"NUI00{i}" for i in range(1, 4)),
-  *(f"NUB10{i}" for i in range(1, 5)),
-  *(f"NUM{i}" for i in range(201, 219) if i != 204),
-  *(f"NUA{i}" for i in range(301, 311)),
+  *LEGACY_RULE_ALIASES.keys(),
+  *LEGACY_RULE_ALIASES.values(),
+  "TYP002",
+  "TYP003",
   *RULE_DESCRIPTIONS,
 }
 RAW_UI_TIMESTAMP_RE = re.compile(
@@ -235,7 +300,8 @@ def collect_nonuu_markers(path, lines):
       code = marker[1]
       scope = "unknown"
       if code in KNOWN_NUU_RULES:
-        suppressed.add(code)
+        aliases = expand_rule_aliases(code)
+        suppressed.update(aliases)
         before = line[: marker.start()].strip()
         scope = (
           "file"
@@ -243,7 +309,7 @@ def collect_nonuu_markers(path, lines):
           else "line"
         )
         if scope == "file":
-          file_ids.add(code)
+          file_ids.update(aliases)
       mark_str = f"{path}:{number}: {code or '<missing>'} {scope}: {line.strip()}"
       marks.append(mark_str)
       suppressions.append(
@@ -450,7 +516,7 @@ class SourcePage(HTMLParser):
     cleaned = re.sub(r"[.!?\s]+$", "", label_text.strip())
     if cleaned and cleaned.casefold() in self.VAGUE_BUTTON_LABELS:
       self.finding(
-        "NUL008",
+        "HRC001",
         "action-hierarchy",
         f"Button uses vague label '{label_text.strip()}' instead of an explicit action",
         pos,
@@ -476,7 +542,7 @@ class SourcePage(HTMLParser):
       if attrs.get("for"):
         self.labels.add(attrs["for"])
     if tag == "img" and "alt" not in attrs:
-      self.finding("NUL001", "1.1.1", "Image has no alt attribute", pos)
+      self.finding("ACC001", "1.1.1", "Image has no alt attribute", pos)
     if tag == "button":
       self.button_stack.append((attrs, pos, []))
     if tag in {"input", "select", "textarea"}:
@@ -503,7 +569,7 @@ class SourcePage(HTMLParser):
       _, _, primaries = self.card_scopes.pop()
       if len(primaries) > 1:
         self.finding(
-          "NUL008",
+          "HRC001",
           "action-hierarchy",
           f"Card or dialog contains {len(primaries)} primary buttons (at most 1 allowed)",
           primaries[1],
@@ -523,7 +589,7 @@ class SourcePage(HTMLParser):
     match = RAW_UI_TIMESTAMP_RE.search(data)
     if match:
       self.finding(
-        "NUL006",
+        "HRC201",
         "relative-timestamps",
         f"Raw or unadjusted timestamp in UI text: {match[0]}",
         self.getpos(),
@@ -534,7 +600,7 @@ class SourcePage(HTMLParser):
       _, _, primaries = self.card_scopes.pop()
       if len(primaries) > 1:
         self.finding(
-          "NUL008",
+          "HRC001",
           "action-hierarchy",
           f"Card or dialog contains {len(primaries)} primary buttons (at most 1 allowed)",
           primaries[1],
@@ -555,7 +621,7 @@ class SourcePage(HTMLParser):
         or attrs.get("id") in self.labels
       ):
         self.finding(
-          "NUL002", "4.1.2", "Control has no source naming evidence", position
+          "ACC002", "4.1.2", "Control has no source naming evidence", position
         )
 
 
@@ -637,7 +703,14 @@ def _has_design_doc(root: Path, design_doc_rel: str | None = None) -> bool:
   return False
 
 
-def lint(root):
+def lint(
+  root,
+  *,
+  manifest=None,
+  ruler_start=None,
+  ruler_end=None,
+  scale=DEFAULT_SCALE,
+):
   findings, coverage, marks, suppressions, deviations = [], [], [], [], []
   nonuu_by_path = {}
   list_rules = []
@@ -717,7 +790,7 @@ def lint(root):
           line = text.count("\n", 0, list_match.start(2) + inside_match.start()) + 1
           current.append(
             {
-              "rule": "NUL007",
+              "rule": "TYP202",
               "path": str(path),
               "line": line,
               "column": 1,
@@ -740,7 +813,7 @@ def lint(root):
           line = text.count("\n", 0, list_match.start(2) + indent_match.start(1)) + 1
           current.append(
             {
-              "rule": "NUL007",
+              "rule": "TYP202",
               "path": str(path),
               "line": line,
               "column": 1,
@@ -756,7 +829,7 @@ def lint(root):
         ):
           current.append(
             {
-              "rule": "NUL003",
+              "rule": "ACC201",
               "path": str(path),
               "line": text.count("\n", 0, match.start()) + 1,
               "column": 1,
@@ -781,7 +854,7 @@ def lint(root):
           prop_pos = body_start + prop_match.start(1)
           current.append(
             {
-              "rule": "NUL005",
+              "rule": "ACC204",
               "path": str(path),
               "line": text.count("\n", 0, prop_pos) + 1,
               "column": 1,
@@ -804,7 +877,7 @@ def lint(root):
         if ts_match:
           current.append(
             {
-              "rule": "NUL006",
+              "rule": "HRC201",
               "path": str(path),
               "line": number,
               "column": ts_match.start() + 1,
@@ -821,7 +894,7 @@ def lint(root):
         findings.append(finding)
   if list_rules and not all(list_reset.values()):
     reported_paths = {
-      finding["path"] for finding in findings if finding.get("rule") == "NUL007"
+      finding["path"] for finding in findings if finding.get("rule") == "TYP202"
     }
     for list_path, list_line in list_rules:
       if str(list_path) in reported_paths:
@@ -830,11 +903,11 @@ def lint(root):
       ignored = file_ids | (
         line_ids[list_line - 1] if 0 < list_line <= len(line_ids) else set()
       )
-      if "NUL007" in ignored:
+      if "TYP202" in ignored:
         continue
       findings.append(
         {
-          "rule": "NUL007",
+          "rule": "TYP202",
           "path": str(list_path),
           "line": list_line,
           "column": 1,
@@ -857,7 +930,7 @@ def lint(root):
   if not _has_design_doc(root, design_doc_rel):
     findings.append(
       {
-        "rule": "NUL004",
+        "rule": "DOC001",
         "path": str(design_doc_path),
         "line": 1,
         "column": 1,
@@ -867,10 +940,37 @@ def lint(root):
         "criterion": "clause-11",
       }
     )
+  icons_res = check_icons(root)
+  for icon_finding in icons_res.get("findings", []):
+    if isinstance(icon_finding, dict):
+      enrich_finding_rule(icon_finding)
+  design_res = extract(root)
+  extra: dict[str, object] = {}
+  if manifest is not None:
+    asset_res = assets(root, manifest)
+    extra["assets"] = asset_res
+    findings.extend(asset_res.get("findings", []))
+  if ruler_start is not None and ruler_end is not None:
+    gap = ruler(ruler_start, ruler_end, scale)
+    extra["ruler"] = gap
+    if not gap["on_scale"]:
+      findings.append(
+        {
+          "rule": "SPC001",
+          "severity": "review",
+          "evidence": f"gap {gap['dx']:g} x {gap['dy']:g} px is off the {scale:g} px scale",
+        }
+      )
   for finding in findings:
-    enrich_finding_rule(finding)
+    if isinstance(finding, dict):
+      enrich_finding_rule(finding)
   return {
     "findings": findings,
+    "icons": icons_res,
+    "design": design_res,
+    "tokens": design_res["tokens"],
+    "breakpoints": design_res["breakpoints"],
+    "components": design_res["components"],
     "marks": marks,
     "suppressions": suppressions,
     "deviations": deviations,
@@ -879,6 +979,7 @@ def lint(root):
       "Source patterns do not prove accessible names or WCAG conformance.",
       "Visual quality and task success need rendered and interaction evidence.",
     ],
+    **extra,
   }
 
 
@@ -927,7 +1028,7 @@ def check_icons(root):
         icon_source = "custom"
         current.append(
           {
-            "rule": "NUI002",
+            "rule": "ICN002",
             "path": str(path),
             "line": line_no,
             "column": 1,
@@ -946,13 +1047,13 @@ def check_icons(root):
       first_line = min(sizes.values())
       current.append(
         {
-          "rule": "NUI003",
+          "rule": "ICN101",
           "path": str(path),
           "line": first_line,
           "column": 1,
           "severity": "advisory",
           "blocking": False,
-          "evidence": f"Multiple inline icon sizes in one source file: {', '.join(sorted(sizes))}",
+          "evidence": f"Multiple inline icon sizes in one source file: {', '.join(sorted(sizes))}; review each surface",
           "criterion": "clause-2",
         }
       )
@@ -999,10 +1100,10 @@ def check_icons(root):
       for check_ln in range(max(1, rule_line), min(len(lines), line_no) + 1):
         ignored.update(re.findall(r"\bnonuu:\s*([A-Za-z0-9_-]+)", lines[check_ln - 1]))
       counts["custom"] += 1
-      if "NUI002" not in ignored:
+      if "ICN002" not in ignored and "NUI002" not in ignored:
         findings.append(
           {
-            "rule": "NUI002",
+            "rule": "ICN002",
             "path": str(path),
             "line": line_no,
             "column": 1,
@@ -1018,7 +1119,7 @@ def check_icons(root):
   if sum(counts.values()) > 0 and not license_files:
     findings.append(
       {
-        "rule": "NUI001",
+        "rule": "ICN001",
         "path": str(root),
         "line": 1,
         "column": 1,
@@ -1113,25 +1214,6 @@ class AssetRedirect(urllib.request.HTTPRedirectHandler):
   def redirect_request(self, request, fp, code, message, headers, newurl):
     validated_url(newurl)
     return super().redirect_request(request, fp, code, message, headers, newurl)
-
-
-def resolve_named_breakpoints(
-  project_root: Path | None = None,
-) -> tuple[str, ...]:
-  cfg_info = load_nuu_config(project_root or Path.cwd())
-  cfg = cfg_info["config"]
-  cfg_audit = cfg.get("audit") if isinstance(cfg.get("audit"), dict) else {}
-  raw = (
-    cfg_audit.get("named_breakpoints")
-    or cfg_audit.get("breakpoints")
-    or cfg.get("named_breakpoints")
-    or cfg.get("breakpoints")
-  )
-  if isinstance(raw, list):
-    items = [str(x).strip() for x in raw if str(x).strip()]
-    if items:
-      return tuple(items)
-  return NAMED_BREAKPOINTS
 
 
 def browser(args):
@@ -1246,12 +1328,12 @@ def browser(args):
         {
           "rule": (
             finding.split()[0]
-            if re.match(r"^NUM2\d\d\b", finding)
-            else "NUM202"
+            if re.match(r"^(?:TYP|SPC|HRC|ACC|ICN|DOC|RUN|NUM|NUL)\d{3}\b", finding)
+            else "TYP001"
             if ": font-size is " in finding
-            else "NUM203"
+            else "SPC002"
             if ": border-radius" in finding
-            else "NUM201"
+            else "SPC001"
           ),
           "severity": "review",
           "evidence": finding,
@@ -1422,13 +1504,21 @@ def main(argv=None):
       command.add_argument("-C", "--columns", type=int)
       command.add_argument("-W", "--wireframe", action="store_true")
     if name == "search":
-      command.add_argument("query")
-      command.add_argument("-d", "--dataset")
+      command.add_argument("query", nargs="?")
+      command.add_argument("-d", "--dataset", "--destination", dest="dataset")
       command.add_argument("-s", "--stack")
       command.add_argument("-l", "--limit", type=int, default=10)
+      command.add_argument("-f", "--fetch")
+      command.add_argument("-A", "--authorize-fetch", action="store_true")
     if name == "doctor":
       command.add_argument("-m", "--manifest", type=Path)
       command.add_argument("-c", "--config", type=Path)
+    if name == "lint":
+      command.add_argument("-m", "--manifest", type=Path)
+      command.add_argument("-f", "--from", dest="ruler_start", type=point)
+      command.add_argument("-t", "--to", dest="ruler_end", type=point)
+      command.add_argument("-s", "--sheet", type=Path, default=DEFAULT_SHEET)
+      command.add_argument("-k", "--scale", type=float, default=DEFAULT_SCALE)
     if name == "assets":
       command.add_argument("-m", "--manifest", type=Path)
       command.add_argument("-f", "--fetch")
@@ -1436,6 +1526,7 @@ def main(argv=None):
       command.add_argument("-A", "--authorize-fetch", action="store_true")
     if name in {"inspect", "flow", "audit", "collect", "a11y", "live"}:
       command.add_argument("-u", "--url", required=name not in {"audit", "collect"})
+      command.add_argument("-M", "--measured", type=Path)
       command.add_argument("-d", "--artifacts", default="ui-evidence")
       command.add_argument("-w", "--widths", nargs="*", type=int, default=[])
       command.add_argument(
@@ -1460,10 +1551,20 @@ def main(argv=None):
   if not root.is_dir():
     parser.error("project directory does not exist")
   try:
+    severities = (
+      check_severities(root) if args.command in {"lint", "audit", "collect"} else {}
+    )
     if args.command == "search":
-      if not 0 < args.limit <= 100:
-        raise ValueError("limit must be from 1 through 100")
-      result = search(args.query, args.dataset, args.stack, args.limit)
+      if args.fetch:
+        if not args.dataset:
+          raise ValueError("fetch requires --destination (-d)")
+        result = fetch_asset(root, args.fetch, args.dataset, args.authorize_fetch)
+      elif args.query:
+        if not 0 < args.limit <= 100:
+          raise ValueError("limit must be from 1 through 100")
+        result = search(args.query, args.dataset, args.stack, args.limit)
+      else:
+        raise ValueError("search requires a query or --fetch")
     elif args.command == "assets":
       if args.fetch:
         if not args.destination:
@@ -1474,7 +1575,15 @@ def main(argv=None):
       else:
         raise ValueError("assets requires --manifest or --fetch")
     elif args.command == "lint":
-      result = lint(root)
+      if (args.ruler_start is None) ^ (args.ruler_end is None):
+        raise ValueError("ruler requires both --from and --to")
+      result = lint(
+        root,
+        manifest=args.manifest,
+        ruler_start=args.ruler_start,
+        ruler_end=args.ruler_end,
+        scale=args.scale,
+      )
     elif args.command == "extract":
       result = extract(root)
     elif args.command == "annotate":
@@ -1541,13 +1650,45 @@ def main(argv=None):
         if args.url
         else {"status": "not_checked", "reason": "url_missing"}
       )
+      if getattr(args, "measured", None):
+        measured_data = load(args.measured)
+        sheet = parse_sheet((HOME / "references/style.css").read_text(encoding="utf-8"))
+        house_m = check_measurements(measured_data, sheet)
+        density_m = check_density(measured_data)
+        measured_findings = [
+          {
+            "rule": (
+              item.split()[0]
+              if re.match(r"^(?:TYP|SPC|HRC|ACC|ICN|DOC|RUN|NUM|NUL)\d{3}\b", item)
+              else "TYP001"
+              if ": font-size is " in item
+              else "SPC002"
+              if ": border-radius" in item
+              else "SPC001"
+            ),
+            "severity": "review",
+            "evidence": item,
+          }
+          for item in house_m
+        ] + [
+          {
+            "rule": row["rule"],
+            "severity": "review",
+            "selector": row["selector"],
+            "evidence": row["evidence"],
+          }
+          for row in density_m
+        ]
+        rendered_res.setdefault("findings", []).extend(measured_findings)
+        if not args.url:
+          rendered_res["status"] = "findings" if measured_findings else "checked"
       for finding in rendered_res.get("findings", []):
         if isinstance(finding, dict):
           enrich_finding_rule(finding)
       result = {
         "source": source_res,
-        "icons": check_icons(root),
-        "design": extract(root),
+        "icons": source_res.get("icons") or check_icons(root),
+        "design": source_res.get("design") or extract(root),
         "marks": source_res.get("marks", []),
         "suppressions": source_res.get("suppressions", []),
         "deviations": deviations,
@@ -1579,6 +1720,9 @@ def main(argv=None):
           "findings", []
         )
         result["status"] = result["rendered"].get("status")
+    for finding in result.get("findings", []):
+      if isinstance(finding, dict) and finding.get("rule") in severities:
+        finding["severity"] = severities[finding["rule"]]
     result = {
       "tool": args.command,
       "version": VERSION,
@@ -1592,7 +1736,12 @@ def main(argv=None):
     print(serialized, end="")
     if result.get("status") == "error":
       return 2
-    if result.get("findings"):
+    if any(
+      not isinstance(finding, dict)
+      or finding.get("rule") not in severities
+      or finding.get("severity") == "error"
+      for finding in result.get("findings", [])
+    ):
       return 1
     if result.get("status") == "not_checked":
       return 3

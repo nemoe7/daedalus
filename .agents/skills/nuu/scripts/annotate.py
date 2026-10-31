@@ -1675,7 +1675,7 @@ def build_design_boards(
       "boards": [],
       "findings": [
         {
-          "id": "NUB104",
+          "id": "RUN102",
           "severity": "error",
           "message": "design board requires --spec <boards.json>",
         }
@@ -1690,7 +1690,7 @@ def build_design_boards(
       "boards": [],
       "findings": [
         {
-          "id": "NUB104",
+          "id": "RUN102",
           "severity": "error",
           "message": f"missing board spec: {spec_path}",
         }
@@ -1736,7 +1736,7 @@ def build_design_boards(
         "boards": [],
         "findings": [
           {
-            "id": "NUB104",
+            "id": "RUN102",
             "severity": "error",
             "message": f"missing stylesheet: {sheet_rel}",
           }
@@ -1755,7 +1755,7 @@ def build_design_boards(
           "boards": [],
           "findings": [
             {
-              "id": "NUB104",
+              "id": "RUN102",
               "severity": "error",
               "message": f"missing <style> block in stylesheet: {sheet_rel}",
             }
@@ -1783,7 +1783,7 @@ def build_design_boards(
         "boards": [],
         "findings": [
           {
-            "id": "NUB104",
+            "id": "RUN102",
             "severity": "error",
             "message": f"missing icon file: {icon_rel}",
           }
@@ -1798,7 +1798,7 @@ def build_design_boards(
         "boards": [],
         "findings": [
           {
-            "id": "NUB104",
+            "id": "RUN102",
             "severity": "error",
             "message": f"missing icon table {table_name} in {icon_rel}",
           }
@@ -1816,7 +1816,7 @@ def build_design_boards(
       "boards": [],
       "findings": [
         {
-          "id": "NUB104",
+          "id": "RUN102",
           "severity": "error",
           "message": "design board spec requires a non-empty boards array",
         }
@@ -1835,7 +1835,7 @@ def build_design_boards(
         "boards": [],
         "findings": [
           {
-            "id": "NUB104",
+            "id": "RUN102",
             "severity": "error",
             "message": f"unknown board in --only: {', '.join(missing_only)}",
           }
@@ -1857,7 +1857,7 @@ def build_design_boards(
         "boards": [],
         "findings": [
           {
-            "id": "NUB104",
+            "id": "RUN102",
             "severity": "error",
             "message": f"missing shot: {shot_name} ({shot_rel})",
           }
@@ -1927,7 +1927,7 @@ def build_design_boards(
               "boards": board_entries,
               "findings": [
                 {
-                  "id": "NUB104",
+                  "id": "RUN102",
                   "severity": "error",
                   "message": f"missing shot: {shot_name}",
                 }
@@ -1971,7 +1971,7 @@ def build_design_boards(
                 "boards": board_entries,
                 "findings": [
                   {
-                    "id": "NUB104",
+                    "id": "RUN102",
                     "severity": "error",
                     "message": f"missing HTML fragment: {h_val}",
                   }
@@ -2004,7 +2004,7 @@ def build_design_boards(
           "boards": board_entries,
           "findings": [
             {
-              "id": "NUB104",
+              "id": "RUN102",
               "severity": "error",
               "message": f"missing HTML fragment: {h_val}",
             }

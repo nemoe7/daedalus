@@ -15,10 +15,10 @@
       }
     },
     {
-      "id": "I4M6G",
-      "question": "Check for a repo image with `arena-preview survey --smallest-image` and read it if found. Otherwise create, read, and delete a temporary empty image. Is image input enabled?",
+      "id": "V1S0N",
+      "question": "Read the smallest repo image from `arena-preview survey -i`, or the temporary 1x1 PNG it creates when none exists. Is image input enabled?",
       "answer_fields": {
-        "image_in": "boolean"
+        "vision": "boolean"
       }
     },
     {

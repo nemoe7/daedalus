@@ -34,6 +34,8 @@ Save the output as `report.json`, one file per width.
 python scripts/measure.py check report.json
 ```
 
+`TYP101` and `TYP201` are review findings by default. Configure them under `[checks.severity]` in `nuu.toml` as `"error"` to make them blocking.
+
 A spacing value sits on the `4 px` scale by default. Another value may also take a size the sheet declares, such as the `6 px` radius. Add `--scale 8` for the `8 px` sheet, and `--sheet <path>` to read another sheet.
 
 ## Read a gap with the ruler
@@ -44,7 +46,7 @@ The ruler takes two guides in page pixels: `x,y` from the top-left corner. It pr
 python scripts/measure.py ruler --from 120,340 --to 264,340
 ```
 
-Place the guides on the edges you care about: the two sides of a gap, a row's top and bottom, a glyph's box. A gap that lands off the scale is a finding, not a rounding error.
+Place the guides at the edges of a gap, row, or glyph box. A gap that lands off the scale is a finding, not a rounding error.
 
 ## What to keep
 

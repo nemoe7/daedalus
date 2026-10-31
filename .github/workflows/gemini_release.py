@@ -18,6 +18,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+VERSION = "0.1.0"
 
 # Each prompt follows rules/refs/GUIDELINES.md section 4: one rule per line, imperative,
 # testable, no rationale. The shared boundary lines come first.

@@ -24,6 +24,7 @@ import json
 import math
 import re
 import sys
+import tomllib
 from pathlib import Path
 
 DEFAULT_SHEET = Path(__file__).resolve().parent.parent / "references" / "style.css"
@@ -86,25 +87,21 @@ def on_scale(value: float, scale: float) -> bool:
 
 
 def off_scale(name: str, value: str, tokens: dict[str, str], scale: float) -> bool:
-  """True when a px value is neither zero, on the scale, nor a size the sheet names for it.
+  """Check spacing against the scale, font sizes against the ramp, and radii against the allowed set.
 
-  A spacing property reads the scale alone. A type size names a font size, and never
-  excuses a padding. A layout property such as border-radius may take a size the sheet names.
   Fluid box dimensions (width, height, line-height, outline-width) are not scale tokens.
   """
   match = PX.match(value.strip())
   if not match:
     return False
   number = float(match.group(1))
-  if number == 0 or on_scale(number, scale):
-    return False
-  if name.startswith(SPACING_PROPERTIES):
-    return True
   if name in TYPE_PROPERTIES:
     return number not in named_sizes(tokens, ramp=True)
   if name.startswith(LAYOUT_PROPERTIES):
-    return number not in (named_sizes(tokens, ramp=False) | RADIUS_SIZES)
-  return False
+    return number not in (RADIUS_SIZES | {0.0})
+  if number == 0 or on_scale(number, scale):
+    return False
+  return name.startswith(SPACING_PROPERTIES)
 
 
 def _numeric_value(value):
@@ -266,7 +263,7 @@ def _line_height_finding(element: dict) -> str | None:
   if ratio < low - 1e-6 or ratio > high + 1e-6:
     band = "1.1-1.3x" if heading else "1.3-1.5x"
     return (
-      f"NUM212 {selector}: line-height {values['line-height']} ({ratio:.2f}x) "
+      f"TYP101 {selector}: line-height {values['line-height']} ({ratio:.2f}x) "
       f"is outside {band}"
     )
   return None
@@ -308,14 +305,14 @@ def _letter_spacing_finding(element: dict) -> str | None:
   else:
     return None
   if heading:
-    if em_ratio < -0.02 - 1e-4 or em_ratio > -0.005 + 1e-4:
+    if em_ratio < -0.03 - 1e-4 or em_ratio > -0.005 + 1e-4:
       return (
-        f"NUM213 {selector}: heading letter-spacing {values['letter-spacing']} "
-        f"({em_ratio:.4f}em) is outside -0.005em to -0.02em"
+        f"TYP102 {selector}: heading letter-spacing {values['letter-spacing']} "
+        f"({em_ratio:.4f}em) is outside -0.005em to -0.03em"
       )
     return None
   if abs(em_ratio) > 1e-4:
-    return f"NUM213 {selector}: non-heading letter-spacing {values['letter-spacing']} must be 0"
+    return f"TYP102 {selector}: non-heading letter-spacing {values['letter-spacing']} must be 0"
   return None
 
 
@@ -342,14 +339,36 @@ def _element_line_count(element: dict) -> int | None:
   return max(1, round(content_h / lh_px)) if content_h > 0 else None
 
 
+def _normalize_text_align(raw: str) -> str:
+  cleaned = raw.strip().lower()
+  if cleaned in {"left", "start"}:
+    return "start"
+  if cleaned in {"right", "end"}:
+    return "end"
+  return cleaned
+
+
 def _text_alignment_finding(element: dict) -> str | None:
   values = element.get("values") or {}
   align = str(values.get("text-align") or "").strip().lower()
+  selector = str(element.get("selector") or "?")
+  mismatch = element.get("heading_body_alignment", element.get("headingBodyAlignment"))
+  if isinstance(mismatch, dict):
+    h_align = _normalize_text_align(
+      str(mismatch.get("heading_align", mismatch.get("headingAlign")) or align)
+    )
+    b_align = _normalize_text_align(
+      str(mismatch.get("body_align", mismatch.get("bodyAlign")) or "")
+    )
+    if h_align and b_align and h_align != b_align:
+      return (
+        f"TYP103 {selector}: heading text-align ({h_align}) "
+        f"mismatches body text-align ({b_align})"
+      )
   if not align:
     return None
-  selector = str(element.get("selector") or "?")
   if align == "justify":
-    return f"NUM214 {selector}: text-align justify creates uneven word gaps"
+    return f"TYP103 {selector}: text-align justify creates uneven word gaps"
   if align == "center":
     tag = str(element.get("tag") or "").strip().lower()
     if tag in COMPACT_LINE_HEIGHT_TAGS or tag in {"th", "td"}:
@@ -357,7 +376,7 @@ def _text_alignment_finding(element: dict) -> str | None:
     lines = _element_line_count(element)
     if lines is not None and lines > 3:
       return (
-        f"NUM214 {selector}: centered prose spans {lines} lines (at most 3 allowed)"
+        f"TYP103 {selector}: centered prose spans {lines} lines (at most 3 allowed)"
       )
   return None
 
@@ -381,11 +400,15 @@ def _body_width_finding(element: dict, report_width: float) -> str | None:
   if not (is_prose_container or is_multiline_prose):
     return None
   values = element.get("values") or {}
+  standalone = not (
+    _is_card_or_dialog(element)
+    or bool(element.get("in_card_or_dialog", element.get("inCardOrDialog")))
+  )
   raw_max = str(values.get("max-width") or "").strip().lower()
   if raw_max.endswith("ch"):
     max_ch = _numeric_value(raw_max[:-2])
-    if max_ch is not None and (max_ch < 49.5 or max_ch > 75.5):
-      return f"NUM215 {selector}: max-width {values['max-width']} is outside 50 to 75ch"
+    if max_ch is not None and (max_ch > 75.5 or (standalone and max_ch < 49.5)):
+      return f"TYP201 {selector}: max-width {values['max-width']} is outside 50 to 75ch"
   bounds = element.get("bounds") or {}
   raw_w = bounds.get("width")
   w_px = (
@@ -407,9 +430,8 @@ def _body_width_finding(element: dict, report_width: float) -> str | None:
   if ch_px is None or ch_px <= 0:
     return None
   ch_width = content_w / ch_px
-  standalone = is_prose_container or not bool(element.get("in_card_or_dialog"))
   if ch_width > 75.5 or (standalone and ch_width < 49.5):
-    return f"NUM215 {selector}: prose width {ch_width:.1f}ch is outside 50 to 75ch"
+    return f"TYP201 {selector}: prose width {ch_width:.1f}ch is outside 50 to 75ch"
   return None
 
 
@@ -427,10 +449,27 @@ def _is_card_or_dialog(element: dict) -> bool:
 
 
 def _card_font_hierarchy_finding(element: dict, all_elements: list[dict]) -> str | None:
+  selector = str(element.get("selector") or "?")
+  hier = element.get("heading_hierarchy", element.get("headingHierarchy"))
+  if isinstance(hier, dict):
+    h_fs = _numeric_value(hier.get("heading_size", hier.get("headingSize")))
+    s_fs = _numeric_value(hier.get("sub_size", hier.get("subSize")))
+    h_wt = (
+      _numeric_value(hier.get("heading_weight", hier.get("headingWeight"))) or 400.0
+    )
+    s_wt = _numeric_value(hier.get("sub_weight", hier.get("subWeight"))) or 400.0
+    if (
+      h_fs is not None
+      and s_fs is not None
+      and (h_fs < s_fs - 0.1 or (abs(h_fs - s_fs) <= 0.1 and h_wt <= s_wt))
+    ):
+      return (
+        f"HRC101 {selector}: heading ({h_fs:g}px/{h_wt:g}) lacks visual "
+        f"hierarchy over subordinate text ({s_fs:g}px/{s_wt:g})"
+      )
   explicit = element.get("card_font_sizes", element.get("cardFontSizes"))
   if explicit is None and not _is_card_or_dialog(element):
     return None
-  selector = str(element.get("selector") or "?")
   sizes: set[float] = set()
   if isinstance(explicit, list):
     for item in explicit:
@@ -448,11 +487,11 @@ def _card_font_hierarchy_finding(element: dict, all_elements: list[dict]) -> str
       fs = _numeric_value(str((other.get("values") or {}).get("font-size") or ""))
       if fs is not None and fs > 0:
         sizes.add(round(fs, 2))
-  if len(sizes) > 3:
+  if len(sizes) > 2:
     ordered = ", ".join(f"{val:g}px" for val in sorted(sizes))
     return (
-      f"NUM216 {selector}: card or dialog mixes {len(sizes)} font sizes "
-      f"({ordered}, at most 3 allowed)"
+      f"HRC101 {selector}: card or dialog mixes {len(sizes)} font sizes "
+      f"({ordered}, at most 2 allowed)"
     )
   return None
 
@@ -480,13 +519,15 @@ def _proximity_spacing_finding(element: dict) -> str | None:
         if isinstance(raw_intra, (int, float))
         else _numeric_value(str(raw_intra))
       )
-  if inter_px is None or intra_px is None or intra_px <= 0:
+  if inter_px is None or intra_px is None or intra_px < 0:
     return None
   selector = str(element.get("selector") or "?")
-  if inter_px + 1e-6 < 1.5 * intra_px:
+  if inter_px <= 0:
+    return f"SPC101 {selector}: inter-group gap is 0px (elements touch)"
+  if intra_px > 0 and inter_px + 1e-6 < 1.5 * intra_px:
     ratio = inter_px / intra_px
     return (
-      f"NUM217 {selector}: inter-group gap {inter_px:g}px is {ratio:.2f}x "
+      f"SPC101 {selector}: inter-group gap {inter_px:g}px is {ratio:.2f}x "
       f"intra-group gap {intra_px:g}px (at least 1.5x required)"
     )
   return None
@@ -529,6 +570,7 @@ def _approved_font_families(tokens: dict[str, str]) -> set[str]:
 def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str]:
   out: list[str] = []
   selector = str(element.get("selector") or "?")
+  tag = str(element.get("tag") or "").strip().lower()
   classes = element.get("classes") or []
   values = element.get("values") or {}
   insets = element.get("card_inline_insets", element.get("cardInlineInsets"))
@@ -537,8 +579,18 @@ def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str
     if len(nums) >= 2 and max(nums) - min(nums) > 2.0:
       joined = ", ".join(f"{val:g}px" for val in nums)
       out.append(
-        f"NUM218 {selector}: stacked card children have ragged inline-start insets ({joined})"
+        f"SPC102 {selector}: stacked card children have ragged inline-start insets ({joined})"
       )
+  if _is_card_or_dialog(element):
+    pad_l = _numeric_value(str(values.get("padding-left") or ""))
+    pad_r = _numeric_value(str(values.get("padding-right") or ""))
+    if pad_l is not None and pad_r is not None and abs(pad_l - pad_r) > 2.0:
+      out.append(
+        f"SPC102 {selector}: asymmetric card inline padding ({values['padding-left']} vs {values['padding-right']})"
+      )
+  weight = str(values.get("font-weight") or "").strip().lower()
+  if weight and weight not in {"normal", "bold", "400", "500", "600", "700"}:
+    out.append(f"TYP001 {selector}: font-weight {weight} is outside the house weights")
   raw_ff = str(values.get("font-family") or "").strip()
   if raw_ff:
     families = [
@@ -547,13 +599,28 @@ def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str
     allowed = _approved_font_families(tokens)
     if families and not any(fam in allowed for fam in families):
       out.append(
-        f"NUM218 {selector}: font-family {raw_ff} is outside the house font tokens"
+        f"TYP002 {selector}: font-family {raw_ff} is outside the house font tokens"
+      )
+  if tag in PROSE_BLOCK_TAGS:
+    font_style = str(values.get("font-style") or "").strip().lower()
+    if font_style in {"italic", "oblique"}:
+      out.append(
+        f"TYP002 {selector}: font-style {font_style} on body block reduces readability"
       )
   transform = str(values.get("text-transform") or "").strip().lower()
   if transform == "uppercase" and not (
     "eyebrow" in classes or bool(re.search(r"\beyebrow\b", selector, re.IGNORECASE))
   ):
-    out.append(f"NUM218 {selector}: text-transform uppercase is reserved for .eyebrow")
+    out.append(f"TYP003 {selector}: text-transform uppercase is reserved for .eyebrow")
+  fills = element.get("button_fill_colors", element.get("buttonFillColors"))
+  if (
+    isinstance(fills, list)
+    and len({str(x).strip().lower() for x in fills if str(x).strip()}) >= 2
+  ):
+    unique_fills = sorted({str(x).strip().lower() for x in fills if str(x).strip()})
+    out.append(
+      f"HRC001 {selector}: multiple distinct colored action buttons ({', '.join(unique_fills)})"
+    )
   return out
 
 
@@ -568,7 +635,7 @@ def check(
     selector = element.get("selector", "?")
     list_status = _list_indent_status(element)
     if list_status and list_status[1]:
-      findings.append(f"NUM211 {selector}: {'; '.join(list_status[1])}")
+      findings.append(f"TYP203 {selector}: {'; '.join(list_status[1])}")
     for extra in (
       _line_height_finding(element),
       _letter_spacing_finding(element),
@@ -584,7 +651,16 @@ def check(
       if _verified_list_padding(element, name, str(value), list_status):
         continue
       if off_scale(name, str(value), tokens, scale):
-        findings.append(f"{selector}: {name} is {value}, off the {scale:g} px scale")
+        if name in TYPE_PROPERTIES:
+          findings.append(
+            f"TYP001 {selector}: {name} is {value}, outside the type ramp"
+          )
+        elif name.startswith(LAYOUT_PROPERTIES):
+          findings.append(
+            f"SPC002 {selector}: {name} is {value}, outside the allowed radii"
+          )
+        else:
+          findings.append(f"{selector}: {name} is {value}, off the {scale:g} px scale")
   return findings
 
 
@@ -601,7 +677,7 @@ def is_main_landmark(element: dict) -> bool:
 
 
 def is_toolbar_or_header_bar(element: dict, height: float) -> bool:
-  """Return whether an element is a header or toolbar bar exempt from NUM205."""
+  """Return whether an element is a header or toolbar bar exempt from SPC201."""
   if bool(element.get("toolbar_exempt", element.get("toolbarExempt"))):
     return True
   tag = str(element.get("tag") or "").lower()
@@ -630,7 +706,7 @@ def _clean_bounds(bounds: dict) -> dict | None:
 
 
 def check_density(report: dict) -> list[dict]:
-  """Return whitespace and layout-density findings (NUM205, NUM206, NUM207, NUM208)."""
+  """Return whitespace and layout-density findings (SPC201, SPC202, SPC203, HRC102)."""
   findings: list[dict] = []
   viewport_width = float(report.get("width", 1280) or 1280)
   for element in report.get("elements", []):
@@ -657,7 +733,7 @@ def check_density(report: dict) -> list[dict]:
         ratio = float(raw_ratio)
         findings.append(
           {
-            "rule": "NUM205",
+            "rule": "SPC201",
             "selector": selector,
             "evidence": (
               f"{selector}: ink ratio is {ratio:.2f} (< {min_ratio:.2f})"
@@ -675,7 +751,7 @@ def check_density(report: dict) -> list[dict]:
     if gap > MAX_SIBLING_GAP and (width <= 0 or gap > 0.4 * width):
       findings.append(
         {
-          "rule": "NUM206",
+          "rule": "SPC202",
           "selector": selector,
           "evidence": f"{selector}: sibling gap is {gap:g} px (> {MAX_SIBLING_GAP:g} px)",
           **b_extra,
@@ -691,7 +767,7 @@ def check_density(report: dict) -> list[dict]:
     ) and slack > MAX_ROW_SLACK:
       findings.append(
         {
-          "rule": "NUM207",
+          "rule": "SPC203",
           "selector": selector,
           "evidence": (f"{selector}: input ends {slack:g} px before its row edge"),
           **b_extra,
@@ -701,7 +777,7 @@ def check_density(report: dict) -> list[dict]:
     if icon_only and width > 0 and height > 0 and abs(width - height) > 1.0:
       findings.append(
         {
-          "rule": "NUM208",
+          "rule": "HRC102",
           "selector": selector,
           "evidence": (
             f"{selector}: icon-only button is {width:g}x{height:g} px (not symmetric)"
@@ -709,6 +785,33 @@ def check_density(report: dict) -> list[dict]:
           **b_extra,
         }
       )
+    group_sizes = element.get("button_group_sizes", element.get("buttonGroupSizes"))
+    if isinstance(group_sizes, list) and len(group_sizes) >= 2:
+      widths: list[float] = []
+      heights: list[float] = []
+      for item in group_sizes:
+        if isinstance(item, dict):
+          w = float(item.get("width", 0) or 0)
+          h = float(item.get("height", 0) or 0)
+          if w > 0 and h > 0:
+            widths.append(w)
+            heights.append(h)
+      if len(widths) >= 2 and (
+        max(widths) - min(widths) > 1.0 or max(heights) - min(heights) > 1.0
+      ):
+        dims = ", ".join(
+          f"{w:g}x{h:g}px" for w, h in zip(widths, heights, strict=False)
+        )
+        findings.append(
+          {
+            "rule": "HRC102",
+            "selector": selector,
+            "evidence": (
+              f"{selector}: buttons in group do not share identical size ({dims})"
+            ),
+            **b_extra,
+          }
+        )
     values = element.get("values") or {}
     overflow_x = str(values.get("overflow-x") or values.get("overflow") or "").lower()
     overflow_y = str(values.get("overflow-y") or values.get("overflow") or "").lower()
@@ -730,7 +833,7 @@ def check_density(report: dict) -> list[dict]:
     if clipped:
       findings.append(
         {
-          "rule": "NUM209",
+          "rule": "SPC204",
           "selector": selector,
           "evidence": f"{selector}: non-scrolling container clips child content",
           **b_extra,
@@ -740,7 +843,7 @@ def check_density(report: dict) -> list[dict]:
     if overlap_target:
       findings.append(
         {
-          "rule": "NUM210",
+          "rule": "SPC205",
           "selector": selector,
           "evidence": f"{selector}: overlaps sibling {overlap_target}",
           **b_extra,
@@ -755,7 +858,7 @@ def check_density(report: dict) -> list[dict]:
       second = str(pair.get("second") or "?")
       findings.append(
         {
-          "rule": "NUM210",
+          "rule": "SPC205",
           "selector": first,
           "evidence": f"{first}: overlaps sibling {second}",
         }
@@ -785,6 +888,25 @@ def point(text: str) -> tuple[float, float]:
   except ValueError as error:
     raise argparse.ArgumentTypeError(f"a guide reads as x,y, not {text!r}") from error
   return x, y
+
+
+def check_severities(project: Path) -> dict[str, str]:
+  from annotate import find_nuu_config
+
+  config_path = find_nuu_config(project)
+  config = tomllib.loads(config_path.read_text(encoding="utf-8")) if config_path else {}
+  checks = config.get("checks", {})
+  if not isinstance(checks, dict):
+    raise TypeError("checks must be a table")
+  settings = checks.get("severity", {})
+  if not isinstance(settings, dict):
+    raise TypeError("checks.severity must be a table")
+  defaults = {"TYP101": "review", "TYP201": "review"}
+  for rule, severity in settings.items():
+    if rule not in defaults or severity not in ("review", "error"):
+      raise ValueError(f"invalid checks.severity setting: {rule} = {severity!r}")
+    defaults[rule] = severity
+  return defaults
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -857,6 +979,11 @@ def main(argv: list[str] | None = None) -> int:
       print(f"{axis}: {'on' if fits else 'off'} the {scale_val:g} px scale")
     return 0 if gap["on_scale"] else 1
 
+  try:
+    severities = check_severities(Path.cwd())
+  except (OSError, ValueError, TypeError) as error:
+    print(f"configuration error: {error}", file=sys.stderr)
+    return 2
   report = json.loads(arguments.report.read_text(encoding="utf-8"))
   findings = check(report, tokens, scale_val)
   if (
@@ -866,10 +993,16 @@ def main(argv: list[str] | None = None) -> int:
   ):
     findings.extend(f"{row['rule']} {row['evidence']}" for row in check_density(report))
   for finding in findings:
-    print(f"{report.get('width')} px {finding}")
-  if findings:
+    rule = finding.split()[0]
+    severity = severities.get(rule, "error")
+    prefix = f"[{severity}] " if rule in severities else ""
+    print(f"{report.get('width')} px {prefix}{finding}")
+  if any(
+    severities.get(finding.split()[0], "error") == "error" for finding in findings
+  ):
     return 1
-  print(f"{report.get('width')} px: every value sits on the sheet")
+  if not findings:
+    print(f"{report.get('width')} px: every value sits on the sheet")
   return 0
 
 

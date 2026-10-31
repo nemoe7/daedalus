@@ -87,6 +87,7 @@
 - Report changes, findings, checks, results, useful files, decisions, open issues, assumptions, limitations. Open with result; skip task restatement; prefer numbered lists; skipped work + add-when in ≤3 short lines.
 - ALWAYS use the Oxford comma.
 - Chat/reports MUST be concise, vertical-display readable (phone/vertical monitor), human-digestible; limit prose; essays only if strictly necessary; requested explanation is NEVER debt.
+- Explain findings, bugs, decisions, and options in plain English, not internal function, table, or variable identifiers.
 - Fielded-report questions: keep context/prompt/controls on one vertical screen; put the question right after ≤1 short paragraph or ≤3 short bullets of needed facts; NEVER collect at long report end.
 - Mermaid: ALWAYS in documentation, NEVER anywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
@@ -102,7 +103,7 @@
 - MUST publish every unrelated finding in a fielded report with a suggested next action; fix only blocking ones.
 - Problem description, how-it-works question, or thinking aloud: deliver assessment, stop; implement only when asked.
 - Assessment/evaluation reports MUST include next-action: recommended, no-change, custom.
-- Ask before implementing on deviating reasoning/material ambiguity (readings changing behavior/data/interfaces/scope/outcome). Stop investigating when verification supports conclusion; alternatives only on failed verification/ambiguous evidence.
+- Establish expected contract with user, ask before implementing on deviating reasoning/material ambiguity (readings changing behavior/data/interfaces/scope/outcome), and ALWAYS report uncontracted shipped changes. Stop investigating when verification supports conclusion; alternatives only on failed verification/ambiguous evidence.
 - Ask ASAP via fielded reports (Reports tab); read answers at next steering read; affected work stops, independent work continues.
 - Carry every proposal and question in a fielded report, never in chat.
 - Use `ask_user` ONLY for: explicit tool request, unavailable preview (incl. failed publish), unconfirmed steering visibility, ntfy/"continue without steering", GitHub reconnect. NEVER when a report/new report can carry it.
@@ -149,7 +150,7 @@
 ## Style
 
 - `nemoe7` repos: 2-space indent beats formatter defaults; Markdown: markdownlint defaults + MD060, MD013 off; Python: Ruff defaults in `pyproject.toml` (else `ruff.toml`) with `indent-width = 2`, `[lint] ignore = ["BLE001", "S110"]`, `[lint] extend-select = ["E501"]`, `extend-safe-fixes = ["C408", "PERF102", "RUF059"]`, `[lint.pycodestyle] max-line-length = 120`, `required-version = "0.17.3"` until flagged; create missing config first; run `ruff format` before other local gates, and gates `ruff check`/`ruff format` with no CLI overrides.
-- Add code/config comments ONLY when method complexity needs them.
+- Add code/config comments ONLY when complexity needs them, and ALWAYS use the established contract as comments.
 
 ## Git
 
