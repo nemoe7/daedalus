@@ -4607,7 +4607,14 @@ def test_hook_rows_and_update(
   monkeypatch.setattr(remote, "read_records", lambda path=None: state["records"])
 
   def fake_update(
-    entries, folder=None, lock_path=None, only_missing=False, take=None, report=None
+    entries,
+    folder=None,
+    lock_path=None,
+    only_missing=False,
+    take=None,
+    report=None,
+    expected_commit=None,
+    expected_hashes=None,
   ):
     seen.append((list(entries), folder, only_missing, take))
     if report is not None:
@@ -4628,7 +4635,8 @@ def test_hook_rows_and_update(
   )
   state["records"] = before
   found = client.post(
-    "/ui/api/hooks/update", headers={"Content-Type": "application/json"}
+    "/ui/api/hooks/update",
+    json={"source": sources[0], "expect": {"commit": "c" * 40, "hashes": {}}},
   )
   assert found.status_code == 200, found.text
   assert found.json() == {
@@ -4851,7 +4859,15 @@ def test_hook_scan_and_take(
   bad = client.post("/ui/api/hooks/scan", json={"repo": "owner/other"})
   assert bad.status_code == 400, bad.text
   take = client.post(
-    "/ui/api/hooks/update", json={"source": body, "take": ["owner/name/selected.py"]}
+    "/ui/api/hooks/update",
+    json={
+      "source": body,
+      "take": ["owner/name/selected.py"],
+      "expect": {
+        "commit": commit,
+        "hashes": {row["name"]: row["sha256"] for row in answer["files"]},
+      },
+    },
   )
   assert take.status_code == 200, take.text
   assert take.json()["moved"] == ["owner/name/selected.py"], take.text
