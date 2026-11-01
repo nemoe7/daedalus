@@ -34,9 +34,9 @@ def test_the_check_finds_a_theme() -> None:
 
 
 def test_mermaid_blocks_stay_in_the_docs() -> None:
-  """The documentation contains 25 Mermaid diagrams in total."""
+  """The documentation contains 26 Mermaid diagrams in total."""
   total = sum(len(BLOCK.findall(page.read_text(encoding="utf-8"))) for page in pages())
-  assert total == 25, total
+  assert total == 26, total
 
 
 def test_every_flow_chart_names_a_direction() -> None:

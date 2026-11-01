@@ -434,18 +434,25 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
 
 def test_the_shipped_hook_reads_the_declared_cap() -> None:
   """Model turn cap follows the value that Hooks page saves."""
-  module = shipped_module()
+  source = (
+    Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
+  )
+  path = hooks.ROOT / "hooks" / "owui_auto_reasoning_effort.py"
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+  module = hooks.load(path)
+  assert module is not None
   answer, newest = "a" * 900, "thanks"
   messages = [
     {"role": "user", "content": "Write a Python function that reverses a string."},
     {"role": "assistant", "content": answer},
     {"role": "user", "content": newest},
   ]
-  hooks.set_values({"owui_auto_reasoning_effort.py": {"answer_chars": 100}})
+  hooks.save_values(path, {"answer_chars": 100})
   try:
     text = module._newest(messages, "")
   finally:
-    hooks.set_values({})
+    hooks.config_file(path).unlink(missing_ok=True)
   assert text == f"{answer[-100:]}\n{newest}"
   assert len(text) < module.ANSWER_CHARS, "the saved cap is below the default"
 

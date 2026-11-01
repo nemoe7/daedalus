@@ -3,6 +3,7 @@
 import copy
 import importlib.machinery
 import importlib.util
+import json
 import logging
 import posixpath
 import re
@@ -25,8 +26,6 @@ ROOT = Path(".")
 DIR = "hooks"
 DISABLED: set[str] = set()
 ORDER: dict[str, list[str]] = {}
-# The stored values of each hook file, by file name, set at start.
-VALUES: dict[str, dict[str, Any]] = {}
 # Each hook surface, and the function that its file defines.
 SURFACES = {
   "on-catalog": "on_catalog",
@@ -56,8 +55,19 @@ META_KEYS = (
 )
 SCOPES = ("global", "provider", "yaml", "model", "client")
 # The types of 1 declared setting, and the key of its name.
-FIELD_TYPES = ("text", "number", "boolean", "choice")
-FIELD_KEYS = ("key", "label", "type", "default", "minimum", "maximum", "choices")
+FIELD_TYPES = ("text", "number", "boolean", "choice", "rules")
+FIELD_KEYS = (
+  "key",
+  "label",
+  "type",
+  "default",
+  "minimum",
+  "maximum",
+  "choices",
+  "columns",
+  "unique",
+  "options",
+)
 META_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}")
 # The key of 1 declared setting of a hook file.
 SETTING_KEY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,39}")
@@ -234,8 +244,14 @@ def fields_ok(settings: Any) -> tuple[list[dict[str, Any]], str | None]:
     kind = field.get("type", "text")
     if kind not in FIELD_TYPES:
       return [], f"setting {name}: type must be 1 of {', '.join(FIELD_TYPES)}"
+    columns: list[dict[str, Any]] = []
+    if kind == "rules":
+      columns, problem = columns_ok(field.get("columns"))
+      if problem:
+        return [], f"setting {name}: {problem}"
+    checked = {**field, "columns": columns}
     default = field.get("default")
-    if default is not None and not value_ok(kind, default, field):
+    if default is not None and not value_ok(kind, default, checked):
       return [], f"setting {name}: the default does not fit {kind}"
     low, high = field.get("minimum"), field.get("maximum")
     if kind == "number":
@@ -251,6 +267,10 @@ def fields_ok(settings: Any) -> tuple[list[dict[str, Any]], str | None]:
       not isinstance(choices, list) or not choices or not all(map(str, choices))
     ):
       return [], f"setting {name}: a choice needs its options"
+    unique, options = field.get("unique"), field.get("options")
+    for flag, value in (("unique", unique), ("options", options)):
+      if value is not None and not isinstance(value, bool):
+        return [], f"setting {name}: {flag} must be a boolean"
     found.append(
       {
         "key": name,
@@ -260,8 +280,23 @@ def fields_ok(settings: Any) -> tuple[list[dict[str, Any]], str | None]:
         "minimum": low,
         "maximum": high,
         "choices": [str(choice) for choice in choices] if choices else [],
+        "columns": columns,
+        "unique": bool(unique),
+        "options": bool(options),
       }
     )
+  return found, None
+
+
+def columns_ok(columns: Any) -> tuple[list[dict[str, Any]], str | None]:
+  """The declared columns of a rule list, and the reason they are not usable."""
+  if not isinstance(columns, list) or not columns:
+    return [], "rules need columns"
+  found, problem = fields_ok(columns)
+  if problem:
+    return [], problem
+  if any(column["type"] == "rules" for column in found):
+    return [], "a rule column cannot be a rule list"
   return found, None
 
 
@@ -272,15 +307,27 @@ def fields(path: Path | str) -> list[dict[str, Any]]:
   return declared
 
 
-def set_values(values: Mapping[str, Any] | None) -> None:
-  """Set the stored values of the hook files: 1 map of values for each file name."""
-  global VALUES
-  found: dict[str, dict[str, Any]] = {}
-  if isinstance(values, Mapping):
-    for name, entries in values.items():
-      if isinstance(entries, Mapping):
-        found[str(name)] = dict(entries)
-  VALUES = found
+def config_file(path: Path | str) -> Path:
+  """JSON file that holds the saved values of 1 hook file, beside the file."""
+  return Path(path).with_suffix(".json")
+
+
+def read_config(path: Path | str) -> dict[str, Any]:
+  """The saved JSON object of 1 hook file, or an empty object when it does not read."""
+  try:
+    found = json.loads(config_file(path).read_text(encoding="utf-8"))
+  except (OSError, ValueError):
+    return {}
+  return found if isinstance(found, dict) else {}
+
+
+def save_values(path: Path | str, values: Mapping[str, Any]) -> None:
+  """Write the values of 1 hook file in 1 atomic step, and create the file on the 1st save."""
+  target = config_file(path)
+  target.parent.mkdir(parents=True, exist_ok=True)
+  temporary = target.with_suffix(".tmp")
+  temporary.write_text(json.dumps(dict(values), indent=2) + "\n", encoding="utf-8")
+  temporary.replace(target)
 
 
 def values(path: Path | str) -> dict[str, Any]:
@@ -288,7 +335,7 @@ def values(path: Path | str) -> dict[str, Any]:
   declared = fields(path)
   if not declared:
     return {}
-  stored = VALUES.get(Path(path).name) or {}
+  stored = read_config(path)
   found = {}
   for field in declared:
     value = stored.get(field["key"], field["default"])
@@ -309,8 +356,34 @@ def value_ok(kind: str, value: Any, field: Mapping[str, Any]) -> bool:
       return False
     low, high = field.get("minimum"), field.get("maximum")
     return (low is None or value >= low) and (high is None or value <= high)
+  if kind == "rules":
+    return rules_ok(value, field)
   choices = field.get("choices") or []
   return isinstance(value, str) and value in choices
+
+
+def rules_ok(value: Any, field: Mapping[str, Any]) -> bool:
+  """True when an ordered rule list fits the declared columns, and each unique column stays unique."""
+  columns = field.get("columns") or []
+  if not isinstance(value, list) or not columns:
+    return False
+  keys = [str(column["key"]) for column in columns]
+  seen: dict[str, set[Any]] = {
+    str(column["key"]): set() for column in columns if column.get("unique")
+  }
+  for row in value:
+    if not isinstance(row, dict) or set(row) - set(keys):
+      return False
+    for column in columns:
+      key = str(column["key"])
+      item = row.get(key, column.get("default"))
+      if not value_ok(str(column.get("type", "text")), item, column):
+        return False
+      if key in seen:
+        if item in seen[key]:
+          return False
+        seen[key].add(item)
+  return True
 
 
 def meta_file(path: Path) -> tuple[dict[str, Any] | None, str | None]:

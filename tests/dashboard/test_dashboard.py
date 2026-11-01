@@ -4529,6 +4529,39 @@ assert.strictEqual(sandbox.hookPageProblem({ settings: [] }, {}), null, 'no fiel
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_hook_page_validates_a_rule_list() -> None:
+  """A rule list checks each column, keeps unique sources, and draws add and remove controls."""
+  code = _app_js_vm(
+    """
+const entry = { key: 'rules', label: 'Client rules', type: 'rules', columns: [
+  { key: 'source', label: 'From', type: 'choice', choices: ['owui', 'kilo', 'opencode'], unique: true },
+  { key: 'target', label: 'To', type: 'choice', choices: ['owui', 'kilo', 'opencode'] },
+  { key: 'version', label: 'Version', type: 'text', default: 'latest', options: true },
+] };
+const row = { name: 'client_spoof.py', settings: [entry], values: { rules: [] } };
+const good = [{ source: 'kilo', target: 'opencode', version: 'latest' }];
+assert.strictEqual(sandbox.hookPageProblem(row, { rules: good }), null);
+assert.strictEqual(sandbox.hookPageProblem(row, { rules: [{ source: 'curl', target: 'opencode', version: '1' }] }).text,
+  'Pick From from the list.');
+assert.strictEqual(sandbox.hookPageProblem(row, { rules: [
+  { source: 'kilo', target: 'opencode', version: '1' },
+  { source: 'kilo', target: 'owui', version: '1' },
+] }).text, 'Each From must be unique.');
+assert.strictEqual(sandbox.hookPageProblem(row, { rules: [{ source: 'kilo', target: 'opencode', version: '' }] }).text,
+  'Set Version to a value.');
+sandbox.setHookRuleCell('client_spoof.py', 'rules', 0, 'source', 'kilo');
+sandbox.setHookRuleCell('client_spoof.py', 'rules', 0, 'target', 'opencode');
+sandbox.setHookRuleCell('client_spoof.py', 'rules', 0, 'version', 'latest');
+const markup = sandbox.hookRulesTable(row, entry);
+assert.ok(markup.includes('data-hook-rule-add'), 'the table offers an add control');
+assert.ok(markup.includes('data-hook-rule-remove'), 'the table offers a remove control');
+assert.ok(markup.includes('data-hook-rule-version'), 'the version column offers a select');
+assert.ok(markup.includes('<select'), 'the choice columns draw selects');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_hook_rows_and_update(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -5598,7 +5631,7 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
-  assert app.count('class="card-scroll scroll-fade"') == 2, (
+  assert app.count('class="card-scroll scroll-fade"') == 3, (
     "the card scrollers wear the same class"
   )
   assert "tab-step" not in app and "nav-left" not in app, (
@@ -9000,3 +9033,49 @@ def test_dark_bad_contrast_and_maintenance_hint_spacing() -> None:
   )
   assert (high + 0.05) / (low + 0.05) >= MIN_WCAG_AA_CONTRAST
   assert "#update-card > .editbar .hint { margin-left: 0; }" in css
+
+
+def test_hook_settings_save_leaves_base_config_unchanged(
+  client: TestClient, state_folder: Path
+) -> None:
+  """A hook page save writes the hook JSON file, and never the base settings file."""
+  root = state_folder / "hooks"
+  root.mkdir(parents=True, exist_ok=True)
+  (root / "fields.py").write_text(
+    "# ---\n"
+    "# settings:\n"
+    "#   - key: target\n"
+    "#     type: choice\n"
+    "#     choices: [kilo, opencode]\n"
+    "#     default: opencode\n"
+    "# ---\n"
+    "def on_answer(answer, model):\n  return answer\n",
+    encoding="utf-8",
+  )
+  base = settings.DEFAULT_PATH
+  before = base.read_bytes()
+  config = root / "fields.json"
+  assert not config.exists()
+  answer = client.put(
+    "/ui/api/hooks/settings", json={"name": "fields.py", "values": {"target": "kilo"}}
+  )
+  assert answer.status_code == 200, answer.text
+  assert base.read_bytes() == before
+  assert json.loads(config.read_text(encoding="utf-8")) == {"target": "kilo"}
+  rows = {
+    row["name"]: row for row in client.get("/ui/api/settings").json()["hook_rows"]
+  }
+  assert rows["fields.py"]["values"] == {"target": "kilo"}
+  invalid = client.put(
+    "/ui/api/hooks/settings", json={"name": "fields.py", "values": {"target": "curl"}}
+  )
+  assert invalid.status_code == 422, invalid.text
+  assert json.loads(config.read_text(encoding="utf-8")) == {"target": "kilo"}
+  assert base.read_bytes() == before
+  outside = client.put(
+    "/ui/api/hooks/settings",
+    json={"name": "../fields.py", "values": {"target": "kilo"}},
+  )
+  assert outside.status_code == 404, outside.text
+  assert not (state_folder / "fields.json").exists()
+  assert base.read_bytes() == before

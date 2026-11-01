@@ -133,7 +133,7 @@ const state = {
   settings: null, settingsSearch: "", legendExtra: [], requestRace: false,
   requestSearch: "", requestStatus: "all", requestHours: 0, limitSearch: "",
   live: new Map(), livePaused: false, liveWaiting: new Set(), liveSeen: new Set(), liveCount: 0,
-  source: null, env: [], memory: {}, hookOpen: "",
+  source: null, env: [], memory: {}, hookOpen: "", hookDraft: {}, hookOptions: {},
 };
 
 const REQUEST_PAGES = 32;
@@ -2125,8 +2125,9 @@ function hookPage(row) {
     return `<span class="input"><input type="text" ${at} ${label} spellcheck="false"
       value="${esc(value ?? "")}"></span>`;
   };
-  const fields = (row.settings || []).map((entry) => field(entry.label, "", control(entry),
-    `hooks.values.${row.name}.${entry.key}`)).join("")
+  const fields = (row.settings || []).map((entry) => entry.type === "rules"
+    ? `<div class="field stack info hook-rules-field" data-config-key="hooks.values.${esc(row.name)}.${esc(entry.key)}">${labelSpan(entry.label, "")}${hookRulesTable(row, entry)}</div>`
+    : field(entry.label, "", control(entry), `hooks.values.${row.name}.${entry.key}`)).join("")
     || `<em class="none">${t("hook.empty.field_text")}</em>`;
   const back = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${t("hook.page.back_text")}</span>`, {
     variant: "ghost hook-back", attrs: { "data-hook-back": true },
@@ -2245,13 +2246,119 @@ function hookPageNote(text, bad = false) {
   note.classList.toggle("bad", Boolean(bad));
 }
 
-function openHookPage(name) {
+async function openHookPage(name) {
+  const row = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookOpen = name;
+  state.hookDraft[name] = clone(row?.values || {});
+  state.hookOptions = {};
   renderSettings();
+  for (const entry of row?.settings || []) {
+    if (entry.type !== "rules") continue;
+    const rules = state.hookDraft[name][entry.key] || [];
+    for (let index = 0; index < rules.length; index++) await loadHookRuleOptions(name, entry.key, index);
+  }
+  if (state.hookOpen === name) renderSettings();
 }
 
 function closeHookPage() {
+  delete state.hookDraft[state.hookOpen];
   state.hookOpen = "";
+  renderSettings();
+}
+
+// The draft rules of 1 field, kept in state so a redraw keeps an unsaved edit.
+function hookRules(row, entry) {
+  const draft = state.hookDraft[row.name] || {};
+  return Array.isArray(draft[entry.key]) ? draft[entry.key] : [];
+}
+
+function hookRuleCell(row, entry, column, rule, index) {
+  const at = `data-hook-rule-cell="${esc(JSON.stringify([row.name, entry.key, index, column.key]))}"`;
+  const label = `aria-label="${esc(column.label)}"`;
+  const value = rule[column.key] ?? column.default ?? "";
+  if (column.type === "choice") {
+    return `<span class="input"><select ${at} ${label}>${(column.choices || []).map((choice) =>
+      `<option value="${esc(choice)}"${choice === value ? " selected" : ""}>${esc(choice)}</option>`).join("")}</select></span>`;
+  }
+  if (column.type === "boolean") {
+    return `<input type="checkbox" role="switch" class="switch" ${at} ${value ? "checked" : ""} ${label}>`;
+  }
+  if (column.options) {
+    const slot = `${row.name}\u0000${entry.key}\u0000${index}\u0000${column.key}`;
+    const found = state.hookOptions[slot] || [];
+    const list = [...new Set(["latest", ...found, String(value)].filter(Boolean))];
+    const pick = `data-hook-rule-version="${esc(JSON.stringify([row.name, entry.key, index, column.key]))}"`;
+    return `<span class="hook-version"><span class="input"><select ${pick} ${label}>${list.map((choice) =>
+      `<option value="${esc(choice)}"${choice === String(value) ? " selected" : ""}>${esc(choice)}</option>`).join("")}</select></span>`
+      + `<span class="input"><input type="text" ${at} ${label} spellcheck="false" value="${esc(value)}"></span></span>`;
+  }
+  return `<span class="input"><input type="text" ${at} ${label} spellcheck="false" value="${esc(value)}"></span>`;
+}
+
+function hookRulesTable(row, entry) {
+  const rules = hookRules(row, entry);
+  const columns = entry.columns || [];
+  const head = columns.map((column) => `<th>${esc(column.label)}</th>`).join("");
+  const body = rules.map((rule, index) => {
+    const cells = columns.map((column) => `<td role="cell">${hookRuleCell(row, entry, column, rule, index)}</td>`).join("");
+    const remove = actionButton(icon("x"), {
+      variant: "ghost danger",
+      attrs: {
+        "data-hook-rule-remove": JSON.stringify([row.name, entry.key, index]),
+        "aria-label": t("hook.rule.remove_named_label", { number: index + 1 }),
+        title: t("action.remove_button"),
+      },
+    });
+    return `<tr>${cells}<td class="end">${remove}</td></tr>`;
+  }).join("") || `<tr><td role="cell" colspan="${columns.length + 1}"><em class="none">${t("hook.rule.empty_text")}</em></td></tr>`;
+  const add = actionButton(`${icon("plus")} ${t("hook.rule.add_button")}`, {
+    variant: "add", attrs: { "data-hook-rule-add": JSON.stringify([row.name, entry.key]) },
+  });
+  return `<div class="card-scroll scroll-fade"><table class="keys hook-rules"><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>${add}`;
+}
+
+function setHookRuleCell(name, key, index, column, value) {
+  const draft = state.hookDraft[name] || (state.hookDraft[name] = {});
+  const rules = draft[key] || (draft[key] = []);
+  const rule = rules[index] || (rules[index] = {});
+  rule[column] = value;
+}
+
+// Read the discovered version choices of 1 rule row, off the hot path.
+async function loadHookRuleOptions(name, key, index) {
+  const row = (state.settings.hook_rows || []).find((item) => item.name === name);
+  const entry = (row?.settings || []).find((item) => item.key === key);
+  const rule = hookRules(row || {}, entry || {})[index] || {};
+  for (const column of entry?.columns || []) {
+    if (!column.options) continue;
+    const slot = `${name}\u0000${key}\u0000${index}\u0000${column.key}`;
+    try {
+      const found = await call("hooks/options", {
+        method: "POST", spinner: false,
+        body: JSON.stringify({ name, key, column: column.key, row: rule }),
+      });
+      state.hookOptions[slot] = found.options || [];
+    } catch {
+      state.hookOptions[slot] = [];
+    }
+  }
+}
+
+async function addHookRule(name, key) {
+  const row = (state.settings.hook_rows || []).find((item) => item.name === name);
+  const entry = (row?.settings || []).find((item) => item.key === key);
+  const draft = state.hookDraft[name] || (state.hookDraft[name] = {});
+  const rules = draft[key] || (draft[key] = []);
+  const rule = {};
+  for (const column of entry?.columns || []) rule[column.key] = column.default ?? (column.choices || [])[0] ?? "";
+  rules.push(rule);
+  await loadHookRuleOptions(name, key, rules.length - 1);
+  renderSettings();
+}
+
+function removeHookRule(name, key, index) {
+  const rules = state.hookDraft[name]?.[key] || [];
+  rules.splice(index, 1);
   renderSettings();
 }
 
@@ -2265,13 +2372,43 @@ function hookPageValues(name) {
     else if (input.type === "number") found[key] = input.value.trim() === "" ? null : Number(input.value);
     else found[key] = input.value;
   }
+  const row = (state.settings.hook_rows || []).find((item) => item.name === name) || {};
+  for (const entry of row.settings || []) {
+    if (entry.type === "rules") found[entry.key] = clone(hookRules(row, entry));
+  }
   return found;
+}
+
+// The 1st rule column that fails, with the text that says how to set it.
+function hookRuleProblem(entry, rules) {
+  const columns = entry.columns || [];
+  const seen = {};
+  for (const rule of rules) {
+    for (const column of columns) {
+      const value = rule[column.key] ?? column.default;
+      if (column.type === "choice" && !(column.choices || []).includes(value))
+        return t("hook.page.choice_problem", { label: column.label });
+      if (column.type === "text" && (typeof value !== "string" || !value.trim()))
+        return t("hook.rule.text_problem", { label: column.label });
+      if (column.unique) {
+        const bag = seen[column.key] || (seen[column.key] = new Set());
+        if (bag.has(value)) return t("hook.rule.unique_problem", { label: column.label });
+        bag.add(value);
+      }
+    }
+  }
+  return null;
 }
 
 // The 1st field that fails, with the text that says how to set it.
 function hookPageProblem(row, values) {
   for (const entry of row.settings || []) {
     const value = values[entry.key];
+    if (entry.type === "rules") {
+      const problem = hookRuleProblem(entry, Array.isArray(value) ? value : []);
+      if (problem) return { key: entry.key, text: problem };
+      continue;
+    }
     if (entry.type === "choice") {
       if (!(entry.choices || []).includes(value))
         return { key: entry.key, text: t("hook.page.choice_problem", { label: entry.label }) };
@@ -2301,12 +2438,12 @@ async function saveHookPage(name) {
     hookPageNote(problem.text, true);
     return;
   }
-  const values = { ...(setting("hooks", "values") || {}) };
-  values[name] = found;
   await guarded(async () => {
-    await call("settings", { method: "PUT", body: JSON.stringify({ changes: { hooks: { values } } }) });
+    await call("hooks/settings", { method: "PUT", body: JSON.stringify({ name, values: found }) });
     await loadSettings();
   });
+  const saved = (state.settings.hook_rows || []).find((item) => item.name === name);
+  state.hookDraft[name] = clone(saved?.values || found);
   hooksNote(t("hook.page.saved_text", { name }));
   hookPageNote(t("hook.page.saved_text", { name }));
 }
@@ -5357,6 +5494,11 @@ window.addEventListener("resize", () => {
 $("settings").addEventListener("input", (event) => {
   // The nested providers host handles its own events.
   if (event.composedPath?.().includes($("provider-form"))) return;
+  if (event.target.dataset.hookRuleCell && event.target.type !== "checkbox") {
+    const [name, key, index, column] = JSON.parse(event.target.dataset.hookRuleCell);
+    setHookRuleCell(name, key, index, column, event.target.value);
+    return;
+  }
   clearWrite("settings");
   showLengthLimit(event.target, $("settings-message"));
   // Change visible affinity rows without changing the selected mode.
@@ -5386,6 +5528,10 @@ $("settings").addEventListener("click", async (event) => {
   if (event.target.closest("[data-hook-back]")) return closeHookPage();
   const hookSave = event.target.closest("[data-hook-save]");
   if (hookSave) return saveHookPage(hookSave.dataset.hookSave);
+  const ruleAdd = event.target.closest("[data-hook-rule-add]");
+  if (ruleAdd) return addHookRule(...JSON.parse(ruleAdd.dataset.hookRuleAdd));
+  const ruleRemove = event.target.closest("[data-hook-rule-remove]");
+  if (ruleRemove) return removeHookRule(...JSON.parse(ruleRemove.dataset.hookRuleRemove));
   if (event.target.closest("[data-hook-take-all]")) return takeHooks();
   const drop = event.target.closest("[data-setting-drop]");
   if (drop) {
@@ -5402,10 +5548,24 @@ $("settings").addEventListener("click", async (event) => {
     showSettingAdder(add);
   }
 });
-$("settings").addEventListener("change", (event) => {
+$("settings").addEventListener("change", async (event) => {
   // The nested providers host handles its own events.
   if (event.composedPath?.().includes($("provider-form"))) return;
   const input = event.target;
+  if (input.dataset.hookRuleVersion) {
+    const [name, key, index, column] = JSON.parse(input.dataset.hookRuleVersion);
+    setHookRuleCell(name, key, index, column, input.value);
+    return renderSettings();
+  }
+  if (input.dataset.hookRuleCell) {
+    const [name, key, index, column] = JSON.parse(input.dataset.hookRuleCell);
+    setHookRuleCell(name, key, index, column, input.type === "checkbox" ? input.checked : input.value);
+    const row = (state.settings.hook_rows || []).find((item) => item.name === name);
+    const entry = (row?.settings || []).find((item) => item.key === key);
+    const target = (entry?.columns || []).find((item) => item.key === column);
+    if (target?.type === "choice") await loadHookRuleOptions(name, key, index);
+    return renderSettings();
+  }
   // The manager writes at once too: the source selection stays in the page, and 2 boxes save.
   if (input.dataset.hookSource !== undefined) {
     state.hooksSource = Number(input.value) || 0;

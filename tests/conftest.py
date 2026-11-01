@@ -41,7 +41,6 @@ SETTINGS = (
     )
   ),
   (media, "REQUEST_HOOKS"),
-  (hooks, "VALUES"),
   *(
     (api.PENALTIES, name)
     for name in (

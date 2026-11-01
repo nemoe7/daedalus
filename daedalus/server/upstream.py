@@ -571,7 +571,7 @@ async def attempt(
         "include_usage": True,
       },
     }
-  headers = dict(headers)
+  headers = dict(with_client(headers))
   payload = hooks.run("on-upstream", config, candidate, payload, headers=headers)
   effort = provider.effort(payload)
   if sent is not None and (asked or effort is not None):
@@ -579,7 +579,7 @@ async def attempt(
   wait = router.model_wait(config, candidate, WAIT_SECONDS)
   timeout = httpx.Timeout(TIMEOUT_SECONDS, read=wait)
   upstream = get_client().build_request(
-    "POST", url, json=payload, headers=with_client(headers), timeout=timeout
+    "POST", url, json=payload, headers=headers, timeout=timeout
   )
   started = time.perf_counter()
   response = await get_client().send(upstream, stream=True)
@@ -773,6 +773,7 @@ async def post(
 ) -> httpx.Response:
   """Send one request without a stream, with the model hook, and fail on an upstream error status."""
   started = time.perf_counter()
+  headers = dict(with_client(headers))
   # A media hook gets the JSON body, or the form fields of a multipart request.
   field = next(
     (name for name in ("json", "data") if isinstance(content.get(name), dict)), None
@@ -783,9 +784,7 @@ async def post(
     )
   # A whole answer can take longer than the wait for one stream chunk.
   timeout = httpx.Timeout(TIMEOUT_SECONDS)
-  response = await get_client().post(
-    url, headers=with_client(headers), timeout=timeout, **content
-  )
+  response = await get_client().post(url, headers=headers, timeout=timeout, **content)
   # The rate-limit headers and body of a 429 explain the limit, so they count before the error goes out.
   body = response.content if response.status_code >= 400 else b""
   observe(LANE.get() or candidate, response.headers, body)

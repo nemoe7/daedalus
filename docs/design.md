@@ -137,7 +137,11 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 
 A hook row with declared fields carries a `chevron_right` button. The button swaps the table for the `.hook-page` of that hook.
 
-The page holds the `‹` back button, the hook title, 1 `.field` for each declared field with its saved value, and 1 primary `Save` for `hooks.values`. A wrong value keeps the page open, marks its field, and shows the way to set it. A good 1 shows a saved line. Rows without fields keep the `chevron` out, and the back button returns to the table.
+The page holds the `‹` back button, the hook title, 1 `.field` for each declared field with its saved value, and 1 primary `Save`. Save writes the hook's own JSON file through `PUT /ui/api/hooks/settings`, and the base config stays unchanged.
+
+A wrong value keeps the page open, marks its field, and shows the way to set it. A good 1 shows a saved line. Rows without fields keep the `chevron` out, and the back button returns to the table.
+
+A `rules` field draws a `.hook-rules` table inside a wide `.field`. Each row holds 1 control for each declared column: a `<select>` for a `choice` column, and a version `<select>` beside a manual text box for a column with `options`. An `Add rule` button appends a row, and each row carries an `x` remove button. The page keeps an unsaved draft in `state.hookDraft`, and reads the version choices through `POST /ui/api/hooks/options` when the page opens and when a row changes.
 
 ## 8. Motion, Interaction, and States
 

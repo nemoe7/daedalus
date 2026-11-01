@@ -1413,6 +1413,18 @@ const DEMO_FIXTURES = __FIXTURES__;
       });
     }
     if (path === "hooks/update" && method === "POST") return json(DEMO_HOOKS.answer);
+    if (path === "hooks/options" && method === "POST") {
+      const asked = body_of(init);
+      const target = asked.row?.target || "opencode";
+      const versions = { owui: ["0.12.5", "0.12.4"], kilo: ["7.8.18", "7.8.17"], opencode: ["2.2.5", "2.2.4"] };
+      return json({ options: ["latest", ...(versions[target] || [])] });
+    }
+    if (path === "hooks/settings" && method === "PUT") {
+      const asked = body_of(init);
+      const row = DEMO_FIXTURES.settings.hook_rows.find((item) => item.name === asked.name);
+      if (row) row.values = { ...row.values, ...asked.values };
+      return json({ ok: true, values: row ? row.values : asked.values });
+    }
     return null;
   };
   // Simulate hook scans with 2 files and report version changes on update.
