@@ -198,12 +198,16 @@ def update(
   only_missing: bool = False,
   take: Iterable[str] | None = None,
   report: list[str] | None = None,
+  expected_commit: str | None = None,
+  expected_hashes: Mapping[str, str] | None = None,
 ) -> list[str]:
   """Fetch each source and write its hook files. Return the identities whose bytes moved.
 
   `only_missing` fetches only when a recorded file is missing, unless `auto_update` is set.
   `take` writes only listed identities so other files stay untouched. Failed fetches, unreadable
   archives, refused blocks, or failed writes preserve existing files and lock records.
+  `expected_commit` and `expected_hashes` pin a dashboard preview: a moved ref or changed byte
+  writes nothing for that source.
   """
   wanted = None if take is None else {str(name) for name in take}
   target = hooks.folder() if folder is None else folder
@@ -238,6 +242,12 @@ def update(
       if report is not None:
         report.append(f"source {repo} at {ref} did not read")
       continue
+    if expected_commit is not None and commit != expected_commit:
+      message = f"source {repo} moved from the previewed commit. Nothing installed"
+      tell(message)
+      if report is not None:
+        report.append(message)
+      continue
     body = fetch(ARCHIVE.format(repo=repo, commit=commit), report=report)
     if body is None:
       continue
@@ -249,6 +259,21 @@ def update(
       if report is not None:
         report.append(f"source {repo} held no .py file under {path!r}")
       continue
+    if expected_hashes is not None:
+      selected = wanted if wanted is not None else {f"{repo}/{name}" for name in files}
+      stale = [
+        identity
+        for identity in sorted(selected)
+        if expected_hashes.get(identity)
+        != digest(files.get(identity.partition(f"{repo}/")[2], b""))
+        or identity.partition(f"{repo}/")[2] not in files
+      ]
+      if stale:
+        message = f"source {repo} changed from the previewed bytes. Nothing installed"
+        tell(message)
+        if report is not None:
+          report.append(message)
+        continue
     fresh: dict[str, dict[str, str]] = {}
     dropped: set[str] = set()
     for name, raw in files.items():

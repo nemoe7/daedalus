@@ -1412,7 +1412,11 @@ const DEMO_FIXTURES = __FIXTURES__;
         files: DEMO_HOOKS.files,
       });
     }
-    if (path === "hooks/update" && method === "POST") return json(DEMO_HOOKS.answer);
+    if (path === "hooks/update" && method === "POST") {
+      const asked = body_of(init);
+      if (!asked.expect?.commit || !asked.expect?.hashes) return bad("Preview the source before installing.", 400);
+      return json(DEMO_HOOKS.answer);
+    }
     if (path === "hooks/options" && method === "POST") {
       const asked = body_of(init);
       const target = asked.row?.target || "opencode";
@@ -1432,9 +1436,10 @@ const DEMO_FIXTURES = __FIXTURES__;
     repo: "nemoe7/daedalus",
     commit: "3f9c1ab4d2e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9",
     files: [
-      { name: "served_model.py", version: "1.3.0", scope: "global", targets: [], surfaces: ["on-chunk"], problem: "" },
+      { name: "served_model.py", version: "1.3.0", sha256: "a".repeat(64), scope: "global",
+        targets: [], surfaces: ["on-chunk"], problem: "" },
       { name: "owui_auto_reasoning_effort.py", version: "1.1.0", scope: "model", targets: ["gpt-5"],
-      surfaces: ["on-prompt"], problem: "" },
+      surfaces: ["on-prompt"], sha256: "b".repeat(64), problem: "" },
     ],
     answer: {
       moved: ["served_model.py"],

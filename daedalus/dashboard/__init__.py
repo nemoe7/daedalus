@@ -1513,10 +1513,19 @@ def settings_routes(
     body = await json_body(request)
     source = body.get("source") if isinstance(body, dict) else None
     take = body.get("take") if isinstance(body, dict) else None
+    expect = body.get("expect") if isinstance(body, dict) else None
+    if not isinstance(source, dict) or not isinstance(expect, dict):
+      return failure(
+        400, "Preview the source before installing.", "invalid_request_error"
+      )
+    commit = expect.get("commit")
+    hashes = expect.get("hashes")
+    if not isinstance(commit, str) or not isinstance(hashes, dict):
+      return failure(
+        400, "The preview needs a commit and file hashes.", "invalid_request_error"
+      )
     group = settings.load()["hooks"]
-    entries = [source] if isinstance(source, dict) else group["sources"]
-    if not entries:
-      return failure(400, "No source in hooks.sources.", "invalid_request_error")
+    entries = [source]
     hooks.set_installed(group["dir"], group["disabled"], group["order"])
     before = remote.read_records()
     report: list[str] = []
@@ -1525,6 +1534,8 @@ def settings_routes(
       hooks.folder(),
       take=take if isinstance(take, list) else None,
       report=report,
+      expected_commit=commit,
+      expected_hashes={str(name): str(value) for name, value in hashes.items()},
     )
     for line in report:
       logger.warning("hooks update: %s", line)

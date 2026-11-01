@@ -159,8 +159,8 @@ def hooks_of() -> tuple[dict[str, Any], Path] | None:
   return group, hooks.folder()
 
 
-def hooks_update() -> int:
-  """Fetch the sources of the settings now, and print 1 row per installed file."""
+def hooks_update(yes: bool = False) -> int:
+  """Preview the sources, confirm the write, and print 1 row per installed file."""
   found = hooks_of()
   if found is None:
     return 2
@@ -168,6 +168,14 @@ def hooks_update() -> int:
   if not group["sources"]:
     print("no source in hooks.sources")
     return 1
+  if not yes:
+    names = ", ".join(str(source.get("repo", "")) for source in group["sources"])
+    answer = input(
+      f"Install hook files from {names}? Hooks run code with the same access as Daedalus. [y/N] "
+    )
+    if answer.strip().lower() not in {"y", "yes"}:
+      print("cancelled")
+      return 0
   moved = remote.update(group["sources"], folder)
   repos = {source["repo"] for source in group["sources"]}
   for name, record in sorted(remote.read_records().items()):
@@ -300,8 +308,11 @@ def run(argv: list[str] | None = None) -> None:
     "hooks", help="update the hook files, list them, and check them on disk"
   )
   hooks_commands = hooks_command.add_subparsers(dest="hooks_command", metavar="COMMAND")
-  hooks_commands.add_parser(
-    "update", help="fetch the sources of hooks.sources and write the hook files"
+  update_command = hooks_commands.add_parser(
+    "update", help="preview and confirm the hook files of hooks.sources"
+  )
+  update_command.add_argument(
+    "--yes", action="store_true", help="skip the confirmation prompt"
   )
   hooks_commands.add_parser(
     "list",
@@ -353,7 +364,7 @@ def run(argv: list[str] | None = None) -> None:
       hooks_command.print_help()
       return
     code = {
-      "update": hooks_update,
+      "update": lambda: hooks_update(yes=args.yes),
       "list": hooks_list,
       "verify": hooks_verify,
     }[args.hooks_command]()

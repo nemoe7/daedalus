@@ -2175,7 +2175,7 @@ function hooksManager() {
   }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
   const scan = state.hooksScan;
   const panel = scan ? `<div class="pills" id="hooks-scan">
-      <span class="sub">${t("hook.scan.at_text", { source: esc(sourceLabel(scan)), commit: esc((scan.commit || "").slice(0, 7)) })}</span>${scan.files
+      ${scanSources(scan).map((source) => `<span class="sub">${t("hook.scan.at_text", { source: esc(sourceLabel(source)), commit: esc((source.commit || "").slice(0, 7)) })}</span>`).join("")}${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
       ${actionButton(`${icon("download")} ${t("action.take_files_button")}`, {
@@ -2225,10 +2225,13 @@ async function addHookSource() {
   const parts = sourceParts($("modal-input").value.trim());
   try {
     const found = await call("hooks/scan", { method: "POST", body: JSON.stringify(parts) });
-    const installed = new Map((state.settings.hook_rows || []).map((row) => [row.name, row.version]));
+    const installed = new Map((state.settings.hook_rows || []).map((row) => [row.name, row.record?.sha256]));
+    const files = (found.files || []).map((file) => ({ ...file, source: found.repo, commit: found.commit }));
     state.hooksScan = {
       ...found,
-      take: Object.fromEntries(found.files.map((file) => [file.name, installed.get(file.name) !== file.version])),
+      sources: [found],
+      files,
+      take: Object.fromEntries(files.map((file) => [file.name, !file.problem && installed.get(file.name) !== file.sha256])),
     };
     renderSettings();
     hooksNote(t("hook.source.count_text", { files: count(found.files.length, "file"), source: sourceLabel(found) }));
@@ -2448,24 +2451,47 @@ async function saveHookPage(name) {
   hookPageNote(t("hook.page.saved_text", { name }));
 }
 
+function scanSources(scan) {
+  return scan.sources || [{ repo: scan.repo, path: scan.path, ref: scan.ref, commit: scan.commit }];
+}
+
 async function takeHooks() {
   const scan = state.hooksScan;
   if (!scan) return;
-  const source = { repo: scan.repo, path: scan.path, ref: scan.ref, auto_update: false };
+  const groups = scanSources(scan).map((source) => ({
+    source,
+    take: scan.files.filter((file) => scan.take[file.name] && file.source === source.repo && file.commit === source.commit),
+  })).filter((group) => group.take.length);
+  if (!groups.length) return;
+  const names = groups.map((group) => t("hook.scan.at_text", { source: group.source.repo, commit: group.source.commit.slice(0, 12) }));
+  const count = groups.reduce((sum, group) => sum + group.take.length, 0);
+  const ok = await ask(t("dialog.hooks_install.message", { files: count, sources: names.join(", ") }),
+    t("dialog.hooks_install.title"), t("action.install_hooks_button"), true);
+  if (!ok) return;
   const sources = [...listValue("hooks", "sources")];
-  if (!sources.some((entry) => entry.repo === source.repo && entry.path === source.path && entry.ref === source.ref)) {
-    sources.push(source);
+  for (const group of groups) {
+    const source = { repo: group.source.repo, path: group.source.path, ref: group.source.ref, auto_update: false };
+    if (!sources.some((entry) => entry.repo === source.repo && entry.path === source.path && entry.ref === source.ref)) sources.push(source);
   }
   setListValue("hooks", "sources", sources);
-  const take = scan.files.map((file) => file.name).filter((name) => scan.take[name]);
   state.hooksScan = null;
+  renderSettings();
   try {
-    await call("settings", { method: "PUT", body: JSON.stringify({ changes: settingsChanges() }) });
-    const answer = await call("hooks/update", { method: "POST", body: JSON.stringify({ source, take }) });
+    if (settingsDirty()) await call("settings", { method: "PUT", body: JSON.stringify({ changes: settingsChanges() }) });
+    const reports = [];
+    let moved = 0;
+    for (const group of groups) {
+      const hashes = Object.fromEntries(group.take.map((file) => [file.name, file.sha256]));
+      const answer = await call("hooks/update", { method: "POST", body: JSON.stringify({
+        source: { repo: group.source.repo, path: group.source.path, ref: group.source.ref },
+        take: group.take.map((file) => file.name), expect: { commit: group.source.commit, hashes },
+      }) });
+      moved += (answer.moved || []).length;
+      reports.push(...(answer.report || []));
+    }
     await loadSettings();
-    const fails = updateFails(answer);
-    hooksNote(fails ? "" : updateNote(answer));
-    if (fails) showNotice(fails);
+    hooksNote(moved ? t("hook.update.moved_text", { files: moved }) : t("hook.empty.moved_text"));
+    if (reports.length) showNotice(reports.join(" "));
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     showWrite("settings", error.message, true);
@@ -2477,13 +2503,27 @@ async function runHooksUpdate(button) {
     button.disabled = true;
     button.setAttribute?.("aria-busy", "true");
   }
-  hooksNote(t("hook.state.updating_text"));
+  hooksNote(t("hook.state.checking_text"));
   try {
-    const answer = await call("hooks/update", { method: "POST", spinner: false });
-    await loadSettings();
-    const fails = updateFails(answer);
-    hooksNote(fails ? "" : updateNote(answer));
-    if (fails) showNotice(fails);
+    const sources = listValue("hooks", "sources");
+    const scans = [];
+    const files = [];
+    const take = {};
+    const rows = state.settings?.hook_rows || [];
+    for (const source of sources) {
+      const found = await call("hooks/scan", { method: "POST", body: JSON.stringify(source), spinner: false });
+      scans.push(found);
+      for (const file of found.files || []) {
+        const row = rows.find((item) => item.name === file.name);
+        const changed = !file.problem && (!row || row.record?.sha256 !== file.sha256);
+        files.push({ ...file, source: found.repo, commit: found.commit, changed });
+        take[file.name] = changed;
+      }
+    }
+    state.hooksScan = { sources: scans, files, take };
+    renderSettings();
+    const changed = files.filter((file) => take[file.name]).length;
+    hooksNote(changed ? t("hook.preview.count_text", { files: changed }) : t("hook.preview.current_text"));
   } catch (error) {
     if (error instanceof LoggedOut) return showLogin(t("auth.session_ended"));
     hooksNote(error.message);

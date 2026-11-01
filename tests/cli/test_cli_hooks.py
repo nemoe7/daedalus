@@ -83,7 +83,7 @@ def test_update_writes_the_source(
   monkeypatch.setattr(
     remote, "fetch", lambda url, timeout=remote.TIMEOUT, report=None: pages.get(url)
   )
-  assert cli.hooks_update() == 0
+  assert cli.hooks_update(yes=True) == 0
   assert (folder / "owner/name/one.py").exists(), "the fetch wrote the file"
   out = capsys.readouterr().out
   assert "owner/name/one.py" in out and "1.2.0" in out
