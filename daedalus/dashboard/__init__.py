@@ -238,6 +238,7 @@ LOGIN_FAILURES: dict[str, tuple[int, float]] = {}
 UI_DIR = Path(__file__).parent / "ui"
 UI_FILES = {
   "app.js": "text/javascript",
+  "vendor/sortable.min.js": "text/javascript",
   "en.js": "text/javascript",
   "gsap.min.js": "text/javascript",
   "style.css": "text/css",

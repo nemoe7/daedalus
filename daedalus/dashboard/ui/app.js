@@ -1347,6 +1347,7 @@ const ICON_PATHS = {
   info: '<circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" />',
   x: '<path d="M18 6 6 18" /> <path d="m6 6 12 12" />',
   chevron_up: '<path d="m18 15-6-6-6 6" />',
+  grip_vertical: '<circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>',
   chevron_down: '<path d="m6 9 6 6 6-6" />',
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
   refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
@@ -2035,28 +2036,14 @@ function hookSurfacesCell(row) {
 function hookOrderRows() {
   return orderedSurfaces().map(([surface, label]) => {
     const files = hookOrderFiles(surface);
-    const rows = files.map((file, index) => `<li><span class="cell-value">${hookName(file)}</span>
-      ${actionButton(icon("chevron_up"), {
-        variant: "ghost",
-        attrs: {
-          "data-hook-move": JSON.stringify([surface, index, -1]),
-          disabled: !index,
-          "aria-label": t("hook.order.up_named_label", { file }),
-          title: t("hook.order.up_title"),
-        },
-      })}
-      ${actionButton(icon("chevron_down"), {
-        variant: "ghost",
-        attrs: {
-          "data-hook-move": JSON.stringify([surface, index, 1]),
-          disabled: index + 1 >= files.length,
-          "aria-label": t("hook.order.down_named_label", { file }),
-          title: t("hook.order.down_title"),
-        },
-      })}</li>`).join("");
+    const rows = files.map((file, index) => `<li data-hook-order-row="${esc(file)}" data-surface="${surface}" data-index="${index}">
+      ${actionButton(icon("grip_vertical"), { variant: "drag-handle", attrs: {
+        "data-hook-drag": file, "aria-label": t("hook.order.drag_named_label", { file }), title: t("hook.order.drag_title"),
+      } })}
+      <span class="cell-value">${hookName(file)}</span></li>`).join("");
     const hint = t("hook.order.hint");
     return field(label, hint, `
-      <ul class="hook-order">${rows || `<li><em class="none">${t("hook.empty.file_for_surface_text")}</em></li>`}</ul>`);
+      <ul class="hook-order" data-hook-order="${surface}">${rows || `<li><em class="none">${t("hook.empty.file_for_surface_text")}</em></li>`}</ul>`);
   }).join("");
 }
 
@@ -2064,6 +2051,35 @@ function hookOrderRows() {
 function renderHookOrder() {
   const host = $("hooks-order");
   if (host) host.innerHTML = hookOrderRows();
+}
+
+// Drag saves order on drop. The handle keeps a keyboard path with ArrowUp/ArrowDown.
+function initHookDrag() {
+  if (typeof Sortable === "undefined") return;
+  document.querySelectorAll("[data-hook-order]").forEach((list) => {
+    if (list._sortable) return;
+    list._sortable = Sortable.create(list, {
+      handle: ".drag-handle", animation: matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 150,
+      onEnd: () => {
+        const surface = list.dataset.hookOrder;
+        hookOrderState()[surface] = [...list.querySelectorAll("[data-hook-order-row]")].map((row) => row.dataset.hookOrderRow);
+        renderSettingsSave();
+        saveSettings();
+      },
+    });
+  });
+  document.querySelectorAll("[data-hook-drag]").forEach((handle) => {
+    if (handle._hookKeys) return;
+    handle._hookKeys = true;
+    handle.addEventListener("keydown", (event) => {
+      if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
+      event.preventDefault();
+      const row = handle.closest("[data-hook-order-row]");
+      moveHookFile([row.dataset.surface, Number(row.dataset.index), event.key === "ArrowUp" ? -1 : 1]);
+      const next = document.querySelector(`[data-hook-order="${row.dataset.surface}"] [data-index="${Number(row.dataset.index) + (event.key === "ArrowUp" ? -1 : 1)}"] [data-hook-drag]`);
+      next?.focus();
+    });
+  });
 }
 
 // Move a surface file up by -1 or down by 1.
@@ -2165,9 +2181,9 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
-      <td class="end">${(row.settings || []).length ? actionButton(icon("chevron_right"), {
+      <td class="end">${(row.settings || []).length ? actionButton(t("action.settings_button"), {
         variant: "ghost",
-        attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("hook.action.open_named_label", { name: row.name }) },
+        attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }) },
       }) : ""}${actionButton(icon("trash"), {
         variant: "ghost danger",
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
@@ -2181,13 +2197,13 @@ function hooksManager() {
       ${actionButton(`${icon("download")} ${t("action.take_files_button")}`, {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
-  return `${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
+  return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
       <div class="card-scroll scroll-fade"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
       ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
         variant: "ghost", attrs: { "data-hooks-update": true },
       })}`, "hooks.disabled")}
-    <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div>
+    <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
       <span class="input"><input type="text" id="set-hooks-dir" aria-haspopup="dialog" aria-controls="modal" data-value="${t("settings.hooks.folder.label")}"
         readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
@@ -3995,6 +4011,7 @@ function renderSettings() {
     filterRail($("settings"));
   }
   renderSettingsSave();
+  initHookDrag();
   placeUndo();
   fitSectionPane();
   keepSettingsScroll(scroll);
