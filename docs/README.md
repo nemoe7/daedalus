@@ -13,7 +13,7 @@ Every page, in the order of a first read.
 | [Providers](providers.md) | The 8 providers, catalog rules, and media limits |
 | [Provider keys](provider-keys.md) | The steps that make a key for each provider |
 | [Deployment](deployment.md) | Docker Compose, the image release, the optional services, Open WebUI, Tika, SearXNG, Headroom, and Tailscale |
-| [Dashboard](dashboard.md) | The 7 pages, requests view, and API keys |
+| [Dashboard](dashboard.md) | The 6 pages, request details, and API keys |
 | [Design](design.md) | The dashboard design system, color tokens, typography, layout grids, components, and visual reference boards |
 
 ## Hooks
@@ -21,6 +21,7 @@ Every page, in the order of a first read.
 | Page | Contents |
 | --- | --- |
 | [Hooks](hooks.md) | The 8 hook surfaces, HTTP surface, errors, logs, remote files, and shipped files |
+| [Client spoofing](hooks/client_spoof.md) | Present one client as another through outbound identity headers |
 | [Auto reasoning effort](hooks/owui_auto_reasoning_effort.md) | The reasoning level of a turn, and the try-again rule |
 | [The served model line](hooks/served_model.md) | The model that served a chat pool request |
 | [The OpenRouter endpoint order](hooks/or_cheapest_output.md) | The endpoint order of 1 OpenRouter model, by output price |

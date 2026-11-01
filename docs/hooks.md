@@ -434,7 +434,6 @@ Disabled files also stay out of explicit hook lists, the code legend, and HTTP c
 
 ```bash
 daedalus hooks update                       # every source of hooks.sources
-daedalus hooks update nemoe7/daedalus-hooks # the sources of 1 repo
 daedalus hooks list                         # the file, the version, the scope, and the state of each
 daedalus hooks verify                       # the disk against the lock
 ```
