@@ -115,11 +115,12 @@ Before each request to a provider: chat, streams, fallbacks, embeddings, speech,
 | --- | --- |
 | `body` | The upstream JSON body, native format for native APIs |
 | `model` | `provider/slug` |
-| `headers` | Changeable |
+| `headers` | Changeable. The effective outbound headers: the client headers with the provider headers on top |
 
 A multipart request hands the hook its form fields, and the files stay as they are.
 
-The headers of the hook win over the client headers. This example presents a client as OpenCode,
+The hook reads the effective outbound headers, and the headers it leaves win over the client
+headers. A header the hook removes stays out. This example presents a client as OpenCode,
 whichever client sent the request:
 
 ```python
@@ -350,15 +351,49 @@ shows 1 field for each entry.
 | --- | --- |
 | `key` | The name of the value, of up to 40 letters, digits, dots, dashes or underscores |
 | `label` | The text of the field, and the key when absent |
-| `type` | `text`, `number`, `boolean`, or `choice`. Text when absent |
+| `type` | `text`, `number`, `boolean`, `choice`, or `rules`. Text when absent |
 | `default` | The value before the operator saves 1 |
 | `minimum`, `maximum` | The ends of a number |
 | `choices` | The options of a choice |
+| `columns` | The columns of a `rules` list, each 1 field of its own |
+| `unique` | A boolean. A `rules` column whose value must stay unique across the rows |
+| `options` | A boolean. A `rules` column whose options come from the `options` function of the file |
 
-The values live in `hooks.values` of the settings file, 1 map for each hook file name, so a file
-update keeps them. A hook reads its values with `hooks.values(__file__)`, from
+A `rules` field holds an ordered list of rows, and each row holds 1 value for each column. The Hooks
+page draws a table with an add control and a remove control for each row.
+
+A `choice` column draws a select. A column with `options` draws a version select beside a manual
+text box.
+
+```yaml
+# settings:
+#   - key: rules
+#     label: Client rules
+#     type: rules
+#     columns:
+#       - key: source
+#         label: From
+#         type: choice
+#         choices: [owui, kilo, opencode]
+#         unique: true
+#       - key: target
+#         label: To
+#         type: choice
+#         choices: [owui, kilo, opencode]
+```
+
+Each hook owns its settings file: a JSON file beside the hook file, named `<hook file>.json`. It
+does not exist until the first save on the Hooks page, and a file update keeps it. The base settings
+file holds no hook values.
+
+A hook reads its values with `hooks.values(__file__)`, from
 [`daedalus.providers.hooks`](../daedalus/providers/hooks.py). A value that is absent or does not fit
-the field takes the default.
+its field takes the default.
+
+A hook file may define `options(key, column, row)` to fill the dynamic options of 1 `rules` column.
+The Hooks page calls it through `POST /ui/api/hooks/options` when the page opens and when a row
+changes, off the request path. It returns a list of text choices, and the page keeps a manual text
+box beside the select.
 
 ## Sources and the lock
 
@@ -433,6 +468,7 @@ card. The keyword chips of the Hooks card accept any file of the folder.
 | [`hooks/owui_auto_reasoning_effort.py`](../hooks/owui_auto_reasoning_effort.py) | The [auto reasoning level and try-again rule](hooks/owui_auto_reasoning_effort.md) of an Open WebUI chat |
 | [`hooks/served_model.py`](../hooks/served_model.py) | The [served model line](hooks/served_model.md) of a chat pool request |
 | [`hooks/or_cheapest_output.py`](../hooks/or_cheapest_output.py) | The [OpenRouter endpoint order](hooks/or_cheapest_output.md) |
+| [`hooks/client_spoof.py`](../hooks/client_spoof.py) | The [client identity rules](hooks/client_spoof.md) that present one harness as another |
 
 [`hooks/example.py`](../hooks/example.py) is the start for a new hook file. The
 [README](../README.md#hooks) holds its description and 1 example.

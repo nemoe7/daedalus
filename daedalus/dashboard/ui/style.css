@@ -524,6 +524,12 @@ table.limits td.num .weight { justify-content: flex-end; }
 .hook-page .hook-back { display: inline-flex; color: var(--accent-text); border: 0; background: transparent; padding: 4px 6px; }
 .hook-heading { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
 .hook-page .field { max-width: 24rem; }
+.hook-page .hook-rules-field { max-width: none; }
+.hook-rules { width: 100%; }
+.hook-rules td .input { display: flex; min-width: 8rem; }
+.hook-rules td .input select, .hook-rules td .input input { width: 100%; }
+.hook-version { display: flex; gap: 4px; flex-wrap: wrap; }
+.hook-version .input { flex: 1; min-width: 7rem; }
 .hook-page #hook-page-note { margin: 0; }
 .hook-page #hook-page-note:empty { display: none; }
 .hook-page #hook-page-note.bad { color: var(--bad); }

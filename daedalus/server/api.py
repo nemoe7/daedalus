@@ -1679,7 +1679,6 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   }
   # Media routes run the same request surface, so they read the same files.
   media.REQUEST_HOOKS = REQUEST_HOOKS
-  hooks.set_values(hook_values["values"])
   hooks.set_installed(hook_values["dir"], hook_values["disabled"], hook_values["order"])
   router.set_headroom(values["optimization"]["enabled"])
   router.set_threshold(values["routing"]["threshold"])

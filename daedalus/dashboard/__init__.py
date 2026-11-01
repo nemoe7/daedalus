@@ -1408,6 +1408,88 @@ def settings_routes(
       return failure(422, "Invalid settings input.", "invalid_request_error")
     return write_config(path, text, apply, rebuild)
 
+  @api.put("/hooks/settings")
+  async def hooks_settings_save(request: Request) -> JSONResponse:
+    """Save 1 hook file's values to its own JSON file, never the base settings."""
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    values = body.get("values") if isinstance(body, dict) else None
+    if not isinstance(name, str) or not name.strip():
+      return failure(400, "A file name is needed.", "invalid_request_error")
+    if not isinstance(values, dict):
+      return failure(400, "The values must be an object.", "invalid_request_error")
+    group = settings.load()["hooks"]
+    hooks.set_installed(group["dir"], group["disabled"], group["order"])
+    path = hooks.resolve(f"{hooks.DIR}/{name}")
+    if path is None:
+      return failure(
+        404,
+        f"The hook {name} is not a file of the folder.",
+        "invalid_request_error",
+        locale_key="hook.error.file_missing_text",
+        locale_params={"name": name},
+      )
+    declared = hooks.fields(path)
+    keys = {field["key"] for field in declared}
+    if set(values) - keys:
+      return failure(422, "Invalid hook settings input.", "invalid_request_error")
+    saved = {
+      field["key"]: values.get(field["key"], field["default"]) for field in declared
+    }
+    for field in declared:
+      if not hooks.value_ok(field["type"], saved[field["key"]], field):
+        return failure(422, "Invalid hook settings input.", "invalid_request_error")
+    try:
+      hooks.save_values(path, saved)
+    except OSError:
+      logger.warning("hook settings write failed (%s)", name)
+      return failure(409, "The hook settings could not be saved.", "server_error")
+    return JSONResponse({"ok": True, "values": hooks.values(path)})
+
+  @api.post("/hooks/options")
+  async def hooks_options(request: Request) -> JSONResponse:
+    """Read the dynamic options of 1 hook field from the hook file, off the event loop."""
+    if not allowed(request):
+      return denied()
+    body = await json_body(request)
+    name = body.get("name") if isinstance(body, dict) else None
+    key = body.get("key") if isinstance(body, dict) else None
+    column = body.get("column") if isinstance(body, dict) else ""
+    row = body.get("row") if isinstance(body, dict) else None
+    if not isinstance(name, str) or not isinstance(key, str):
+      return failure(
+        400, "A file name and a field key are needed.", "invalid_request_error"
+      )
+    group = settings.load()["hooks"]
+    hooks.set_installed(group["dir"], group["disabled"], group["order"])
+    path = hooks.resolve(f"{hooks.DIR}/{name}")
+    if path is None:
+      return failure(
+        404,
+        f"The hook {name} is not a file of the folder.",
+        "invalid_request_error",
+        locale_key="hook.error.file_missing_text",
+        locale_params={"name": name},
+      )
+    module = hooks.load(path)
+    options = getattr(module, "options", None)
+    if not callable(options):
+      return JSONResponse({"options": []})
+    try:
+      found = await asyncio.to_thread(
+        options,
+        key,
+        column if isinstance(column, str) else "",
+        row if isinstance(row, dict) else {},
+      )
+    except Exception:
+      logger.exception("hook options failed (%s)", name)
+      return JSONResponse({"options": []})
+    answer = [str(item) for item in found] if isinstance(found, list) else []
+    return JSONResponse({"options": answer})
+
   @api.post("/hooks/scan")
   async def hooks_scan(request: Request) -> JSONResponse:
     """Read 1 source and answer with its hook files, without a write."""
