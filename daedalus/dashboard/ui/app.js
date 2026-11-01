@@ -2238,7 +2238,7 @@ async function addHookSource() {
   }
 }
 
-// The line under the save: 1 problem or 1 saved value, kept on the page.
+// Save feedback stays on this page: 1 problem or 1 saved value.
 function hookPageNote(text, bad = false) {
   const note = $("hook-page-note");
   if (!note) return;
