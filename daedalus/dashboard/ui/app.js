@@ -1333,6 +1333,7 @@ const MODES = {
 };
 // Use one decorative SVG wrapper for consistent size and Lucide attributes.
 const ICON_PATHS = {
+  settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" />',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
   brain: '<path d="M12 18V5" /> <path d="M15 13a4.17 4.17 0 01-3-4 4.17 4.17 0 01-3 4" /> <path d="M17.707 6.294A3 3 0 1012 5a3 3 0 10-5.707 1.294" /> <path d="M17.996 5.125a4 4 0 012.526 5.77" /> <path d="M18 18a4 4 0 002-7.465" /> <path d="M19.967 17.482a4 4 0 11-7.967.517 4 4 0 11-7.967-.517" /> <path d="M6 18a4 4 0 01-2-7.465" /> <path d="M6.004 5.125a4 4 0 00-2.526 5.77" />',
   snowflake: '<path d="m10 20-1.25-2.5L6 18" /> <path d="M10 4 8.75 6.5 6 6" /> <path d="m14 20 1.25-2.5L18 18" /> <path d="m14 4 1.25 2.5L18 6" /> <path d="m17 21-3-6h-4" /> <path d="m17 3-3 6 1.5 3" /> <path d="M2 12h6.5L10 9" /> <path d="m20 10-1.5 2 1.5 2" /> <path d="M22 12h-6.5L14 15" /> <path d="m4 10 1.5 2L4 14" /> <path d="m7 21 3-6-1.5-3" /> <path d="m7 3 3 6h4" />',
@@ -1484,7 +1485,7 @@ function useStats(m) {
   ].filter(Boolean);
 }
 
-function openModelModal(m) {
+function openModelModal(m, trigger = document.activeElement) {
   const { provider, dev, model } = parts(m.id);
   // Display a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
@@ -1534,7 +1535,7 @@ function openModelModal(m) {
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
     + (use ? `<h4>${t("model.detail.use_title")}</h4><div class="model-stats">${use}</div>` : "")
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
-  rememberModalTrigger($("model-modal"));
+  rememberModalTrigger($("model-modal"), trigger);
   $("model-modal").showModal();
 }
 // Mix red at 0, orange at 0.5, and blue at 1.
@@ -1638,7 +1639,7 @@ function renderModels() {
     && `${m.id} ${m.name || ""}`.toLowerCase().includes(query)));
   const empty = state.models.length ? t("model.empty.filter_text") : t("model.empty.catalog_text");
   draw("models", rows.length ? rows.map((m) => `
-    <tr data-model="${esc(m.id)}">
+    <tr tabindex="0" data-model="${esc(m.id)}">
       ${nameCell(m.id, actionButton(modelName(m.id), {
         variant: "model-open",
         attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "model-modal" },
@@ -2152,7 +2153,7 @@ function hookPage(row) {
     variant: "primary", attrs: { "data-hook-save": row.name, "aria-label": t("hook.page.save_named_label", { name: row.name }) },
   });
   return `<div class="hook-page" data-hook-page="${esc(row.name)}">
-    <div class="hook-bar">${back}<h3 class="hook-heading">${esc(row.title || row.name)}</h3></div>
+    <div class="hook-bar">${back}<h2 class="hook-heading">${esc(row.title || row.name)}</h2></div>
     ${fields}<div class="pills">${save}</div>
     <div class="sub" id="hook-page-note" role="status"></div>
     <div class="sub">${t("hook.page.hint")}</div></div>`;
@@ -2181,9 +2182,9 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
-      <td class="end">${(row.settings || []).length ? actionButton(t("action.settings_button"), {
+      <td class="end">${(row.settings || []).length ? actionButton(icon("settings"), {
         variant: "ghost",
-        attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }) },
+        attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("action.settings_button") },
       }) : ""}${actionButton(icon("trash"), {
         variant: "ghost danger",
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
@@ -2296,22 +2297,21 @@ function hookRuleCell(row, entry, column, rule, index) {
   const label = `aria-label="${esc(column.label)}"`;
   const value = rule[column.key] ?? column.default ?? "";
   if (column.type === "choice") {
-    return `<span class="input"><select ${at} ${label}>${(column.choices || []).map((choice) =>
+    return `${mobileLabel(column.label)}<span class="input"><select ${at} ${label}>${(column.choices || []).map((choice) =>
       `<option value="${esc(choice)}"${choice === value ? " selected" : ""}>${esc(choice)}</option>`).join("")}</select></span>`;
   }
   if (column.type === "boolean") {
-    return `<input type="checkbox" role="switch" class="switch" ${at} ${value ? "checked" : ""} ${label}>`;
+    return `${mobileLabel(column.label)}<input type="checkbox" role="switch" class="switch" ${at} ${value ? "checked" : ""} ${label}>`;
   }
   if (column.options) {
     const slot = `${row.name}\u0000${entry.key}\u0000${index}\u0000${column.key}`;
     const found = state.hookOptions[slot] || [];
-    const list = [...new Set(["latest", ...found, String(value)].filter(Boolean))];
-    const pick = `data-hook-rule-version="${esc(JSON.stringify([row.name, entry.key, index, column.key]))}"`;
-    return `<span class="hook-version"><span class="input"><select ${pick} ${label}>${list.map((choice) =>
-      `<option value="${esc(choice)}"${choice === String(value) ? " selected" : ""}>${esc(choice)}</option>`).join("")}</select></span>`
-      + `<span class="input"><input type="text" ${at} ${label} spellcheck="false" value="${esc(value)}"></span></span>`;
+    const list = [...new Set(["latest", ...found].filter(Boolean))];
+    const listId = `hook-version-${entry.key}-${index}-${column.key}`;
+    return `${mobileLabel(column.label)}<span class="input"><input type="text" ${at} ${label} list="${esc(listId)}" spellcheck="false" value="${esc(value)}"><datalist id="${esc(listId)}">${list.map((choice) =>
+      `<option value="${esc(choice)}"></option>`).join("")}</datalist></span>`;
   }
-  return `<span class="input"><input type="text" ${at} ${label} spellcheck="false" value="${esc(value)}"></span>`;
+  return `${mobileLabel(column.label)}<span class="input"><input type="text" ${at} ${label} spellcheck="false" value="${esc(value)}"></span>`;
 }
 
 function hookRulesTable(row, entry) {
@@ -2320,7 +2320,7 @@ function hookRulesTable(row, entry) {
   const head = columns.map((column) => `<th>${esc(column.label)}</th>`).join("");
   const body = rules.map((rule, index) => {
     const cells = columns.map((column) => `<td role="cell">${hookRuleCell(row, entry, column, rule, index)}</td>`).join("");
-    const remove = actionButton(icon("x"), {
+    const remove = actionButton(icon("trash"), {
       variant: "ghost danger",
       attrs: {
         "data-hook-rule-remove": JSON.stringify([row.name, entry.key, index]),
@@ -2333,7 +2333,7 @@ function hookRulesTable(row, entry) {
   const add = actionButton(`${icon("plus")} ${t("hook.rule.add_button")}`, {
     variant: "add", attrs: { "data-hook-rule-add": JSON.stringify([row.name, entry.key]) },
   });
-  return `<div class="card-scroll scroll-fade"><table class="keys hook-rules"><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>${add}`;
+  return `<div class="card-scroll scroll-fade"><table class="hook-rules"><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>${add}`;
 }
 
 function setHookRuleCell(name, key, index, column, value) {
@@ -5296,6 +5296,14 @@ function showPage() {
   if (page === "requests") queueRequestsFill();
 }
 
+// Keyboard rows open the same model dialog as a pointer click.
+$("models").addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  const row = event.target.closest("tr[data-model]");
+  if (!row) return;
+  event.preventDefault();
+  row.click();
+});
 window.addEventListener("hashchange", showPage);
 window.addEventListener("popstate", applySectionHash);
 showPage();
@@ -5305,7 +5313,7 @@ $("models").addEventListener("click", (event) => {
   const row = event.target.closest("tr[data-model]");
   if (!row) return;
   const model = state.models.find((item) => item.id === row.dataset.model);
-  if (model) openModelModal(model);
+  if (model) openModelModal(model, row);
 });
 
 function refreshRelativeTimes() {

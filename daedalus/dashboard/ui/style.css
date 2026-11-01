@@ -53,7 +53,7 @@
   syntax: "<length>"; inherits: false; initial-value: 0px;
 }
 :root {
-  --edge-fade: 12px; --edge-ramp: 192px;
+  --edge-fade: 28px; --edge-ramp: 36px; --scrollbar-carve: 14px;
   --bg: #f3f3f5; --panel: #ffffff; --text: #212121; --muted: #616161; --line: #e5e5e7;
   --control-line: #b3b3b3;
   --accent: #304ffe; --accent-text: var(--accent); --on-accent: #ffffff; --ok: #283593; --warn: #a3386c; --bad: #781f4c; --bar: #e3e8fd; --orange: #b45309; --red: #d32f2f;
@@ -89,7 +89,6 @@
   * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--bg); }
 }
 [hidden] { display: none !important; }
-/* nuu-deviation: NUM202: dense operational type and cell ramp fits 11-column tables */
 body {
   margin: 0; background: var(--bg); color: var(--text);
   font: 14px/1.5 var(--font);
@@ -132,7 +131,7 @@ header {
 header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; }
 .brand span { color: var(--accent-text); }
-.brand small { display: block; color: var(--muted); font-size: 11px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
+.brand small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; letter-spacing: 0; font-family: var(--mono); }
 .tabs { grid-area: tabs; display: flex; gap: 24px; overflow-x: auto; scrollbar-width: none; }
 .tabs::-webkit-scrollbar { display: none; }
 /* Keep flex: none on tab links so nowrap labels never overlap under touch min-widths. */
@@ -181,18 +180,17 @@ button.line {
 }
 .kpis[data-wrapped="1"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .kpi { display: grid; justify-items: start; gap: 2px; min-width: 0; }
-.kpi b { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi b { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kpi small { color: var(--muted); font-size: 12px; white-space: nowrap; }
-/* nuu-deviation: NUM201: compact inline badges and pills preserve operator table density */
 .chip {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px;
-  border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 13px;
+  border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 14px;
 }
 .chip b { color: var(--text); font-weight: 600; }
 /* Align Lucide glyphs to the text line at the 16x16 house icon size. */
 .chip svg, button svg { vertical-align: -2px; }
 .ghost svg, .add svg, .hint svg { width: 16px; height: 16px; }
-button.chip { background: transparent; font: inherit; font-size: 13px; cursor: pointer; }
+button.chip { background: transparent; font: inherit; font-size: 14px; cursor: pointer; }
 button.chip:hover:not(:disabled) { border-color: var(--accent); }
 button.chip:disabled { cursor: progress; }
 .types { display: flex; gap: 4px; }
@@ -210,7 +208,7 @@ button.chip:disabled { cursor: progress; }
 .dot.off { background: var(--bad); }
 .ghost {
   padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--control-line);
-  background: transparent; color: var(--muted); font-size: 13px;
+  background: transparent; color: var(--muted); font-size: 14px;
 }
 /* A touch screen keeps a hover look after a tap, so a hover rule needs a pointer. */
 @media (hover: hover) {
@@ -238,10 +236,9 @@ main { max-width: 1180px; margin: 0 auto; padding: 28px 32px 64px; }
 .weight.left .num { width: auto; white-space: nowrap; }
 td.time { white-space: nowrap; }
 #requests-sentinel { height: 1px; }
-.card h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 500; vertical-align: 2px; }
+.card h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.card h3 .ctx { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: 12px; font-weight: 500; vertical-align: 2px; }
 .card .sub { color: var(--muted); font-size: 12px; margin: 2px 0 14px; }
-/* nuu-deviation: NUM205: single-column #notification-feed event rows leave trailing space cleanly */
 .notification-feed { width: 100%; max-width: 740px; margin-inline: auto; padding: 0; overflow: hidden; }
 .notification-feed > .more { margin: 0; padding: 10px 16px; border-top: 1px solid var(--line); }
 .notification-item {
@@ -265,7 +262,7 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 .notification-feed > .notification-item:first-child { border-top: 0; }
 .notification-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
 .notification-head { display: contents; }
-.notification-head b { flex: 0 1 auto; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+.notification-head b { flex: 0 1 auto; max-width: 55%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
 .notification-head time { order: 2; margin-left: auto; flex: 0 0 auto; white-space: nowrap; font-size: 12px; }
 .notification-body { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 12px; }
 .health { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
@@ -275,13 +272,12 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 .flow { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 .flow > .column { flex: 1 1 min(300px, 100%); display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 .flow > .wide { flex: 2 1 min(460px, 100%); }
-/* nuu-deviation: NUM205: two-endpoint Overview .snippet cards leave middle space intentionally */
 .snippet { color: inherit; text-decoration: none; display: block; }
 .snippet:hover { border-color: var(--accent); }
 .snippet h3 { margin-bottom: 12px; display: flex; justify-content: space-between; }
 .snippet-action { color: var(--accent-text); font-size: 12px; font-weight: 500; }
 .snippet-action::after { content: "\203a"; margin-left: 4px; color: var(--muted); }
-.line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 13px; }
+.line { display: flex; justify-content: space-between; gap: 12px; padding: 5px 0; font-size: 14px; }
 .line + .line { border-top: 1px solid var(--line); }
 .line > :first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .line > :last-child { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -369,7 +365,7 @@ th[data-sort] { cursor: pointer; }
 .models td.num .weight { justify-content: flex-end; }
 a.more { display: inline-block; margin-top: 2px; color: var(--muted); text-decoration: none; }
 a.more:hover { color: var(--accent-text); }
-.chain-race { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.chain-race { margin: 0 0 8px; color: var(--muted); font-size: 14px; }
 .tab {
   padding: 6px 12px; border-radius: 9999px; border: 1px solid var(--control-line);
   background: transparent; color: var(--muted);
@@ -406,12 +402,12 @@ a.more:hover { color: var(--accent-text); }
 }
 /* Modal arrival and exit follow page tokens: box fades and lifts, backdrop fades, and close stays visible. */
 .modal {
-  opacity: 0; transform: translateY(-6px) scale(.98);
+  opacity: 0; transform: translateY(-6px);
   transition: opacity var(--soft) var(--ease), transform var(--soft) var(--ease),
     overlay var(--soft) allow-discrete, display var(--soft) allow-discrete;
 }
 .modal[open] { opacity: 1; transform: none; }
-@starting-style { .modal[open] { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@starting-style { .modal[open] { opacity: 0; transform: translateY(-6px); } }
 .modal::backdrop {
   background: rgb(0 0 0 / 0); transition: background-color var(--soft) var(--ease),
     overlay var(--soft) allow-discrete, display var(--soft) allow-discrete;
@@ -436,8 +432,8 @@ a.more:hover { color: var(--accent-text); }
   background: color-mix(in srgb, var(--text) 16%, transparent);
   border-color: transparent; color: var(--text);
 }
-.modal h3 { margin: 0; font-size: 15px; font-weight: 600; }
-.modal p { margin: 0; color: var(--muted); font-size: 13px; white-space: pre-line; }
+.modal h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.modal p { margin: 0; color: var(--muted); font-size: 14px; white-space: pre-line; }
 .modal-field { display: block; }
 .modal-field input, .modal-field select { width: 100%; box-sizing: border-box; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
@@ -457,7 +453,7 @@ a.more:hover { color: var(--accent-text); }
 .model-stats .stat { display: grid; gap: 2px; min-height: 60px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); }
 .model-stats .track { margin-top: auto; }
 .model-stats .num { font-size: 16px; }
-.model-stats .label { color: var(--muted); font-size: 11px; }
+.model-stats .label { color: var(--muted); font-size: 12px; }
 .model-modal h4 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
 .models tbody tr { cursor: pointer; }
 .modal .primary.danger { background: var(--bad); }
@@ -527,14 +523,15 @@ table.limits td.num .weight { justify-content: flex-end; }
 .hook-page { display: grid; gap: 12px; }
 .hook-bar { display: flex; align-items: center; gap: 6px; margin-left: -6px; }
 .hook-page .hook-back { display: inline-flex; color: var(--accent-text); border: 0; background: transparent; padding: 4px 6px; }
-.hook-heading { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
+.hook-heading { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
 .hook-page .field { max-width: 24rem; }
 .hook-page .hook-rules-field { max-width: none; }
-.hook-rules { width: 100%; }
-.hook-rules td .input { display: flex; min-width: 8rem; }
+.hook-rules { width: 100%; table-layout: fixed; }
+.hook-rules th:last-child, .hook-rules td.end { width: 44px; }
+.hook-rules td .input { display: flex; flex: 1; min-width: 0; }
 .hook-rules td .input select, .hook-rules td .input input { width: 100%; }
-.hook-version { display: flex; gap: 4px; flex-wrap: wrap; }
-.hook-version .input { flex: 1; min-width: 7rem; }
+.hook-version { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.hook-version .input { min-width: 0; }
 .hook-page #hook-page-note { margin: 0; }
 .hook-page #hook-page-note:empty { display: none; }
 .hook-page #hook-page-note.bad { color: var(--bad); }
@@ -568,7 +565,7 @@ tr.live-row td { background: var(--field); }
   margin: 8px 0 0; padding-block: 0; padding-inline-end: 0; padding-inline-start: 2ch; display: grid; gap: 8px;
 }
 .chain ol > li::marker, .chain-modal ol > li::marker { font-variant-numeric: tabular-nums; }
-.step { font-size: 13px; }
+.step { font-size: 14px; }
 .step .result { font-weight: 600; margin-left: 6px; }
 .step.good .result { color: var(--ok); }
 .step.bad .result { color: var(--bad); }
@@ -617,7 +614,7 @@ section[data-page="providers"], section[data-page="settings"] {
   border-radius: 10px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
 }
 .pill button, .override > .ghost {
-  border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 15px; line-height: 24px; cursor: pointer;
+  border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 16px; line-height: 24px; cursor: pointer;
 }
 .pill > button:not(.select), .override > .ghost {
   width: 24px; height: 24px; padding: 0;
@@ -625,6 +622,7 @@ section[data-page="providers"], section[data-page="settings"] {
 [data-hook-source-drop], [data-hook-drop], td.end > .ghost {
   display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
 }
+td.end > .ghost + .ghost { margin-left: 8px; }
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
   padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 9999px; background: transparent;
@@ -784,7 +782,7 @@ section[data-page="providers"] .field:not(.stack) input:not(.switch) { padding-b
 .field .input { display: flex; align-items: center; gap: 6px; flex: none; }
 .field .input i { font-style: normal; color: var(--muted); font-size: 12px; width: 10px; }
 .field .input i.prefix { width: auto; }
-/* Provider form data and helper text stay at 13px. */
+/* Provider form data and helper text stay at 14px. */
 .card.provider .sub,
 .card.provider .field small,
 .card.provider .pill,
@@ -793,7 +791,7 @@ section[data-page="providers"] .field:not(.stack) input:not(.switch) { padding-b
 .card.provider .adder select,
 .card.provider .override input.text,
 .card.provider .pill.hook .select,
-.card.provider .pill.hook .menu button { font-size: 13px; }
+.card.provider .pill.hook .menu button { font-size: 14px; }
 /* A value row shows its value as text: a click opens the small editor of that 1 value. */
 .field input[readonly] { border-color: transparent; background: transparent; padding-left: 2px; padding-right: 2px; cursor: pointer; }
 .field input[readonly]:hover, .field input[readonly]:focus-visible { background: var(--field); }
@@ -834,7 +832,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
 .field.info .hint {
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
-  background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
+  background: transparent; color: var(--muted); font-family: inherit; font-size: 12px; line-height: 1;
 }
 .field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
 .field.info small, .fold summary small, .floating-info-tip {
@@ -860,7 +858,7 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 .fold summary .hint {
   display: inline-flex; align-items: center; justify-content: center;
   margin-left: 2px; width: 16px; height: 16px; padding: 0; border: 1px solid var(--line);
-  border-radius: 50%; background: transparent; color: var(--muted); font-family: inherit; font-size: 11px; line-height: 1;
+  border-radius: 50%; background: transparent; color: var(--muted); font-family: inherit; font-size: 12px; line-height: 1;
 }
 .fold summary .hint:hover, .fold summary:focus-visible .hint { color: var(--text); border-color: var(--muted); }
 .fold summary .hint:hover ~ small, .fold summary:focus > small, .floating-info-tip {
@@ -909,20 +907,20 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   gap: 2px; max-height: 39px; margin-block: 0; margin-left: auto; text-align: center;
 }
 #limits-check { position: relative; display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px; }
-#limits-checked { margin-left: 0; font-size: 11px; line-height: 1; white-space: nowrap; }
+#limits-checked { margin-left: 0; font-size: 12px; line-height: 1; white-space: nowrap; }
 /* A narrow card wraps a long label instead of cutting it. */
 .balance .line > :first-child { white-space: normal; }
 .editbar { display: flex; align-items: center; gap: 12px; padding: 12px; flex-wrap: wrap; }
-.message { font-size: 13px; color: var(--muted); }
+.message { font-size: 14px; color: var(--muted); }
 .message:empty { display: none; }
 /* The status line of a write, with its Undo. It stays out of the way until a write lands. */
 .write-note { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
 /* A Settings write reports on the changed row, with the time since it landed. */
 .save-line {
   display: flex; align-items: center; gap: 10px; margin-left: auto;
-  font-size: 13px; color: var(--muted); white-space: nowrap;
+  font-size: 14px; color: var(--muted); white-space: nowrap;
 }
-.undo-text { padding: 0 10px; min-height: 32px; font-size: 13px; color: var(--accent-text); border-color: var(--line); }
+.undo-text { padding: 0 10px; min-height: 32px; font-size: 14px; color: var(--accent-text); border-color: var(--line); }
 .undo-text:hover { color: var(--text); border-color: var(--muted); }
 /* Place Undo inline beside the edited control without shifting the label or input. */
 .field > .undo-text { margin-left: auto; margin-right: 8px; }
@@ -943,9 +941,9 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   max-width: 340px; margin: 12vh auto 0; padding: 28px; display: grid; gap: 14px;
 }
 .login-head { display: grid; justify-items: center; gap: 2px; margin-bottom: 6px; }
-.login h1 { margin: 6px 0 0; font-size: 22px; line-height: 1.2; }
+.login h1 { margin: 6px 0 0; font-size: 24px; line-height: 1.2; }
 .login-head small { color: var(--muted); font-size: 12px; font-family: var(--mono); }
-.login label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+.login label { display: grid; gap: 6px; font-size: 14px; color: var(--muted); }
 .secret { position: relative; display: grid; }
 .secret input { padding-right: 44px; }
 .eye {
@@ -1051,6 +1049,9 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 @media (max-width: 60em) {
   header { column-gap: 16px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
+  #nav { overflow-x: auto; scroll-snap-type: x proximity; }
+  #nav a { scroll-snap-align: start; }
+  #nav a[data-page="settings"] { position: sticky; right: 0; z-index: 1; border-left: 16px solid var(--bg); background: var(--bg); }
   /* Providers drill page labels itself, so section title under it leaves screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
@@ -1074,7 +1075,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
   .section-pane .pane-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
   .section-pane .pane-bar > .pane-title:not([hidden]) { grid-column: 1 / -1; }
-  .pane-title:not([hidden]) { font-size: 26px; letter-spacing: -0.9px; }
+  .pane-title:not([hidden]) { font-size: 28px; letter-spacing: -0.9px; }
   /* A tablet keeps the model name and drops 4 secondary columns, so the name fits. */
   .models thead th:nth-child(4), .models tbody td:nth-child(4),
   .models thead th:nth-child(6), .models tbody td:nth-child(6),
@@ -1141,6 +1142,24 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
   .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
   .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
+  /* A phone stacks each rule as a card, with the column label beside its control. */
+  .hook-rules thead { display: none; }
+  .hook-rules, .hook-rules tbody { display: block; }
+  .hook-rules tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .hook-rules td { display: grid; grid-template-columns: 5rem minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; padding: 0; border: 0; width: auto; }
+  .hook-rules td.end { display: flex; grid-column: 1 / -1; width: 100%; justify-content: flex-end; padding-right: 4px; }
+  .hook-rules .mobile-label { display: inline; color: var(--muted); font-size: inherit; }
+  /* A phone hook card keeps one spacing rhythm: name, surfaces, scope, then state and actions. */
+  .card[data-section="hooks"] .keys tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; margin-top: 16px; }
+  .card[data-section="hooks"] .keys tr { grid-template-columns: minmax(0, 1fr) 104px; grid-template-areas: "name version" "surfaces surfaces" "scopes scopes" "enabled actions"; gap: 8px; align-items: center; margin-bottom: 0; }
+  .card[data-section="hooks"] .keys tr > td { grid-area: auto; }
+  .card[data-section="hooks"] .keys tr > td.name { grid-area: name; }
+  .card[data-section="hooks"] .keys tr > td:nth-child(2) { grid-area: version; justify-content: flex-end; }
+  .card[data-section="hooks"] .keys tr > td:nth-child(3) { grid-area: surfaces; }
+  .card[data-section="hooks"] .keys tr > td:nth-child(4) { grid-area: scopes; }
+  .card[data-section="hooks"] .keys tr > td:nth-child(6) { grid-area: enabled; }
+  .card[data-section="hooks"] .keys tr > td.end { grid-area: actions; display: flex; gap: 8px; justify-content: flex-end; }
+
 }
 
 @media (max-width: 30em) {
@@ -1168,7 +1187,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* A phone keeps every control at the 44px target size. */
   .toolbar input, .toolbar select, .requests-bar input, .requests-bar select,
   .tab { min-height: 44px; }
-  .editbar .tab { padding: 4px 10px; font-size: 13px; }
+  .editbar .tab { padding: 4px 10px; font-size: 14px; }
   section[data-page="providers"] .editbar .hint, section[data-page="settings"] .editbar .hint { display: none; }
   th, td { padding: 10px; }
   /* A phone keeps the info icon of a field, so the hint stays behind 1 tap and the page stays short. */
@@ -1197,7 +1216,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .requests tr.request, .requests tr.live-row {
     display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
     align-items: center; padding: 8px 10px;
-    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-size: 13px;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-size: 14px;
   }
   .requests tr.live-row { background: var(--field); }
   .requests tr.request > td, .requests tr.live-row > td {
@@ -1266,7 +1285,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .models, .models tbody { display: block; }
   .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); align-items: baseline; }
   /* Share one 13px font size across mobile cards, using muted ink to distinguish labels. */
-  .models tr, .keys tr, .requests tr.request, .requests tr.live-row { font-size: 13px; }
+  .models tr, .keys tr, .requests tr.request, .requests tr.live-row { font-size: 14px; }
   .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
   .models tr > td.name { grid-column: 1 / -1; max-width: none; }
   /* A card hides the columns that a phone drops, as the table layout does. */
@@ -1427,3 +1446,11 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
     @keyframes edge-inline-end { from { --edge-inline-end: var(--edge-fade); } to { --edge-inline-end: 0px; } }
   }
 }
+
+/* Touch targets stay stable across pointer and keyboard state. */
+@media (pointer: coarse) {
+  .provider-flow .ghost, .provider-flow .add, .provider-flow .hint,
+  [data-provider-drop], [data-provider-add], [data-provider-info] { min-width: 44px; min-height: 44px; }
+}
+#modal-ok { min-width: 89px; min-height: 37px; }
+#models tr[data-model] { cursor: pointer; }
