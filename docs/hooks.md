@@ -451,7 +451,7 @@ docker exec daedalus-api daedalus hooks verify
 
 ## The Settings page
 
-Settings > Hooks holds the folder, sources, and 1 switch per installed file. It lists active candidates per surface, and its arrows reorder them without changing scopes.
+Settings > Hooks holds the folder, sources, and 1 switch per installed file. It lists active candidates per surface. Drag the grip to reorder them, or focus the grip and press Arrow Up or Arrow Down. Order saves on drop or key move without changing scopes.
 
 `Check for updates` scans `hooks.sources` without writing and lists changed files with the scanned commit. `Install hooks` asks for confirmation, then writes only the previewed commit and file hashes. A moved ref or changed file installs nothing and asks for a new check. `+ Add source` opens 1 modal for a repo URL and uses the same confirmation before saving the source or installing files.
 

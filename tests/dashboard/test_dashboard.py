@@ -181,10 +181,7 @@ def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
     block = app.split(marker, 1)[0].rsplit("actionButton(icon", 1)[1]
     assert '"aria-label": t("action.remove_button")' in block, marker
   assert ".pill > button:not(.select), .override > .ghost {" in css
-  assert (
-    "[data-hook-source-drop], [data-hook-move], [data-hook-drop], td.end > .ghost {"
-    in css
-  )
+  assert "[data-hook-source-drop], [data-hook-drop], td.end > .ghost {" in css
   brand_rule = css.split(".brand {", 1)[1].split("}", 1)[0]
   assert "letter-spacing" not in brand_rule
 
@@ -3625,7 +3622,7 @@ const order = html.slice(start, end);
 assert(order.includes('auto.py'), 'an automatically installed hook appears in its surface order');
 assert(order.includes('served.py'), 'the other installed hook appears too');
 assert(order.indexOf('auto.py') < order.lastIndexOf('served.py'), 'the default is file-name order');
-assert(order.includes('data-hook-move'), 'the installed hooks carry order controls');
+assert(order.includes('data-hook-drag'), 'the installed hooks carry drag controls');
 probe.moveHookFile(['on-chunk', 0, 1]);
 assert.deepStrictEqual(Array.from(probe.hookOrderFiles('on-chunk')),
   ['hooks/served.py', 'hooks/auto.py'], 'the move changes the effective surface order');
@@ -7094,7 +7091,7 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert "data-hook-move" in app, "a file row carries its move"
+  assert "data-hook-drag" in app, "a file row carries its drag handle"
   assert "function moveHookFile(" in app, "the move writes the new order"
   assert "hookOrderState()[surface] = values" in app, (
     "the new precedence stays separate from explicit hook activation"
@@ -7103,7 +7100,7 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
     "an order change does not make a metadata hook explicit"
   )
   assert 'id="hooks-order"' in app, "the card holds the order block"
-  assert "chevron_up" in app and "chevron_down" in app, "the moves draw an arrow"
+  assert "grip_vertical" in app, "the drag handle draws a grip"
 
 
 def test_dashboard_form_rows_keep_their_contracts() -> None:
@@ -8893,7 +8890,11 @@ def test_vendored_gsap_serves_offline_and_drives_motion_with_reduced_motion_guar
   assert "gsap" in resp.text
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert html.index('src="ui/gsap.min.js"') < html.index('src="ui/en.js"')
-  assert '<script src="ui/en.js"></script>\n<script src="ui/app.js"></script>' in html
+  assert (
+    '<script src="ui/en.js"></script>\n'
+    '<script src="ui/vendor/sortable.min.js"></script>\n'
+    '<script src="ui/app.js"></script>' in html
+  )
 
   code = _app_js_vm(
     r"""
