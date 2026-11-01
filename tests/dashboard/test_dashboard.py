@@ -182,6 +182,12 @@ def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
     assert '"aria-label": t("action.remove_button")' in block, marker
   assert ".pill > button:not(.select), .override > .ghost {" in css
   assert "[data-hook-source-drop], [data-hook-drop], td.end > .ghost {" in css
+  assert "td.end > .ghost + .ghost { margin-left: 8px; }" in css
+  hook_settings = app.split('"data-hook-open"', 1)[0].rsplit("actionButton(", 1)[1]
+  assert 'icon("settings")' in hook_settings
+  assert "settings: '<path" in app
+  assert "translateY(-6px) scale" not in css
+  assert "openModelModal(model, row)" in app
   brand_rule = css.split(".brand {", 1)[1].split("}", 1)[0]
   assert "letter-spacing" not in brand_rule
 
@@ -2366,13 +2372,13 @@ def test_provider_list_omits_settings_hero_headers() -> None:
 
 
 def test_provider_values_and_helpers_use_readable_text_sizes() -> None:
-  """Provider data, chips, and helper copy stay at 13px or larger."""
+  """Provider data, chips, and helper copy stay at 14px or larger."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   rule = re.search(
-    r"(?s)/\* Provider form data and helper text stay at 13px\. \*/(.*?)\{([^}]*)\}",
+    r"(?s)/\* Provider form data and helper text stay at 14px\. \*/(.*?)\{([^}]*)\}",
     css,
   )
-  assert rule and "font-size: 13px;" in rule.group(2)
+  assert rule and "font-size: 14px;" in rule.group(2)
   for selector in (
     ".card.provider .sub",
     ".card.provider .field small",
@@ -2630,7 +2636,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   ) in mobile_css, "the stamp holds 1 line at its own width"
   assert (
     ".models tr, .keys tr, .requests tr.request, .requests tr.live-row "
-    "{ font-size: 13px; }"
+    "{ font-size: 14px; }"
   ) in mobile_css, "1 text size holds every phone card"
   assert "user-select" not in mobile_css, "the phone card keeps the text selection"
   assert (".chain-modal ol { margin: 4px 0 0; }") in mobile_css, (
@@ -4552,7 +4558,7 @@ sandbox.setHookRuleCell('client_spoof.py', 'rules', 0, 'version', 'latest');
 const markup = sandbox.hookRulesTable(row, entry);
 assert.ok(markup.includes('data-hook-rule-add'), 'the table offers an add control');
 assert.ok(markup.includes('data-hook-rule-remove'), 'the table offers a remove control');
-assert.ok(markup.includes('data-hook-rule-version'), 'the version column offers a select');
+assert.ok(markup.includes('<datalist'), 'the version column offers discovered choices in one picker');
 assert.ok(markup.includes('<select'), 'the choice columns draw selects');
 """
   )
@@ -8334,7 +8340,7 @@ def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
 def test_scrollable_elements_follow_scroll_edge_fade_recipe() -> None:
   """Scrollable containers and inputs use the scroll-driven edge-fade recipe."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert "--edge-fade: 12px; --edge-ramp: 192px;" in css
+  assert "--edge-fade: 28px; --edge-ramp: 36px; --scrollbar-carve: 14px;" in css
   for prop in ("--edge-start", "--edge-end"):
     registered = re.search(rf"@property {prop} \{{([^}}]*)\}}", css)
     assert registered and 'syntax: "<length>";' in registered.group(1)
@@ -8799,19 +8805,6 @@ vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis._
 """
   )
   subprocess.run(["node", "-e", code], check=True)
-
-
-def test_approved_nuu_deviation_markers_present() -> None:
-  """Approved compact-control, dense-scale, and scoped NUM205 markers stay recorded."""
-  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  design = Path("docs/design.md").read_text(encoding="utf-8")
-  for code in ("NUM201", "NUM202", "NUM205"):
-    assert f"nuu-deviation: {code}:" in css
-    assert f"nuu-deviation: {code}" in design
-  num205_blocks = re.findall(r"/\* nuu-deviation: NUM205:[^*]*\*/\n([^\n]+)", css)
-  assert len(num205_blocks) == 2
-  assert num205_blocks[0].startswith(".notification-feed {")
-  assert num205_blocks[1].startswith(".snippet {")
 
 
 def test_modal_close_icon_button_rest_hover_and_active() -> None:

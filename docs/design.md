@@ -131,17 +131,17 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `68em` (`#legend-open` modal at `<= 68em`, `auto-fit` cards at `<= 30em`).
 6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`, `.theme-seg`)**: 4 `.rail` cards load `.section-pane`, and `24x24` `.tile` icons use semantic tokens with matched `8px` (`10px` `<= 60em`) spacing. `Personalization` renders `theme` as a 3-way `monitor` / `sun` / `moon` icon `radiogroup` (`.theme-seg`).
 7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
-8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` (`border-radius: 10px`, `border: 1px solid var(--line)`). Each dialog uses a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel` or `Close` buttons, focuses `x` on confirmations, and restores focus on `close`.
+8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` use a borderless top-right `x` button (`margin: -8px -8px -8px 0`) and no footer `Cancel` or `Close` buttons. They focus `x` on confirmations, restore focus on `close`, and fade and lift without scaling.
 
 ### Hook Page
 
-A hook row with declared fields carries a `chevron_right` button. The button swaps the table for the `.hook-page` of that hook.
+A hook row with declared fields carries a square lucide `settings` icon button. The button swaps the table for the `.hook-page` of that hook.
 
 The page holds the `‹` back button, the hook title, 1 `.field` for each declared field with its saved value, and 1 primary `Save`. Save writes the hook's own JSON file through `PUT /ui/api/hooks/settings`, and the base config stays unchanged.
 
-A wrong value keeps the page open, marks its field, and shows the way to set it. A good 1 shows a saved line. Rows without fields keep the `chevron` out, and the back button returns to the table.
+A wrong value keeps the page open, marks its field, and shows the way to set it. A good 1 shows a saved line. Rows without fields keep the `settings` icon out, and the back button returns to the table.
 
-A `rules` field draws a `.hook-rules` table inside a wide `.field`. Each row holds 1 control for each declared column: a `<select>` for a `choice` column, and a version `<select>` beside a manual text box for a column with `options`. An `Add rule` button appends a row, and each row carries an `x` remove button. The page keeps an unsaved draft in `state.hookDraft`, and reads the version choices through `POST /ui/api/hooks/options` when the page opens and when a row changes.
+A `rules` field draws a `.hook-rules` table inside a wide `.field`. Each row holds 1 control for each declared column, one version field with discovered choices for a column with `options`, and a `trash` remove button. A phone stacks each rule as a card with the column label beside its control, and `Add rule` appends a row. The page keeps an unsaved draft in `state.hookDraft` and reads version choices through `POST /ui/api/hooks/options` on open and row change.
 
 ## 8. Motion, Interaction, and States
 
@@ -163,15 +163,7 @@ Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s
 | `page-memory` & optimistic writes | `state.memory`, `saveSettings()`, `#new-key`, `[data-key]`, `#limits-check` | Updates settings, API keys, and check timestamps optimistically in memory without loading bars, button spinners, or skeleton rows. Reconciles or rolls back state on server replies. |
 | `live-dot` | `.ico-svg > .pulse`, `tr.live-row` | Renders an `8px` amber (`var(--orange)`) `aria-hidden="true"` dot centered inside a `16x16` `.ico-svg` slot with a `1.4s` pulse and zero dimension shift. |
 | `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel`/`Close` buttons, focuses `x` on confirmations, and gates deletions. |
-| `scroll-edge-fade` & `overflow-and-clipping` | `--edge-start`, `--edge-inline-end`, `.floating-info-tip` | Applies `12px` / `192px` vertical and inline scroll masks (bottom-only below sticky `thead`) and viewport-clamped `position: fixed` tooltips. |
-
-### Approved `nuu` Deviations
-
-| Marker | Surface / Selector | Reason |
-| --- | --- | --- |
-| `nuu-deviation: NUM201` | `.chip`, `.chip.flag`, `.pill`, `.ghost` (`style.css`) | Compact inline badges and pills (`0 7px` to `4px 12px`) preserve 1-line desktop rows and 4 visible phone cards. |
-| `nuu-deviation: NUM202` | `body`, `th`, `td`, `.card.pool` (`style.css`) | Dense operational type (`11`-`15` px, `22` px KPI) and cell paddings (`6`/`10`/`12` px) fit 11-column tables without wrapping slugs. |
-| `nuu-deviation: NUM205` | `.snippet`, `#notification-feed` (`style.css`) | Narrowly scoped to two-endpoint `Overview` `.snippet` summary rows and single-column `#notification-feed` event rows so short event lines stay readable without artificial filler. |
+| `scroll-edge-fade` & `overflow-and-clipping` | `--edge-fade`, `--edge-ramp`, `--scrollbar-carve`, `.floating-info-tip` | Applies the current `28px` fade, `36px` ramp, and `14px` scrollbar carve tokens to scroll masks, and viewport-clamped `position: fixed` tooltips. |
 
 ### Interactive States
 
