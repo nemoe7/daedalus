@@ -9275,3 +9275,14 @@ def test_hook_settings_save_leaves_base_config_unchanged(
   assert not (state_folder / "fields.json").exists()
   assert not (state_folder / "hooks" / "fields.json").exists()
   assert base.read_bytes() == before
+
+
+def test_hooks_table_to_cards_and_single_version_datalist() -> None:
+  """Hooks manager and rule tables use table-to-cards responsive CSS and a single datalist input."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert '<table class="keys hook-table">' in app
+  assert "hookRuleVersion" not in app
+  assert '.card[data-section="hooks"] .keys.hook-table tbody {' in css
+  assert ".hook-rules td .input input[list] {" in css

@@ -764,3 +764,69 @@ test("settings controls and section transitions use house motion tokens", async 
   await paneBack.click();
   await expect(page.locator("#settings > .rail")).toBeVisible();
 });
+
+test("hooks manager and client spoofing fit desktop, tablet, and phone without clipping or overlap", async ({ page }) => {
+  for (const [vw, vh] of [[1440, 900], [768, 1024], [390, 844]]) {
+    await open(page, "#/settings?section=hooks", vw, vh);
+    await page.waitForTimeout(250);
+    const hooksCheck = await page.evaluate(() => {
+      const card = document.querySelector('.card[data-section="hooks"]');
+      const cardRect = card.getBoundingClientRect();
+      const openBtns = [...card.querySelectorAll("[data-hook-open]")].map((b) => b.dataset.hookOpen);
+      const gearStyle = getComputedStyle(card.querySelector("[data-hook-open]"));
+      let overlaps = 0;
+      for (const row of card.querySelectorAll(".hook-table tbody tr")) {
+        const boxes = [...row.querySelectorAll(":scope > td")]
+          .filter((td) => getComputedStyle(td).display !== "none")
+          .map((td) => td.getBoundingClientRect());
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            const x = Math.min(boxes[i].right, boxes[j].right) - Math.max(boxes[i].left, boxes[j].left);
+            const y = Math.min(boxes[i].bottom, boxes[j].bottom) - Math.max(boxes[i].top, boxes[j].top);
+            if (x > 1 && y > 1) overlaps += 1;
+          }
+        }
+      }
+      return {
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cardRightOverflow: Math.max(...[...card.querySelectorAll("[data-hook-drop]")].map((b) => b.getBoundingClientRect().right - cardRect.right)),
+        openBtns,
+        radius: gearStyle.borderRadius,
+        width: parseFloat(gearStyle.width),
+        height: parseFloat(gearStyle.height),
+        overlaps,
+      };
+    });
+    expect(hooksCheck.docOverflow).toBeLessThanOrEqual(0);
+    expect(hooksCheck.cardRightOverflow).toBeLessThanOrEqual(0);
+    expect(hooksCheck.openBtns).toEqual(["client_spoof.py", "owui_auto_reasoning_effort.py"]);
+    expect(hooksCheck.radius).toBe("6px");
+    expect(hooksCheck.width).toBe(hooksCheck.height);
+    expect(hooksCheck.overlaps).toBe(0);
+
+    await page.locator('[data-hook-open="client_spoof.py"]').click();
+    await page.waitForTimeout(250);
+    const spoofCheck = await page.evaluate(() => {
+      const card = document.querySelector('.card[data-section="hooks"]');
+      const cardRect = card.getBoundingClientRect();
+      const trash = card.querySelector("[data-hook-rule-remove]");
+      const trashRect = trash.getBoundingClientRect();
+      const versionInputs = card.querySelectorAll('.hook-rules input[list]');
+      const options = [...card.querySelectorAll(".hook-rules datalist option")].map((o) => o.value);
+      return {
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        trashClipped: trashRect.right - cardRect.right,
+        trashRadius: getComputedStyle(trash).borderRadius,
+        versionInputs: versionInputs.length,
+        firstOption: options[0] || "",
+      };
+    });
+    expect(spoofCheck.docOverflow).toBeLessThanOrEqual(0);
+    expect(spoofCheck.trashClipped).toBeLessThanOrEqual(0);
+    expect(spoofCheck.trashRadius).toBe("6px");
+    expect(spoofCheck.versionInputs).toBe(1);
+    expect(spoofCheck.firstOption).toBe("latest");
+    await page.locator("[data-hook-back]").click();
+    await expect(page.locator('.card[data-section="hooks"] .hook-table')).toBeVisible();
+  }
+});

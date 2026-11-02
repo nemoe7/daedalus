@@ -546,12 +546,15 @@ table.limits td.num .weight { justify-content: flex-end; }
 .card[data-section="hooks"] .keys th:not(:first-child), .card[data-section="hooks"] .keys td:not(:first-child) { width: 1%; }
 .card[data-section="hooks"] .keys td:not(:first-child):not(.surfaces) { white-space: nowrap; }
 .card[data-section="hooks"] .keys td.name { min-width: 9rem; white-space: normal; overflow-wrap: anywhere; }
-.card[data-section="hooks"] .keys .hook-title { display: block; }
+.card[data-section="hooks"] .keys .hook-title { display: block; font-weight: 500; }
 .card[data-section="hooks"] .keys .hook-author { display: block; font-size: 0.85em; color: var(--muted); }
 .card[data-section="hooks"] .keys .hook-problem { color: var(--bad); white-space: normal; overflow-wrap: anywhere; }
 .card[data-section="hooks"] .keys .hook-sha { display: block; font-size: 0.85em; color: var(--muted); font-family: var(--mono); }
-.card[data-section="hooks"] .keys td.surfaces { white-space: normal; }
+.card[data-section="hooks"] .keys td.surfaces { min-width: 9.5rem; white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
+.card[data-section="hooks"] .keys td.end { white-space: nowrap; text-align: right; padding-right: 2px; }
+.card[data-section="hooks"] [data-hooks-update] { margin-top: 8px; }
+#hook-source { max-width: 100%; min-width: 0; }
 .card[data-section="hooks"] .hook-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .card[data-section="hooks"] .hook-order li { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 .drag-handle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border: 0; background: transparent; color: var(--muted); cursor: grab; touch-action: none; }
@@ -559,19 +562,25 @@ table.limits td.num .weight { justify-content: flex-end; }
 .sortable-ghost { opacity: .4; }
 .card[data-section="hooks"] .hook-order li .cell-value { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 /* A hook page replaces the table: back button, title, declared fields, and save. */
-.hook-group { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
+.hook-group, .hooks-order-list { display: grid; gap: 0; padding: 0; border: 0; }
 .hook-group > .field { margin: 0; }
+.hook-group > .field:first-child { border-top: 0; padding-top: 0; }
 .hook-page { display: grid; gap: 12px; }
 .hook-page > .pane-bar { margin-left: -8px; }
 .hook-page > .pane-bar > .pane-title { font-size: 16px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
 .hook-page .field { max-width: 24rem; }
 .hook-page .hook-rules-field { max-width: none; }
 .hook-rules { width: 100%; table-layout: fixed; }
-.hook-rules th:last-child, .hook-rules td.end { width: 44px; }
+.hook-rules th:first-child, .hook-rules td:first-child { padding-left: 2px; }
+.hook-rules th:last-child, .hook-rules td.end { width: 48px; padding-left: 8px; padding-right: 2px; text-align: right; }
 .hook-rules td .input { display: flex; flex: 1; min-width: 0; }
 .hook-rules td .input select, .hook-rules td .input input { width: 100%; }
-.hook-version { display: grid; gap: 4px; flex: 1; min-width: 0; }
-.hook-version .input { min-width: 0; }
+.hook-rules td .input input[list] {
+  background-image: var(--chevron); background-repeat: no-repeat;
+  background-position: right 10px center; padding-right: 28px;
+}
+.hook-rules td .input input[list]::-webkit-calendar-picker-indicator { opacity: 0; }
+.hook-page .hook-rules-field > .add { justify-self: start; margin-top: 4px; }
 .hook-page #hook-page-note { margin: 0; }
 .hook-page #hook-page-note:empty { display: none; }
 .hook-page #hook-page-note.bad { color: var(--bad); }
@@ -1170,6 +1179,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
   [data-hook-open], .back { min-height: 44px; min-width: 44px; }
   .icon-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 6px; }
+  [data-hooks-update] { min-height: 44px; }
   .setting-list-row { min-height: 44px; }
   .setting-list > [data-setting-add] { min-height: 44px; }
   .pills { gap: 8px 6px; }
@@ -1228,23 +1238,60 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
   .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
   .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
-  /* A phone stacks each rule as a card, with the column label beside its control. */
+  /* Stack hook rules and installed hooks as table-to-cards grids below 60em. */
+  .card[data-section="hooks"] .card-scroll { overflow: visible; mask-image: none; }
   .hook-rules thead { display: none; }
-  .hook-rules, .hook-rules tbody { display: block; }
-  .hook-rules tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
-  .hook-rules td { display: grid; grid-template-columns: 5rem minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; padding: 0; border: 0; width: auto; }
-  .hook-rules td.end { display: flex; grid-column: 1 / -1; width: 100%; justify-content: flex-end; padding-right: 4px; }
+  .hook-rules { display: block; border: 0; }
+  .hook-rules tbody {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+    gap: 12px; margin-top: 6px; margin-bottom: 10px;
+  }
+  .hook-rules tr {
+    display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px;
+    margin: 0; padding: 12px 14px; border: 1px solid var(--line);
+    border-radius: var(--radius); background: var(--field);
+  }
+  .hook-rules td, .hook-rules td:first-child {
+    display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); align-items: center;
+    gap: 10px; min-width: 0; padding: 0; border: 0; width: auto;
+  }
+  .hook-rules td.end {
+    display: flex; grid-column: 1 / -1; width: 100%; justify-content: flex-end; padding: 0;
+  }
   .hook-rules .mobile-label { display: inline; color: var(--muted); font-size: inherit; }
-  /* A phone hook card keeps one spacing rhythm: name, surfaces, scope, then state and actions. */
-  .card[data-section="hooks"] .keys tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; margin-top: 16px; }
-  .card[data-section="hooks"] .keys tr { grid-template-columns: minmax(0, 1fr) 104px; grid-template-areas: "name version" "surfaces surfaces" "scopes scopes" "enabled actions"; gap: 8px; align-items: center; margin-bottom: 0; }
-  .card[data-section="hooks"] .keys tr > td { grid-area: auto; }
-  .card[data-section="hooks"] .keys tr > td.name { grid-area: name; }
-  .card[data-section="hooks"] .keys tr > td:nth-child(2) { grid-area: version; justify-content: flex-end; }
-  .card[data-section="hooks"] .keys tr > td:nth-child(3) { grid-area: surfaces; }
-  .card[data-section="hooks"] .keys tr > td:nth-child(4) { grid-area: scopes; }
-  .card[data-section="hooks"] .keys tr > td:nth-child(6) { grid-area: enabled; }
-  .card[data-section="hooks"] .keys tr > td.end { grid-area: actions; display: flex; gap: 8px; justify-content: flex-end; }
+  .card[data-section="hooks"] .keys.hook-table { display: block; border: 0; }
+  .card[data-section="hooks"] .keys.hook-table thead { display: none; }
+  .card[data-section="hooks"] .keys.hook-table tbody {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+    gap: 12px; margin-top: 8px;
+  }
+  .card[data-section="hooks"] .keys.hook-table tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "name version" "surfaces surfaces" "scopes scopes" "enabled actions";
+    gap: 10px 12px; align-items: center; margin: 0; padding: 12px 14px;
+    border: 1px solid var(--line); border-radius: var(--radius); background: var(--field);
+  }
+  .card[data-section="hooks"] .keys.hook-table tr > td,
+  .card[data-section="hooks"] .keys.hook-table td:not(:first-child) {
+    display: flex; align-items: center; gap: 6px; min-width: 0; width: auto;
+    padding: 0; border: 0; white-space: normal; grid-area: auto;
+  }
+  .card[data-section="hooks"] .keys.hook-table tr > td.hide-sm { display: none; }
+  .card[data-section="hooks"] .keys.hook-table tr > td.name { grid-area: name; align-self: start; }
+  .card[data-section="hooks"] .keys.hook-table tr > td.name .cell-value {
+    display: grid; gap: 2px; white-space: normal; overflow: visible; text-overflow: clip;
+  }
+  .card[data-section="hooks"] .keys.hook-table tr > td.hook-ver {
+    grid-area: version; justify-self: end; justify-content: flex-end; align-self: start;
+    font-family: var(--mono); color: var(--muted); white-space: nowrap;
+  }
+  .card[data-section="hooks"] .keys.hook-table tr > td.surfaces { grid-area: surfaces; min-width: 0; }
+  .card[data-section="hooks"] .keys.hook-table tr > td.hook-scope { grid-area: scopes; color: var(--muted); }
+  .card[data-section="hooks"] .keys.hook-table tr > td.hook-enabled { grid-area: enabled; gap: 8px; padding-top: 2px; }
+  .card[data-section="hooks"] .keys.hook-table tr > td.end {
+    grid-area: actions; justify-self: end; display: flex; gap: 8px; justify-content: flex-end; padding: 2px 0 0;
+  }
+  .card[data-section="hooks"] .keys.hook-table .mobile-label { display: inline; color: var(--muted); }
 
 }
 
