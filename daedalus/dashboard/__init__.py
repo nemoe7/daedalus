@@ -1175,6 +1175,8 @@ def file_routes(
     if not allowed(request):
       return denied()
     main = FILES[0]
+    if config.sync_files():
+      rebuild()
     shadows = config.file_shadows(main)
     found = []
     for path in config_files():
@@ -1256,6 +1258,7 @@ def file_routes(
   async def env_list(request: Request) -> JSONResponse:
     if not allowed(request):
       return denied()
+    config.sync_files()
     return JSONResponse(env_rows())
 
   @api.put("/env")

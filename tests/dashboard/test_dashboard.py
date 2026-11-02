@@ -5189,6 +5189,32 @@ def test_broken_file(client: TestClient, folder: Path) -> None:
   assert gone.status_code == 200, gone.text
 
 
+def test_external_provider_yaml_registers_on_files_read(
+  client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Creating `{provider}.yml` on disk outside Daedalus registers it and queues a rebuild."""
+  queued = []
+
+  def cached() -> None:
+    pass
+
+  monkeypatch.setattr(api, "CATALOG_REBUILD_CACHED", cached)
+  monkeypatch.setattr(schedule, "request", lambda task: queued.append(task) or True)
+  config.load_config(config.DEFAULT_PATH)
+  external = folder / "external.yml"
+  try:
+    external.write_text("", encoding="utf-8")
+    listed = client.get("/ui/api/files")
+    assert listed.status_code == 200, listed.text
+    found = next(item for item in listed.json() if item["path"] == str(external))
+    assert found["blocks"] == {"external": {}}
+    assert config.get_config()["external"][config.FILE_KEY] == {}
+    assert queued == [cached]
+  finally:
+    external.unlink(missing_ok=True)
+    config.load_config(config.DEFAULT_PATH)
+
+
 def test_catalog(client: TestClient) -> None:
   assert (
     client.post(

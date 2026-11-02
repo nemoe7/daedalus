@@ -274,3 +274,27 @@ def test_a_wrong_shape_in_a_provider_file_drops_out() -> None:
       logging.getLogger("daedalus.config").removeHandler(handler)
   assert loaded["p"]["_file"] == {"api_key": "file"}, loaded["p"]["_file"]
   assert any("p.yml" in record.getMessage() for record in records), records
+
+
+def test_external_provider_files_register_and_sync() -> None:
+  """External `{provider}.yml` files register even when empty and reload on disk changes."""
+  with tempfile.TemporaryDirectory() as folder:
+    main = Path(folder) / "free.yml"
+    main.write_text("p:\n  api_key: main\n", encoding="utf-8")
+    empty = Path(folder) / "empty.yml"
+    empty.write_text("", encoding="utf-8")
+    loaded = config.load_config(main)
+    assert config.provider_files(main) == [empty]
+    assert loaded["empty"][config.FILE_KEY] == {}
+    assert config.sync_files() is False
+
+    external = Path(folder) / "external.yml"
+    external.write_text("api_key: ext\nmodels:\n  '*': {}\n", encoding="utf-8")
+    assert config.sync_files() is True
+    assert config.get_config()["external"][config.FILE_KEY]["api_key"] == "ext"
+
+    broken = Path(folder) / "broken.yml"
+    broken.write_text("models: [\n", encoding="utf-8")
+    assert config.sync_files() is False
+    assert config.get_config()["external"][config.FILE_KEY]["api_key"] == "ext"
+    config.set_config(None)
