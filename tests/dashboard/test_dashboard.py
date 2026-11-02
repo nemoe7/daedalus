@@ -180,22 +180,33 @@ def test_nested_ui_assets_serve_from_manifest(client: TestClient) -> None:
 
 
 def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
-  """Icon-only remove buttons include aria-label attributes and symmetric CSS boxes."""
+  """Icon-only action buttons share iconButton, aria-label attributes, and square .icon-btn boxes."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function iconButton(" in app
   for marker in (
     '"data-drop": JSON.stringify([...path, key])',
-    '"data-setting-drop": JSON.stringify([group, key, index])',
     '"data-form-hook-drop": at',
   ):
     block = app.split(marker, 1)[0].rsplit("actionButton(icon", 1)[1]
     assert '"aria-label": t("action.remove_button")' in block, marker
-  assert ".pill > button:not(.select), .override > .ghost {" in css
-  assert "[data-hook-source-drop], [data-hook-drop], td.end > .ghost {" in css
+  for marker in (
+    '"data-key": k.name',
+    '"data-setting-drop": JSON.stringify([group, key, index])',
+    '"data-hook-drop": row.path',
+    '"data-hook-source-drop": true',
+    '"data-hook-rule-remove": JSON.stringify([row.name, entry.key, index])',
+    '"data-drop": JSON.stringify([...path, "models", pattern])',
+  ):
+    block = app.split(marker, 1)[0].rsplit('iconButton("trash"', 1)[1]
+    assert "danger: true" in block, marker
+  assert ".pill > button:not(.select) {" in css
+  assert ".icon-btn {" in css and "width: 32px; height: 32px;" in css
+  assert "width: 44px; height: 44px; min-width: 44px; min-height: 44px;" in css
   assert "td.end > .ghost + .ghost { margin-left: 8px; }" in css
-  hook_settings = app.split('"data-hook-open"', 1)[0].rsplit("actionButton(", 1)[1]
-  assert 'icon("settings")' in hook_settings
+  hook_settings = app.split('"data-hook-open"', 1)[0].rsplit("iconButton(", 1)[1]
+  assert '"settings"' in hook_settings
   assert "settings: '<path" in app
   assert "translateY(-6px) scale" not in css
   assert "openModelModal(model, row)" in app
@@ -7185,8 +7196,8 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert app.count('actionButton(icon("trash")') >= 2, (
-    "the key row and the hook row draw the icon"
+  assert app.count('iconButton("trash"') >= 6, (
+    "keys, lists, overrides, and hooks share iconButton with trash"
   )
   assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
   assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"

@@ -187,6 +187,10 @@ function addButton(label, attrs = {}) {
     variant: "add", attrs,
   });
 }
+function iconButton(glyph, { danger = false, variant = "", attrs = {} } = {}) {
+  const cls = ["ghost", "icon-btn", danger ? "danger" : "", variant].filter(Boolean).join(" ");
+  return actionButton(icon(glyph), { variant: cls, attrs });
+}
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
@@ -1731,8 +1735,8 @@ function renderKeys(rows) {
       <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start_title")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted num">${k.created ? timeText(k.created) : dash}</td>
       <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? timeText(k.used) : t("settings.keys.used_never_text")}</span></td>
-      <td class="end">${actionButton(icon("trash"), {
-        variant: "ghost danger",
+      <td class="end">${iconButton("trash", {
+        danger: true,
         attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.remove_button") },
       })}</td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty_text")}</td></tr>`);
@@ -1918,8 +1922,8 @@ function setListValue(group, key, values) {
   state.settings.lists ||= {};
   state.settings.lists[`${group}.${key}`] = values;
 }
-const settingListRow = (group, key, value, index) => `<li class="setting-list-row"><span class="setting-list-value">${esc(value)}</span>${actionButton(icon("trash"), {
-  variant: "ghost danger",
+const settingListRow = (group, key, value, index) => `<li class="setting-list-row"><span class="setting-list-value">${esc(value)}</span>${iconButton("trash", {
+  danger: true,
   attrs: {
     "aria-label": t("action.remove_button"),
     title: t("action.remove_button"),
@@ -2209,11 +2213,10 @@ function hooksManager() {
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
-      <td class="end">${(row.settings || []).length ? actionButton(icon("settings"), {
-        variant: "ghost",
+      <td class="end">${(row.settings || []).length ? iconButton("settings", {
         attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("action.settings_button") },
-      }) : ""}${actionButton(icon("trash"), {
-        variant: "ghost danger",
+      }) : ""}${iconButton("trash", {
+        danger: true,
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
       })}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
@@ -2239,8 +2242,8 @@ function hooksManager() {
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
         ${addButton(t("action.add_repository_button"), { "data-hook-source-add": true })}
-        ${sources.length ? actionButton(icon("x"), {
-          variant: "ghost",
+        ${sources.length ? iconButton("trash", {
+          danger: true,
           attrs: {
             "data-hook-source-drop": true,
             "aria-label": t("hook.action.delete_source_title", { name: selected }),
@@ -2354,8 +2357,8 @@ function hookRulesTable(row, entry) {
   const head = columns.map((column) => `<th>${esc(column.label)}</th>`).join("");
   const body = rules.map((rule, index) => {
     const cells = columns.map((column) => `<td role="cell">${hookRuleCell(row, entry, column, rule, index)}</td>`).join("");
-    const remove = actionButton(icon("trash"), {
-      variant: "ghost danger",
+    const remove = iconButton("trash", {
+      danger: true,
       attrs: {
         "data-hook-rule-remove": JSON.stringify([row.name, entry.key, index]),
         "aria-label": t("hook.rule.remove_named_label", { number: index + 1 }),
@@ -3323,8 +3326,8 @@ function providerCard(name, block) {
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
       <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
       ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
-      ${actionButton(icon("x"), {
-        variant: "ghost",
+      ${iconButton("trash", {
+        danger: true,
         attrs: {
           "aria-label": t("provider.pattern.delete_title"),
           title: t("provider.pattern.delete_title"),
