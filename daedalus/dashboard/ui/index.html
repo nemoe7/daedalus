@@ -17,34 +17,26 @@
       <h3 id="modal-title"></h3>
       <button class="ghost modal-close" type="submit" value="cancel" id="modal-close" formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><span data-icon="x" aria-hidden="true"></span></button>
     </div>
-    <p id="modal-message"></p>
-    <label class="modal-field" id="modal-choice-field" hidden><select id="modal-choice" aria-label="provider.key.label" data-i18n-aria-label="provider.key.label"></select></label>
-    <label class="modal-field" id="modal-field" hidden><input id="modal-input" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.name_label" data-i18n-aria-label="dialog.name_label"></label>
-    <label class="modal-field" id="modal-field2" hidden><input id="modal-input2" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.value_label" data-i18n-aria-label="dialog.value_label"></label>
-    <div class="modal-actions">
-      <button class="ghost" type="submit" value="cancel" id="modal-cancel" formnovalidate data-i18n="action.cancel_button">action.cancel_button</button>
-      <button class="primary" type="submit" id="modal-ok" value="ok"></button>
-    </div>
+    <div id="modal-body"></div>
+    <div class="modal-actions" id="modal-actions"></div>
   </form>
 </dialog>
-<dialog id="chain-modal" class="modal chain-modal" aria-labelledby="chain-modal-title">
-  <form method="dialog">
-    <div class="modal-head">
-      <h3 id="chain-modal-title"></h3>
-      <button class="ghost modal-close" type="submit" value="close" autofocus formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><span data-icon="x" aria-hidden="true"></span></button>
-    </div>
-    <div id="chain-modal-body"></div>
-  </form>
-</dialog>
-<dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">
-  <form method="dialog">
-    <div class="modal-head">
-      <h3 id="model-modal-title"></h3>
-      <button class="ghost modal-close" type="submit" value="close" autofocus formnovalidate aria-label="action.close_button" title="action.close_button" data-i18n-aria-label="action.close_button" data-i18n-title="action.close_button"><span data-icon="x" aria-hidden="true"></span></button>
-    </div>
-    <div id="model-modal-body"></div>
-  </form>
-</dialog>
+<template id="modal-prompt-template" data-modal-template="prompt">
+  <p id="modal-message"></p>
+  <label class="modal-field" id="modal-choice-field" hidden><select id="modal-choice" aria-label="provider.key.label" data-i18n-aria-label="provider.key.label"></select></label>
+  <label class="modal-field" id="modal-field" hidden><input id="modal-input" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.name_label" data-i18n-aria-label="dialog.name_label"></label>
+  <label class="modal-field" id="modal-field2" hidden><input id="modal-input2" type="text" spellcheck="false" autocomplete="off" aria-label="dialog.value_label" data-i18n-aria-label="dialog.value_label"></label>
+  <div data-slot="actions">
+    <button class="ghost" type="submit" value="cancel" id="modal-cancel" formnovalidate data-i18n="action.cancel_button">action.cancel_button</button>
+    <button class="primary" type="submit" id="modal-ok" value="ok"></button>
+  </div>
+</template>
+<template id="modal-chain-template" data-modal-template="chain">
+  <div id="chain-modal-body"></div>
+</template>
+<template id="modal-model-template" data-modal-template="model">
+  <div id="model-modal-body"></div>
+</template>
 
 <div id="app" hidden>
   <a class="skip-link" href="#main" data-i18n="nav.skip_to_main_link">nav.skip_to_main_link</a>
@@ -106,7 +98,7 @@
               <option value="24" data-i18n="request.filter.last_24_hours_option">request.filter.last_24_hours_option</option>
             </select>
             <button class="ghost live-toggle" type="button" id="live-toggle" aria-pressed="false"><span data-icon="activity" aria-hidden="true"></span> <span data-i18n="request.live_button">request.live_button</span></button>
-            <button class="ghost legend-open" type="button" id="legend-open" aria-haspopup="dialog" aria-controls="chain-modal" data-i18n="request.legend.title">request.legend.title</button>
+            <button class="ghost legend-open" type="button" id="legend-open" aria-haspopup="dialog" aria-controls="modal" data-i18n="request.legend.title">request.legend.title</button>
             <button class="ghost off" type="button" id="request-clear" data-i18n="action.clear_filters_button">action.clear_filters_button</button>
             <span class="hint" id="request-count"></span>
           </div>
