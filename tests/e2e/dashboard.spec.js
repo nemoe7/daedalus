@@ -758,4 +758,9 @@ test("settings controls and section transitions use house motion tokens", async 
   await page.waitForTimeout(250);
   await page.locator("[data-hook-back]").click();
   await expect(page.locator('.card[data-section="hooks"] table.keys')).toBeVisible();
+  await open(page, "#/settings?section=hooks", 390, 844);
+  const paneBack = page.locator("#settings > .section-pane > .pane-bar > [data-back]");
+  await expect(paneBack).toBeVisible();
+  await paneBack.click();
+  await expect(page.locator("#settings > .rail")).toBeVisible();
 });
