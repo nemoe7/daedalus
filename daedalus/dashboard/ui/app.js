@@ -182,6 +182,11 @@ function backButton(back, attrs = {}) {
     variant: "ghost back", attrs,
   });
 }
+function addButton(label, attrs = {}) {
+  return actionButton(`${icon("plus")}<span>${esc(label)}</span>`, {
+    variant: "add", attrs,
+  });
+}
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
@@ -1805,9 +1810,7 @@ function renderFiles() {
   const host = $("files");
   host.hidden = state.fileOpen;
   host.innerHTML = `<nav class="sections drill provider-files" aria-label="${esc(t("nav.providers_link"))}">${files}</nav>`
-    + `<div class="provider-file-actions">${actionButton(t("action.new_provider_button"), {
-      variant: "add", attrs: { id: "new-provider" },
-    })}</div>`;
+    + `<div class="provider-file-actions">${addButton(t("action.new_provider_button"), { id: "new-provider" })}</div>`;
   // Save writes YAML text. Form rows save when they close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
@@ -1888,9 +1891,8 @@ const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton
 })}</span>`;
 
 // Replace the Add button with an inline input on click.
-const adder = (path, kind, label = t("action.add_button")) => actionButton(esc(label), {
-  variant: "add",
-  attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
+const adder = (path, kind, label = t("action.add_button")) => addButton(label, {
+  "data-add": JSON.stringify(path), "data-kind": kind,
 });
 
 function listField(name, values, path) {
@@ -1924,8 +1926,8 @@ const settingListRow = (group, key, value, index) => `<li class="setting-list-ro
     "data-setting-drop": JSON.stringify([group, key, index]),
   },
 })}</li>`;
-const settingAdder = (group, key) => actionButton(t("action.add_button"), {
-  variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
+const settingAdder = (group, key) => addButton(t("action.add_button"), {
+  "data-setting-add": JSON.stringify([group, key]),
 });
 const settingListBody = (group, key, values = listValue(group, key)) =>
   `${values.length ? `<ul class="setting-list-items">${values.map((value, index) => settingListRow(group, key, value, index)).join("")}</ul>` : ""}${settingAdder(group, key)}`;
@@ -1996,9 +1998,8 @@ function hookFormRows(values, path, kind, name) {
   const rows = (Array.isArray(values) ? values : [])
     .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
     || `<em class="none">${t("hook.empty.file_text")}</em>`;
-  return `<div class="pills">${rows}${actionButton(t("action.add_file_button"), {
-    variant: "add",
-    attrs: { "data-form-hook-add": JSON.stringify([path, kind, name]) },
+  return `<div class="pills">${rows}${addButton(t("action.add_file_button"), {
+    "data-form-hook-add": JSON.stringify([path, kind, name]),
   })}</div>`;
 }
 
@@ -2237,9 +2238,7 @@ function hooksManager() {
         placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`, "hooks.dir")}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
-        ${actionButton(`${icon("plus")} ${t("action.add_repository_button")}`, {
-          variant: "add", attrs: { "data-hook-source-add": true },
-        })}
+        ${addButton(t("action.add_repository_button"), { "data-hook-source-add": true })}
         ${sources.length ? actionButton(icon("x"), {
           variant: "ghost",
           attrs: {
@@ -2365,8 +2364,8 @@ function hookRulesTable(row, entry) {
     });
     return `<tr>${cells}<td class="end">${remove}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="${columns.length + 1}"><em class="none">${t("hook.rule.empty_text")}</em></td></tr>`;
-  const add = actionButton(`${icon("plus")} ${t("hook.rule.add_button")}`, {
-    variant: "add", attrs: { "data-hook-rule-add": JSON.stringify([row.name, entry.key]) },
+  const add = addButton(t("hook.rule.add_button"), {
+    "data-hook-rule-add": JSON.stringify([row.name, entry.key]),
   });
   return `<div class="card-scroll scroll-fade"><table class="hook-rules"><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>${add}`;
 }

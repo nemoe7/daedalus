@@ -6566,6 +6566,23 @@ def test_shared_back_button_uses_lucide_chevron_left() -> None:
   assert (
     "lsaquo" not in app and "ghost hook-back" not in app and ".hook-back" not in css
   )
+
+
+def test_shared_add_button_uses_lucide_plus() -> None:
+  """All inline add buttons render through one addButton helper with Lucide plus."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  locale = Path("daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert "function addButton(" in app
+  assert app.count('variant: "add"') == 1
+  assert '"+ Add' not in locale and '"+ New' not in locale
+  run_app_js(
+    "addButton",
+    """
+const html = probe.addButton("Add rule", { "data-hook-rule-add": "[1]" });
+assert(html.includes('class="add"'), html);
+assert(html.includes("M5 12h14") && html.includes("<span>Add rule</span>"), html);
+""",
+  )
   run_app_js(
     "backButton, icon",
     """

@@ -1,9 +1,9 @@
 "use strict";
 globalThis.DAEDALUS_LOCALE = {
-  "action.add_button": "+ Add",
-  "action.add_file_button": "+ Add file",
-  "action.add_key_button": "+ Add key",
-  "action.add_pattern_button": "+ Add pattern",
+  "action.add_button": "Add",
+  "action.add_file_button": "Add file",
+  "action.add_key_button": "Add key",
+  "action.add_pattern_button": "Add pattern",
   "action.add_repository_button": "Add source",
   "action.cancel_button": "Cancel",
   "action.check_now_button": "Check now",
@@ -19,7 +19,7 @@ globalThis.DAEDALUS_LOCALE = {
   "action.login_button": "Log in",
   "action.logout_button": "Log out",
   "action.new_key_button": "+ Generate key",
-  "action.new_provider_button": "+ New provider",
+  "action.new_provider_button": "New provider",
   "action.press_ctrl_c_button": "Copy with Ctrl+C",
   "action.rebuild_button": "Rebuild",
   "action.remove_button": "Delete",
