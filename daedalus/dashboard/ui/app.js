@@ -2227,12 +2227,12 @@ function hooksManager() {
     const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
     const problem = row.problem ? statusBadge(row.problem, { variant: "hook-problem only-sm" }) : "";
     return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}${problem}</span></td>
-      <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
+      <td role="cell" class="hook-ver"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
-      <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hook-scope">${mobileLabel(t("hook.column.scopes_column"))}<span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
-      <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
+      <td role="cell" class="hook-enabled"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
+        ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}">${mobileLabel(t("hook.column.enabled_column"))}</td>
       <td class="end">${(row.settings || []).length ? iconButton("settings", {
         attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("action.settings_button") },
       }) : ""}${iconButton("trash", {
@@ -2249,12 +2249,12 @@ function hooksManager() {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
-      <div class="card-scroll scroll-fade"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
+      <div class="card-scroll scroll-fade"><table class="keys hook-table"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
       ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
         variant: "ghost", attrs: { "data-hooks-update": true },
       })}`, "hooks.disabled")}
-    <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
+    <div class="hooks-order-list" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
       <span class="input">${modalValueInput({
         id: "set-hooks-dir",
@@ -5742,11 +5742,6 @@ $("settings").addEventListener("change", async (event) => {
   // The nested providers host handles its own events.
   if (event.composedPath?.().includes($("provider-form"))) return;
   const input = event.target;
-  if (input.dataset.hookRuleVersion) {
-    const [name, key, index, column] = JSON.parse(input.dataset.hookRuleVersion);
-    setHookRuleCell(name, key, index, column, input.value);
-    return renderSettings();
-  }
   if (input.dataset.hookRuleCell) {
     const [name, key, index, column] = JSON.parse(input.dataset.hookRuleCell);
     setHookRuleCell(name, key, index, column, input.type === "checkbox" ? input.checked : input.value);

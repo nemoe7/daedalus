@@ -49,12 +49,12 @@ flowchart LR
 
 ## The version choices
 
-The Hooks page fills the version select from the `options` function of the hook, through
+The Hooks page fills the version field's `datalist` from the `options` function of the hook, through
 `POST /ui/api/hooks/options`. The function reads each client registry off the request path: PyPI for
 `owui`, and npm for `kilo` and `opencode`. It returns `latest` first, then the historical versions.
 
-A manual text box beside the select takes any version. If a registry read fails, the hook uses its
-known latest version.
+That single field also accepts any custom version directly. If a registry read fails, the hook uses
+its known latest version.
 
 ## The Open WebUI branding license
 

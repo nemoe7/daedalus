@@ -369,8 +369,8 @@ shows 1 field for each entry.
 A `rules` field holds an ordered list of rows, and each row holds 1 value for each column. The Hooks
 page draws a table with an add control and a remove control for each row.
 
-A `choice` column draws a select. A column with `options` draws a version select beside a manual
-text box.
+A `choice` column draws a select. A column with `options` draws a single version field backed by a
+`datalist` with `latest` first, followed by historical versions.
 
 ```yaml
 # settings:
@@ -399,8 +399,8 @@ its field takes the default.
 
 A hook file may define `options(key, column, row)` to fill the dynamic options of 1 `rules` column.
 The Hooks page calls it through `POST /ui/api/hooks/options` when the page opens and when a row
-changes, off the request path. It returns a list of text choices, and the page keeps a manual text
-box beside the select.
+changes, off the request path. It returns a list of text choices for that column's `datalist`, while
+the same input accepts custom text directly.
 
 ## Sources and the lock
 
