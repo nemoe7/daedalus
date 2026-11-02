@@ -28,18 +28,6 @@
   descent-override: 24%;
   line-gap-override: 0%;
 }
-@property --fade-left {
-  syntax: "<length>"; inherits: false; initial-value: 0px;
-}
-@property --fade-right {
-  syntax: "<length>"; inherits: false; initial-value: 0px;
-}
-@property --fade-top {
-  syntax: "<length>"; inherits: false; initial-value: 0px;
-}
-@property --fade-bottom {
-  syntax: "<length>"; inherits: false; initial-value: 0px;
-}
 @property --edge-start {
   syntax: "<length>"; inherits: false; initial-value: 0px;
 }
@@ -183,12 +171,9 @@ header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas:
 .tabs { flex: 0 1 auto; min-width: 0; }
 /* A clipped scroll edge fades toward its center, so no cut reads hard. The class only rides an
    edge while content waits beyond it. */
-.scroll-fade {
-  --fade-left: 0px; --fade-right: 0px; overflow-x: auto;
-  mask-image: linear-gradient(90deg, transparent 0, black var(--fade-left),
-    black calc(100% - var(--fade-right)), transparent 100%);
-}
-.card-scroll { max-width: 100%; }
+.scroll-fade { overflow-x: auto; scroll-padding-inline: var(--edge-fade); }
+.tabs.scroll-fade { padding-inline: 4px; }
+.card-scroll { max-width: 100%; padding-block: 4px; }
 .count { margin-left: 6px; color: var(--muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .count:empty { display: none; }
 .chips {
@@ -1114,9 +1099,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar .back .back-label { display: none; }
   /* The pane softens only a clipped edge. Its cards stay the content of this one scrollport. */
   .section-pane {
-    --fade-top: 0px; --fade-bottom: 0px; min-height: 0; overflow-y: auto; align-self: stretch;
-    mask-image: linear-gradient(180deg, transparent 0, black var(--fade-top),
-      black calc(100% - var(--fade-bottom)), transparent 100%);
+    min-height: 0; overflow-y: auto; align-self: stretch;
+    padding: 4px; scroll-padding-block: var(--edge-fade);
   }
   /* A pane that holds one filling card stops scrolling, so the card's own form carries the scroll. */
   .section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }
@@ -1553,7 +1537,11 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: scroll(self)) {
     #app > main:not([data-page="models"]), .section-pane:not(.fit-host), .modal, .step pre, .notice, textarea {
-      mask-image: linear-gradient(to bottom, transparent, black var(--edge-start), black calc(100% - var(--edge-end)), transparent);
+      scroll-padding-block: var(--edge-fade);
+      mask-image:
+        linear-gradient(to bottom, transparent, black var(--edge-start), black calc(100% - var(--edge-end)), transparent),
+        linear-gradient(to left, black var(--scrollbar-carve), transparent var(--scrollbar-carve));
+      mask-composite: add;
       animation: edge-start linear both, edge-end linear both;
       animation-timeline: scroll(self), scroll(self);
       animation-range: 0px var(--edge-ramp), calc(100% - var(--edge-ramp)) 100%;
@@ -1561,19 +1549,26 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
     .tabs.scroll-fade,
     .card-scroll.scroll-fade,
     .panel:not(.editbar):not(section[data-page="models"] > .panel) {
+      scroll-padding-inline: var(--edge-fade);
       mask-image: linear-gradient(to right, transparent, black var(--edge-inline-start), black calc(100% - var(--edge-inline-end)), transparent);
       animation: edge-inline-start linear both, edge-inline-end linear both;
       animation-timeline: scroll(self inline), scroll(self inline);
       animation-range: 0px var(--edge-ramp), calc(100% - var(--edge-ramp)) 100%;
     }
     #app > main[data-page="models"] {
-      mask-image: linear-gradient(to bottom, black, black calc(100% - var(--edge-end)), transparent);
+      scroll-padding-block-end: var(--edge-fade);
+      mask-image:
+        linear-gradient(to bottom, black, black calc(100% - var(--edge-end)), transparent),
+        linear-gradient(to left, black var(--scrollbar-carve), transparent var(--scrollbar-carve));
+      mask-composite: add;
       animation: edge-end linear both;
       animation-timeline: scroll(self);
       animation-range: calc(100% - var(--edge-ramp)) 100%;
     }
     section[data-page="requests"] > .flow > .column > .panel:not(.editbar),
     section[data-page="limits"] > .flow > .column > .panel:not(.editbar) {
+      scroll-padding-block-end: var(--edge-fade);
+      scroll-padding-inline: var(--edge-fade);
       mask-image:
         linear-gradient(to bottom, black, black calc(100% - var(--edge-end)), transparent),
         linear-gradient(to right, transparent, black var(--edge-inline-start), black calc(100% - var(--edge-inline-end)), transparent);

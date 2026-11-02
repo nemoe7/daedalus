@@ -1807,7 +1807,6 @@ function renderKeys(rows) {
         attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.remove_button") },
       })}</td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty_text")}</td></tr>`);
-  markCardScrollEdges();
 }
 
 async function refreshKeys() {
@@ -3133,7 +3132,6 @@ function selectSection(host, key, open = sectionState(host).open) {
       title.textContent = open ? label : "";
     }
   }
-  markCardScrollEdges();
   markSectionPaneEdges();
   if (!moved) return;
   // Start the slide and retain its flag for a pane rebuild.
@@ -4141,7 +4139,6 @@ function renderSettings() {
   placeUndo();
   fitSectionPane();
   keepSettingsScroll(scroll);
-  markCardScrollEdges();
 }
 
 // Display rows only in their listed modes: race values in race, and pin values in session or race.
@@ -4828,7 +4825,6 @@ async function start() {
   document.querySelector?.("#nav a.on")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   markNavEdges();
   fitSectionPane();
-  markCardScrollEdges();
   setStateKnown(null);
   if (!state.requests.length) renderRequestTable();
   if (!state.models.length) renderModels();
@@ -5196,35 +5192,9 @@ function requestHash() {
   history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
 }
 
-// A fade grows over the first stretch of scroll, holds, and shrinks at the far end.
-const FADE_GROW = 48;
-const fadeLen = (dist) => `${Math.round(Math.min(1, Math.max(0, dist / FADE_GROW)) * 20)}px`;
-const setFade = (host, name, dist) => host.style?.setProperty(name, fadeLen(dist));
-
-const cssInlineScrollFade = () =>
-  typeof CSS !== "undefined" && Boolean(CSS.supports?.("animation-timeline: scroll(self inline)"))
-  && !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-function markScrollEdges(scroller) {
-  const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  if (!cssInlineScrollFade()) {
-    setFade(scroller, "--fade-left", scroller.scrollLeft);
-    setFade(scroller, "--fade-right", end - scroller.scrollLeft);
-  }
-  return { left: scroller.scrollLeft <= 2, right: scroller.scrollLeft >= end - 2 };
-}
-
-function markCardScrollEdges() {
-  for (const scroller of document.querySelectorAll(".card-scroll")) markScrollEdges(scroller);
-}
-
 function markPaneEdges(pane) {
   pane.classList.toggle("fit-host", pane.querySelector(
     ":scope > .provider-flow:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
-  const end = Math.max(0, pane.scrollHeight - pane.clientHeight);
-  setFade(pane, "--fade-top", pane.scrollTop);
-  setFade(pane, "--fade-bottom", end - pane.scrollTop);
-  return { top: pane.scrollTop <= 2, bottom: pane.scrollTop >= end - 2 };
 }
 
 function markSectionPaneEdges() {
@@ -5276,8 +5246,6 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("scroll", (event) => {
   const scroller = event.target;
-  if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
-  if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
   if (
     shownPage === "requests" && (
       scroller === document
@@ -5355,7 +5323,6 @@ function syncKpiWrap() {
 function markNavEdges() {
   syncHeaderWrap();
   syncKpiWrap();
-  markScrollEdges(nav);
 }
 if (typeof ResizeObserver === "function") {
   const headerObserver = new ResizeObserver(() => markNavEdges());
@@ -5365,7 +5332,6 @@ if (typeof ResizeObserver === "function") {
   if (nav) headerObserver.observe(nav);
   if (kpisEl) headerObserver.observe(kpisEl);
 }
-nav.addEventListener("scroll", markNavEdges, { passive: true });
 // Replace the history entry so phone back leaves the app instead of retracing tabs.
 for (const link of document.querySelectorAll("#nav a")) {
   link.addEventListener("click", (event) => {
@@ -5467,7 +5433,6 @@ function showPage() {
   slideAgain();
   document.title = t("page.title", { page: PAGE_LABELS[page] });
   fitSectionPane();
-  markCardScrollEdges();
   if (page === "requests") queueRequestsFill();
 }
 
@@ -5729,7 +5694,6 @@ $("provider-form").addEventListener("keydown", (event) => {
 window.addEventListener("resize", () => {
   markNavEdges();
   fitSectionPane();
-  markCardScrollEdges();
 });
 $("settings").addEventListener("input", (event) => {
   // The nested providers host handles its own events.
