@@ -2672,7 +2672,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert ".requests .mobile-request-more" not in mobile_css, (
     "the more disclosure is gone"
   )
-  assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
+  assert ".requests tr.live-row > td:nth-child(1) .dot" in narrow_css
   assert "grid-column" not in narrow_css, (
     "the pair rows already fit a narrow card, so no row steps down again"
   )
@@ -4453,7 +4453,7 @@ def test_app_js_hooks_manager_renders() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings, settingsChanges, setListValue, icon",
+    "state, renderSettings, settingsChanges, setListValue, iconSlot",
     f"""
 probe.state.settings = {payload};
 probe.renderSettings();
@@ -4463,8 +4463,8 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
-assert(html.includes(probe.icon('refresh_cw') + ' ' + LOCALE['action.update_sources_button']),
-  'the update button leads with the refresh glyph');
+assert(html.includes(probe.iconSlot('refresh_cw') + '<span>' + LOCALE['action.update_sources_button'] + '</span>'),
+  'the update button leads with the refresh glyph slot');
 assert(html.includes('<th>' + LOCALE["hook.column.author_title"] + '</th>'),
   'the table names its author and title column');
 assert(html.includes('One hook'), 'the title of the file shows');
@@ -5765,7 +5765,7 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   )
   table_end = hooks.index("</table></div>")
   update = hooks.index(
-    'actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`',
+    'actionButton(`${iconSlot("refresh_cw")}<span>${t("action.update_sources_button")}</span>`',
     table_end,
   )
   assert (
@@ -8871,14 +8871,14 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
   assert ':root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover' in css
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
   assert "@supports not selector(::-webkit-scrollbar)" in css
+  assert ".dot.live { background: var(--orange); }" in css
   assert (
-    "background: var(--orange); flex: none; animation: pulse 1.4s var(--ease) infinite;"
+    ".ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s var(--ease) infinite; }"
     in css
   )
-  assert (
-    '<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span>'
-    in app
-  )
+  assert "width: 14px; height: 14px; animation: nuu-spin 0.8s linear infinite;" in css
+  assert "const liveDot =" in app and '${liveDot()}<span class="live-ago">' in app
+  assert "const iconSlot =" in app and 'iconSlot("refresh_cw")' in app
 
 
 def test_nuu_modal_manager_and_delete_confirmations() -> None:
