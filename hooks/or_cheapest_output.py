@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.6
+# version: 1.0.7
 # surfaces: [on-catalog, on-upstream]
 # scope: yaml
 # targets: [openrouter]
@@ -9,7 +9,6 @@
 # license: nemoe7 Noncommercial and Public-Interest License 1.2.0
 # ---
 
-import json
 import logging
 import math
 from pathlib import Path
@@ -17,32 +16,26 @@ from typing import Any
 
 import httpx
 
-from daedalus import store
+from daedalus.providers import hooks
 
 logger = logging.getLogger("daedalus.hooks")
 
 TIMEOUT_SECONDS = 20
+ORDERS_FILE = "cheapest_output.json"
 
 
 def orders_file() -> Path:
-  return Path(store.MODELS_DB).parent / "cheapest_output.json"
+  return hooks.storage_file(__file__, ORDERS_FILE)
 
 
 def read_orders() -> dict[str, list[str]]:
-  try:
-    found = json.loads(orders_file().read_text())
-  except (OSError, ValueError):
-    return {}
+  found = hooks.read_json(__file__, ORDERS_FILE)
   return found if isinstance(found, dict) else {}
 
 
 def save_order(model: str, order: list[str]) -> None:
   orders = {**read_orders(), model: order}
-  target = orders_file()
-  target.parent.mkdir(parents=True, exist_ok=True)
-  temporary = target.with_suffix(".tmp")
-  temporary.write_text(json.dumps(orders, indent=1))
-  temporary.replace(target)
+  hooks.write_json(__file__, ORDERS_FILE, orders)
 
 
 def price(value: Any) -> float:

@@ -9132,13 +9132,15 @@ def test_hook_settings_save_leaves_base_config_unchanged(
   )
   base = settings.DEFAULT_PATH
   before = base.read_bytes()
-  config = root / "fields.json"
+  config = hooks.config_file(root / "fields.py")
+  assert config == state_folder / "hooks" / "fields" / "settings.json"
   assert not config.exists()
   answer = client.put(
     "/ui/api/hooks/settings", json={"name": "fields.py", "values": {"target": "kilo"}}
   )
   assert answer.status_code == 200, answer.text
   assert base.read_bytes() == before
+  assert not (root / "fields.json").exists()
   assert json.loads(config.read_text(encoding="utf-8")) == {"target": "kilo"}
   rows = {
     row["name"]: row for row in client.get("/ui/api/settings").json()["hook_rows"]
@@ -9156,4 +9158,5 @@ def test_hook_settings_save_leaves_base_config_unchanged(
   )
   assert outside.status_code == 404, outside.text
   assert not (state_folder / "fields.json").exists()
+  assert not (state_folder / "hooks" / "fields.json").exists()
   assert base.read_bytes() == before
