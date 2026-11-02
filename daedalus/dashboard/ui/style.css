@@ -623,6 +623,31 @@ section[data-page="providers"], section[data-page="settings"] {
 [data-hook-source-drop], [data-hook-drop], td.end > .ghost {
   display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
 }
+.setting-list { display: grid; gap: 8px; justify-items: start; width: 100%; min-width: 0; }
+.setting-list-items {
+  list-style: none; margin: 0; padding: 0; width: 100%; min-width: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--field);
+}
+.setting-list-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 36px; padding: 4px 6px 4px 10px; min-width: 0;
+}
+.setting-list-row + .setting-list-row { border-top: 1px solid var(--line); }
+.setting-list-value { min-width: 0; font: 13px/20px var(--mono); overflow-wrap: anywhere; }
+.setting-list-row > [data-setting-drop] {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 32px; height: 32px; padding: 0; border-color: transparent; border-radius: 6px; background: transparent;
+}
+@media (hover: hover) {
+  .setting-list-row > [data-setting-drop]:hover {
+    border-color: var(--line); background: var(--panel); color: var(--bad);
+  }
+}
+.setting-list-row > [data-setting-drop]:focus-visible {
+  border-color: var(--line); background: var(--panel); color: var(--bad);
+}
+.setting-list > .adder { width: min(260px, 100%); }
+.setting-list > .adder input[type=text] { width: 100%; padding: 6px 10px; font: 13px/20px var(--mono); }
 td.end > .ghost + .ghost { margin-left: 8px; }
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
@@ -1089,6 +1114,9 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
   [data-hook-open], .hook-page .hook-back { min-height: 44px; min-width: 44px; }
+  .setting-list-row { min-height: 44px; }
+  .setting-list-row > [data-setting-drop]::after { content: ""; position: absolute; inset: -6px -4px -6px -8px; }
+  .setting-list > [data-setting-add] { min-height: 44px; }
   .pills { gap: 8px 6px; }
   .pills [data-drop], .pills [data-setting-drop],
   .pills [data-add], .pills [data-setting-add] { position: relative; }

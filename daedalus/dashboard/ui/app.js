@@ -1896,16 +1896,19 @@ function setListValue(group, key, values) {
   state.settings.lists ||= {};
   state.settings.lists[`${group}.${key}`] = values;
 }
-const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
+const settingListRow = (group, key, value, index) => `<li class="setting-list-row"><span class="setting-list-value">${esc(value)}</span>${actionButton(icon("trash"), {
+  variant: "ghost danger",
   attrs: {
     "aria-label": t("action.remove_button"),
     title: t("action.remove_button"),
     "data-setting-drop": JSON.stringify([group, key, index]),
   },
-})}</span>`;
+})}</li>`;
 const settingAdder = (group, key) => actionButton(t("action.add_button"), {
   variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
 });
+const settingListBody = (group, key, values = listValue(group, key)) =>
+  `${values.length ? `<ul class="setting-list-items">${values.map((value, index) => settingListRow(group, key, value, index)).join("")}</ul>` : ""}${settingAdder(group, key)}`;
 
 // Omit the hooks folder prefix from the displayed file name.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
@@ -2598,8 +2601,7 @@ function toggleHook(name, on) {
 function renderSettingList(group, key) {
   const host = $(`set-${group}-${key}`);
   if (!host) return;
-  host.innerHTML = listValue(group, key)
-    .map((value, index) => settingPill(group, key, value, index)).join("") + settingAdder(group, key);
+  host.innerHTML = settingListBody(group, key);
 }
 
 // Keep a Settings list value on Enter or a click outside the input.
@@ -3953,8 +3955,7 @@ function renderSettings() {
       if (unit === "list") {
         const values = listValue(group, key);
         return field(label, hint, `
-          <div class="pills" id="${id}" aria-label="${esc(label)}">${values
-            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div>`, cfgKey);
+          <div class="setting-list" id="${id}" role="group" aria-label="${esc(label)}">${settingListBody(group, key, values)}</div>`, cfgKey);
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);

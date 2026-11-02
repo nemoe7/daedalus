@@ -3459,11 +3459,11 @@ node('set-affinity-mode').value = 'session';
 node('set-personalization-theme').dataset = {{ themeValue: 'system' }};
 node('set-personalization-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
-// The keyword fields are chip lists with a + adder, not a text box.
+// The keyword fields are stacked lists with a + adder, not a text box.
 const list = html.slice(Math.max(0, html.indexOf('id="set-routing-escalation"') - 40),
-  html.indexOf('id="set-routing-escalation"') + 2600);
-assert(list.includes('class="pills"'), 'the keyword field is a chip list');
-assert(list.includes('class="pill"'), 'each keyword is a chip');
+  html.indexOf('id="set-routing-escalation"') + 3400);
+assert(list.includes('class="setting-list"'), 'the keyword field is a list');
+assert(list.includes('class="setting-list-row"'), 'each keyword is a list row');
 const adder = html.indexOf('data-setting-add=');
 assert(adder > 0, 'the + adder is in the form');
 assert(html.slice(adder, adder + 80).includes('escalation'), 'the + adder names its list');
@@ -3797,7 +3797,10 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   assert "position: absolute" in menu.group(1), "the list hangs under the chip"
   assert "border: 1px solid var(--line)" in menu.group(1)
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'const settingPill = (group, key, value, index) => `<span class="pill">' in app
+  assert (
+    'const settingListRow = (group, key, value, index) => `<li class="setting-list-row">'
+    in app
+  )
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"

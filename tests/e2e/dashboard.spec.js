@@ -728,3 +728,18 @@ test("provider drill-down views fit without horizontal overflow", async ({ page 
     }
   }
 });
+
+test("settings keyword lists render stacked rows with inline add", async ({ page }) => {
+  await open(page, "#/settings?section=routing", 1440, 900);
+  const rows = page.locator("#set-routing-escalation .setting-list-row");
+  const initialCount = await rows.count();
+  expect(initialCount).toBeGreaterThan(0);
+  await expect(page.locator("#set-routing-escalation .pill")).toHaveCount(0);
+  await page.locator('#set-routing-escalation [data-setting-add]').click();
+  const input = page.locator("#set-routing-escalation .adder input");
+  await expect(input).toBeVisible();
+  await input.fill("step-by-step");
+  await input.press("Enter");
+  await expect(rows).toHaveCount(initialCount + 1);
+  await expect(rows.last().locator(".setting-list-value")).toHaveText("step-by-step");
+});
