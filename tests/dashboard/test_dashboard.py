@@ -3497,7 +3497,7 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
     "category tiles use semantic role tokens without hex literals"
   )
   assert (
-    "background: var(--field); color: var(--muted); border: 1px solid var(--line);"
+    "background: transparent; color: var(--muted); border: 1px solid transparent;"
     in css
   )
   assert (
@@ -9001,6 +9001,14 @@ def test_semantic_category_tiles_match_vertical_and_horizontal_spacing() -> None
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
     f"width: {EXPECTED_TILE_PX}px; height: {EXPECTED_TILE_PX}px; border-radius: 6px;"
+    in css
+  )
+  assert (
+    "background: transparent; color: var(--muted); border: 1px solid transparent;"
+    in css
+  )
+  assert (
+    "background: var(--accent); color: var(--on-accent); border-color: var(--accent);"
     in css
   )
   assert (
