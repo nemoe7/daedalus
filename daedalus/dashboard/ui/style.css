@@ -706,11 +706,11 @@ mark.search-hit {
 .rail > .rail-empty { margin: 0; padding: 10px; color: var(--muted); }
 /* Bar keeps its content height while visible card fills pane. */
 #provider-form > .section-pane { grid-template-rows: auto 1fr; }
-/* Category tiles use semantic surface tokens and light with --accent when selected. */
+/* Category tiles stay borderless and transparent until selected in the rail. */
 .tile {
   display: inline-flex; align-items: center; justify-content: center; flex: none;
   width: 24px; height: 24px; border-radius: 6px;
-  background: var(--field); color: var(--muted); border: 1px solid var(--line);
+  background: transparent; color: var(--muted); border: 1px solid transparent;
 }
 .sections button.on .tile {
   background: var(--accent); color: var(--on-accent); border-color: var(--accent);
@@ -1061,7 +1061,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .sections button::after { content: "\203a"; color: var(--muted); font-size: 18px; line-height: 1; }
   /* A selection opens the section as its own page, so the list carries no selected mark. */
   .sections button.on { background: none; border-left-color: transparent; }
-  .sections button.on .tile { background: var(--field); color: var(--muted); border-color: var(--line); }
+  .sections button.on .tile { background: transparent; color: var(--muted); border-color: transparent; }
   .section-pane { display: none; }
   /* The providers host keeps its list inside the pane: it has no rail to swap to. */
   #provider-form > .section-pane { display: grid; }
