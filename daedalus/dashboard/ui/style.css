@@ -668,14 +668,15 @@ section[data-page="providers"], section[data-page="settings"] {
   padding: 1px 2px 1px 10px; border: 1px solid var(--control-line);
   border-radius: 10px; background: var(--field); font: 12px/20px var(--mono); overflow-wrap: anywhere;
 }
-.pill button, .override > .ghost {
+.pill button {
   border: 0; background: transparent; color: var(--muted); padding: 0 8px; font-size: 16px; line-height: 24px; cursor: pointer;
 }
-.pill > button:not(.select), .override > .ghost {
+.pill > button:not(.select) {
   width: 24px; height: 24px; padding: 0;
 }
-[data-hook-source-drop], [data-hook-drop], td.end > .ghost {
-  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0;
+.icon-btn {
+  position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 32px; height: 32px; padding: 0; border-radius: 6px;
 }
 .setting-list { display: grid; gap: 8px; justify-items: start; width: 100%; min-width: 0; }
 .setting-list-items {
@@ -688,22 +689,22 @@ section[data-page="providers"], section[data-page="settings"] {
 }
 .setting-list-row + .setting-list-row { border-top: 1px solid var(--line); }
 .setting-list-value { min-width: 0; font: 13px/20px var(--mono); overflow-wrap: anywhere; }
-.setting-list-row > [data-setting-drop] {
-  position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none;
-  width: 32px; height: 32px; padding: 0; border-color: transparent; border-radius: 6px; background: transparent;
-}
+.setting-list-row > .icon-btn,
+.override > .icon-btn { border-color: transparent; background: transparent; }
 @media (hover: hover) {
-  .setting-list-row > [data-setting-drop]:hover {
+  .setting-list-row > .icon-btn:hover,
+  .override > .icon-btn:hover {
     border-color: var(--line); background: var(--panel); color: var(--bad);
   }
 }
-.setting-list-row > [data-setting-drop]:focus-visible {
+.setting-list-row > .icon-btn:focus-visible,
+.override > .icon-btn:focus-visible {
   border-color: var(--line); background: var(--panel); color: var(--bad);
 }
 .setting-list > .adder { width: min(260px, 100%); }
 .setting-list > .adder input[type=text] { width: 100%; padding: 6px 10px; font: 13px/20px var(--mono); }
 td.end > .ghost + .ghost { margin-left: 8px; }
-.pill button:hover, .override > .ghost:hover { color: var(--bad); }
+.pill button:hover { color: var(--bad); }
 .add {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 9999px; background: transparent;
@@ -1173,8 +1174,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* The touch floor: the boxed controls grow their hit areas on a phone. */
   [data-hook-drop], .section-pane .back, #nav a { min-height: 44px; min-width: 44px; }
   [data-hook-open], .back { min-height: 44px; min-width: 44px; }
+  .icon-btn { width: 44px; height: 44px; min-width: 44px; min-height: 44px; border-radius: 6px; }
   .setting-list-row { min-height: 44px; }
-  .setting-list-row > [data-setting-drop]::after { content: ""; position: absolute; inset: -6px -4px -6px -8px; }
   .setting-list > [data-setting-add] { min-height: 44px; }
   .pills { gap: 8px 6px; }
   .pills [data-drop], .pills [data-setting-drop],
