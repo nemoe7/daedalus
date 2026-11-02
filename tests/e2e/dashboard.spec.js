@@ -671,3 +671,36 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
   await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("");
   await expect.poll(() => page.evaluate(() => document.getElementById("ov-kpis").dataset.wrapped || "")).toBe("");
 });
+
+test("provider form edits persist when clicking Save", async ({ page }) => {
+  const nextApiBase = "https://proxy.example/v1";
+  await open(page, "#/settings?section=providers", 1280, 900);
+  await page.locator("#files button[data-file]", { hasText: "openrouter.yml" }).click();
+  await page.evaluate(() => {
+    window.__providerWrites = [];
+    const origFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (opts && opts.method === "PUT") {
+        window.__providerWrites.push({ url: String(url), body: JSON.parse(opts.body) });
+      }
+      return origFetch(url, opts);
+    };
+  });
+
+  const apiBaseInput = page.locator('#provider-form [data-provider="openrouter"] input[data-value="API base"]');
+  await expect(apiBaseInput).toBeVisible();
+  await apiBaseInput.click();
+  await expect(page.locator("#modal")).toBeVisible();
+  await page.locator("#modal-input").fill(nextApiBase);
+  await page.locator("#modal-ok").click();
+
+  await expect(apiBaseInput).toHaveValue(nextApiBase);
+  await expect(page.locator('#provider-form [data-provider="openrouter"] .undo-text')).toBeVisible();
+  const writes = await page.evaluate(() => window.__providerWrites);
+  expect(writes.filter((item) => item.url.endsWith("ui/api/settings"))).toEqual([]);
+  expect(writes.filter((item) => item.url.endsWith("ui/api/providers")).length).toBe(1);
+  expect(writes[0].body.blocks.openrouter.api_base).toBe(nextApiBase);
+
+  await page.locator('#provider-form [data-provider-section="yaml"]').click();
+  await expect(page.locator("#editor")).toHaveValue(/api_base: https:\/\/proxy\.example\/v1/);
+});

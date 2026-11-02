@@ -7738,6 +7738,15 @@ input.closest = () => null;
 send('keydown', 'Enter');
 assert.strictEqual(opened, 3);
 assert.strictEqual(prevented, 3);
+
+const providerInput = node('provider-value');
+providerInput.closest = (sel) => (
+  sel === '#provider-form' ? node('provider-form') : sel === '[data-value]' ? providerInput : null
+);
+node('settings').handlers.click.forEach(fn => fn({
+  target: providerInput, preventDefault: () => assert.fail('settings must ignore provider-form rows'),
+}));
+assert.strictEqual(opened, 3);
 """,
   )
 
