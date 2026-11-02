@@ -704,3 +704,27 @@ test("provider form edits persist when clicking Save", async ({ page }) => {
   await page.locator('#provider-form [data-provider-section="yaml"]').click();
   await expect(page.locator("#editor")).toHaveValue(/api_base: https:\/\/proxy\.example\/v1/);
 });
+
+test("provider drill-down views fit without horizontal overflow", async ({ page }) => {
+  for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
+    for (const fileName of ["free.yml", "openrouter.yml"]) {
+      await open(page, "#/settings?section=providers", width, height);
+      await page.locator("#files button[data-file]", { hasText: fileName }).click();
+      if (fileName === "free.yml") {
+        await page.locator('#provider-form .sections button[data-section="cloudflare"]').click();
+      }
+      await page.waitForTimeout(250);
+      await page.evaluate(() => {
+        document.querySelectorAll("#provider-form details.fold").forEach((fold) => { fold.open = true; });
+      });
+      const overflow = await page.evaluate(() => {
+        const doc = document.documentElement.scrollWidth - window.innerWidth;
+        const hosts = [...document.querySelectorAll("#settings, #settings .section-pane, #provider-form, #provider-form .card.provider, #provider-form .override")]
+          .filter((el) => getComputedStyle(el).display !== "none" && el.clientWidth > 0)
+          .map((el) => el.scrollWidth - el.clientWidth);
+        return Math.max(doc, 0, ...hosts);
+      });
+      expect(overflow, `${fileName} at ${width}x${height} has no horizontal scroll`).toBeLessThanOrEqual(1);
+    }
+  }
+});

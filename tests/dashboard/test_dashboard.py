@@ -2546,7 +2546,7 @@ def test_provider_back_controls_have_room_and_a_touch_target() -> None:
   assert "back.textContent = label;" in app
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".pane-bar { display: flex; align-items: center; gap: 8px; }" in css
-  assert "background: var(--bg); padding: 6px 20px; margin: 0 -20px;" in css
+  assert "background: var(--bg); padding: 6px 0; margin: 0;" in css
   assert "padding: 4px 8px;" in css and "gap: 6px;" in css
   assert ".section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in css
 
@@ -6935,7 +6935,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   ), "the phone lifts the boxed controls to the touch floor"
   assert (
     '.pills [data-drop]::after, .pills [data-setting-drop]::after { content: "";'
-    " position: absolute; inset: -10px; }" in phone
+    " position: absolute; inset: -10px -2px -10px -18px; }" in phone
   ), "keyword pills stay compact while expanding their delete hit area"
   assert (
     '.pills [data-add]::after, .pills [data-setting-add]::after { content: "";'
