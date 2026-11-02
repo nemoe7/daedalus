@@ -424,23 +424,16 @@ for (const tier of tiers) {
 
 
 def test_app_js_tab_steps() -> None:
-  """The tab strip breathes its edge fades and carries no chevrons."""
+  """The tab strip carries no chevrons and leaves scroll fades to CSS timelines."""
   code = _app_js_vm(
     """
 assert(!byId.has('nav-left') && !byId.has('nav-right'), 'no chevron buttons remain');
-nav.scrollLeft = 0;
+nav.scrollLeft = 24;
 nav.scrollWidth = 400;
 nav.clientWidth = 200;
 sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '0px', 'no fade at the start');
-assert.strictEqual(nav.style.props['--fade-right'], '20px', 'the far edge breathes in');
-nav.scrollLeft = 24;
-sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '10px', 'the fade grows over the stretch');
-nav.scrollLeft = 200;
-sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '20px', 'the near edge holds');
-assert.strictEqual(nav.style.props['--fade-right'], '0px', 'the far fade shrinks away');
+assert.strictEqual(nav.style.props['--fade-left'], undefined, 'no JS inline fade property is written');
+assert.strictEqual(nav.style.props['--fade-right'], undefined, 'CSS scroll timeline owns the edge mask');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -5695,10 +5688,11 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   fade = re.search(r"\n\.scroll-fade \{([^}]*)\}", css)
-  assert fade and "mask-image: linear-gradient(90deg, transparent 0," in fade.group(
-    1
-  ), "the shared class carries the edge mask"
-  assert "overflow-x: auto;" in fade.group(1), "the shared class owns its overflow"
+  assert fade and "overflow-x: auto;" in fade.group(1), (
+    "the shared class owns its overflow"
+  )
+  assert "scroll-padding-inline: var(--edge-fade);" in fade.group(1)
+  assert ".tabs.scroll-fade { padding-inline: 4px; }" in css
   assert "#nav," not in css, (
     "the strip joins the scrollers through the class, not an id"
   )
@@ -5711,7 +5705,9 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
     "the header carries no step buttons"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
+  assert "setFade" not in app and "markScrollEdges" not in app, (
+    "no legacy JavaScript scroll-fade listener remains"
+  )
   assert app.count('class="card-scroll scroll-fade"') == 3, (
     "the card scrollers wear the same class"
   )
@@ -5721,28 +5717,18 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
 
 
 def test_scroll_edge_affordances_share_the_soft_motion() -> None:
-  """Pane and tab fade CSS shares soft-motion duration with chevrons."""
+  """Scroll-edge fade registers block and inline @property lengths and scrollbar carve-outs."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  for edge in ("left", "right", "top", "bottom"):
-    registered = re.search(rf"@property --fade-{edge} \{{([^}}]*)\}}", css)
+  for edge in ("start", "end", "inline-start", "inline-end"):
+    registered = re.search(rf"@property --edge-{edge} \{{([^}}]*)\}}", css)
     assert registered and 'syntax: "<length>";' in registered.group(1), (
       f"the {edge} mask stop can interpolate"
     )
     assert "initial-value: 0px;" in registered.group(1)
-
-  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'setFade(scroller, "--fade-left", scroller.scrollLeft);' in app, (
-    "the header fade follows the scrolled distance"
-  )
-  assert 'setFade(pane, "--fade-top", pane.scrollTop);' in app, (
-    "the settings fade follows the scrolled distance"
-  )
-
+  assert "@property --fade-" not in css, "legacy JS fade properties are gone"
+  assert "var(--scrollbar-carve)" in css, "vertical masks carve out the scrollbar track"
+  assert "scroll-padding-block: var(--edge-fade);" in css
   assert ".tab-step" not in css, "no chevron remains to animate"
-  app_nav = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert (
-    'nav.addEventListener("scroll", markNavEdges, { passive: true });' in app_nav
-  ), "the strip recomputes its fades on scroll"
 
 
 def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> None:
@@ -5775,68 +5761,38 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
     "the table region, not the card or settings pane, owns horizontal overflow"
   )
-  assert ".card-scroll.fade-left" not in css, "the fades ride on inline lengths"
-  assert "function markScrollEdges(scroller)" in app
-  assert 'document.querySelectorAll(".card-scroll")' in app
-  assert 'setFade(scroller, "--fade-left"' in app
-  assert 'setFade(scroller, "--fade-right"' in app
-  assert re.search(
-    r'document\.addEventListener\("scroll",.*?\.card-scroll.*?, true\);',
-    app,
-    re.DOTALL,
-  ), "a card updates its fades as its own table scrolls"
+  assert ".card-scroll.fade-left" not in css
 
 
 def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
-  """Pane code sets fade classes by scroll bounds, with vertical masks in wide-layout CSS."""
+  """Pane code toggles fit-host cleanly while CSS scroll timelines handle vertical masks."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide section layout"
   pane = re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
-  assert pane and "mask-image: linear-gradient(180deg, transparent 0," in pane.group(
+  assert pane and "overflow-y: auto;" in pane.group(1)
+  assert "padding: 4px;" in pane.group(
     1
-  ), "the vertical scrollport carries its own edge mask"
-  assert ".section-pane.fade-top" not in css and "#nav.fade-left" not in css, (
-    "the fades ride on inline lengths, not classes"
-  )
+  ) and "scroll-padding-block: var(--edge-fade);" in pane.group(1)
+  assert ".section-pane.fade-top" not in css and "#nav.fade-left" not in css
   assert "function markPaneEdges(pane)" in app
-  assert 'setFade(pane, "--fade-top"' in app
-  assert 'setFade(scroller, "--fade-left"' in app
-  assert re.search(
-    r'document\.addEventListener\("scroll",.*?\.section-pane.*?, true\);',
-    app,
-    re.DOTALL,
-  ), "the pane updates the mask at each vertical edge"
+  assert "--fade-top" not in app and "--fade-top" not in css
 
   run_app_js(
     "markPaneEdges",
     """
-const fades = {};
+let fitHost = false;
 const pane = {
-  scrollTop: 0, clientHeight: 200, scrollHeight: 600,
-  classList: { toggle: () => {} }, querySelector: () => null,
-  style: { setProperty: (name, value) => { fades[name] = value; } },
+  classList: { toggle: (name, on) => { if (name === 'fit-host') fitHost = on; } },
+  querySelector: () => ({}),
 };
 probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '20px', 'the near edge starts clear');
-pane.scrollTop = 24;
+assert.strictEqual(fitHost, true, 'a filling child marks fit-host');
+pane.querySelector = () => null;
 probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '10px', 'the fade grows with the scrolled distance');
-pane.scrollTop = 200;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '20px', 'the middle holds both fades');
-pane.scrollTop = 376;
-probe.markPaneEdges(pane);
-assert(fades['--fade-bottom'] === '10px', 'the far fade shrinks on the way back');
-pane.scrollTop = 400;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '0px', 'the far end clears');
-pane.scrollTop = 0;
-pane.scrollHeight = 200;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '0px', 'a fitting card has no fade');
+assert.strictEqual(fitHost, false, 'normal cards clear fit-host');
 """,
   )
 
