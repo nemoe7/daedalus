@@ -6558,6 +6558,26 @@ def test_table_to_cards_recipe_grids_across_mobile_tables() -> None:
   )
 
 
+def test_shared_back_button_uses_lucide_chevron_left() -> None:
+  """All drill-down back controls render through one backButton helper with chevron-left."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function backButton(" in app
+  assert (
+    "lsaquo" not in app and "ghost hook-back" not in app and ".hook-back" not in css
+  )
+  run_app_js(
+    "backButton, icon",
+    """
+const rendered = probe.backButton('Settings', { 'data-back': true });
+assert(rendered.includes('class="ghost back"'));
+assert(rendered.includes('data-back'));
+assert(rendered.includes(probe.icon('chevron_left')));
+assert(rendered.includes('<span class="back-label">Settings</span>'));
+""",
+  )
+
+
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   """Phone CSS defines metric and card layouts, and tab code replaces history entries."""
   root = Path(__file__).resolve().parent.parent.parent

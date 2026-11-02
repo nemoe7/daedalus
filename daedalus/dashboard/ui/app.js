@@ -177,6 +177,11 @@ const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
+function backButton(back, attrs = {}) {
+  return actionButton(`${icon("chevron_left")}<span class="back-label">${esc(back)}</span>`, {
+    variant: "ghost back", attrs,
+  });
+}
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
@@ -1371,6 +1376,7 @@ const ICON_PATHS = {
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
   refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
   download: '<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />',
+  chevron_left: '<path d="m15 18-6-6 6-6" />',
   chevron_right: '<path d="m9 18 6-6-6-6" />',
   route: '<circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" />',
   link: '<path d="M9 17H7A5 5 0 0 1 7 7h2" /> <path d="M15 7h2a5 5 0 1 1 0 10h-2" /> <line x1="8" x2="16" y1="12" y2="12" />',
@@ -2168,9 +2174,7 @@ function hookPage(row) {
     ? `<div class="field stack info hook-rules-field" data-config-key="hooks.values.${esc(row.name)}.${esc(entry.key)}">${labelSpan(entry.label, "")}${hookRulesTable(row, entry)}</div>`
     : field(entry.label, "", control(entry), `hooks.values.${row.name}.${entry.key}`)).join("")
     || `<em class="none">${t("hook.empty.field_text")}</em>`;
-  const back = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${t("hook.page.back_text")}</span>`, {
-    variant: "ghost hook-back", attrs: { "data-hook-back": true },
-  });
+  const back = backButton(t("hook.page.back_text"), { "data-hook-back": true });
   const save = actionButton(t("action.save_button"), {
     variant: "primary", attrs: { "data-hook-save": row.name, "aria-label": t("hook.page.save_named_label", { name: row.name }) },
   });
@@ -2944,9 +2948,7 @@ function filterRail(host) {
 
   // Label back button for its destination.
 function sectionPane(back, cards, actions = null) {
-  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${esc(back)}</span>`, {
-    variant: "ghost back", attrs: { "data-back": true },
-  });
+  const button = backButton(back, { "data-back": true });
   const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
   // Reference heads a drill page with back chevron and page title.
   return `<div class="section-pane"><div class="pane-bar">${button}`
