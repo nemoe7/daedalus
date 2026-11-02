@@ -1242,7 +1242,7 @@ const CHAIN_ROW = {json.dumps(row)};
 probe.state.requests = [CHAIN_ROW];
 probe.openChain(String(CHAIN_ROW.at));
 const chainHtml = node('chain-modal-body').innerHTML;
-assert.strictEqual(node('chain-modal-title').textContent,
+assert.strictEqual(node('modal-title').textContent,
   chainTitle(1, "request.chain.fallback.one_text"),
   'the dialog head carries the count');
 assert(!chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
@@ -1594,7 +1594,7 @@ def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None
     "state",
     """
 let shown = 0;
-node('model-modal').showModal = () => { shown += 1; };
+node('modal').showModal = () => { shown += 1; };
 probe.state.notifications = {
   rebuilds: [{
     at: 1791600000, reason: 'scheduled', models: 2,
@@ -1610,7 +1610,7 @@ const event = {
 node('notification-feed').handlers.click[0](event);
 for (const handler of documentHandlers.click || []) handler(event);
 assert.strictEqual(shown, 1, 'the bubbling click opens only the diff modal');
-assert(node('model-modal-title').textContent.startsWith('scheduled ·'),
+assert(node('modal-title').textContent.startsWith('scheduled ·'),
   'the rebuild confirmation never replaces the diff title');
 """,
   )
@@ -1639,7 +1639,7 @@ assert.strictEqual(
   '<span class="added">1 added</span> · <span class="removed">1 deleted</span> · <span class="moved">1 changed</span>',
   'the summary reads the shared descriptors',
 );
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.openDiffModal(event);
 let modal = node('model-modal-body').innerHTML;
 for (const [kind, mark] of [['added', '+'], ['removed', '-'], ['moved', '~']]) {
@@ -1668,7 +1668,7 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
   assert "openDiffModal(state.notifications.rebuilds[index])" in app
   assert "const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>" in app
   assert "event[key].map((text) => [kind, mark, text])" in app
-  assert '$("model-modal").showModal();' in app
+  assert 'mountModalView("model")' in app
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 
 
@@ -1729,7 +1729,7 @@ assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_colu
 assert(!changed.includes('>+') && !changed.includes('>-'), 'field chips carry no diff signs');
 assert(!changed.includes('supported_efforts'), 'the raw field names leave the row');
 assert(!changed.includes('->'), 'raw arrows leave the changed row');
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.openDiffModal({
   reason: 'scheduled', at: 1791600000, models: 3,
   added: ['openrouter/dots-studio/dots-3-note-preview:free'],
@@ -2182,7 +2182,7 @@ def test_the_fallback_chain_opens_in_a_modal() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   index = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert 'id="chain-modal"' in index, "the page carries the chain dialog"
+  assert 'data-modal-template="chain"' in index and 'id="chain-modal-body"' in index
   assert "mobile-fallback-chain" not in app and "mobile-fallback-chain" not in css, (
     "the expand list leaves the page"
   )
@@ -6565,7 +6565,7 @@ def test_shared_static_icons_and_modal_value_input() -> None:
   """Static index.html buttons hydrate from ICON_PATHS and modal inputs share modalValueInput()."""
   page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert page.count('data-icon="x"') == 4
+  assert page.count('data-icon="x"') == 2
   assert 'data-icon="rotate_cw"' in page
   assert 'data-icon="activity"' in page
   assert 'data-icon="refresh_cw"' in page
@@ -7432,7 +7432,7 @@ assert.strictEqual(probe.actionButton('Select', {
   for name, markup, selector in contracts:
     assert markup in app, f"{name} markup"
     assert selector in app, f"{name} handler"
-  assert 'value="cancel"' in page and 'value="ok"' in page and 'value="close"' in page
+  assert 'value="cancel"' in page and 'value="ok"' in page
   assert '$("modal").addEventListener("close"' in app
   assert 'event.target.returnValue === "ok"' in app
 
@@ -7467,10 +7467,7 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   assert 'id="key-message" role="alert"' in app
   assert 'id="reset-message" role="status"' in app
   assert '<dialog id="modal" class="modal" aria-labelledby="modal-title">' in page
-  assert (
-    '<dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">'
-    in page
-  )
+  assert '<template id="modal-model-template" data-modal-template="model">' in page
 
 
 def test_dashboard_dialog_modes_clear_stale_state() -> None:
@@ -7732,7 +7729,7 @@ const html = node('models').innerHTML;
 assert(html.includes('class="model-open" type="button"'));
 assert(html.includes('aria-label="synthetic/model"'));
 assert(html.includes('aria-haspopup="dialog"'));
-assert(html.includes('aria-controls="model-modal"'));
+assert(html.includes('aria-controls="modal"'));
 assert(html.includes('data-model="synthetic/model"'));
 """,
   )
@@ -7869,9 +7866,9 @@ const key = (target, name) => node('requests').handlers.keydown.forEach(fn => fn
   target, key: name, preventDefault: stop,
 }));
 click(tr);
-assert(node('chain-modal').shown, 'clicking the row opens the dialog');
+assert(node('modal').shown, 'clicking the row opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('<li class="step'), 'the dialog lists every attempt');
-assert(node('chain-modal-title').textContent.length > 0, 'the dialog carries a title');
+assert(node('modal-title').textContent.length > 0, 'the dialog carries a title');
 const iconRow = {at: 99, model: 'groq/synthetic', status: 500, attempts: [
   {model: 'groq/synthetic', result: 'error', seconds: 1},
   {model: 'openai/synthetic', result: 'answered', seconds: 1}]};
@@ -7896,25 +7893,25 @@ const tr3 = {
   closest: selector => selector === '[data-chain-at]' || selector === 'tr[data-chain-at]' ? tr3 : null,
   focus: () => {},
 };
-node('chain-modal').shown = false;
+node('modal').shown = false;
 click(tr3);
-assert(node('chain-modal').shown, 'clicking a failed row without attempts opens the dialog');
+assert(node('modal').shown, 'clicking a failed row without attempts opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('ui/icons/mistral.svg'),
   'the fallback step shows the requested model mark');
 assert(node('chain-modal-body').innerHTML.includes(LOCALE['request.status.rate_limited_text']),
   'the fallback step shows the rate-limit status note');
 probe.state.requests = [row, plain];
-node('chain-modal').shown = false;
+node('modal').shown = false;
 key(tr, 'Enter');
-assert(node('chain-modal').shown, 'enter on the row opens the dialog');
-node('chain-modal').shown = false;
+assert(node('modal').shown, 'enter on the row opens the dialog');
+node('modal').shown = false;
 key(tr, ' ');
-assert(node('chain-modal').shown, 'space on the row opens the dialog');
+assert(node('modal').shown, 'space on the row opens the dialog');
 assert.strictEqual(prevented, 2, 'the row keys swallow the page scroll');
-node('chain-modal').shown = false;
+node('modal').shown = false;
 click({closest: () => null});
 key({closest: () => null}, 'Enter');
-assert(!node('chain-modal').shown, 'a chain-less surface opens nothing');
+assert(!node('modal').shown, 'a chain-less surface opens nothing');
 sandbox.document.activeElement = tr;
 node('requests').querySelectorAll = () => [tr];
 probe.renderRequests([]);
@@ -8621,7 +8618,7 @@ def test_model_cards_show_registered_db_limits_and_exclude_provider_only_limits(
   run_app_js(
     "state, openModelModal, useStats",
     """
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.state.requests = [];
 probe.state.limits = {
   providers: [
@@ -8765,7 +8762,7 @@ probe.state.requests = [{
     { model: "demo/m1", result: "answered", seconds: 0.4, error: "" },
   ],
 }];
-node("chain-modal").showModal = function () { this.open = true; };
+node("modal").showModal = function () { this.open = true; };
 probe.openChain(String(afternoon));
 assert(node("chain-modal-body").innerHTML.includes("2026-10-25 14:30:46"));
 
@@ -8844,11 +8841,14 @@ def test_nuu_modal_manager_and_delete_confirmations() -> None:
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert page.count('class="ghost modal-close"') == 3
+  assert page.count("<dialog ") == 1
+  assert page.count('class="ghost modal-close"') == 1
+  assert page.count("data-modal-template=") == 3
   assert page.count('class="modal-actions"') == 1
   assert 'id="modal-close"' in page
   assert page.count('id="modal-cancel"') == 1
   for marker in (
+    "mountModalView(",
     "confirmDeleteEntry(",
     "restoreModalTrigger(",
     "rememberModalTrigger(",
@@ -8856,7 +8856,7 @@ def test_nuu_modal_manager_and_delete_confirmations() -> None:
   ):
     assert marker in app, marker
   run_app_js(
-    "ask, restoreModalTrigger",
+    "ask, openLegend, restoreModalTrigger",
     r"""
 let restored = 0;
 let cancelFocused = 0;
@@ -8868,8 +8868,18 @@ node("modal-close").focus = () => { cancelFocused += 1; };
 node("modal-ok").classList = { toggle: () => {} };
 probe.ask("Delete entry", "Delete \"test\"?", "Delete", true);
 assert.strictEqual(cancelFocused, 1, "confirmation modals focus Cancel");
+node("modal").open = false;
 probe.restoreModalTrigger(node("modal"));
 assert.strictEqual(restored, 1, "closing the modal restores trigger focus");
+
+let legendRestored = 0;
+const legendBtn = { focus: () => { legendRestored += 1; } };
+node("legend-body").innerHTML = "<span><code>fr</code>fallback</span>";
+probe.openLegend({ currentTarget: legendBtn });
+assert.strictEqual(node("modal").open, true, "openLegend opens shared modal");
+node("modal").open = false;
+probe.restoreModalTrigger(node("modal"));
+assert.strictEqual(legendRestored, 1, "closing legend restores #legend-open focus");
 """,
   )
 
@@ -9118,11 +9128,11 @@ node("set-personalization-time_format").value = "24h";
   assert.strictEqual(sandbox.document.documentElement.dataset.theme, "light", "rollback restores prior theme");
   assert(node("settings").innerHTML.includes('data-theme-value="system"'), "rollback restores themeValue");
   const at = Date.now() / 1000 - 300;
-  node("model-modal").open = true;
-  node("model-modal").showModal = () => {};
+  node("modal").open = true;
+  node("modal").showModal = () => {};
   probe.openDiffModal({ reason: "startup", at, added: [], removed: [], changed: [] });
-  assert(node("model-modal-title").textContent.includes("ago"), "diff modal title uses relative age");
-  assert(node("model-modal-title").title.includes("-"), "diff modal title keeps exact stamp on hover");
+  assert(node("modal-title").textContent.includes("ago"), "diff modal title uses relative age");
+  assert(node("modal-title").title.includes("-"), "diff modal title keeps exact stamp on hover");
   probe.refreshRelativeTimes();
 })().catch((err) => { console.error(err); process.exit(1); });
 """,

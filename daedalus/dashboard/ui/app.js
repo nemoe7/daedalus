@@ -314,6 +314,29 @@ function restoreModalTrigger(dialog) {
   modalTriggers.delete(dialog);
   if (trigger && trigger !== document.body && typeof trigger.focus === "function") trigger.focus();
 }
+function mountModalView(view) {
+  const dialog = $("modal");
+  if (!dialog) return null;
+  dialog.classList?.toggle?.("chain-modal", view === "chain");
+  dialog.classList?.toggle?.("model-modal", view === "model");
+  if (dialog.dataset) {
+    if (dialog.dataset.modalView === view) return dialog;
+    dialog.dataset.modalView = view;
+  }
+  const tpl = document.querySelector?.(`template[data-modal-template="${view}"]`);
+  const bodyEl = $("modal-body");
+  const actionsEl = $("modal-actions");
+  if (tpl?.content?.cloneNode && bodyEl?.replaceChildren && actionsEl?.replaceChildren) {
+    const frag = tpl.content.cloneNode(true);
+    const actionSlot = frag.querySelector?.('[data-slot="actions"]');
+    actionsEl.replaceChildren(...(actionSlot ? actionSlot.childNodes : []));
+    actionsEl.hidden = !actionSlot;
+    actionSlot?.remove?.();
+    bodyEl.replaceChildren(frag);
+    applyLocale(dialog);
+  }
+  return dialog;
+}
 const confirmDeleteEntry = (name) =>
   ask(t("dialog.delete_entry.title"), t("dialog.delete_entry.message", { name }), t("action.delete_button"), true);
 
@@ -322,6 +345,10 @@ const confirmDeleteEntry = (name) =>
 function ask(title, message, confirm, danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -352,6 +379,10 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
 function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save_button")) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -383,6 +414,10 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
 function askChoicePair(title, message, choices, placeholder) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -410,6 +445,7 @@ function askChoicePair(title, message, choices, placeholder) {
 // Edit one row value through the modal.
 // Save writes changes, while Cancel or Escape keeps the file unchanged.
 async function editValue(input, write) {
+  mountModalView("prompt");
   const box = $("modal-input");
   const number = input.type === "number" ? document.createElement("input") : null;
   if (number) {
@@ -963,16 +999,21 @@ function openChain(at) {
   const title = many
     ? t("request.chain.title_with_count_text", { count: many })
     : t("request.chain.title");
-  $("chain-modal-title").textContent = title;
+  state.diffEvent = null;
+  const dialog = mountModalView("chain");
+  $("modal-title").textContent = title;
+  $("modal-title").title = "";
   $("chain-modal-body").innerHTML = `<div class="chain-body">
     <div class="chain-head"><span class="muted num">${timeText(found.at, { tag: "time" })}</span>
       ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
     ${raceNote(found)}${chainSteps(found)}
   </div>`;
-  const dialog = $("chain-modal");
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
   if (!dialog.open) {
     rememberModalTrigger(dialog);
+    dialog.returnValue = "close";
     dialog.showModal();
+    $("modal-close")?.focus?.();
   }
 }
 
@@ -1133,17 +1174,26 @@ function renderLegend(extra = state.legendExtra) {
   const html = rows.map(([code, label]) =>
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
   $("legend-body").innerHTML = html;
-  if (!state.chainAt && $("chain-modal")?.open && $("chain-modal-title")?.textContent === t("request.legend.title")) {
+  if (!state.chainAt && !state.diffEvent && $("modal")?.open && $("modal-title")?.textContent === t("request.legend.title")) {
     $("chain-modal-body").innerHTML = `<div class="legend-body">${html}</div>`;
   }
 }
 
-function openLegend() {
+function openLegend(eventOrTrigger = document.activeElement) {
+  const trigger = eventOrTrigger?.currentTarget || eventOrTrigger?.target || document.activeElement;
   state.chainAt = null;
-  $("chain-modal-title").textContent = t("request.legend.title");
+  state.diffEvent = null;
+  const dialog = mountModalView("chain");
+  $("modal-title").textContent = t("request.legend.title");
+  $("modal-title").title = "";
   $("chain-modal-body").innerHTML = `<div class="legend-body">${$("legend-body").innerHTML}</div>`;
-  const dialog = $("chain-modal");
-  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  if (!dialog.open) {
+    rememberModalTrigger(dialog, trigger);
+    dialog.returnValue = "close";
+    dialog.showModal();
+    $("modal-close")?.focus?.();
+  }
 }
 
 // Add hook legend rows below the base rows. Keep the base rows when no hook is available.
@@ -1589,7 +1639,11 @@ function openModelModal(m, trigger = document.activeElement) {
   const { provider, dev, model } = parts(m.id);
   // Display a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
-  $("model-modal-title").innerHTML =
+  state.chainAt = null;
+  state.diffEvent = null;
+  const dialog = mountModalView("model");
+  $("modal-title").title = "";
+  $("modal-title").innerHTML =
     `${mark(provider)}${dev ? markImg(dev) : ""}<span class="name">${esc(m.name || model || m.slug || m.id)}</span>`;
   const identity = [
     ...(m.id ? [[t("model.detail.id_label"), m.id, ""]] : []),
@@ -1635,8 +1689,11 @@ function openModelModal(m, trigger = document.activeElement) {
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
     + (use ? `<h4>${t("model.detail.use_title")}</h4><div class="model-stats">${use}</div>` : "")
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
-  rememberModalTrigger($("model-modal"), trigger);
-  $("model-modal").showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  rememberModalTrigger(dialog, trigger);
+  dialog.returnValue = "close";
+  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.focus?.();
 }
 // Mix red at 0, orange at 0.5, and blue at 1.
 function weightColor(weight) {
@@ -1742,7 +1799,7 @@ function renderModels() {
     <tr tabindex="0" data-model="${esc(m.id)}">
       ${nameCell(m.id, actionButton(modelName(m.id), {
         variant: "model-open",
-        attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "model-modal" },
+        attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "modal" },
       }), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
@@ -4606,8 +4663,10 @@ function diffModel(text, kind = "") {
 
 // Display the rebuild diff with one line per added, removed, or moved model.
 function openDiffModal(event) {
+  state.chainAt = null;
   state.diffEvent = event;
-  const titleNode = $("model-modal-title");
+  const dialog = mountModalView("model");
+  const titleNode = $("modal-title");
   titleNode.textContent = `${event.reason} \u00b7 ${relative(event.at)}`;
   titleNode.title = stamp(event.at);
   const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
@@ -4617,8 +4676,11 @@ function openDiffModal(event) {
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
     : none(t("model.diff.empty_text"));
-  rememberModalTrigger($("model-modal"));
-  $("model-modal").showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  rememberModalTrigger(dialog);
+  dialog.returnValue = "close";
+  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.focus?.();
 }
 
 function renderNotifications(data) {
@@ -5114,19 +5176,6 @@ $("requests").addEventListener("keydown", (event) => {
   event.preventDefault();
   openChain(row.dataset.chainAt);
 });
-// Copy button lives in chain dialog, outside table listener.
-$("chain-modal").addEventListener("click", async (event) => {
-  const button = event.target.closest(".copy-chain");
-  if (!button) return;
-  const found = state.requests.find((r) => String(r.at) === button.dataset.at);
-  try {
-    await navigator.clipboard.writeText(chainText(found));
-    button.textContent = t("action.copied_button");
-  } catch {
-    getSelection().selectAllChildren(button.closest(".chain-body"));
-    button.textContent = t("action.press_ctrl_c_button");
-  }
-});
 const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];
 const PAGE_LABELS = {
   overview: t("nav.overview_link"),
@@ -5466,10 +5515,10 @@ function refreshRelativeTimes() {
   if (state.limits) renderLimits(state.limits);
   if (state.notifications) renderNotifications(state.notifications);
   if (state.keys.length && $("keys")) renderKeys(state.keys);
-  if (state.chainAt && $("chain-modal")?.open) openChain(state.chainAt);
-  if (state.diffEvent && $("model-modal")?.open) {
-    $("model-modal-title").textContent = `${state.diffEvent.reason} \u00b7 ${relative(state.diffEvent.at)}`;
-    $("model-modal-title").title = stamp(state.diffEvent.at);
+  if (state.chainAt && $("modal")?.open) openChain(state.chainAt);
+  if (state.diffEvent && $("modal")?.open) {
+    $("modal-title").textContent = `${state.diffEvent.reason} \u00b7 ${relative(state.diffEvent.at)}`;
+    $("modal-title").title = stamp(state.diffEvent.at);
   }
   tickSaveLine();
 }
@@ -5846,35 +5895,47 @@ window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();
 });
 
+mountModalView("prompt");
+
 // Enter in the name field confirms, as the first submit button is Cancel.
-$("modal-input").addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
+$("modal").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.target?.id !== "modal-input") return;
   event.preventDefault();
-  $("modal-ok").click();
+  $("modal-ok")?.click();
 });
 
-// Close on backdrop clicks outside dialog bounds, and restore trigger focus on close.
-for (const [id, cancelValue] of [["modal", "cancel"], ["chain-modal", "close"], ["model-modal", "close"]]) {
-  $(id)?.addEventListener("click", (event) => {
-    const dialog = event.currentTarget;
-    if (event.target !== dialog) return;
-    const box = dialog.getBoundingClientRect();
-    const outside = event.clientX < box.left || event.clientX > box.right
-      || event.clientY < box.top || event.clientY > box.bottom;
-    if (outside) dialog.close(cancelValue);
-  });
-}
+// Handle chain copy clicks inside the shared modal and close on backdrop clicks outside bounds.
+$("modal").addEventListener("click", async (event) => {
+  const button = event.target?.closest?.(".copy-chain");
+  if (button) {
+    const found = state.requests.find((r) => String(r.at) === button.dataset.at);
+    try {
+      await navigator.clipboard.writeText(chainText(found));
+      button.textContent = t("action.copied_button");
+    } catch {
+      getSelection().selectAllChildren(button.closest(".chain-body"));
+      button.textContent = t("action.press_ctrl_c_button");
+    }
+    return;
+  }
+  const dialog = event.currentTarget;
+  if (event.target !== dialog) return;
+  const box = dialog.getBoundingClientRect();
+  const outside = event.clientX < box.left || event.clientX > box.right
+    || event.clientY < box.top || event.clientY > box.bottom;
+  const infoView = dialog.dataset?.modalView === "chain" || dialog.dataset?.modalView === "model";
+  if (outside) dialog.close(infoView ? "close" : "cancel");
+});
 
-// Confirm, Cancel, Escape, and backdrop clicks close the dialog.
+// Confirm, Cancel, Escape, and backdrop clicks close the shared dialog and restore trigger focus.
 $("modal").addEventListener("close", (event) => {
+  state.chainAt = null;
+  state.diffEvent = null;
   restoreModalTrigger(event.currentTarget);
   const done = globalThis.__settle;
   globalThis.__settle = null;
   done?.(event.target.returnValue === "ok");
 });
-for (const id of ["chain-modal", "model-modal"]) {
-  $(id)?.addEventListener("close", (event) => restoreModalTrigger(event.currentTarget));
-}
 
 applyLocale();
 renderLegend();

@@ -196,7 +196,7 @@ test("a single section search match shows no stray dividers", async ({ page }) =
 test("model cards show registered model limits and omit provider-only limits", async ({ page }) => {
   await open(page, "#/models", 1440, 900);
   await page.locator('button[aria-label="gemini/gemini-3.8-flash"]').first().click();
-  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#model-modal-body")).toContainText("5");
   await expect(page.locator("#model-modal-body")).toContainText("RPM");
   await expect(page.locator("#model-modal-body")).toContainText("250,000");
@@ -204,7 +204,7 @@ test("model cards show registered model limits and omit provider-only limits", a
   await page.keyboard.press("Escape");
 
   await page.locator('button[aria-label="groq/openai/gpt-oss-120b"]').first().click();
-  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#model-modal-body")).not.toContainText("RPM");
   await expect(page.locator("#model-modal-body")).not.toContainText("TPM");
   await page.keyboard.press("Escape");
@@ -416,9 +416,9 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/4
   await page.locator("#live-toggle").click();
   await page.locator("#live-toggle").click();
   await page.locator(".requests tr.request.has-chain").first().click();
-  await expect(page.locator("#chain-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   const chainListStyle = await page.evaluate(() => {
-    const ol = getComputedStyle(document.querySelector("#chain-modal ol"));
+    const ol = getComputedStyle(document.querySelector("#modal ol"));
     return { type: ol.listStyleType, position: ol.listStylePosition };
   });
   expect(chainListStyle).toEqual({ type: "decimal", position: "outside" });
@@ -436,10 +436,12 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/4
   expect(requestsAt960.overflow).toBeLessThanOrEqual(1);
   await expect(page.locator("#requests-legend")).toBeHidden();
   await expect(page.locator("#legend-open")).toBeVisible();
+  await page.locator("#legend-open").focus();
   await page.locator("#legend-open").click();
-  await expect(page.locator("#chain-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#chain-modal-body")).toContainText("Previous model exceeded the context limit");
   await page.keyboard.press("Escape");
+  await expect(page.locator("#legend-open")).toBeFocused();
 
   await open(page, "#/requests", 480, 900);
   const requestsAt480 = await page.evaluate(() => {
