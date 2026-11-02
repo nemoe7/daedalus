@@ -9,7 +9,17 @@ function t(key, values = {}) {
 }
 globalThis.t = t;
 
+function hydrateIcons(root = document) {
+  root.querySelectorAll?.("[data-icon]").forEach((node) => {
+    const glyph = node.getAttribute("data-icon");
+    if (!ICON_PATHS[glyph]) return;
+    if ("outerHTML" in node) node.outerHTML = icon(glyph);
+    else node.innerHTML = icon(glyph);
+  });
+}
+
 const applyLocale = (root = document) => {
+  hydrateIcons(root);
   root.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
   });
@@ -193,6 +203,12 @@ function iconButton(glyph, { danger = false, variant = "", attrs = {} } = {}) {
 }
 function paneBar(backHtml, headingHtml, toolsHtml = "") {
   return `<div class="pane-bar">${backHtml}${headingHtml}${toolsHtml}</div>`;
+}
+function modalValueInput({ type = "text", id = null, variant = "", label, value = "", placeholder = "", attrs = {} }) {
+  const mode = type === "number" ? "readonly" : 'readonly spellcheck="false" autocomplete="off"';
+  return `<input${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${id ? ` id="${esc(id)}"` : ""} ${mode}`
+    + ` aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"`
+    + `${htmlAttrs(attrs)} value="${esc(value)}" placeholder="${esc(placeholder)}">`;
 }
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
@@ -1387,6 +1403,7 @@ const ICON_PATHS = {
   chevron_down: '<path d="m6 9 6 6 6-6" />',
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
   refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
+  rotate_cw: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" />',
   download: '<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />',
   chevron_left: '<path d="m15 18-6-6 6-6" />',
   chevron_right: '<path d="m9 18 6-6-6-6" />',
@@ -2239,9 +2256,12 @@ function hooksManager() {
       })}`, "hooks.disabled")}
     <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
-      <span class="input"><input type="text" id="set-hooks-dir" aria-haspopup="dialog" aria-controls="modal" data-value="${t("settings.hooks.folder.label")}"
-        readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
-        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`, "hooks.dir")}
+      <span class="input">${modalValueInput({
+        id: "set-hooks-dir",
+        label: t("settings.hooks.folder.label"),
+        value: fileValue("hooks", "dir") ?? "",
+        placeholder: state.settings.defaults.hooks.dir,
+      })}</span>`, "hooks.dir")}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
         ${addButton(t("action.add_repository_button"), { "data-hook-source-add": true })}
@@ -3317,8 +3337,14 @@ function providerCard(name, block) {
         }
       }
     }
-    return field(label, hint, `<input class="text" type="${type}" readonly spellcheck="false" autocomplete="off"
-      aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(value)}" placeholder="${esc(placeholder)}">`);
+    return field(label, hint, modalValueInput({
+      variant: "text",
+      type,
+      label,
+      value,
+      placeholder,
+      attrs: { "data-set": JSON.stringify([...path, key]) },
+    }));
   };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -3981,9 +4007,13 @@ function renderSettings() {
       }
       if (unit === "name") {
         return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
-          <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
-            aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" spellcheck="false"
-            value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
+          <span class="input"><i class="prefix">daedalus/</i>${modalValueInput({
+            id,
+            label,
+            value: fileValue(group, key) ?? "",
+            placeholder: state.settings.defaults[group][key],
+            attrs: { maxlength: 40 },
+          })}</span></label>`;
       }
       if (unit === "list") {
         const values = listValue(group, key);
@@ -3993,10 +4023,18 @@ function renderSettings() {
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
-        <span class="input"><input type="number" readonly aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"
-          min="${MINIMA[cfgKey] ?? 0}" id="${id}" value="${value ?? ""}"
-          step="${DECIMALS.has(cfgKey) ? "any" : "1"}" ${MAXIMA[cfgKey] ? `max="${MAXIMA[cfgKey]}"` : ""}
-          placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
+        <span class="input">${modalValueInput({
+          type: "number",
+          id,
+          label,
+          value: value ?? "",
+          placeholder: fallback ?? "",
+          attrs: {
+            min: MINIMA[cfgKey] ?? 0,
+            step: DECIMALS.has(cfgKey) ? "any" : "1",
+            max: MAXIMA[cfgKey] || null,
+          },
+        })}<i>${esc(unit)}</i></span></label>`;
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // List groups in the rail and put their cards in the pane.
   const groups = SETTINGS;

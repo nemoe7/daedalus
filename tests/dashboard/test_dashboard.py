@@ -4334,7 +4334,7 @@ def test_app_js_hooks_section() -> None:
   script = TestClient(api.app).get("/ui/app.js")
   assert script.status_code == 200
   for piece in (
-    'id="set-hooks-dir"',
+    'id: "set-hooks-dir"',
     "data-hook-source-add",
     "data-hook-source-drop",
     "data-hook-source",
@@ -6304,8 +6304,8 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert 'id="limits-search"' in page and 'id="limits-clear"' in page, page
   check = page.split('id="limits-check"')[1].split("</button>")[0]
-  assert '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />' in check, (
-    "the check button draws the lucide refresh glyph"
+  assert 'data-icon="refresh_cw"' in check, (
+    "the check button hydrates the lucide refresh glyph from ICON_PATHS"
   )
   assert '<span data-i18n="action.check_now_button">' in check, (
     "the word stays for a screen reader, and the locale fill keeps the glyph"
@@ -6603,6 +6603,27 @@ def test_shared_info_hint_and_pane_bar() -> None:
   assert "function infoHint(" in app and "function paneBar(" in app
   assert "hook-bar" not in app and ".hook-bar" not in css and ".hook-heading" not in css
   assert ".field.info .hint, .fold summary .hint {" in css
+
+
+def test_shared_static_icons_and_modal_value_input() -> None:
+  """Static index.html buttons hydrate from ICON_PATHS and modal inputs share modalValueInput()."""
+  page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert page.count('data-icon="x"') == 4
+  assert 'data-icon="rotate_cw"' in page
+  assert 'data-icon="activity"' in page
+  assert 'data-icon="refresh_cw"' in page
+  assert app.count("modalValueInput({") >= 4
+  run_app_js(
+    "hydrateIcons, modalValueInput",
+    """
+const target = { innerHTML: "", getAttribute: (k) => (k === "data-icon" ? "x" : null) };
+probe.hydrateIcons({ querySelectorAll: () => [target] });
+assert(target.innerHTML.includes("M18 6 6 18"), target.innerHTML);
+const input = probe.modalValueInput({ id: "demo", label: "Folder", value: "hooks", placeholder: "hooks" });
+assert(input.includes('aria-haspopup="dialog" aria-controls="modal"') && input.includes('id="demo"'), input);
+""",
+  )
   run_app_js(
     "backButton, icon",
     """
@@ -6728,9 +6749,7 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   )
   assert 'data-i18n-aria-label="notice.dismiss_label"' in close.group(0)
   body = page.split('id="notice-close"')[1].split("</button>")[0]
-  assert '<path d="M18 6 6 18" />' in body and '<path d="m6 6 12 12" />' in body, (
-    "the x draws the lucide glyph"
-  )
+  assert 'data-icon="x"' in body, "the x hydrates the lucide glyph from ICON_PATHS"
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'note.classList.add("leave");' in app
   assert 'clearProps: "opacity,transform"' in app
@@ -7251,8 +7270,11 @@ def test_dashboard_form_rows_keep_their_contracts() -> None:
   provider = app[
     app.index("function providerCard(") : app.index("function renderForm()")
   ]
-  assert provider.count('readonly spellcheck="false" autocomplete="off"') == 1, (
-    "provider text fields share one input renderer"
+  assert app.count('aria-haspopup="dialog" aria-controls="modal"') == 1, (
+    "all click-to-edit modal fields share modalValueInput"
+  )
+  assert provider.count("modalValueInput(") == 1, (
+    "provider text fields share modalValueInput"
   )
 
   run_app_js(
@@ -7289,7 +7311,7 @@ const apiKey = inputFor(LOCALE["provider.api_key.label"]);
 assert(apiKey.includes('type="text"') && apiKey.includes('readonly'), apiKey);
 assert(apiKey.includes('value="env:CF_TOKEN"'), 'an environment token stays visible');
 assert(apiKey.includes('placeholder="' + LOCALE["provider.secret.environment_text"] + '"'), apiKey);
-assert(apiKey.includes("data-set='[&quot;cloudflare&quot;,&quot;api_key&quot;]'"), apiKey);
+assert(apiKey.includes('data-set="[&quot;cloudflare&quot;,&quot;api_key&quot;]"'), apiKey);
 const account = inputFor(LOCALE["provider.account_id.label"]);
 assert(account.includes('type="password"') && account.includes('value=""'), account);
 assert(account.includes('placeholder="acct••••"'), 'a database token stays masked');
