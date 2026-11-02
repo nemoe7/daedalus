@@ -190,7 +190,50 @@ const state = {
 };
 
 const REQUEST_PAGES = 32;
+const PAGE_CACHES = 32;
+const DRAFTS_KEY = "daedalus.drafts";
 const requestPages = new Map();
+const pageCaches = new Map();
+let clientSeq = 0;
+const nextClientId = () => globalThis.crypto?.randomUUID?.() || `client-${Date.now()}-${++clientSeq}`;
+function pageCacheKey(tab, version) {
+  return version !== undefined && version !== null && version !== "" ? `${tab}/${version}` : "";
+}
+async function readPageCache(tab, version, loader, fresh = false) {
+  const key = pageCacheKey(tab, version);
+  if (key && !fresh && pageCaches.has(key)) return pageCaches.get(key);
+  const data = await loader();
+  if (key) {
+    if (pageCaches.size >= PAGE_CACHES) pageCaches.delete(pageCaches.keys().next().value);
+    pageCaches.set(key, data);
+  }
+  return data;
+}
+function readDrafts() {
+  try {
+    const raw = globalThis.localStorage?.getItem?.(DRAFTS_KEY);
+    const parsedDrafts = raw ? JSON.parse(raw) : null;
+    return parsedDrafts && typeof parsedDrafts === "object" ? parsedDrafts : {};
+  } catch {
+    return {};
+  }
+}
+function readDraft(slot) {
+  const drafts = readDrafts();
+  return Object.prototype.hasOwnProperty.call(drafts, slot) ? drafts[slot] : undefined;
+}
+function writeDraft(slot, value) {
+  try {
+    const drafts = readDrafts();
+    const empty = value === undefined || value === null || value === "";
+    if (empty) delete drafts[slot];
+    else drafts[slot] = value;
+    if (Object.keys(drafts).length) globalThis.localStorage?.setItem?.(DRAFTS_KEY, JSON.stringify(drafts));
+    else globalThis.localStorage?.removeItem?.(DRAFTS_KEY);
+  } catch {
+    // Storage unavailable or mocked read-only.
+  }
+}
 function rememberJson(slot, value, fresh = false) {
   const encoded = JSON.stringify(value);
   const changed = fresh || state.memory[slot] !== encoded;
@@ -2430,7 +2473,8 @@ function animateHookSwap(open) {
 async function openHookPage(name) {
   const row = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookOpen = name;
-  state.hookDraft[name] = clone(row?.values || {});
+  const savedDraft = readDraft(`hook:${name}`);
+  state.hookDraft[name] = savedDraft !== undefined ? clone(savedDraft) : clone(row?.values || {});
   state.hookOptions = {};
   renderSettings();
   animateHookSwap(true);
@@ -2443,6 +2487,7 @@ async function openHookPage(name) {
 }
 
 function closeHookPage() {
+  if (state.hookOpen) writeDraft(`hook:${state.hookOpen}`, null);
   delete state.hookDraft[state.hookOpen];
   state.hookOpen = "";
   renderSettings();
@@ -2626,6 +2671,7 @@ async function saveHookPage(name) {
   });
   const saved = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookDraft[name] = clone(saved?.values || found);
+  writeDraft(`hook:${name}`, null);
   hooksNote(t("hook.page.saved_text", { name }));
   hookPageNote(t("hook.page.saved_text", { name }));
 }
@@ -4057,7 +4103,7 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 function keysCard() {
   return `<div class="card" data-section="keys">
     <form class="toolbar" id="new-key">
-      <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
+      <input id="key-name" maxlength="40" value="${esc(readDraft("keyName") || "")}" placeholder="${t("settings.keys.new_placeholder")}" required>
       ${actionButton(t("action.new_key_button"), { variant: "primary", type: "submit" })}
       <span class="message bad" id="key-message" role="alert"></span>
     </form>
@@ -4079,6 +4125,7 @@ function keysCard() {
 function renderSettings() {
   // Preserve text during an edit. Otherwise, display the saved text.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
+  const savedYamlDraft = state.settingsView === "yaml" ? readDraft("settingsYaml") : undefined;
   // Restore the scroll position after the card rebuild.
   const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
@@ -4176,7 +4223,7 @@ function renderSettings() {
   selectSection($("settings"), active);
   renderFiles();
   renderForm();
-  $("settings-editor").value = typed ?? state.settings.text;
+  $("settings-editor").value = typed ?? savedYamlDraft ?? state.settings.text;
   // Use the rendered file's mode to select visible rows.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
@@ -4302,6 +4349,7 @@ async function selectSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
     if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
+    writeDraft("settingsYaml", "");
     state.settingsView = view;
     clearWrite("settings");
     renderSettings();
@@ -4322,6 +4370,7 @@ async function saveSettings(keepForm = false) {
   rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body), spinner: false });
+    writeDraft("settingsYaml", "");
     await loadSettings({ render: !keepForm });
     clearWrite("settings");
     placeSaveLine();
@@ -4846,9 +4895,10 @@ async function syncProviderFiles() {
 }
 
 async function refreshSlow({ fresh = false } = {}) {
+  const catalogVersion = state.catalog?.built ?? "";
   const [pools, models, limits, notifications] = await Promise.all([
-    call("pools"),
-    call("models"),
+    readPageCache("pools", catalogVersion, () => call("pools"), fresh),
+    readPageCache("models", catalogVersion, () => call("models"), fresh),
     call("limits"),
     call("notifications"),
     refreshKeys(),
@@ -5032,33 +5082,59 @@ function showLengthLimit(input, message) {
   }
 }
 
+async function submitApiKey(rawName, clientId = nextClientId()) {
+  const enteredName = String(rawName ?? "").trim();
+  const previousKeys = [...(state.keys ?? [])];
+  let row = state.keys.find((item) => item.clientId === clientId);
+  if (enteredName) {
+    if (!row && !previousKeys.some((item) => item.name === enteredName)) {
+      row = { clientId, name: enteredName, start: null, created: Date.now() / 1000, used: null, status: "saving" };
+      state.keys = [row, ...previousKeys];
+    } else if (row) {
+      row.status = "saving";
+    }
+    renderKeys(state.keys);
+    renderOverview();
+  }
+  try {
+    const made = await call("keys", { method: "POST", body: JSON.stringify({ clientId, name: rawName }), spinner: false });
+    if (row) Object.assign(row, { name: made.name, status: "ok" });
+    writeDraft("keyName", "");
+    return made;
+  } catch (error) {
+    state.keys = previousKeys;
+    renderKeys(state.keys);
+    renderOverview();
+    throw error;
+  }
+}
+
 // Delegate API key events to the Settings pane, which survives card renders.
 $("settings").addEventListener("input", (event) => {
-  if (event.target.id === "key-name") showLengthLimit($("key-name"), $("key-message"));
+  if (event.target.id === "key-name") {
+    writeDraft("keyName", $("key-name").value);
+    showLengthLimit($("key-name"), $("key-message"));
+  } else if (event.target.id === "settings-editor") {
+    writeDraft("settingsYaml", settingsDirty() ? $("settings-editor").value : "");
+  } else if (event.target.dataset?.hookField && state.hookOpen) {
+    writeDraft(`hook:${state.hookOpen}`, hookPageValues(state.hookOpen));
+  } else if (event.target.dataset?.hookRuleCell && state.hookOpen) {
+    writeDraft(`hook:${state.hookOpen}`, state.hookDraft[state.hookOpen]);
+  }
 });
 $("settings").addEventListener("submit", async (event) => {
   if (event.target.id !== "new-key") return;
   event.preventDefault();
   const message = $("key-message");
   message.textContent = "";
-  const enteredName = $("key-name").value.trim();
-  const previousKeys = [...(state.keys ?? [])];
-  if (enteredName && !previousKeys.some((item) => item.name === enteredName)) {
-    state.keys = [{ name: enteredName, start: null, created: Date.now() / 1000, used: null }, ...previousKeys];
-    renderKeys(state.keys);
-    renderOverview();
-  }
   try {
-    const made = await call("keys", { method: "POST", body: JSON.stringify({ name: $("key-name").value }), spinner: false });
+    const made = await submitApiKey($("key-name").value);
     $("key-name").value = "";
     $("reveal-name").textContent = made.name;
     $("reveal-key").textContent = made.key;
     $("reveal").hidden = false;
     guarded(refreshKeys);
   } catch (error) {
-    state.keys = previousKeys;
-    renderKeys(state.keys);
-    renderOverview();
     if (error instanceof LoggedOut) return showLogin();
     message.textContent = error.message;
   }
