@@ -562,8 +562,8 @@ table.limits td.num .weight { justify-content: flex-end; }
 .hook-group { display: grid; gap: 16px; padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); }
 .hook-group > .field { margin: 0; }
 .hook-page { display: grid; gap: 12px; }
-.hook-bar { display: flex; align-items: center; gap: 8px; margin-left: -8px; }
-.hook-heading { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
+.hook-page > .pane-bar { margin-left: -8px; }
+.hook-page > .pane-bar > .pane-title { font-size: 16px; font-weight: 600; letter-spacing: -0.1px; overflow-wrap: anywhere; }
 .hook-page .field { max-width: 24rem; }
 .hook-page .hook-rules-field { max-width: none; }
 .hook-rules { width: 100%; table-layout: fixed; }
@@ -919,11 +919,13 @@ input.switch:checked::before, .field input.switch:checked::before { background: 
   background: var(--panel); color: var(--text); box-shadow: 0 0 0 1px var(--line);
 }
 .field.info > span { position: relative; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 6px; }
-.field.info .hint {
+.field.info .hint, .fold summary .hint {
+  display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; padding: 0; border: 1px solid var(--line); border-radius: 50%;
   background: transparent; color: var(--muted); font-family: inherit; font-size: 12px; line-height: 1;
 }
-.field.info .hint:hover, .field.info .hint:focus-visible { color: var(--text); border-color: var(--muted); }
+.field.info .hint:hover, .field.info .hint:focus-visible,
+.fold summary .hint:hover, .fold summary:focus-visible .hint { color: var(--text); border-color: var(--muted); }
 .field.info small, .fold summary small, .floating-info-tip {
   width: max-content; max-width: min(320px, calc(100vw - 16px)); padding: 6px 8px; border: 1px solid var(--line);
   border-radius: 6px; background: var(--panel); color: var(--muted); font-size: 12px;
@@ -943,13 +945,7 @@ input.switch:checked::before, .field input.switch:checked::before { background: 
 .fold summary::after { content: "+"; margin-left: auto; color: var(--muted); font-family: var(--mono); }
 .fold[open] summary::after { content: "\2212"; }
 .fold summary small { display: none; }
-/* The info icon of a closed group carries its hint, as the icon of a field does. */
-.fold summary .hint {
-  display: inline-flex; align-items: center; justify-content: center;
-  margin-left: 2px; width: 16px; height: 16px; padding: 0; border: 1px solid var(--line);
-  border-radius: 50%; background: transparent; color: var(--muted); font-family: inherit; font-size: 12px; line-height: 1;
-}
-.fold summary .hint:hover, .fold summary:focus-visible .hint { color: var(--text); border-color: var(--muted); }
+.fold summary .hint { margin-left: 2px; }
 .fold summary .hint:hover ~ small, .fold summary:focus > small, .floating-info-tip {
   display: block; position: absolute; top: auto; bottom: calc(100% + 4px); left: 0; z-index: 3;
   box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
@@ -1096,7 +1092,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   header { position: sticky; top: 0; z-index: 4; }
   .rail { position: sticky; top: 0; flex: 0 0 240px; width: 240px; max-width: 240px; overflow: hidden; }
   /* A desktop drill page heads pane with bar, and list keeps summary. */
-  .pane-bar { display: none; }
+  .section-pane > .pane-bar { display: none; }
   #provider-form[data-detail="1"] > .section-pane > .pane-bar,
   #provider-form[data-file-open="1"] > .section-pane > .pane-bar {
     display: flex; gap: 20px; position: sticky; top: 0; z-index: 2;
@@ -1161,9 +1157,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .section-pane .back { display: flex; color: var(--accent-text); }
   #settings .section-pane:has(.provider-flow #provider-form[data-file-open="1"]) > .pane-bar > .back { display: none; }
   /* A phone drill page titles itself under the back label, as the reference lists do. */
-  .section-pane .pane-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
-  .section-pane .pane-bar > .pane-title:not([hidden]) { grid-column: 1 / -1; }
-  .pane-title:not([hidden]) { font-size: 28px; letter-spacing: -0.9px; }
+  .section-pane > .pane-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 12px; }
+  .section-pane > .pane-bar > .pane-title:not([hidden]) { grid-column: 1 / -1; font-size: 28px; letter-spacing: -0.9px; }
   /* A tablet keeps the model name and drops 4 secondary columns, so the name fits. */
   .models thead th:nth-child(4), .models tbody td:nth-child(4),
   .models thead th:nth-child(6), .models tbody td:nth-child(6),
