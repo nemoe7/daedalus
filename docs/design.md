@@ -158,11 +158,13 @@ Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s
 | Recipe | Surface / Selector | Behavior |
 | --- | --- | --- |
 | `offline-fonts` | `index.html`, `@font-face`, `start()` | Preloads bundled WOFF2 fonts with `crossorigin`, pairs `font-display: block` with metric-matched fallbacks, and awaits `document.fonts?.ready` before revealing `#app`. |
-| `scrollbars` | `::-webkit-scrollbar`, `@supports not selector(::-webkit-scrollbar)` | Styles a `10px` scrollbar with a `6px` rounded `--scrollbar-thumb` (`#c8c8d0` light, `#302e2c` dark) on `var(--bg)`, hides arrow buttons, and scopes `scrollbar-width: thin` to non-WebKit engines. |
+| `scrollbars` | `::-webkit-scrollbar`, `@supports not selector(::-webkit-scrollbar)` | Styles a `10px` track with a `6px` rounded `--scrollbar-thumb` (`>= 3:1` contrast) on `var(--bg)`. Hides arrows and scopes hover highlights to keyboard navigation. |
 | `relative-timestamps` | `timeText()`, `#chain-modal`, `API Keys`, `openDiffModal()` | Renders relative ages (`just now`, `10min ago`, compact mobile units at `<= 30em`) across tables, cards, and modal headers while keeping exact `stamp()` timestamps in `title`. |
-| `page-memory` & optimistic writes | `state.memory`, `saveSettings()`, `#new-key`, `[data-key]`, `#limits-check` | Updates settings, API keys, and check timestamps optimistically in memory without loading bars, button spinners, or skeleton rows. Reconciles or rolls back state on server replies. |
-| `live-dot` | `.ico-svg > .pulse`, `tr.live-row` | Renders an `8px` amber (`var(--orange)`) `aria-hidden="true"` dot centered inside a `16x16` `.ico-svg` slot with a `1.4s` pulse and zero dimension shift. |
-| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `confirmDeleteEntry()` | Places a borderless top-right `x` button (`margin: -8px -8px -8px 0`) without footer `Cancel`/`Close` buttons, focuses `x` on confirmations, and gates deletions. |
+| `page-memory` & optimistic writes | `state.memory`, `saveSettings()`, `#new-key`, `[data-key]`, `#limits-check` | Updates settings, API keys, and check timestamps optimistically in memory while preserving view state in URL query parameters and `localStorage`. Reconciles or rolls back state on server replies. |
+| `loading-bar` | `#app > header::after`, `section[data-page][data-loading]`, `button[aria-busy="true"]` | Renders a `200ms`-delayed `2px` `scaleX` header bar with a `220ms` completion fade. Spins `16x16px` button icons without shifting dimensions. |
+| `table-to-cards` | `.requests`, `.models`, `.keys`, `.limits` (`#limit-rows`) | Visually hides `thead` on narrow viewports and converts `tbody` into `repeat(auto-fit, minmax(min(280px, 100%), 1fr))` rounded card grids (`12px` gap) with inline `.mobile-label` pairings. |
+| `live-dot` | `.ico-svg > .pulse`, `.dot`, `tr.live-row` | Renders an `8px` amber (`var(--orange)`) `aria-hidden="true"` dot (`border-radius: 9999px`) centered inside a `16x16` `.ico-svg` slot with `animation: pulse 1.4s var(--ease) infinite` and zero dimension shift. |
+| `modal-manager` | `.modal`, `.modal-head`, `.modal-close`, `#modal-cancel`, `confirmDeleteEntry()` | Uses `<dialog>` `showModal()` with a top-right `.modal-close` (`margin: -8px -8px -8px 0`). Pairs equal-size `Cancel` and primary buttons on `#modal`, restores focus, and gates deletions. |
 | `scroll-edge-fade` & `overflow-and-clipping` | `--edge-fade`, `--edge-ramp`, `--scrollbar-carve`, `.floating-info-tip` | Applies the current `28px` fade, `36px` ramp, and `14px` scrollbar carve tokens to scroll masks, and viewport-clamped `position: fixed` tooltips. |
 
 ### Interactive States
@@ -174,7 +176,7 @@ Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s
 | Focus-visible | `outline: 2px solid var(--accent-text)`, `outline-offset: 2px` (keyboard only) | `:focus-visible` under `:root[data-keyboard-nav="true"]` |
 | Active / Current | `color: var(--text)` with `2px solid var(--accent)` underline or `background: var(--field)` | `.tabs a.on`, `.sections button.on`, `.theme-seg button[aria-checked="true"]` |
 | Pressed toggle | `border-color: var(--accent)`, `color: var(--accent-text)` | `#live-toggle[aria-pressed="true"]` |
-| Busy | `aria-busy="true"` on active `section[data-page]` with immediate optimistic state updates | `call()` when `spinner !== false` and write handlers |
+| Busy | `aria-busy="true"` + `data-loading` `2px` `200ms`-delayed header edge bar and fixed-slot `16x16px` button `nuu-spin` | `call()` when `spinner !== false` and inline check buttons |
 | Disabled | `opacity: .45`, `cursor: not-allowed` | `:disabled` buttons and inputs |
 | Empty state | Muted helper copy (`color: var(--muted)`, `padding: 24px 16px`) inside `.panel` | `td.empty`, `.rail-empty`, `#ov-requests` |
 
@@ -202,6 +204,7 @@ Offline vendored GSAP (`daedalus/dashboard/ui/gsap.min.js`, `power3.out`, `0.18s
 
 | Date | Summary | Affected Surfaces | Visual Reference |
 | --- | --- | --- | --- |
+| 2026-11-02 | Applied approved `table-to-cards` and `loading-bar` candidates and aligned `scrollbars` (`>= 3:1` thumb contrast + `2px` `var(--bg)` padding), `live-dot` (`var(--ease)` `9999px` `.dot`/`.pulse`), and `modal-manager` (equal-size footer `Cancel` + primary on `#modal`, token hover/focus on `.modal-close`). | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/index.html`, `style.css`, `app.js`, `en.js`, `docs/design.md`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-31 | Added `.hook-page` as the per-hook drill-down of the `Hooks` card. It holds a back button, the title, 1 field for each declared value, a `Save`, and a note for a wrong or saved value. Only a hook with fields shows the row chevron. | `Settings` `Hooks` (`daedalus/dashboard/ui/style.css`, `app.js`, `en.js`, `scripts/pages_demo.py`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-28 | Switched `.chain ol` and `.chain-modal ol` to Clause 15 `2ch` outside `decimal` markers, removed inline `.num` step prefixes, and aligned `.step pre` with step content. | `Requests` `#chain-modal` (`daedalus/dashboard/ui/style.css`, `app.js`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |
 | 2026-10-27 | Adopted `relative-timestamps`, `live-dot`, house radii, `16x16` Lucide glyphs, `.theme-seg`, optimistic writes, `nuu` breakpoints, scoped `NUM205`, GSAP, and symmetric `.tile` tokens. | `Overview`, `Requests`, `Models`, `Limits`, `Notifications`, `Settings` (`daedalus/dashboard/ui/`, `nuu.toml`, `scripts/pages_demo.py`) | [Dashboard Visual Reference](design-visuals/dashboard.md), [Component Visual Catalog](design-visuals/components.md) |

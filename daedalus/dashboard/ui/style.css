@@ -63,17 +63,17 @@
   --font: "Inter", "Inter Fallback", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Monaspace Neon", "Monaspace Neon Fallback", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --mono: var(--font-mono);
-  --scrollbar-thumb: #c8c8d0;
+  --scrollbar-thumb: #767682;
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --scrollbar-thumb: #302e2c; }
+  :root:not([data-theme="light"]) { --scrollbar-thumb: #6e6e7a; }
 }
-:root[data-theme="light"] { --scrollbar-thumb: #c8c8d0; }
+:root[data-theme="light"] { --scrollbar-thumb: #767682; }
 /* app.js sets data-theme from the theme setting, or from the device when the setting is system. */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --scrollbar-thumb: #302e2c;
+  --scrollbar-thumb: #6e6e7a;
   --bg: #1c1c1c; --panel: #262626; --text: #e6e6e6; --muted: #adadad; --line: #353535;
   --control-line: #565656;
   --accent: #4b63e8; --accent-text: #8c9eff; --on-accent: #ffffff; --ok: #90caf9; --warn: #e1bee7; --bad: #e0709e; --bar: #212c70; --orange: #ffa040; --red: #ff6663;
@@ -83,7 +83,12 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: var(--bg); }
-::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; }
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb); border: 2px solid var(--bg);
+  background-clip: padding-box; border-radius: 9999px;
+}
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover,
+:root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:active { background: var(--accent-text); }
 ::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 @supports not selector(::-webkit-scrollbar) {
   * { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) var(--bg); }
@@ -95,6 +100,7 @@ body {
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: 1; }
 button { font: inherit; cursor: pointer; white-space: nowrap; }
+button[aria-busy="true"] { cursor: progress; }
 :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 :root:not([data-keyboard-nav="true"]) :focus-visible { outline: 0; } /* nonuu: NUL003 */
 .sections button, .notification-item, #new-provider,
@@ -108,6 +114,9 @@ tr.request:active td { background: var(--field); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition: none !important; animation: none !important; scroll-behavior: auto !important;
+  }
+  #app > header:has(~ main [data-loading="true"]:not([hidden]))::after {
+    width: 100%; opacity: 0.45; transform: none;
   }
 }
 /* Controls and rows transition state changes on the fast page duration. */
@@ -131,6 +140,28 @@ header {
   position: relative;
   display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(max-content, 1fr); grid-template-areas: "brand tabs chips";
   column-gap: 32px; padding: 0 32px; border-bottom: 1px solid var(--line); background: var(--panel);
+}
+#app > header:has(~ main [data-loading="true"]:not([hidden]))::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px;
+  background: var(--accent); opacity: 0; pointer-events: none;
+  transform-origin: left center; transform: scaleX(0);
+  animation: nuu-edge-loading 2.4s 200ms var(--ease) forwards;
+}
+#app > header:has(~ main [data-loading="done"]:not([hidden]))::after {
+  content: ""; position: absolute; left: 0; bottom: -1px; width: 100%; height: 2px;
+  background: var(--accent); pointer-events: none; transform-origin: left center;
+  animation: nuu-edge-loading-done 220ms var(--ease) forwards;
+}
+@keyframes nuu-edge-loading {
+  0% { opacity: 0.92; transform: scaleX(0.05); }
+  15% { opacity: 0.92; transform: scaleX(0.35); }
+  45% { opacity: 0.92; transform: scaleX(0.65); }
+  100% { opacity: 0.92; transform: scaleX(0.92); }
+}
+@keyframes nuu-edge-loading-done {
+  0% { opacity: 0.92; transform: scaleX(0.92); }
+  45% { opacity: 0.92; transform: scaleX(1); }
+  100% { opacity: 0; transform: scaleX(1); }
 }
 header[data-wrapped="1"] { grid-template-columns: 1fr auto; grid-template-areas: "brand chips" "tabs tabs"; }
 .brand { grid-area: brand; align-self: center; display: flex; align-items: center; gap: 8px; padding: 6px 0; font-weight: 650; font-size: 18px; }
@@ -422,25 +453,31 @@ a.more:hover { color: var(--accent-text); }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .modal-head h3 { flex: 1; min-width: 0; }
 .modal-close {
-  width: 32px; height: 32px; margin: -8px -8px -8px 0; padding: 0; border-radius: 6px; flex: none;
+  position: relative; width: 32px; height: 32px; margin: -8px -8px -8px 0; padding: 0; border-radius: var(--radius); flex: none;
   display: inline-flex; align-items: center; justify-content: center;
   border-color: transparent; background: transparent; color: var(--muted);
 }
-@media (hover: hover) {
+.modal-close::after { content: ""; position: absolute; inset: -6px; }
+:root[data-keyboard-nav="true"] .ghost.modal-close:focus-visible {
+  border-color: var(--line); background: var(--field); color: var(--text);
+}
+@media (hover: hover) and (pointer: fine) {
   .ghost.modal-close:hover {
-    background: color-mix(in srgb, var(--text) 10%, transparent);
-    border-color: transparent; color: var(--text);
+    border-color: var(--line); background: var(--field); color: var(--text);
   }
 }
 .ghost.modal-close:active {
-  background: color-mix(in srgb, var(--text) 16%, transparent);
-  border-color: transparent; color: var(--text);
+  border-color: var(--line); background: var(--field); color: var(--accent-text);
 }
 .modal h3 { margin: 0; font-size: 16px; font-weight: 600; }
 .modal p { margin: 0; color: var(--muted); font-size: 14px; white-space: pre-line; }
 .modal-field { display: block; }
 .modal-field input, .modal-field select { width: 100%; box-sizing: border-box; }
-.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.modal-actions {
+  display: grid; grid-auto-flow: column; grid-auto-columns: minmax(96px, 1fr);
+  justify-content: end; gap: 8px; margin-top: 6px;
+}
+.modal-actions > button { min-height: 37px; justify-content: center; border-radius: 6px; }
 /* Model detail modal card with fixed responsive width across desktop and mobile views. */
 .model-modal { width: min(560px, calc(100vw - 32px)); max-width: min(560px, calc(100vw - 32px)); }
 .model-modal h3 { display: flex; align-items: center; gap: 10px; }
@@ -544,9 +581,23 @@ tr.live-row td { background: var(--field); }
   display: inline-grid; place-items: center; width: 16px; height: 16px;
   margin-right: 6px; vertical-align: -3px; flex: none;
 }
+.ico-slot {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none;
+}
+.dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; flex: none; }
+.dot-sm { width: 6px; height: 6px; }
+.dot-lg { width: 10px; height: 10px; }
 .pulse {
-  display: block; width: 8px; height: 8px; margin: 0; border-radius: 50%;
-  background: var(--orange); flex: none; animation: pulse 1.4s ease-in-out infinite;
+  display: block; width: 8px; height: 8px; margin: 0; border-radius: 9999px;
+  background: var(--orange); flex: none; animation: pulse 1.4s var(--ease) infinite;
+}
+button[aria-busy="true"] > svg:first-child,
+button[aria-busy="true"] .ico-slot > svg,
+button[aria-busy="true"] .btn-spinner {
+  animation: nuu-spin 0.8s linear infinite;
+}
+@keyframes nuu-spin {
+  to { transform: rotate(360deg); }
 }
 @keyframes pulse {
   0%, 100% { opacity: .35; transform: scale(.85); }
@@ -1086,7 +1137,6 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .tabs { flex-wrap: nowrap; gap: 0 16px; overflow-x: auto; }
   #nav { overflow-x: auto; scroll-snap-type: x proximity; }
   #nav a { scroll-snap-align: start; }
-  #nav a[data-page="settings"] { position: sticky; right: 0; z-index: 1; border-left: 16px solid var(--bg); background: var(--bg); }
   /* Providers drill page labels itself, so section title under it leaves screen. */
   main[data-page="settings"]:has(#provider-form .pane-title:not([hidden]):not(:empty)) #settings > .section-pane > .pane-bar > .pane-title { display: none; }
   /* A phone shows the section list, then 1 section, with a way back to the list. */
@@ -1243,7 +1293,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* Fold Requests to auto-fit route-first cards and stack balance cards at <= 30em. */
   .requests { display: block; }
   .requests tbody {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 10px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px;
   }
   .requests thead {
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
@@ -1255,8 +1305,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   }
   .requests tr:has(> td.empty) { grid-column: 1 / -1; }
   .requests tr.request, .requests tr.live-row {
-    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 5px 8px;
-    align-items: center; padding: 8px 10px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr) auto; gap: 4px 8px;
+    align-items: center; padding: 8px 12px;
     border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); font-size: 14px;
   }
   .requests tr.live-row { background: var(--field); }
@@ -1324,7 +1374,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .only-sm { display: block; }
   .models thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
   .models, .models tbody { display: block; }
-  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); align-items: baseline; }
+  .models tr { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 8px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); align-items: baseline; }
   /* Share one 13px font size across mobile cards, using muted ink to distinguish labels. */
   .models tr, .keys tr, .requests tr.request, .requests tr.live-row { font-size: 14px; }
   .models tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; white-space: normal; }
@@ -1354,8 +1404,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* A phone turns the API keys table into cards: the name takes its own line, then Last used and
      Delete share the next row. */
   .keys thead { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; }
-  .keys, .keys tbody { display: block; }
-  .keys tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; margin-bottom: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+  .keys { display: block; }
+  .keys tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; margin: 0; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
   /* The desk hint squeezes a cell to 1% of the card, so a card drops it and takes its column. */
   .keys tr > td { display: flex; align-items: baseline; gap: 5px; min-width: 0; padding: 0; border: 0; width: auto; }
   .keys tr > td.name { grid-column: 1; grid-row: 1; max-width: none; }
@@ -1373,7 +1423,9 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* A phone head cell keeps a 44 px tap area for its sort. */
   .models th { padding: 13px 8px; }
   /* The first card row keeps a gap from the bar above it. */
-  .models tbody, .keys tbody { display: block; margin-top: 16px; }
+  .models tbody, .keys tbody {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px; margin-top: 16px;
+  }
   /* The dropped Type column shows under each model name, and the name wraps rather than clips. */
   .models td.name .cell-value { display: block; }
   /* The modality and capability chips share one row, at one size. The name keeps its row,
@@ -1409,11 +1461,15 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
     position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
   }
-  .limits, #limit-rows { display: block; }
-  #limit-rows tr {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px;
-    padding: 10px 12px; border-bottom: 1px solid var(--line);
+  .limits { display: block; }
+  #limit-rows {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); gap: 12px;
   }
+  #limit-rows tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px;
+    padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);
+  }
+  #limit-rows tr:has(> td.empty) { grid-column: 1 / -1; }
   #limit-rows td, #limit-rows td:not(:first-child) { display: block; padding: 0; border: 0; width: auto; white-space: normal; }
   #limit-rows td.name { grid-column: 1; max-width: none; min-width: 0; }
   #limit-rows td.name .cell-value { display: block; white-space: normal; overflow-wrap: anywhere; }
@@ -1422,7 +1478,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   #limit-rows td.hide-sm { display: none; }
   #limit-rows .weight .track { display: none; }
   #limit-rows .limit-meta { display: block; grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
-  .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys) { background: transparent; border: 0; }
+  .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys), .panel:has(> .limits) { background: transparent; border: 0; }
   .panel:has(> .requests) { margin-top: 0; }
   .requests tr.live-row > td:nth-child(1) .ico-svg { margin-right: 2px; vertical-align: -2px; }
   .requests tr.live-row > td:nth-child(1) .pulse { width: 6px; height: 6px; }

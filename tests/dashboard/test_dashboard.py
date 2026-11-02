@@ -6427,7 +6427,7 @@ def test_the_page_carries_a_motion_base() -> None:
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "--fast:" in css and "--soft:" in css and "--ease:" in css, "the motion tokens"
-  assert "animation: pulse 1.4s ease-in-out infinite" in css, (
+  assert "animation: pulse 1.4s var(--ease) infinite" in css, (
     "the live dot uses the nuu 1.4 s pulse"
   )
   assert "a, button, .snippet, .card, .chip, .pill, tr.request td {" in css, (
@@ -6519,20 +6519,43 @@ process.exit(0);
 
 
 def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
-  """Loading source marks aria-busy without loading bars, button spinners, or skeleton rows."""
+  """Loading source renders the nuu delayed header edge bar and fixed-slot button spin."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   brand = next(line for line in page.splitlines() if 'class="brand"' in line)
   assert "spinner" not in brand and 'id="spinner"' not in page
-  assert "nuu-edge-loading" not in css and "tr.skeleton" not in css
-  assert "@keyframes spin" not in css and 'classList.add("checking")' not in app
+  assert "nuu-edge-loading" in css and "nuu-edge-loading-done" in css
+  assert "tr.skeleton" not in css and "function skeletons(" not in app
+  assert "@keyframes spin" not in css and "@keyframes nuu-spin" in css
+  assert 'classList.add("checking")' not in app
   assert (
     'setAttribute?.("aria-busy", "true")' in app
     and 'setAttribute?.("aria-busy", "false")' in app
   )
-  assert "region.dataset.loading" not in app and "function skeletons(" not in app
+  assert 'active.dataset.loading = "true"' in app
+  assert 'region.dataset.loading = "done"' in app
+
+
+def test_table_to_cards_recipe_grids_across_mobile_tables() -> None:
+  """Mobile tables fold into auto-fit rounded card grids with 12 px gaps."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
+  assert (
+    ".models tbody, .keys tbody {\n"
+    "    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));"
+    " gap: 12px; margin-top: 16px;"
+  ) in phone
+  assert (
+    "#limit-rows {\n"
+    "    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));"
+    " gap: 12px;"
+  ) in phone
+  assert (
+    "border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);"
+    in phone
+  )
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
@@ -8378,17 +8401,16 @@ def test_validation_errors_keep_exception_details_private(
 
 
 def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
-  """Scrollbars use 10 px WebKit thumbs, hidden buttons, and non-WebKit thin fallbacks."""
+  """Scrollbars use 10 px WebKit tracks, 6 px padded thumbs, and non-WebKit thin fallbacks."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   root = re.search(r":root\s*\{([^}]+)\}", css)
   tabs = re.search(r"\.tabs\s*\{([^}]+)\}", css)
   assert root is not None and tabs is not None
-  assert "--scrollbar-thumb: #c8c8d0;" in root.group(1)
+  assert "--scrollbar-thumb: #767682;" in root.group(1)
   assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
-  assert (
-    "::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; }"
-    in css
-  )
+  assert "border: 2px solid var(--bg);" in css
+  assert "background-clip: padding-box; border-radius: 9999px;" in css
+  assert ':root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover' in css
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
   assert "@supports not selector(::-webkit-scrollbar)" in css
   assert (
@@ -8762,13 +8784,16 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "--scrollbar-thumb: #c8c8d0;" in css
-  assert "--scrollbar-thumb: #302e2c;" in css
+  assert "--scrollbar-thumb: #767682;" in css
+  assert "--scrollbar-thumb: #6e6e7a;" in css
   assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
+  assert "border: 2px solid var(--bg);" in css
+  assert "background-clip: padding-box; border-radius: 9999px;" in css
+  assert ':root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover' in css
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
   assert "@supports not selector(::-webkit-scrollbar)" in css
   assert (
-    "background: var(--orange); flex: none; animation: pulse 1.4s ease-in-out infinite;"
+    "background: var(--orange); flex: none; animation: pulse 1.4s var(--ease) infinite;"
     in css
   )
   assert (
@@ -8778,14 +8803,14 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
 
 
 def test_nuu_modal_manager_and_delete_confirmations() -> None:
-  """Modals expose top-right close buttons, restore trigger focus, and gate deletions."""
+  """Modals expose top-right close buttons, action Cancel, focus restore, and delete gates."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert page.count('class="ghost modal-close"') == 3
   assert page.count('class="modal-actions"') == 1
   assert 'id="modal-close"' in page
-  assert 'id="modal-cancel"' not in page
+  assert page.count('id="modal-cancel"') == 1
   for marker in (
     "confirmDeleteEntry(",
     "restoreModalTrigger(",
@@ -8813,7 +8838,7 @@ assert.strictEqual(restored, 1, "closing the modal restores trigger focus");
 
 
 def test_nuu_loading_bar_and_page_memory_recipes() -> None:
-  """API calls toggle aria-busy in finally, and page memory skips unchanged redraws."""
+  """API calls drive data-loading and aria-busy, and page memory skips unchanged redraws."""
   code = _app_js_vm(
     r"""
 const active = {
@@ -8823,12 +8848,19 @@ const active = {
   setAttribute(name, value) { this.attrs[name] = value; },
 };
 const header = { dataset: {} };
+const scheduled = [];
+sandbox.setTimeout = (fn, ms) => {
+  scheduled.push({ fn, ms });
+  return scheduled.length;
+};
+sandbox.clearTimeout = () => {};
 sandbox.document.querySelector = (sel) => {
   if (sel === "#app > header") return header;
   if (sel === "section[data-page]:not([hidden])") return active;
   return null;
 };
 let seenBusyDuringFetch = null;
+let seenLoadingDuringFetch = null;
 const payload = {
   values: {
     personalization: { theme: "dark", time_format: "24h" },
@@ -8846,15 +8878,19 @@ sandbox.localStorage = { getItem: () => null };
 sandbox.sessionStorage = { getItem: () => null };
 sandbox.fetch = async () => {
   seenBusyDuringFetch = active.attrs["aria-busy"];
+  seenLoadingDuringFetch = active.dataset.loading;
   return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(payload)) };
 };
 vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis.__renders += 1; };", sandbox);
 (async () => {
   await sandbox.loadSettings();
   assert.strictEqual(seenBusyDuringFetch, "true", "active section is aria-busy while fetching");
+  assert.strictEqual(seenLoadingDuringFetch, "true", "active section sets data-loading=true while fetching");
   assert.strictEqual(active.attrs["aria-busy"], "false", "finally resets aria-busy to false");
-  assert.strictEqual(active.dataset.loading, undefined, "finally clears data-loading");
-  assert.strictEqual(header.dataset.loading, undefined, "finally clears header loading");
+  assert.strictEqual(active.dataset.loading, "done", "finally marks data-loading=done for completion fade");
+  while (scheduled.length) scheduled.shift().fn();
+  assert.strictEqual(active.dataset.loading, undefined, "220 ms timer clears data-loading");
+  assert.strictEqual(header.dataset.loading, undefined, "header carries no imperative dataset state");
   assert.strictEqual(sandbox.__renders, 1, "first settings load renders");
   await sandbox.loadSettings();
   assert.strictEqual(sandbox.__renders, 1, "unchanged settings payload skips redraw");
