@@ -168,6 +168,17 @@ def test_bundled_fonts(client: TestClient) -> None:
   assert client.get("/ui/fonts/INTER-VAR.woff2").status_code == 404, "the name is exact"
 
 
+def test_nested_ui_assets_serve_from_manifest(client: TestClient) -> None:
+  """Every registered UI_FILES entry, including nested vendor scripts, serves with its media type."""
+  for name, media_type in dashboard.UI_FILES.items():
+    response = client.get(f"/ui/{name}")
+    assert response.status_code == 200, name
+    assert response.headers["content-type"].startswith(media_type), name
+    assert response.headers["cache-control"] == "no-cache", name
+  assert client.get("/ui/vendor/nope.js").status_code == 404
+  assert client.get("/ui/vendor/SORTABLE.MIN.JS").status_code == 404
+
+
 def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
   """Icon-only remove buttons include aria-label attributes and symmetric CSS boxes."""
   root = Path(__file__).resolve().parents[2]
