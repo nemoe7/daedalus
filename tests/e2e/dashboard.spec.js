@@ -743,3 +743,19 @@ test("settings keyword lists render stacked rows with inline add", async ({ page
   await expect(rows).toHaveCount(initialCount + 1);
   await expect(rows.last().locator(".setting-list-value")).toHaveText("step-by-step");
 });
+
+test("settings controls and section transitions use house motion tokens", async ({ page }) => {
+  await open(page, "#/settings?section=personalization", 1440, 900);
+  const durations = await page.evaluate(() => [
+    getComputedStyle(document.querySelector(".sections .tile")).transitionDuration,
+    getComputedStyle(document.querySelector(".rail-search")).transitionDuration,
+    getComputedStyle(document.querySelector(".theme-seg button")).transitionDuration,
+  ]);
+  for (const value of durations) expect(value).toContain("0.15s");
+  await page.locator('.sections button[data-section="hooks"]').click();
+  await page.locator('[data-hook-open="client_spoof.py"]').click();
+  await expect(page.locator('.hook-page[data-hook-page="client_spoof.py"]')).toBeVisible();
+  await page.waitForTimeout(250);
+  await page.locator("[data-hook-back]").click();
+  await expect(page.locator('.card[data-section="hooks"] table.keys')).toBeVisible();
+});

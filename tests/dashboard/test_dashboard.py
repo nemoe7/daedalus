@@ -3142,12 +3142,23 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
   assert ".modal[open]::backdrop { background: rgb(0 0 0 / 0.45); }" in css, (
     "the backdrop fades in"
   )
-  assert 'replay([...host.querySelectorAll(".section-pane > .card")]' in app, (
-    "the selected section card arrives"
+  assert (
+    "if (arrived && (moved || (before && arrived.dataset.section !== before)) && !phoneSection()) replay(arrived);"
+    in app
+  ), "desktop section and drill swaps replay once without duplicating phone slides"
+  assert 'replay([...host.querySelectorAll(".section-pane > .card")]' not in app, (
+    "openSection does not fire a second competing replay"
   )
   assert (
-    'const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));' in app
-  ), "the card fades in GSAP without a y offset so the scroll pane never clips its top"
+    'const inPaneCard = Boolean(host?.matches?.(".section-pane > .card, .section-pane > [data-section], .hook-page"));'
+    in app
+  ), "section cards, provider flows, and hook pages fade in GSAP without a y offset"
+  assert ".tile, .rail-search {" in css, (
+    "rail tiles and search follow the fast ease token"
+  )
+  assert "function animateHookSwap(open)" in app, (
+    "hook drill-downs share Settings swap motion"
+  )
   assert 'replay($("provider-form"));' in app, "a file change arrives its form"
   assert "if (!off) replay(field);" not in app, "a switch toggle replays no row fade"
   assert (
