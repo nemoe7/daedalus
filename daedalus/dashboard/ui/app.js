@@ -129,10 +129,53 @@ function relative(seconds, { compact = mobileTime(), now = Date.now() } = {}) {
     : plural(years, "time.year_ago.one_text", "time.year_ago.other_text");
 }
 
-// Render relative time with an exact-time title, leaving layout to the caller.
+const isoUtc = (seconds) => new Date(seconds * 1000).toISOString();
+function nextRelativeDelay(stampMs, now = Date.now()) {
+  const ageMs = Math.abs(now - stampMs);
+  if (ageMs < 3_600_000) return Math.max(250, 60_000 - (ageMs % 60_000));
+  if (ageMs < 86_400_000) return Math.max(1_000, 3_600_000 - (ageMs % 3_600_000));
+  return 3_600_000;
+}
+
+// Render relative time with UTC timestamp metadata and an exact-time title.
 function timeText(seconds, { tag = "span", variant = "" } = {}) {
-  const attrs = htmlAttrs({ class: variant || null, title: stamp(seconds) });
+  const iso = isoUtc(seconds);
+  const attrs = htmlAttrs({
+    class: variant || null,
+    datetime: tag === "time" ? iso : null,
+    "data-timestamp": tag === "time" ? null : iso,
+    title: stamp(seconds),
+  });
   return `<${tag}${attrs}>${esc(relative(seconds))}</${tag}>`;
+}
+
+let relativeTimer = null;
+function clearRelativeTimer() {
+  if (relativeTimer !== null) globalThis.clearTimeout?.(relativeTimer);
+  relativeTimer = null;
+}
+function refreshRelativeNodes(root = document, { now = Date.now(), schedule = true } = {}) {
+  clearRelativeTimer();
+  const nodes = [...(root?.querySelectorAll?.("[data-timestamp], time[datetime]") || [])];
+  let minDelay = Infinity;
+  for (const el of nodes) {
+    const raw = el.getAttribute?.("data-timestamp") || el.getAttribute?.("datetime");
+    if (!raw) continue;
+    const stampMs = Date.parse(raw);
+    if (Number.isNaN(stampMs)) continue;
+    const seconds = stampMs / 1000;
+    const nextText = relative(seconds, { now });
+    if (el.textContent !== nextText) el.textContent = nextText;
+    const nextTitle = stamp(seconds);
+    if (el.title !== nextTitle) el.title = nextTitle;
+    const delay = nextRelativeDelay(stampMs, now);
+    if (delay < minDelay) minDelay = delay;
+  }
+  if (schedule && Number.isFinite(minDelay) && !document.hidden) {
+    relativeTimer = globalThis.setTimeout?.(() => refreshRelativeNodes(document), minDelay) ?? null;
+    relativeTimer?.unref?.();
+  }
+  return minDelay;
 }
 
 const state = {
@@ -544,6 +587,7 @@ async function call(path, options = {}) {
 function showLogin(message = "") {
   state.timers.forEach(clearInterval);
   state.timers = [];
+  clearRelativeTimer();
   closeLive();
   $("app").hidden = true;
   $("login").hidden = false;
@@ -3683,18 +3727,20 @@ function placeSaveLine(anchor = null) {
   }
   const text = line.querySelector(".saved");
   if (text) text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
-  if (saveTimer === null) saveTimer = setInterval(tickSaveLine, 20000);
+  if (saveTimer === null) {
+    saveTimer = globalThis.setTimeout?.(tickSaveLine, nextRelativeDelay(lastWrite.at)) ?? null;
+    saveTimer?.unref?.();
+  }
 }
 
 // Age the saved line while the write stays undoable.
 function tickSaveLine() {
+  saveTimer = null;
   const text = document.querySelector(".save-line .saved");
-  if (!text || !lastWrite?.at) {
-    if (saveTimer !== null) clearInterval(saveTimer);
-    saveTimer = null;
-    return;
-  }
+  if (!text || !lastWrite?.at) return;
   text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
+  saveTimer = globalThis.setTimeout?.(tickSaveLine, nextRelativeDelay(lastWrite.at)) ?? null;
+  saveTimer?.unref?.();
 }
 
 // Remove the Undo control when no write can be undone.
@@ -3702,7 +3748,7 @@ function dropUndo() {
   lastWrite = null;
   document.querySelector(".undo-text")?.remove();
   document.querySelector(".save-line")?.remove();
-  if (saveTimer !== null) clearInterval(saveTimer);
+  if (saveTimer !== null) globalThis.clearTimeout?.(saveTimer);
   saveTimer = null;
 }
 
@@ -4804,6 +4850,7 @@ async function start() {
     setInterval(tickCooldowns, 1000),
     setInterval(tickLive, 100),
   ];
+  refreshRelativeNodes();
   openLive();
 }
 
@@ -5826,7 +5873,10 @@ document.addEventListener("pointerdown", () => {
   delete document.documentElement.dataset.keyboardNav;
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && state.timers?.length) refresh();
+  if (!document.hidden && state.timers?.length) {
+    refresh();
+    refreshRelativeNodes();
+  }
 });
 window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();

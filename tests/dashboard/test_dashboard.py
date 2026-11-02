@@ -7389,10 +7389,11 @@ assert.strictEqual(probe.kpi('<strong>7</strong>', '<models>'),
   '<div class="kpi"><b><strong>7</strong></b><small>&lt;models&gt;</small></div>');
 const at = Date.now() / 1000 - 600;
 const tenMinutesAgo = LOCALE["time.minute_ago.other_text"].replace("{count}", "10");
+const atIso = new Date(at * 1000).toISOString();
 assert.strictEqual(probe.timeText(at),
-  `<span title="${probe.stamp(at)}">${tenMinutesAgo}</span>`);
+  `<span data-timestamp="${atIso}" title="${probe.stamp(at)}">${tenMinutesAgo}</span>`);
 assert.strictEqual(probe.timeText(at, { tag: 'time', variant: 'muted' }),
-  `<time class="muted" title="${probe.stamp(at)}">${tenMinutesAgo}</time>`);
+  `<time class="muted" datetime="${atIso}" title="${probe.stamp(at)}">${tenMinutesAgo}</time>`);
 assert.strictEqual(probe.statusBadge('<bad>', { variant: 'bad', title: '<reason & "x">' }),
   '<span class="bad" title="&lt;reason &amp; &quot;x&quot;&gt;">&lt;bad&gt;</span>');
 assert.strictEqual(probe.statusCell({ status: '<bad>' }), '&lt;bad&gt;');
@@ -8787,9 +8788,10 @@ assert.strictEqual(probe.stamp(afternoon), "2026-10-25 14:30:46");
 
 const timeMarkup = probe.timeText(afternoon, { tag: "time", variant: "muted" });
 const relativeLabel = probe.timeText(afternoon).replace(/^<span[^>]*>|<\/span>$/g, "");
+const afternoonIso = new Date(afternoon * 1000).toISOString();
 assert.strictEqual(
   timeMarkup,
-  '<time class="muted" title="2026-10-25 14:30:46">' + relativeLabel + "</time>",
+  '<time class="muted" datetime="' + afternoonIso + '" title="2026-10-25 14:30:46">' + relativeLabel + "</time>",
 );
 
 probe.state.keys = [{ name: "ops", start: "dae_1", created: afternoon, used: afternoon }];
@@ -9286,3 +9288,29 @@ def test_hooks_table_to_cards_and_single_version_datalist() -> None:
   assert "hookRuleVersion" not in app
   assert '.card[data-section="hooks"] .keys.hook-table tbody {' in css
   assert ".hook-rules td .input input[list] {" in css
+
+
+def test_relative_timestamps_emit_utc_datetime_and_unit_boundary_delays() -> None:
+  """Relative timestamps carry UTC metadata and schedule unit-boundary refresh delays."""
+  run_app_js(
+    "isoUtc, nextRelativeDelay, refreshRelativeNodes, timeText, stamp",
+    """
+const baseNow = Date.UTC(2026, 10, 2, 12, 0, 15);
+assert.strictEqual(probe.nextRelativeDelay(baseNow - 10_000, baseNow), 50_000);
+assert.strictEqual(probe.nextRelativeDelay(baseNow - 7_200_000, baseNow), 3_600_000);
+const stampSec = (baseNow - 120_000) / 1000;
+const iso = probe.isoUtc(stampSec);
+const item = {
+  textContent: "stale",
+  title: "",
+  getAttribute: (name) => (name === "datetime" ? iso : null),
+};
+const delay = probe.refreshRelativeNodes(
+  { querySelectorAll: () => [item] },
+  { now: baseNow, schedule: false },
+);
+assert.strictEqual(item.textContent, "2 minutes ago");
+assert.strictEqual(item.title, probe.stamp(stampSec));
+assert.strictEqual(delay, 60_000);
+""",
+  )
