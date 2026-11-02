@@ -3,6 +3,7 @@
 import logging
 import os
 import time
+from pathlib import Path
 
 import pytest
 
@@ -854,3 +855,35 @@ def test_rows_carry_the_declared_settings_and_their_values() -> None:
   finally:
     hooks.config_file(hooks.ROOT / "rows4" / "valued.py").unlink(missing_ok=True)
     hooks.set_installed()
+
+
+def test_hook_storage_writes_under_daedalus_state(
+  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Hook settings and persistent JSON files live under `.daedalus-state/hooks/<hook name>/`."""
+  from daedalus import store
+
+  state_dir = tmp_path / ".daedalus-state"
+  monkeypatch.setattr(store, "MODELS_DB", state_dir / "models.db")
+  monkeypatch.setattr(hooks, "ROOT", tmp_path)
+  monkeypatch.setattr(hooks, "DIR", "hooks")
+  hook_path = tmp_path / "hooks" / "sample_hook.py"
+  hook_path.parent.mkdir(parents=True, exist_ok=True)
+  hook_path.write_text(
+    "def on_answer(answer, model):\n  return answer\n", encoding="utf-8"
+  )
+
+  hooks.save_values(hook_path, {"attempts": 4})
+  assert (
+    hooks.config_file(hook_path)
+    == state_dir / "hooks" / "sample_hook" / "settings.json"
+  )
+  assert not hook_path.with_suffix(".json").exists()
+  assert hooks.read_config(hook_path) == {"attempts": 4}
+
+  written = hooks.write_json(hook_path, "cache.json", {"items": [1, 2]})
+  assert written == state_dir / "hooks" / "sample_hook" / "cache.json"
+  assert hooks.read_json(hook_path, "cache.json") == {"items": [1, 2]}
+
+  with pytest.raises(ValueError, match="Invalid hook storage file name"):
+    hooks.storage_file(hook_path, "../escape.json")

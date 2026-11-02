@@ -7,7 +7,7 @@ model by output price, and writes that order into each request.
 | --- | --- |
 | Scope | `yaml`, `targets: [openrouter]`: models declared in `openrouter.yml`, leaving the main config `openrouter` block untouched. |
 | Runs | `on-catalog` at each catalog build, and `on-upstream` before each provider call |
-| Writes | The order in `.daedalus-state/cheapest_output.json`, then `provider.order` in the body |
+| Writes | The order in `.daedalus-state/hooks/or_cheapest_output/cheapest_output.json`, then `provider.order` in the body |
 | Named by | The `hooks` list of the model `z-ai/glm-5.3-flash` in [`openrouter.yml`](../../config/providers/openrouter.yml) |
 | Notes | A client `provider` object wins. If the list read fails, the old order stays. |
 
@@ -15,7 +15,7 @@ model by output price, and writes that order into each request.
 flowchart LR
   A[Catalog build] --> B{{on_catalog}}
   B --> C[Endpoints sorted by output price]
-  C --> D[(cheapest_output.json)]
+  C --> D[(hooks/or_cheapest_output/cheapest_output.json)]
   E[Provider call] --> F{{on_upstream}}
   D --> F
   F --> G[provider.order of the body]

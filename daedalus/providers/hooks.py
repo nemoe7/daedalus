@@ -307,27 +307,70 @@ def fields(path: Path | str) -> list[dict[str, Any]]:
   return declared
 
 
+def storage_dir(path: Path | str) -> Path:
+  """Return the persistent state directory for 1 hook under `.daedalus-state/hooks/<hook name>/`."""
+  from daedalus import store
+
+  target = Path(path).resolve()
+  root = folder()
+  try:
+    relative = target.relative_to(root).with_suffix("")
+    parts = [part for part in relative.parts if part and part not in {".", ".."}]
+  except ValueError:
+    stem = Path(path).stem
+    parts = [stem] if stem and stem not in {".", ".."} else []
+  if not parts:
+    raise ValueError("Invalid hook identity")
+  base = (Path(store.MODELS_DB).resolve().parent / "hooks").resolve()
+  resolved = base.joinpath(*parts).resolve()
+  resolved.relative_to(base)
+  return Path(store.MODELS_DB).parent / "hooks" / Path(*parts)
+
+
+def storage_file(path: Path | str, name: str) -> Path:
+  """Return 1 named file inside the persistent state directory of `path`."""
+  cleaned = posixpath.normpath((name or "").strip().replace("\\", "/"))
+  if not cleaned or cleaned in {".", ".."} or cleaned.startswith(("/", "../")):
+    raise ValueError("Invalid hook storage file name")
+  directory = storage_dir(path)
+  base = directory.resolve()
+  resolved = (base / cleaned).resolve()
+  resolved.relative_to(base)
+  return directory / Path(cleaned)
+
+
+def read_json(path: Path | str, name: str) -> Any:
+  """Read 1 stored JSON file for `path`, or return `None` when absent or unreadable."""
+  try:
+    return json.loads(storage_file(path, name).read_text(encoding="utf-8"))
+  except (OSError, ValueError):
+    return None
+
+
+def write_json(path: Path | str, name: str, value: Any) -> Path:
+  """Write `value` atomically as JSON into the persistent state directory of `path`."""
+  target = storage_file(path, name)
+  target.parent.mkdir(parents=True, exist_ok=True)
+  temporary = target.with_name(f"{target.name}.tmp")
+  temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+  temporary.replace(target)
+  return target
+
+
 def config_file(path: Path | str) -> Path:
-  """JSON file that holds the saved values of 1 hook file, beside the file."""
-  return Path(path).with_suffix(".json")
+  """JSON file under `.daedalus-state/hooks/<hook name>/` that holds the saved values of 1 hook."""
+  return storage_file(path, "settings.json")
 
 
 def read_config(path: Path | str) -> dict[str, Any]:
   """The saved JSON object of 1 hook file, or an empty object when it does not read."""
-  try:
-    found = json.loads(config_file(path).read_text(encoding="utf-8"))
-  except (OSError, ValueError):
-    return {}
+  found = read_json(path, "settings.json")
   return found if isinstance(found, dict) else {}
 
 
 def save_values(path: Path | str, values: Mapping[str, Any]) -> None:
   """Write the values of 1 hook file in 1 atomic step, and create the file on the 1st save."""
-  target = config_file(path)
-  target.parent.mkdir(parents=True, exist_ok=True)
-  temporary = target.with_suffix(".tmp")
-  temporary.write_text(json.dumps(dict(values), indent=2) + "\n", encoding="utf-8")
-  temporary.replace(target)
+  write_json(path, "settings.json", dict(values))
 
 
 def values(path: Path | str) -> dict[str, Any]:

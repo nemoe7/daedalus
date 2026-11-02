@@ -1,6 +1,5 @@
 """The client spoof hook presents one harness as another through outbound identity headers."""
 
-import json
 import shutil
 from pathlib import Path
 
@@ -50,8 +49,7 @@ async def client(state_folder: Path):
 
 
 def save_rules(state_folder: Path, rules: list[dict]) -> None:
-  path = state_folder / "hooks" / "client_spoof.json"
-  path.write_text(json.dumps({"rules": rules}), encoding="utf-8")
+  hooks.save_values(state_folder / "hooks" / "client_spoof.py", {"rules": rules})
 
 
 async def test_kilo_becomes_opencode(
