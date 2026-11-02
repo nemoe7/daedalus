@@ -13,8 +13,8 @@ function hydrateIcons(root = document) {
   root.querySelectorAll?.("[data-icon]").forEach((node) => {
     const glyph = node.getAttribute("data-icon");
     if (!ICON_PATHS[glyph]) return;
-    if ("outerHTML" in node) node.outerHTML = icon(glyph);
-    else node.innerHTML = icon(glyph);
+    if (node.classList?.contains?.("ico-slot") || !("outerHTML" in node)) node.innerHTML = icon(glyph);
+    else node.outerHTML = icon(glyph);
   });
 }
 
@@ -187,6 +187,9 @@ const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
+const iconSlot = (glyph) => `<span class="ico-slot" aria-hidden="true">${icon(glyph)}</span>`;
+const liveDot = (variant = "live") =>
+  `<span class="ico-svg" aria-hidden="true"><i class="dot${variant ? ` ${esc(variant)}` : ""}"></i></span>`;
 function backButton(back, attrs = {}) {
   return actionButton(`${icon("chevron_left")}<span class="back-label">${esc(back)}</span>`, {
     variant: "ghost back", attrs,
@@ -1118,7 +1121,7 @@ function renderLive() {
   // Animate only new rows when the live group is redrawn.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell(t("request.column.time_column"), `<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time_column"), `${liveDot()}<span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
@@ -2251,8 +2254,8 @@ function hooksManager() {
   return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
       <div class="card-scroll scroll-fade"><table class="keys hook-table"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
-        variant: "ghost", attrs: { "data-hooks-update": true },
+      ${actionButton(`${iconSlot("refresh_cw")}<span>${t("action.update_sources_button")}</span>`, {
+        variant: "ghost btn-slot", attrs: { "data-hooks-update": true },
       })}`, "hooks.disabled")}
     <div class="hooks-order-list" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
@@ -4686,8 +4689,8 @@ function maintenanceCard() {
   });
   body += `<div class="editbar">` + actionButton(t("dialog.reset.title"), {
     variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") },
-  }) + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
-    variant: "ghost", attrs: { id: "update-check" },
+  }) + actionButton(`${iconSlot("refresh_cw")}<span>${t("action.check_now_button")}</span>`, {
+    variant: "ghost btn-slot", attrs: { id: "update-check" },
   }) + `<span class="message" id="reset-message" role="status"></span>`
     + `<span class="hint">${t("model.reset.hint")}</span></div>`;
   return `<div class="card" data-section="maintenance" id="update-card">${body}</div>`;
@@ -4874,7 +4877,7 @@ $("settings").addEventListener("click", async (event) => {
     } finally {
       button.disabled = false;
       button.removeAttribute?.("aria-busy");
-      if (!button.innerHTML) button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
+      if (!button.innerHTML) button.innerHTML = `${iconSlot("refresh_cw")}<span>${t("action.check_now_button")}</span>`;
     }
     return;
   }

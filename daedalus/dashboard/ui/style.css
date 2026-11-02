@@ -239,8 +239,8 @@ button.chip:disabled { cursor: progress; }
 .effort { font-weight: 600; border-color: currentColor; }
 .e-none, .e-minimal { color: var(--muted); } .e-low { color: var(--ok); } .e-medium { color: var(--accent-text); }
 .e-high { color: var(--orange); } .e-xhigh, .e-max { color: var(--red); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
-.dot.off { background: var(--bad); }
+.status-health > .dot { background: var(--accent); }
+.status-health > .dot.off, .dot.off { background: var(--bad); }
 .ghost {
   padding: 4px 12px; border-radius: 9999px; border: 1px solid var(--control-line);
   background: transparent; color: var(--muted); font-size: 14px;
@@ -585,24 +585,24 @@ table.limits td.num .weight { justify-content: flex-end; }
 .hook-page #hook-page-note:empty { display: none; }
 .hook-page #hook-page-note.bad { color: var(--bad); }
 tr.live-row td { background: var(--field); }
-.ico-svg {
-  display: inline-grid; place-items: center; width: 16px; height: 16px;
-  margin-right: 6px; vertical-align: -3px; flex: none;
-}
-.ico-slot {
+tr.live-row > td:first-child > .cell-value { display: inline-flex; align-items: center; gap: 6px; }
+.ico-svg, .ico-slot {
   display: inline-grid; place-items: center; width: 16px; height: 16px; flex: none;
 }
-.dot { width: 8px; height: 8px; border-radius: 9999px; background: currentColor; flex: none; }
+.btn-slot { display: inline-flex; align-items: center; gap: 6px; }
+.dot { display: block; width: 8px; height: 8px; border-radius: 9999px; background: currentColor; flex: none; }
 .dot-sm { width: 6px; height: 6px; }
 .dot-lg { width: 10px; height: 10px; }
-.pulse {
-  display: block; width: 8px; height: 8px; margin: 0; border-radius: 9999px;
-  background: var(--orange); flex: none; animation: pulse 1.4s var(--ease) infinite;
-}
+.dot.live { background: var(--orange); }
+.ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s var(--ease) infinite; }
 button[aria-busy="true"] > svg:first-child,
 button[aria-busy="true"] .ico-slot > svg,
 button[aria-busy="true"] .btn-spinner {
-  animation: nuu-spin 0.8s linear infinite;
+  width: 14px; height: 14px; animation: nuu-spin 0.8s linear infinite;
+}
+button[aria-busy="true"] .dot {
+  width: 8px; height: 8px; border-radius: 9999px; background: currentColor;
+  animation: pulse 1.4s var(--ease) infinite;
 }
 @keyframes nuu-spin {
   to { transform: rotate(360deg); }
@@ -1525,8 +1525,8 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   #limit-rows .limit-meta { display: block; grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
   .panel:has(> .requests), .panel:has(> .models), .panel:has(> .keys), .panel:has(> .limits) { background: transparent; border: 0; }
   .panel:has(> .requests) { margin-top: 0; }
-  .requests tr.live-row > td:nth-child(1) .ico-svg { margin-right: 2px; vertical-align: -2px; }
-  .requests tr.live-row > td:nth-child(1) .pulse { width: 6px; height: 6px; }
+  .requests tr.live-row > td:nth-child(1) > .cell-value { gap: 4px; }
+  .requests tr.live-row > td:nth-child(1) .dot { width: 6px; height: 6px; }
 }
 
 @media (max-height: 24em) {
