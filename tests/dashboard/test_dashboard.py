@@ -6506,23 +6506,89 @@ def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
 
 
 def test_table_to_cards_recipe_grids_across_mobile_tables() -> None:
-  """Mobile tables fold into auto-fit rounded card grids with 12 px gaps."""
+  """Mobile tables hide thead and fold into auto-fill rounded card grids with 12 px gaps."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
+  for selector in (".requests thead", ".models thead", ".keys thead", ".limits thead"):
+    assert f"{selector} {{ display: none; }}" in phone
+  assert "clip: rect" not in css
   assert (
     ".models tbody, .keys tbody {\n"
-    "    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));"
+    "    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));"
     " gap: 12px; margin-top: 16px;"
   ) in phone
   assert (
     "#limit-rows {\n"
-    "    display: grid; grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));"
+    "    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));"
     " gap: 12px;"
   ) in phone
   assert (
     "border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);"
     in phone
   )
+
+
+def test_page_memory_version_cache_client_id_and_draft_persistence() -> None:
+  """Page memory caches versioned tabs, deduplicates clientId retries, and persists drafts."""
+  code = _app_js_vm(
+    r"""
+const storeMap = new Map();
+sandbox.sessionStorage = { getItem: () => null };
+sandbox.localStorage = {
+  getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+  setItem: (k, v) => storeMap.set(k, String(v)),
+  removeItem: (k) => storeMap.delete(k),
+};
+sandbox.crypto = { randomUUID: () => "uuid-fixed-1" };
+const probe = vm.runInContext(
+  "({ state, readPageCache, submitApiKey, readDraft, writeDraft })",
+  sandbox,
+);
+(async () => {
+  let loads = 0;
+  const first = await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m1" }];
+  });
+  const second = await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m2" }];
+  });
+  assert.strictEqual(loads, 1, "matching catalog version hits cache");
+  assert.strictEqual(second[0].id, first[0].id);
+  await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m2" }];
+  }, true);
+  assert.strictEqual(loads, 2, "fresh reload bypasses cache");
+  await probe.readPageCache("models", 1700000005, async () => {
+    loads += 1;
+    return [{ id: "demo/m3" }];
+  });
+  assert.strictEqual(loads, 3, "new catalog version misses stale cache");
+
+  probe.writeDraft("keyName", "laptop");
+  assert.strictEqual(probe.readDraft("keyName"), "laptop");
+
+  let postBodies = [];
+  sandbox.fetch = async (url, init = {}) => {
+    postBodies.push(JSON.parse(init.body));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ name: "laptop", key: "sk-test" }),
+    };
+  };
+  probe.state.keys = [{ clientId: "uuid-fixed-1", name: "laptop", status: "failed" }];
+  await probe.submitApiKey("laptop", "uuid-fixed-1");
+  assert.strictEqual(probe.state.keys.length, 1, "retrying same clientId never duplicates row");
+  assert.strictEqual(probe.state.keys[0].status, "ok");
+  assert.strictEqual(postBodies[0].clientId, "uuid-fixed-1");
+  assert.strictEqual(probe.readDraft("keyName"), undefined, "successful submit clears draft");
+})().catch((err) => { console.error(err); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
 
 
 def test_shared_back_button_uses_lucide_chevron_left() -> None:
@@ -8809,7 +8875,7 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
   phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert (
     ".requests tbody {" in phone
-    and "repeat(auto-fit, minmax(min(280px, 100%), 1fr))" in phone
+    and "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" in phone
   )
 
 
@@ -8831,7 +8897,8 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
     ".ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s var(--ease) infinite; }"
     in css
   )
-  assert "width: 14px; height: 14px; animation: nuu-spin 0.8s linear infinite;" in css
+  assert ".ico-slot > svg, .btn-spinner { width: 14px; height: 14px; }" in css
+  assert "animation: nuu-spin 0.8s linear infinite;" in css
   assert "const liveDot =" in app and '${liveDot()}<span class="live-ago">' in app
   assert "const iconSlot =" in app and 'iconSlot("refresh_cw")' in app
 
