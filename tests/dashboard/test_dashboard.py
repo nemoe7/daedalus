@@ -6594,6 +6594,15 @@ assert(html.includes('class="add"'), html);
 assert(html.includes("M5 12h14") && html.includes("<span>Add rule</span>"), html);
 """,
   )
+
+
+def test_shared_info_hint_and_pane_bar() -> None:
+  """Field labels and folds share infoHint(), and drill-down headers share paneBar()."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function infoHint(" in app and "function paneBar(" in app
+  assert "hook-bar" not in app and ".hook-bar" not in css and ".hook-heading" not in css
+  assert ".field.info .hint, .fold summary .hint {" in css
   run_app_js(
     "backButton, icon",
     """

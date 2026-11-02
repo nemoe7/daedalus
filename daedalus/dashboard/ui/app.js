@@ -191,6 +191,9 @@ function iconButton(glyph, { danger = false, variant = "", attrs = {} } = {}) {
   const cls = ["ghost", "icon-btn", danger ? "danger" : "", variant].filter(Boolean).join(" ");
   return actionButton(icon(glyph), { variant: cls, attrs });
 }
+function paneBar(backHtml, headingHtml, toolsHtml = "") {
+  return `<div class="pane-bar">${backHtml}${headingHtml}${toolsHtml}</div>`;
+}
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
@@ -2184,7 +2187,7 @@ function hookPage(row) {
     variant: "primary", attrs: { "data-hook-save": row.name, "aria-label": t("hook.page.save_named_label", { name: row.name }) },
   });
   return `<div class="hook-page" data-hook-page="${esc(row.name)}">
-    <div class="hook-bar">${back}<h2 class="hook-heading">${esc(row.title || row.name)}</h2></div>
+    ${paneBar(back, `<h2 class="pane-title">${esc(row.title || row.name)}</h2>`)}
     ${fields}<div class="pills">${save}</div>
     <div class="sub" id="hook-page-note" role="status"></div>
     <div class="sub">${t("hook.page.hint")}</div></div>`;
@@ -2674,14 +2677,20 @@ function dropSetting(path) {
 
 // The label of a field, with its hint behind an info icon on a desktop and under the label on a phone.
 let HINT_COUNT = 0;
+function infoHint(hint, { interactive = true } = {}) {
+  const id = `hint-${++HINT_COUNT}`;
+  const trigger = interactive
+    ? actionButton(icon("info"), {
+      variant: "hint",
+      attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
+    })
+    : `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
+  const tip = `<small id="${id}" role="tooltip"${interactive ? "" : ' aria-hidden="true"'}>${esc(hint)}</small>`;
+  return { id, markup: `${trigger}${tip}` };
+}
 function labelSpan(label, hint) {
   if (!hint) return `<span><b>${esc(label)}</b></span>`;
-  const id = `hint-${++HINT_COUNT}`;
-  const button = actionButton(icon("info"), {
-    variant: "hint",
-    attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
-  });
-  return `<span><b>${esc(label)}</b>${button}<small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
+  return `<span><b>${esc(label)}</b>${infoHint(hint).markup}</span>`;
 }
 
 function field(label, hint, body, configKey = "") {
@@ -2953,8 +2962,7 @@ function sectionPane(back, cards, actions = null) {
   const button = backButton(back, { "data-back": true });
   const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
   // Reference heads a drill page with back chevron and page title.
-  return `<div class="section-pane"><div class="pane-bar">${button}`
-    + `<h1 class="pane-title" data-pane-title hidden></h1>${tools}</div>${cards}</div>`;
+  return `<div class="section-pane">${paneBar(button, '<h1 class="pane-title" data-pane-title hidden></h1>', tools)}${cards}</div>`;
 }
 
 function providerPaneActions(section = sectionState("provider-form")) {
@@ -3249,10 +3257,8 @@ function slideAgain() {
 
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
-  const id = `hint-${++HINT_COUNT}`;
-  const mark = `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
-  return `<details class="fold"><summary aria-describedby="${id}">${esc(label)}${mark}`
-    + `<small id="${id}" role="tooltip" aria-hidden="true">${esc(hint)}</small></summary>`
+  const { id, markup } = infoHint(hint, { interactive: false });
+  return `<details class="fold"><summary aria-describedby="${id}">${esc(label)}${markup}</summary>`
     + `<div class="fold-body">${body}</div></details>`;
 }
 
