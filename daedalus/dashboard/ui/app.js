@@ -436,20 +436,33 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
-// Mark the active view with aria-busy while initial or background reads remain active.
+// Mark the active view with aria-busy and data-loading while reads remain active.
 let calling = 0;
 const busyRegions = new Set();
+const loadingDoneTimers = new WeakMap();
 function showSpinner(on) {
   const active = document.querySelector?.("section[data-page]:not([hidden])");
   if (on) {
     if (active) {
+      const pendingTimer = loadingDoneTimers.get(active);
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        loadingDoneTimers.delete(active);
+      }
+      if (active.dataset) active.dataset.loading = "true";
       active.setAttribute?.("aria-busy", "true");
       busyRegions.add(active);
     }
     return;
   }
   for (const region of busyRegions) {
+    if (region.dataset) region.dataset.loading = "done";
     region.setAttribute?.("aria-busy", "false");
+    const timer = setTimeout(() => {
+      loadingDoneTimers.delete(region);
+      if (region.dataset?.loading === "done") delete region.dataset.loading;
+    }, 220);
+    loadingDoneTimers.set(region, timer);
   }
   busyRegions.clear();
 }
@@ -4713,7 +4726,9 @@ async function start() {
   // Display the page before the first state response.
   $("login").hidden = true;
   $("app").hidden = false;
-  // Size panes after the app becomes visible. Hidden panes have no height.
+  // Size panes and align the active tab after the app becomes visible.
+  syncHeaderWrap();
+  document.querySelector?.("#nav a.on")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   markNavEdges();
   fitSectionPane();
   markCardScrollEdges();
