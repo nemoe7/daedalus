@@ -196,7 +196,7 @@ test("a single section search match shows no stray dividers", async ({ page }) =
 test("model cards show registered model limits and omit provider-only limits", async ({ page }) => {
   await open(page, "#/models", 1440, 900);
   await page.locator('button[aria-label="gemini/gemini-3.8-flash"]').first().click();
-  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#model-modal-body")).toContainText("5");
   await expect(page.locator("#model-modal-body")).toContainText("RPM");
   await expect(page.locator("#model-modal-body")).toContainText("250,000");
@@ -204,7 +204,7 @@ test("model cards show registered model limits and omit provider-only limits", a
   await page.keyboard.press("Escape");
 
   await page.locator('button[aria-label="groq/openai/gpt-oss-120b"]').first().click();
-  await expect(page.locator("#model-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#model-modal-body")).not.toContainText("RPM");
   await expect(page.locator("#model-modal-body")).not.toContainText("TPM");
   await page.keyboard.press("Escape");
@@ -416,9 +416,9 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/4
   await page.locator("#live-toggle").click();
   await page.locator("#live-toggle").click();
   await page.locator(".requests tr.request.has-chain").first().click();
-  await expect(page.locator("#chain-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   const chainListStyle = await page.evaluate(() => {
-    const ol = getComputedStyle(document.querySelector("#chain-modal ol"));
+    const ol = getComputedStyle(document.querySelector("#modal ol"));
     return { type: ol.listStyleType, position: ol.listStylePosition };
   });
   expect(chainListStyle).toEqual({ type: "decimal", position: "outside" });
@@ -436,10 +436,12 @@ test("rail stays clear of pane, rail search shows keyboard-only focus, and 960/4
   expect(requestsAt960.overflow).toBeLessThanOrEqual(1);
   await expect(page.locator("#requests-legend")).toBeHidden();
   await expect(page.locator("#legend-open")).toBeVisible();
+  await page.locator("#legend-open").focus();
   await page.locator("#legend-open").click();
-  await expect(page.locator("#chain-modal")).toBeVisible();
+  await expect(page.locator("#modal")).toBeVisible();
   await expect(page.locator("#chain-modal-body")).toContainText("Previous model exceeded the context limit");
   await page.keyboard.press("Escape");
+  await expect(page.locator("#legend-open")).toBeFocused();
 
   await open(page, "#/requests", 480, 900);
   const requestsAt480 = await page.evaluate(() => {
@@ -670,4 +672,163 @@ test("skip link keeps route, switch suppresses pointer focus, and mobile key del
   await page.setViewportSize({ width: 768, height: 900 });
   await expect.poll(() => page.evaluate(() => document.querySelector("#app > header").dataset.wrapped || "")).toBe("");
   await expect.poll(() => page.evaluate(() => document.getElementById("ov-kpis").dataset.wrapped || "")).toBe("");
+});
+
+test("provider form edits persist when clicking Save", async ({ page }) => {
+  const nextApiBase = "https://proxy.example/v1";
+  await open(page, "#/settings?section=providers", 1280, 900);
+  await page.locator("#files button[data-file]", { hasText: "openrouter.yml" }).click();
+  await page.evaluate(() => {
+    window.__providerWrites = [];
+    const origFetch = window.fetch;
+    window.fetch = async (url, opts) => {
+      if (opts && opts.method === "PUT") {
+        window.__providerWrites.push({ url: String(url), body: JSON.parse(opts.body) });
+      }
+      return origFetch(url, opts);
+    };
+  });
+
+  const apiBaseInput = page.locator('#provider-form [data-provider="openrouter"] input[data-value="API base"]');
+  await expect(apiBaseInput).toBeVisible();
+  await apiBaseInput.click();
+  await expect(page.locator("#modal")).toBeVisible();
+  await page.locator("#modal-input").fill(nextApiBase);
+  await page.locator("#modal-ok").click();
+
+  await expect(apiBaseInput).toHaveValue(nextApiBase);
+  await expect(page.locator('#provider-form [data-provider="openrouter"] .undo-text')).toBeVisible();
+  const writes = await page.evaluate(() => window.__providerWrites);
+  expect(writes.filter((item) => item.url.endsWith("ui/api/settings"))).toEqual([]);
+  expect(writes.filter((item) => item.url.endsWith("ui/api/providers")).length).toBe(1);
+  expect(writes[0].body.blocks.openrouter.api_base).toBe(nextApiBase);
+
+  await page.locator('#provider-form [data-provider-section="yaml"]').click();
+  await expect(page.locator("#editor")).toHaveValue(/api_base: https:\/\/proxy\.example\/v1/);
+});
+
+test("provider drill-down views fit without horizontal overflow", async ({ page }) => {
+  for (const [width, height] of [[1440, 900], [768, 1024], [390, 844]]) {
+    for (const fileName of ["free.yml", "openrouter.yml"]) {
+      await open(page, "#/settings?section=providers", width, height);
+      await page.locator("#files button[data-file]", { hasText: fileName }).click();
+      if (fileName === "free.yml") {
+        await page.locator('#provider-form .sections button[data-section="cloudflare"]').click();
+      }
+      await page.waitForTimeout(250);
+      await page.evaluate(() => {
+        document.querySelectorAll("#provider-form details.fold").forEach((fold) => { fold.open = true; });
+      });
+      const overflow = await page.evaluate(() => {
+        const doc = document.documentElement.scrollWidth - window.innerWidth;
+        const hosts = [...document.querySelectorAll("#settings, #settings .section-pane, #provider-form, #provider-form .card.provider, #provider-form .override")]
+          .filter((el) => getComputedStyle(el).display !== "none" && el.clientWidth > 0)
+          .map((el) => el.scrollWidth - el.clientWidth);
+        return Math.max(doc, 0, ...hosts);
+      });
+      expect(overflow, `${fileName} at ${width}x${height} has no horizontal scroll`).toBeLessThanOrEqual(1);
+    }
+  }
+});
+
+test("settings keyword lists render stacked rows with inline add", async ({ page }) => {
+  await open(page, "#/settings?section=routing", 1440, 900);
+  const rows = page.locator("#set-routing-escalation .setting-list-row");
+  const initialCount = await rows.count();
+  expect(initialCount).toBeGreaterThan(0);
+  await expect(page.locator("#set-routing-escalation .pill")).toHaveCount(0);
+  await page.locator('#set-routing-escalation [data-setting-add]').click();
+  const input = page.locator("#set-routing-escalation .adder input");
+  await expect(input).toBeVisible();
+  await input.fill("step-by-step");
+  await input.press("Enter");
+  await expect(rows).toHaveCount(initialCount + 1);
+  await expect(rows.last().locator(".setting-list-value")).toHaveText("step-by-step");
+});
+
+test("settings controls and section transitions use house motion tokens", async ({ page }) => {
+  await open(page, "#/settings?section=personalization", 1440, 900);
+  const durations = await page.evaluate(() => [
+    getComputedStyle(document.querySelector(".sections .tile")).transitionDuration,
+    getComputedStyle(document.querySelector(".rail-search")).transitionDuration,
+    getComputedStyle(document.querySelector(".theme-seg button")).transitionDuration,
+  ]);
+  for (const value of durations) expect(value).toContain("0.15s");
+  await page.locator('.sections button[data-section="hooks"]').click();
+  await page.locator('[data-hook-open="client_spoof.py"]').click();
+  await expect(page.locator('.hook-page[data-hook-page="client_spoof.py"]')).toBeVisible();
+  await page.waitForTimeout(250);
+  await page.locator("[data-hook-back]").click();
+  await expect(page.locator('.card[data-section="hooks"] table.keys')).toBeVisible();
+  await open(page, "#/settings?section=hooks", 390, 844);
+  const paneBack = page.locator("#settings > .section-pane > .pane-bar > [data-back]");
+  await expect(paneBack).toBeVisible();
+  await paneBack.click();
+  await expect(page.locator("#settings > .rail")).toBeVisible();
+});
+
+test("hooks manager and client spoofing fit desktop, tablet, and phone without clipping or overlap", async ({ page }) => {
+  for (const [vw, vh] of [[1440, 900], [768, 1024], [390, 844]]) {
+    await open(page, "#/settings?section=hooks", vw, vh);
+    await page.waitForTimeout(250);
+    const hooksCheck = await page.evaluate(() => {
+      const card = document.querySelector('.card[data-section="hooks"]');
+      const cardRect = card.getBoundingClientRect();
+      const openBtns = [...card.querySelectorAll("[data-hook-open]")].map((b) => b.dataset.hookOpen);
+      const gearStyle = getComputedStyle(card.querySelector("[data-hook-open]"));
+      let overlaps = 0;
+      for (const row of card.querySelectorAll(".hook-table tbody tr")) {
+        const boxes = [...row.querySelectorAll(":scope > td")]
+          .filter((td) => getComputedStyle(td).display !== "none")
+          .map((td) => td.getBoundingClientRect());
+        for (let i = 0; i < boxes.length; i++) {
+          for (let j = i + 1; j < boxes.length; j++) {
+            const x = Math.min(boxes[i].right, boxes[j].right) - Math.max(boxes[i].left, boxes[j].left);
+            const y = Math.min(boxes[i].bottom, boxes[j].bottom) - Math.max(boxes[i].top, boxes[j].top);
+            if (x > 1 && y > 1) overlaps += 1;
+          }
+        }
+      }
+      return {
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        cardRightOverflow: Math.max(...[...card.querySelectorAll("[data-hook-drop]")].map((b) => b.getBoundingClientRect().right - cardRect.right)),
+        openBtns,
+        radius: gearStyle.borderRadius,
+        width: parseFloat(gearStyle.width),
+        height: parseFloat(gearStyle.height),
+        overlaps,
+      };
+    });
+    expect(hooksCheck.docOverflow).toBeLessThanOrEqual(0);
+    expect(hooksCheck.cardRightOverflow).toBeLessThanOrEqual(0);
+    expect(hooksCheck.openBtns).toEqual(["client_spoof.py", "owui_auto_reasoning_effort.py"]);
+    expect(hooksCheck.radius).toBe("6px");
+    expect(hooksCheck.width).toBe(hooksCheck.height);
+    expect(hooksCheck.overlaps).toBe(0);
+
+    await page.locator('[data-hook-open="client_spoof.py"]').click();
+    await page.waitForTimeout(250);
+    const spoofCheck = await page.evaluate(() => {
+      const card = document.querySelector('.card[data-section="hooks"]');
+      const cardRect = card.getBoundingClientRect();
+      const trash = card.querySelector("[data-hook-rule-remove]");
+      const trashRect = trash.getBoundingClientRect();
+      const versionInputs = card.querySelectorAll('.hook-rules input[list]');
+      const options = [...card.querySelectorAll(".hook-rules datalist option")].map((o) => o.value);
+      return {
+        docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        trashClipped: trashRect.right - cardRect.right,
+        trashRadius: getComputedStyle(trash).borderRadius,
+        versionInputs: versionInputs.length,
+        firstOption: options[0] || "",
+      };
+    });
+    expect(spoofCheck.docOverflow).toBeLessThanOrEqual(0);
+    expect(spoofCheck.trashClipped).toBeLessThanOrEqual(0);
+    expect(spoofCheck.trashRadius).toBe("6px");
+    expect(spoofCheck.versionInputs).toBe(1);
+    expect(spoofCheck.firstOption).toBe("latest");
+    await page.locator("[data-hook-back]").click();
+    await expect(page.locator('.card[data-section="hooks"] .hook-table')).toBeVisible();
+  }
 });

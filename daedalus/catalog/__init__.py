@@ -9,7 +9,7 @@ from typing import Any
 from daedalus import store
 from daedalus.catalog.discovery import build_rows
 from daedalus.catalog.enrichment import enrich
-from daedalus.config import get_config, sync_defaults
+from daedalus.config import get_config, sync_defaults, sync_files
 from daedalus.providers import ProviderError, hooks, provider_for
 from daedalus.store import write_store
 
@@ -51,6 +51,7 @@ def _rebuild(cached: bool) -> Path:
   from daedalus.config import defaults
 
   get_config()
+  sync_files()
   config = sync_defaults(defaults.refresh())
   failed: list[str] = []
   native, skipped = build_rows(

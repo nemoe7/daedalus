@@ -9,7 +9,17 @@ function t(key, values = {}) {
 }
 globalThis.t = t;
 
+function hydrateIcons(root = document) {
+  root.querySelectorAll?.("[data-icon]").forEach((node) => {
+    const glyph = node.getAttribute("data-icon");
+    if (!ICON_PATHS[glyph]) return;
+    if (node.classList?.contains?.("ico-slot") || !("outerHTML" in node)) node.innerHTML = icon(glyph);
+    else node.outerHTML = icon(glyph);
+  });
+}
+
 const applyLocale = (root = document) => {
+  hydrateIcons(root);
   root.querySelectorAll("[data-i18n]").forEach((node) => {
     node.textContent = t(node.dataset.i18n);
   });
@@ -119,10 +129,53 @@ function relative(seconds, { compact = mobileTime(), now = Date.now() } = {}) {
     : plural(years, "time.year_ago.one_text", "time.year_ago.other_text");
 }
 
-// Render relative time with an exact-time title, leaving layout to the caller.
+const isoUtc = (seconds) => new Date(seconds * 1000).toISOString();
+function nextRelativeDelay(stampMs, now = Date.now()) {
+  const ageMs = Math.abs(now - stampMs);
+  if (ageMs < 3_600_000) return Math.max(250, 60_000 - (ageMs % 60_000));
+  if (ageMs < 86_400_000) return Math.max(1_000, 3_600_000 - (ageMs % 3_600_000));
+  return 3_600_000;
+}
+
+// Render relative time with UTC timestamp metadata and an exact-time title.
 function timeText(seconds, { tag = "span", variant = "" } = {}) {
-  const attrs = htmlAttrs({ class: variant || null, title: stamp(seconds) });
+  const iso = isoUtc(seconds);
+  const attrs = htmlAttrs({
+    class: variant || null,
+    datetime: tag === "time" ? iso : null,
+    "data-timestamp": tag === "time" ? null : iso,
+    title: stamp(seconds),
+  });
   return `<${tag}${attrs}>${esc(relative(seconds))}</${tag}>`;
+}
+
+let relativeTimer = null;
+function clearRelativeTimer() {
+  if (relativeTimer !== null) globalThis.clearTimeout?.(relativeTimer);
+  relativeTimer = null;
+}
+function refreshRelativeNodes(root = document, { now = Date.now(), schedule = true } = {}) {
+  clearRelativeTimer();
+  const nodes = [...(root?.querySelectorAll?.("[data-timestamp], time[datetime]") || [])];
+  let minDelay = Infinity;
+  for (const el of nodes) {
+    const raw = el.getAttribute?.("data-timestamp") || el.getAttribute?.("datetime");
+    if (!raw) continue;
+    const stampMs = Date.parse(raw);
+    if (Number.isNaN(stampMs)) continue;
+    const seconds = stampMs / 1000;
+    const nextText = relative(seconds, { now });
+    if (el.textContent !== nextText) el.textContent = nextText;
+    const nextTitle = stamp(seconds);
+    if (el.title !== nextTitle) el.title = nextTitle;
+    const delay = nextRelativeDelay(stampMs, now);
+    if (delay < minDelay) minDelay = delay;
+  }
+  if (schedule && Number.isFinite(minDelay) && !document.hidden) {
+    relativeTimer = globalThis.setTimeout?.(() => refreshRelativeNodes(document), minDelay) ?? null;
+    relativeTimer?.unref?.();
+  }
+  return minDelay;
 }
 
 const state = {
@@ -137,7 +190,50 @@ const state = {
 };
 
 const REQUEST_PAGES = 32;
+const PAGE_CACHES = 32;
+const DRAFTS_KEY = "daedalus.drafts";
 const requestPages = new Map();
+const pageCaches = new Map();
+let clientSeq = 0;
+const nextClientId = () => globalThis.crypto?.randomUUID?.() || `client-${Date.now()}-${++clientSeq}`;
+function pageCacheKey(tab, version) {
+  return version !== undefined && version !== null && version !== "" ? `${tab}/${version}` : "";
+}
+async function readPageCache(tab, version, loader, fresh = false) {
+  const key = pageCacheKey(tab, version);
+  if (key && !fresh && pageCaches.has(key)) return pageCaches.get(key);
+  const data = await loader();
+  if (key) {
+    if (pageCaches.size >= PAGE_CACHES) pageCaches.delete(pageCaches.keys().next().value);
+    pageCaches.set(key, data);
+  }
+  return data;
+}
+function readDrafts() {
+  try {
+    const raw = globalThis.localStorage?.getItem?.(DRAFTS_KEY);
+    const parsedDrafts = raw ? JSON.parse(raw) : null;
+    return parsedDrafts && typeof parsedDrafts === "object" ? parsedDrafts : {};
+  } catch {
+    return {};
+  }
+}
+function readDraft(slot) {
+  const drafts = readDrafts();
+  return Object.prototype.hasOwnProperty.call(drafts, slot) ? drafts[slot] : undefined;
+}
+function writeDraft(slot, value) {
+  try {
+    const drafts = readDrafts();
+    const empty = value === undefined || value === null || value === "";
+    if (empty) delete drafts[slot];
+    else drafts[slot] = value;
+    if (Object.keys(drafts).length) globalThis.localStorage?.setItem?.(DRAFTS_KEY, JSON.stringify(drafts));
+    else globalThis.localStorage?.removeItem?.(DRAFTS_KEY);
+  } catch {
+    // Storage unavailable or mocked read-only.
+  }
+}
 function rememberJson(slot, value, fresh = false) {
   const encoded = JSON.stringify(value);
   const changed = fresh || state.memory[slot] !== encoded;
@@ -176,6 +272,32 @@ const count = (number, kind) => {
 const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
+}
+const iconSlot = (glyph) => `<span class="ico-slot" aria-hidden="true">${icon(glyph)}</span>`;
+const liveDot = (variant = "live") =>
+  `<span class="ico-svg" aria-hidden="true"><i class="dot${variant ? ` ${esc(variant)}` : ""}"></i></span>`;
+function backButton(back, attrs = {}) {
+  return actionButton(`${icon("chevron_left")}<span class="back-label">${esc(back)}</span>`, {
+    variant: "ghost back", attrs,
+  });
+}
+function addButton(label, attrs = {}) {
+  return actionButton(`${icon("plus")}<span>${esc(label)}</span>`, {
+    variant: "add", attrs,
+  });
+}
+function iconButton(glyph, { danger = false, variant = "", attrs = {} } = {}) {
+  const cls = ["ghost", "icon-btn", danger ? "danger" : "", variant].filter(Boolean).join(" ");
+  return actionButton(icon(glyph), { variant: cls, attrs });
+}
+function paneBar(backHtml, headingHtml, toolsHtml = "") {
+  return `<div class="pane-bar">${backHtml}${headingHtml}${toolsHtml}</div>`;
+}
+function modalValueInput({ type = "text", id = null, variant = "", label, value = "", placeholder = "", attrs = {} }) {
+  const mode = type === "number" ? "readonly" : 'readonly spellcheck="false" autocomplete="off"';
+  return `<input${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${id ? ` id="${esc(id)}"` : ""} ${mode}`
+    + ` aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"`
+    + `${htmlAttrs(attrs)} value="${esc(value)}" placeholder="${esc(placeholder)}">`;
 }
 // Model-name cells use ellipses for long text and keep the full name in the title.
 const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${esc(text)}</span>`;
@@ -235,6 +357,29 @@ function restoreModalTrigger(dialog) {
   modalTriggers.delete(dialog);
   if (trigger && trigger !== document.body && typeof trigger.focus === "function") trigger.focus();
 }
+function mountModalView(view) {
+  const dialog = $("modal");
+  if (!dialog) return null;
+  dialog.classList?.toggle?.("chain-modal", view === "chain");
+  dialog.classList?.toggle?.("model-modal", view === "model");
+  if (dialog.dataset) {
+    if (dialog.dataset.modalView === view) return dialog;
+    dialog.dataset.modalView = view;
+  }
+  const tpl = document.querySelector?.(`template[data-modal-template="${view}"]`);
+  const bodyEl = $("modal-body");
+  const actionsEl = $("modal-actions");
+  if (tpl?.content?.cloneNode && bodyEl?.replaceChildren && actionsEl?.replaceChildren) {
+    const frag = tpl.content.cloneNode(true);
+    const actionSlot = frag.querySelector?.('[data-slot="actions"]');
+    actionsEl.replaceChildren(...(actionSlot ? actionSlot.childNodes : []));
+    actionsEl.hidden = !actionSlot;
+    actionSlot?.remove?.();
+    bodyEl.replaceChildren(frag);
+    applyLocale(dialog);
+  }
+  return dialog;
+}
 const confirmDeleteEntry = (name) =>
   ask(t("dialog.delete_entry.title"), t("dialog.delete_entry.message", { name }), t("action.delete_button"), true);
 
@@ -243,6 +388,10 @@ const confirmDeleteEntry = (name) =>
 function ask(title, message, confirm, danger = false, placeholder = null, value = "") {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -273,6 +422,10 @@ function ask(title, message, confirm, danger = false, placeholder = null, value 
 function askPair(title, message, nameLabel, valueLabel, name = "", value = "", confirm = t("action.save_button")) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -304,6 +457,10 @@ function askPair(title, message, nameLabel, valueLabel, name = "", value = "", c
 function askChoicePair(title, message, choices, placeholder) {
   return new Promise((resolve) => {
     globalThis.__settle = resolve;
+    mountModalView("prompt");
+    state.chainAt = null;
+    state.diffEvent = null;
+    $("modal-title").title = "";
     $("modal-title").textContent = title;
     $("modal-message").textContent = message;
     $("modal-message").hidden = !message;
@@ -331,6 +488,7 @@ function askChoicePair(title, message, choices, placeholder) {
 // Edit one row value through the modal.
 // Save writes changes, while Cancel or Escape keeps the file unchanged.
 async function editValue(input, write) {
+  mountModalView("prompt");
   const box = $("modal-input");
   const number = input.type === "number" ? document.createElement("input") : null;
   if (number) {
@@ -370,9 +528,14 @@ async function editValue(input, write) {
 // Open the row-value editor on a click.
 function bindValueRows(host, write) {
   const activate = (event) => {
+    if (
+      host.id === "settings"
+      && (event.composedPath?.().includes($("provider-form")) || event.target?.closest?.("#provider-form"))
+    ) return;
     const input = event.target.closest("[data-value]");
     if (!input || input.disabled) return;
     event.preventDefault();
+    event.stopPropagation?.();
     editValue(input, write);
   };
   host.addEventListener("click", activate);
@@ -431,20 +594,33 @@ function keepSession(value, remember) {
   if (value) (remember ? localStorage : sessionStorage).setItem(SESSION, value);
 }
 
-// Mark the active view with aria-busy while initial or background reads remain active.
+// Mark the active view with aria-busy and data-loading while reads remain active.
 let calling = 0;
 const busyRegions = new Set();
+const loadingDoneTimers = new WeakMap();
 function showSpinner(on) {
   const active = document.querySelector?.("section[data-page]:not([hidden])");
   if (on) {
     if (active) {
+      const pendingTimer = loadingDoneTimers.get(active);
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        loadingDoneTimers.delete(active);
+      }
+      if (active.dataset) active.dataset.loading = "true";
       active.setAttribute?.("aria-busy", "true");
       busyRegions.add(active);
     }
     return;
   }
   for (const region of busyRegions) {
+    if (region.dataset) region.dataset.loading = "done";
     region.setAttribute?.("aria-busy", "false");
+    const timer = setTimeout(() => {
+      loadingDoneTimers.delete(region);
+      if (region.dataset?.loading === "done") delete region.dataset.loading;
+    }, 220);
+    loadingDoneTimers.set(region, timer);
   }
   busyRegions.clear();
 }
@@ -490,6 +666,7 @@ async function call(path, options = {}) {
 function showLogin(message = "") {
   state.timers.forEach(clearInterval);
   state.timers = [];
+  clearRelativeTimer();
   closeLive();
   $("app").hidden = true;
   $("login").hidden = false;
@@ -865,16 +1042,21 @@ function openChain(at) {
   const title = many
     ? t("request.chain.title_with_count_text", { count: many })
     : t("request.chain.title");
-  $("chain-modal-title").textContent = title;
+  state.diffEvent = null;
+  const dialog = mountModalView("chain");
+  $("modal-title").textContent = title;
+  $("modal-title").title = "";
   $("chain-modal-body").innerHTML = `<div class="chain-body">
     <div class="chain-head"><span class="muted num">${timeText(found.at, { tag: "time" })}</span>
       ${actionButton(t("request.chain.copy_button"), { variant: "ghost copy-chain", attrs: { "data-at": found.at } })}</div>
     ${raceNote(found)}${chainSteps(found)}
   </div>`;
-  const dialog = $("chain-modal");
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
   if (!dialog.open) {
     rememberModalTrigger(dialog);
+    dialog.returnValue = "close";
     dialog.showModal();
+    $("modal-close")?.focus?.();
   }
 }
 
@@ -1035,17 +1217,26 @@ function renderLegend(extra = state.legendExtra) {
   const html = rows.map(([code, label]) =>
     `<span><code>${esc(code)}</code>${esc(label)}</span>`).join("");
   $("legend-body").innerHTML = html;
-  if (!state.chainAt && $("chain-modal")?.open && $("chain-modal-title")?.textContent === t("request.legend.title")) {
+  if (!state.chainAt && !state.diffEvent && $("modal")?.open && $("modal-title")?.textContent === t("request.legend.title")) {
     $("chain-modal-body").innerHTML = `<div class="legend-body">${html}</div>`;
   }
 }
 
-function openLegend() {
+function openLegend(eventOrTrigger = document.activeElement) {
+  const trigger = eventOrTrigger?.currentTarget || eventOrTrigger?.target || document.activeElement;
   state.chainAt = null;
-  $("chain-modal-title").textContent = t("request.legend.title");
+  state.diffEvent = null;
+  const dialog = mountModalView("chain");
+  $("modal-title").textContent = t("request.legend.title");
+  $("modal-title").title = "";
   $("chain-modal-body").innerHTML = `<div class="legend-body">${$("legend-body").innerHTML}</div>`;
-  const dialog = $("chain-modal");
-  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  if (!dialog.open) {
+    rememberModalTrigger(dialog, trigger);
+    dialog.returnValue = "close";
+    dialog.showModal();
+    $("modal-close")?.focus?.();
+  }
 }
 
 // Add hook legend rows below the base rows. Keep the base rows when no hook is available.
@@ -1067,7 +1258,7 @@ function renderLive() {
   // Animate only new rows when the live group is redrawn.
   $("live").innerHTML = rows.map((r) => `
     <tr role="row" class="live-row${state.liveSeen.has(r.id) ? "" : " arrive"}" data-live="${r.id}">
-      ${cell(t("request.column.time_column"), `<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span><span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
+      ${cell(t("request.column.time_column"), `${liveDot()}<span class="live-ago">${relative(r.since / 1000)}</span>`, "num muted",
         ` title="${esc(stamp(r.since / 1000))}"`)}
       ${appCell(r)}
       ${cell(t("request.column.session_column"), esc(r.session || "-"), "hide-sm num mono")}
@@ -1278,7 +1469,7 @@ function renderRequestTable() {
     state.liveCount = live;
     hint.classList.remove("bump");
     hint.classList.add("bump");
-    tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }, { duration: 0.2, clearProps: "opacity" });
+    tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }, { clearProps: "opacity" });
   }
   queueRequestsFill();
 }
@@ -1352,7 +1543,9 @@ const ICON_PATHS = {
   chevron_down: '<path d="m6 9 6 6 6-6" />',
   trash: '<path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />',
   refresh_cw: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /> <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /> <path d="M8 16H3v5" />',
+  rotate_cw: '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" />',
   download: '<path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" />',
+  chevron_left: '<path d="m15 18-6-6 6-6" />',
   chevron_right: '<path d="m9 18 6-6-6-6" />',
   route: '<circle cx="6" cy="19" r="3" /> <path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /> <circle cx="18" cy="5" r="3" />',
   link: '<path d="M9 17H7A5 5 0 0 1 7 7h2" /> <path d="M15 7h2a5 5 0 1 1 0 10h-2" /> <line x1="8" x2="16" y1="12" y2="12" />',
@@ -1489,7 +1682,11 @@ function openModelModal(m, trigger = document.activeElement) {
   const { provider, dev, model } = parts(m.id);
   // Display a mark only when its file exists. Keep plain text for other names.
   const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
-  $("model-modal-title").innerHTML =
+  state.chainAt = null;
+  state.diffEvent = null;
+  const dialog = mountModalView("model");
+  $("modal-title").title = "";
+  $("modal-title").innerHTML =
     `${mark(provider)}${dev ? markImg(dev) : ""}<span class="name">${esc(m.name || model || m.slug || m.id)}</span>`;
   const identity = [
     ...(m.id ? [[t("model.detail.id_label"), m.id, ""]] : []),
@@ -1535,8 +1732,11 @@ function openModelModal(m, trigger = document.activeElement) {
     + (stats ? `<div class="model-stats">${stats}</div>` : "")
     + (use ? `<h4>${t("model.detail.use_title")}</h4><div class="model-stats">${use}</div>` : "")
     + (efforts ? `<h4>${t("model.detail.supported_efforts_label")}</h4><div class="pills">${efforts}</div>` : "");
-  rememberModalTrigger($("model-modal"), trigger);
-  $("model-modal").showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  rememberModalTrigger(dialog, trigger);
+  dialog.returnValue = "close";
+  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.focus?.();
 }
 // Mix red at 0, orange at 0.5, and blue at 1.
 function weightColor(weight) {
@@ -1594,7 +1794,7 @@ const DRAWN = new Map();
 // Animate each host only on its first data render.
 const DRAWN_SHOWN = new Set();
 function animateArrival(host) {
-  const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));
+  const inPaneCard = Boolean(host?.matches?.(".section-pane > .card, .section-pane > [data-section], .hook-page"));
   tweenFromTo(host, inPaneCard ? { opacity: 0 } : { opacity: 0, y: -4 }, inPaneCard ? { opacity: 1 } : { opacity: 1, y: 0 });
 }
 function firstDraw(host) {
@@ -1642,7 +1842,7 @@ function renderModels() {
     <tr tabindex="0" data-model="${esc(m.id)}">
       ${nameCell(m.id, actionButton(modelName(m.id), {
         variant: "model-open",
-        attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "model-modal" },
+        attrs: { "aria-label": m.id, "aria-haspopup": "dialog", "aria-controls": "modal" },
       }), "", `<span class="types phone-types">${typeChips(m)}</span><span class="phone-chips">${phoneChips(m)}</span>`)}
       <td class="hide-sm"><div class="types">${typeChips(m)}</div></td>
       <td class="mid hide-sm">${mobileLabel(t("model.column.tier_column"))}<span class="cell-value">${m.tier ? `<span class="tier" title="${esc(m.tier)}">${esc(tierLetter(m.tier))}</span>` : dash}</span></td>
@@ -1702,12 +1902,11 @@ function renderKeys(rows) {
       <td class="num muted mono"><span${k.start ? ` title="${t("settings.keys.only_start_title")}"` : ""}>${k.start ? esc(k.start) + "&hellip;" : "-"}</span></td>
       <td class="hide-sm muted num">${k.created ? timeText(k.created) : dash}</td>
       <td class="muted">${mobileLabel(t("settings.keys.last_used_column"))}<span class="cell-value">${k.used ? timeText(k.used) : t("settings.keys.used_never_text")}</span></td>
-      <td class="end">${actionButton(icon("trash"), {
-        variant: "ghost danger",
+      <td class="end">${iconButton("trash", {
+        danger: true,
         attrs: { "data-key": k.name, "aria-label": t("settings.keys.delete_named_label", { name: k.name }), title: t("action.remove_button") },
       })}</td>
     </tr>`).join("") : `<tr><td colspan="5" class="empty">${t("settings.keys.empty_text")}</td></tr>`);
-  markCardScrollEdges();
 }
 
 async function refreshKeys() {
@@ -1781,9 +1980,7 @@ function renderFiles() {
   const host = $("files");
   host.hidden = state.fileOpen;
   host.innerHTML = `<nav class="sections drill provider-files" aria-label="${esc(t("nav.providers_link"))}">${files}</nav>`
-    + `<div class="provider-file-actions">${actionButton(t("action.new_provider_button"), {
-      variant: "add", attrs: { id: "new-provider" },
-    })}</div>`;
+    + `<div class="provider-file-actions">${addButton(t("action.new_provider_button"), { id: "new-provider" })}</div>`;
   // Save writes YAML text. Form rows save when they close.
   const yamlSave = $("yaml-save");
   if (yamlSave) yamlSave.disabled = state.view !== "yaml" || !dirty();
@@ -1827,7 +2024,8 @@ function openProviderFile(index) {
   renderFiles();
   renderForm();
   setProviderRoute(state.files[index]?.path, null);
-  replay($("provider-form"));
+  if (phoneSection()) playSlide($("provider-form"), true);
+  else replay($("provider-form"));
 }
 
 function captureProviderYamlDraft() {
@@ -1863,9 +2061,8 @@ const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton
 })}</span>`;
 
 // Replace the Add button with an inline input on click.
-const adder = (path, kind, label = t("action.add_button")) => actionButton(esc(label), {
-  variant: "add",
-  attrs: { "data-add": JSON.stringify(path), "data-kind": kind },
+const adder = (path, kind, label = t("action.add_button")) => addButton(label, {
+  "data-add": JSON.stringify(path), "data-kind": kind,
 });
 
 function listField(name, values, path) {
@@ -1891,16 +2088,19 @@ function setListValue(group, key, values) {
   state.settings.lists ||= {};
   state.settings.lists[`${group}.${key}`] = values;
 }
-const settingPill = (group, key, value, index) => `<span class="pill">${esc(value)}${actionButton(icon("x"), {
+const settingListRow = (group, key, value, index) => `<li class="setting-list-row"><span class="setting-list-value">${esc(value)}</span>${iconButton("trash", {
+  danger: true,
   attrs: {
     "aria-label": t("action.remove_button"),
     title: t("action.remove_button"),
     "data-setting-drop": JSON.stringify([group, key, index]),
   },
-})}</span>`;
-const settingAdder = (group, key) => actionButton(t("action.add_button"), {
-  variant: "add", attrs: { "data-setting-add": JSON.stringify([group, key]) },
+})}</li>`;
+const settingAdder = (group, key) => addButton(t("action.add_button"), {
+  "data-setting-add": JSON.stringify([group, key]),
 });
+const settingListBody = (group, key, values = listValue(group, key)) =>
+  `${values.length ? `<ul class="setting-list-items">${values.map((value, index) => settingListRow(group, key, value, index)).join("")}</ul>` : ""}${settingAdder(group, key)}`;
 
 // Omit the hooks folder prefix from the displayed file name.
 const hookName = (name) => esc(name.replace(/^hooks\//, ""));
@@ -1968,9 +2168,8 @@ function hookFormRows(values, path, kind, name) {
   const rows = (Array.isArray(values) ? values : [])
     .map((entry, index) => hookFormRow(entry, [...path, index], choices)).join("")
     || `<em class="none">${t("hook.empty.file_text")}</em>`;
-  return `<div class="pills">${rows}${actionButton(t("action.add_file_button"), {
-    variant: "add",
-    attrs: { "data-form-hook-add": JSON.stringify([path, kind, name]) },
+  return `<div class="pills">${rows}${addButton(t("action.add_file_button"), {
+    "data-form-hook-add": JSON.stringify([path, kind, name]),
   })}</div>`;
 }
 
@@ -2146,14 +2345,12 @@ function hookPage(row) {
     ? `<div class="field stack info hook-rules-field" data-config-key="hooks.values.${esc(row.name)}.${esc(entry.key)}">${labelSpan(entry.label, "")}${hookRulesTable(row, entry)}</div>`
     : field(entry.label, "", control(entry), `hooks.values.${row.name}.${entry.key}`)).join("")
     || `<em class="none">${t("hook.empty.field_text")}</em>`;
-  const back = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${t("hook.page.back_text")}</span>`, {
-    variant: "ghost hook-back", attrs: { "data-hook-back": true },
-  });
+  const back = backButton(t("hook.page.back_text"), { "data-hook-back": true });
   const save = actionButton(t("action.save_button"), {
     variant: "primary", attrs: { "data-hook-save": row.name, "aria-label": t("hook.page.save_named_label", { name: row.name }) },
   });
   return `<div class="hook-page" data-hook-page="${esc(row.name)}">
-    <div class="hook-bar">${back}<h2 class="hook-heading">${esc(row.title || row.name)}</h2></div>
+    ${paneBar(back, `<h2 class="pane-title">${esc(row.title || row.name)}</h2>`)}
     ${fields}<div class="pills">${save}</div>
     <div class="sub" id="hook-page-note" role="status"></div>
     <div class="sub">${t("hook.page.hint")}</div></div>`;
@@ -2176,17 +2373,16 @@ function hooksManager() {
     const author = row.author ? `<span class="hook-author">${esc(row.author)}</span>` : "";
     const problem = row.problem ? statusBadge(row.problem, { variant: "hook-problem only-sm" }) : "";
     return `<tr><td role="cell" class="name"><span class="cell-value" title="${esc(row.name)}"><span class="hook-title">${esc(title)}</span>${author}${problem}</span></td>
-      <td role="cell"><span class="cell-value">${esc(hookVersion(row))}</span></td>
+      <td role="cell" class="hook-ver"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
-      <td role="cell"><span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
+      <td role="cell" class="hook-scope">${mobileLabel(t("hook.column.scopes_column"))}<span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
       <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
-      <td role="cell"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
-        ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}"></td>
-      <td class="end">${(row.settings || []).length ? actionButton(icon("settings"), {
-        variant: "ghost",
+      <td role="cell" class="hook-enabled"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
+        ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}">${mobileLabel(t("hook.column.enabled_column"))}</td>
+      <td class="end">${(row.settings || []).length ? iconButton("settings", {
         attrs: { "data-hook-open": row.name, "aria-label": t("hook.action.open_named_label", { name: row.name }), title: t("action.settings_button") },
-      }) : ""}${actionButton(icon("trash"), {
-        variant: "ghost danger",
+      }) : ""}${iconButton("trash", {
+        danger: true,
         attrs: { "data-hook-drop": row.path, "data-hook-title": title, "aria-label": t("hook.action.delete_named_label", { name: row.name }), title: t("action.remove_button") },
       })}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="7"><em class="none">${t("hook.empty.file_text")}</em></td></tr>`;
@@ -2199,23 +2395,24 @@ function hooksManager() {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
-      <div class="card-scroll scroll-fade"><table class="keys"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
+      <div class="card-scroll scroll-fade"><table class="keys hook-table"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
-      ${actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`, {
-        variant: "ghost", attrs: { "data-hooks-update": true },
+      ${actionButton(`${iconSlot("refresh_cw")}<span>${t("action.update_sources_button")}</span>`, {
+        variant: "ghost btn-slot", attrs: { "data-hooks-update": true },
       })}`, "hooks.disabled")}
-    <div class="field stack info" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
+    <div class="hooks-order-list" id="hooks-order" data-config-key="hooks.order">${hookOrderRows()}</div></div>
     ${field(t("settings.hooks.folder.label"), t("settings.hooks.folder.hint"), `
-      <span class="input"><input type="text" id="set-hooks-dir" aria-haspopup="dialog" aria-controls="modal" data-value="${t("settings.hooks.folder.label")}"
-        readonly spellcheck="false" value="${esc(fileValue("hooks", "dir") ?? "")}"
-        placeholder="${esc(state.settings.defaults.hooks.dir)}"></span>`, "hooks.dir")}
+      <span class="input">${modalValueInput({
+        id: "set-hooks-dir",
+        label: t("settings.hooks.folder.label"),
+        value: fileValue("hooks", "dir") ?? "",
+        placeholder: state.settings.defaults.hooks.dir,
+      })}</span>`, "hooks.dir")}
     ${field(t("settings.hooks.sources.label"), t("settings.hooks.sources.hint"), `
       <div class="pills"><select id="hook-source" data-hook-source aria-label="${t("settings.hooks.source.label")}">${options}</select>
-        ${actionButton(`${icon("plus")} ${t("action.add_repository_button")}`, {
-          variant: "add", attrs: { "data-hook-source-add": true },
-        })}
-        ${sources.length ? actionButton(icon("x"), {
-          variant: "ghost",
+        ${addButton(t("action.add_repository_button"), { "data-hook-source-add": true })}
+        ${sources.length ? iconButton("trash", {
+          danger: true,
           attrs: {
             "data-hook-source-drop": true,
             "aria-label": t("hook.action.delete_source_title", { name: selected }),
@@ -2266,12 +2463,21 @@ function hookPageNote(text, bad = false) {
   note.classList.toggle("bad", Boolean(bad));
 }
 
+function animateHookSwap(open) {
+  const card = document.querySelector('#settings .card[data-section="hooks"]');
+  if (!card) return;
+  if (phoneSection()) tweenFromTo(card, { opacity: 0, x: open ? 14 : -14 }, { opacity: 1, x: 0 });
+  else replay(card.querySelector(".hook-page") || card);
+}
+
 async function openHookPage(name) {
   const row = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookOpen = name;
-  state.hookDraft[name] = clone(row?.values || {});
+  const savedDraft = readDraft(`hook:${name}`);
+  state.hookDraft[name] = savedDraft !== undefined ? clone(savedDraft) : clone(row?.values || {});
   state.hookOptions = {};
   renderSettings();
+  animateHookSwap(true);
   for (const entry of row?.settings || []) {
     if (entry.type !== "rules") continue;
     const rules = state.hookDraft[name][entry.key] || [];
@@ -2281,9 +2487,11 @@ async function openHookPage(name) {
 }
 
 function closeHookPage() {
+  if (state.hookOpen) writeDraft(`hook:${state.hookOpen}`, null);
   delete state.hookDraft[state.hookOpen];
   state.hookOpen = "";
   renderSettings();
+  animateHookSwap(false);
 }
 
 // The draft rules of 1 field, kept in state so a redraw keeps an unsaved edit.
@@ -2320,8 +2528,8 @@ function hookRulesTable(row, entry) {
   const head = columns.map((column) => `<th>${esc(column.label)}</th>`).join("");
   const body = rules.map((rule, index) => {
     const cells = columns.map((column) => `<td role="cell">${hookRuleCell(row, entry, column, rule, index)}</td>`).join("");
-    const remove = actionButton(icon("trash"), {
-      variant: "ghost danger",
+    const remove = iconButton("trash", {
+      danger: true,
       attrs: {
         "data-hook-rule-remove": JSON.stringify([row.name, entry.key, index]),
         "aria-label": t("hook.rule.remove_named_label", { number: index + 1 }),
@@ -2330,8 +2538,8 @@ function hookRulesTable(row, entry) {
     });
     return `<tr>${cells}<td class="end">${remove}</td></tr>`;
   }).join("") || `<tr><td role="cell" colspan="${columns.length + 1}"><em class="none">${t("hook.rule.empty_text")}</em></td></tr>`;
-  const add = actionButton(`${icon("plus")} ${t("hook.rule.add_button")}`, {
-    variant: "add", attrs: { "data-hook-rule-add": JSON.stringify([row.name, entry.key]) },
+  const add = addButton(t("hook.rule.add_button"), {
+    "data-hook-rule-add": JSON.stringify([row.name, entry.key]),
   });
   return `<div class="card-scroll scroll-fade"><table class="hook-rules"><thead><tr>${head}<th></th></tr></thead><tbody>${body}</tbody></table></div>${add}`;
 }
@@ -2463,6 +2671,7 @@ async function saveHookPage(name) {
   });
   const saved = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookDraft[name] = clone(saved?.values || found);
+  writeDraft(`hook:${name}`, null);
   hooksNote(t("hook.page.saved_text", { name }));
   hookPageNote(t("hook.page.saved_text", { name }));
 }
@@ -2593,8 +2802,7 @@ function toggleHook(name, on) {
 function renderSettingList(group, key) {
   const host = $(`set-${group}-${key}`);
   if (!host) return;
-  host.innerHTML = listValue(group, key)
-    .map((value, index) => settingPill(group, key, value, index)).join("") + settingAdder(group, key);
+  host.innerHTML = settingListBody(group, key);
 }
 
 // Keep a Settings list value on Enter or a click outside the input.
@@ -2638,14 +2846,20 @@ function dropSetting(path) {
 
 // The label of a field, with its hint behind an info icon on a desktop and under the label on a phone.
 let HINT_COUNT = 0;
+function infoHint(hint, { interactive = true } = {}) {
+  const id = `hint-${++HINT_COUNT}`;
+  const trigger = interactive
+    ? actionButton(icon("info"), {
+      variant: "hint",
+      attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
+    })
+    : `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
+  const tip = `<small id="${id}" role="tooltip"${interactive ? "" : ' aria-hidden="true"'}>${esc(hint)}</small>`;
+  return { id, markup: `${trigger}${tip}` };
+}
 function labelSpan(label, hint) {
   if (!hint) return `<span><b>${esc(label)}</b></span>`;
-  const id = `hint-${++HINT_COUNT}`;
-  const button = actionButton(icon("info"), {
-    variant: "hint",
-    attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
-  });
-  return `<span><b>${esc(label)}</b>${button}<small id="${id}" role="tooltip">${esc(hint)}</small></span>`;
+  return `<span><b>${esc(label)}</b>${infoHint(hint).markup}</span>`;
 }
 
 function field(label, hint, body, configKey = "") {
@@ -2914,13 +3128,10 @@ function filterRail(host) {
 
   // Label back button for its destination.
 function sectionPane(back, cards, actions = null) {
-  const button = actionButton(`<span class="chev" aria-hidden="true">&lsaquo;</span><span class="back-label">${esc(back)}</span>`, {
-    variant: "ghost back", attrs: { "data-back": true },
-  });
+  const button = backButton(back, { "data-back": true });
   const tools = actions === null ? "" : `<div class="pane-actions" data-pane-actions>${actions}</div>`;
   // Reference heads a drill page with back chevron and page title.
-  return `<div class="section-pane"><div class="pane-bar">${button}`
-    + `<h1 class="pane-title" data-pane-title hidden></h1>${tools}</div>${cards}</div>`;
+  return `<div class="section-pane">${paneBar(button, '<h1 class="pane-title" data-pane-title hidden></h1>', tools)}${cards}</div>`;
 }
 
 function providerPaneActions(section = sectionState("provider-form")) {
@@ -2981,7 +3192,7 @@ function selectSection(host, key, open = sectionState(host).open) {
   }
   // A desktop section change fades the arriving card in, as a phone slides it.
   const arrived = host.querySelector(":scope > .section-pane > [data-section]:not([hidden])");
-  if (arrived && before && arrived.dataset.section !== before && !phoneSection()) replay(arrived);
+  if (arrived && (moved || (before && arrived.dataset.section !== before)) && !phoneSection()) replay(arrived);
   // A provider file names its list, while a selected provider names its detail page.
   if (host.id === "provider-form") {
     const file = state.files[state.file];
@@ -3024,7 +3235,6 @@ function selectSection(host, key, open = sectionState(host).open) {
       title.textContent = open ? label : "";
     }
   }
-  markCardScrollEdges();
   markSectionPaneEdges();
   if (!moved) return;
   // Start the slide and retain its flag for a pane rebuild.
@@ -3060,9 +3270,6 @@ function openSection(host, key) {
     renderForm();
   }
   selectSection(host, key, true);
-  // Animate section changes in Providers and Settings.
-  replay([...host.querySelectorAll(".section-pane > .card")]
-    .find((card) => card.dataset.section === key));
   // A nested pane changes height with its section, so refit the scroll bounds here.
   fitSectionPane();
   if (host.id === "provider-form") {
@@ -3096,6 +3303,7 @@ function closeSection(host) {
     selectSection(host, key, false);
     renderFiles();
     renderForm();
+    slideAgain();
     return;
   }
   const file = state.files[state.file];
@@ -3124,6 +3332,8 @@ function closeSection(host) {
     renderForm();
     setProviderRoute(null, null, false);
   }
+  if (phoneSection()) slideAgain();
+  else replay(host);
 }
 
 // Read the section hash for deep links and the phone back gesture.
@@ -3215,10 +3425,8 @@ function slideAgain() {
 
 // A group of fields that starts closed, so a long card stays short.
 function fold(label, hint, body) {
-  const id = `hint-${++HINT_COUNT}`;
-  const mark = `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
-  return `<details class="fold"><summary aria-describedby="${id}">${esc(label)}${mark}`
-    + `<small id="${id}" role="tooltip" aria-hidden="true">${esc(hint)}</small></summary>`
+  const { id, markup } = infoHint(hint, { interactive: false });
+  return `<details class="fold"><summary aria-describedby="${id}">${esc(label)}${markup}</summary>`
     + `<div class="fold-body">${body}</div></details>`;
 }
 
@@ -3277,8 +3485,14 @@ function providerCard(name, block) {
         }
       }
     }
-    return field(label, hint, `<input class="text" type="${type}" readonly spellcheck="false" autocomplete="off"
-      aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" data-set='${esc(JSON.stringify([...path, key]))}' value="${esc(value)}" placeholder="${esc(placeholder)}">`);
+    return field(label, hint, modalValueInput({
+      variant: "text",
+      type,
+      label,
+      value,
+      placeholder,
+      attrs: { "data-set": JSON.stringify([...path, key]) },
+    }));
   };
   const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
     ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
@@ -3292,8 +3506,8 @@ function providerCard(name, block) {
         data-pattern='${esc(JSON.stringify([...path, "models"]))}' data-key="${esc(pattern)}">
       <div class="pills">${mapPills(rest, [...path, "models", pattern], "override", ": ")}</div>
       ${hookFormRows(values?.hooks, [...path, "models", pattern, "hooks"], "model", pattern)}
-      ${actionButton(icon("x"), {
-        variant: "ghost",
+      ${iconButton("trash", {
+        danger: true,
         attrs: {
           "aria-label": t("provider.pattern.delete_title"),
           title: t("provider.pattern.delete_title"),
@@ -3614,18 +3828,20 @@ function placeSaveLine(anchor = null) {
   }
   const text = line.querySelector(".saved");
   if (text) text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
-  if (saveTimer === null) saveTimer = setInterval(tickSaveLine, 20000);
+  if (saveTimer === null) {
+    saveTimer = globalThis.setTimeout?.(tickSaveLine, nextRelativeDelay(lastWrite.at)) ?? null;
+    saveTimer?.unref?.();
+  }
 }
 
 // Age the saved line while the write stays undoable.
 function tickSaveLine() {
+  saveTimer = null;
   const text = document.querySelector(".save-line .saved");
-  if (!text || !lastWrite?.at) {
-    if (saveTimer !== null) clearInterval(saveTimer);
-    saveTimer = null;
-    return;
-  }
+  if (!text || !lastWrite?.at) return;
   text.textContent = t("settings.saved_text", { when: relative(lastWrite.at / 1000) });
+  saveTimer = globalThis.setTimeout?.(tickSaveLine, nextRelativeDelay(lastWrite.at)) ?? null;
+  saveTimer?.unref?.();
 }
 
 // Remove the Undo control when no write can be undone.
@@ -3633,7 +3849,7 @@ function dropUndo() {
   lastWrite = null;
   document.querySelector(".undo-text")?.remove();
   document.querySelector(".save-line")?.remove();
-  if (saveTimer !== null) clearInterval(saveTimer);
+  if (saveTimer !== null) globalThis.clearTimeout?.(saveTimer);
   saveTimer = null;
 }
 
@@ -3887,7 +4103,7 @@ const isSwitch = (group, key) => typeof state.settings.defaults[group][key] === 
 function keysCard() {
   return `<div class="card" data-section="keys">
     <form class="toolbar" id="new-key">
-      <input id="key-name" maxlength="40" placeholder="${t("settings.keys.new_placeholder")}" required>
+      <input id="key-name" maxlength="40" value="${esc(readDraft("keyName") || "")}" placeholder="${t("settings.keys.new_placeholder")}" required>
       ${actionButton(t("action.new_key_button"), { variant: "primary", type: "submit" })}
       <span class="message bad" id="key-message" role="alert"></span>
     </form>
@@ -3909,6 +4125,7 @@ function keysCard() {
 function renderSettings() {
   // Preserve text during an edit. Otherwise, display the saved text.
   const typed = state.settingsView === "yaml" ? $("settings-editor")?.value : undefined;
+  const savedYamlDraft = state.settingsView === "yaml" ? readDraft("settingsYaml") : undefined;
   // Restore the scroll position after the card rebuild.
   const scroll = settingsScroll();
   const card = ([group, title, fields]) => `
@@ -3941,23 +4158,34 @@ function renderSettings() {
       }
       if (unit === "name") {
         return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
-          <span class="input"><i class="prefix">daedalus/</i><input type="text" id="${id}" maxlength="40" readonly
-            aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}" spellcheck="false"
-            value="${esc(fileValue(group, key) ?? "")}" placeholder="${esc(state.settings.defaults[group][key])}"></span></label>`;
+          <span class="input"><i class="prefix">daedalus/</i>${modalValueInput({
+            id,
+            label,
+            value: fileValue(group, key) ?? "",
+            placeholder: state.settings.defaults[group][key],
+            attrs: { maxlength: 40 },
+          })}</span></label>`;
       }
       if (unit === "list") {
         const values = listValue(group, key);
         return field(label, hint, `
-          <div class="pills" id="${id}" aria-label="${esc(label)}">${values
-            .map((value, index) => settingPill(group, key, value, index)).join("")}${settingAdder(group, key)}</div>`, cfgKey);
+          <div class="setting-list" id="${id}" role="group" aria-label="${esc(label)}">${settingListBody(group, key, values)}</div>`, cfgKey);
       }
       const fallback = state.settings.defaults[group][key];
       const value = fileValue(group, key);
       return `<label class="field info" data-config-key="${esc(cfgKey)}" for="${id}">${labelSpan(label, hint)}
-        <span class="input"><input type="number" readonly aria-label="${esc(label)}" aria-haspopup="dialog" aria-controls="modal" data-value="${esc(label)}"
-          min="${MINIMA[cfgKey] ?? 0}" id="${id}" value="${value ?? ""}"
-          step="${DECIMALS.has(cfgKey) ? "any" : "1"}" ${MAXIMA[cfgKey] ? `max="${MAXIMA[cfgKey]}"` : ""}
-          placeholder="${fallback ?? ""}"><i>${esc(unit)}</i></span></label>`;
+        <span class="input">${modalValueInput({
+          type: "number",
+          id,
+          label,
+          value: value ?? "",
+          placeholder: fallback ?? "",
+          attrs: {
+            min: MINIMA[cfgKey] ?? 0,
+            step: DECIMALS.has(cfgKey) ? "any" : "1",
+            max: MAXIMA[cfgKey] || null,
+          },
+        })}<i>${esc(unit)}</i></span></label>`;
     }).join("")}${group === "hooks" ? hooksManager() : ""}</div>`;
   // List groups in the rail and put their cards in the pane.
   const groups = SETTINGS;
@@ -3995,7 +4223,7 @@ function renderSettings() {
   selectSection($("settings"), active);
   renderFiles();
   renderForm();
-  $("settings-editor").value = typed ?? state.settings.text;
+  $("settings-editor").value = typed ?? savedYamlDraft ?? state.settings.text;
   // Use the rendered file's mode to select visible rows.
   showAffinityRows(setting("affinity", "mode"));
   showSwitchRows();
@@ -4015,7 +4243,6 @@ function renderSettings() {
   placeUndo();
   fitSectionPane();
   keepSettingsScroll(scroll);
-  markCardScrollEdges();
 }
 
 // Display rows only in their listed modes: race values in race, and pin values in session or race.
@@ -4122,10 +4349,12 @@ async function selectSettingsSection(key) {
   const view = key === "yaml" ? "yaml" : "form";
   if (view !== state.settingsView) {
     if (settingsDirty() && !(await ask(t("dialog.discard.title"), t("dialog.discard.message"), t("action.discard_button"), true))) return;
+    writeDraft("settingsYaml", "");
     state.settingsView = view;
     clearWrite("settings");
     renderSettings();
   }
+  if (key === "providers") guarded(syncProviderFiles);
   openSection($("settings"), key);
 }
 
@@ -4141,6 +4370,7 @@ async function saveSettings(keepForm = false) {
   rememberWrite("settings", { settings: true, text: state.settings.text }, state.writeAnchor ?? $("settings-yaml-save"));
   try {
     await call("settings", { method: "PUT", body: JSON.stringify(body), spinner: false });
+    writeDraft("settingsYaml", "");
     await loadSettings({ render: !keepForm });
     clearWrite("settings");
     placeSaveLine();
@@ -4482,8 +4712,10 @@ function diffModel(text, kind = "") {
 
 // Display the rebuild diff with one line per added, removed, or moved model.
 function openDiffModal(event) {
+  state.chainAt = null;
   state.diffEvent = event;
-  const titleNode = $("model-modal-title");
+  const dialog = mountModalView("model");
+  const titleNode = $("modal-title");
   titleNode.textContent = `${event.reason} \u00b7 ${relative(event.at)}`;
   titleNode.title = stamp(event.at);
   const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
@@ -4493,8 +4725,11 @@ function openDiffModal(event) {
         .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
     : none(t("model.diff.empty_text"));
-  rememberModalTrigger($("model-modal"));
-  $("model-modal").showModal();
+  $("modal-close")?.toggleAttribute?.("autofocus", true);
+  rememberModalTrigger(dialog);
+  dialog.returnValue = "close";
+  if (!dialog.open) dialog.showModal();
+  $("modal-close")?.focus?.();
 }
 
 function renderNotifications(data) {
@@ -4608,20 +4843,66 @@ function maintenanceCard() {
   });
   body += `<div class="editbar">` + actionButton(t("dialog.reset.title"), {
     variant: "ghost danger", attrs: { id: "reset-weights", title: t("dialog.reset.message") },
-  }) + actionButton(`${icon("refresh_cw")} ${t("action.check_now_button")}`, {
-    variant: "ghost", attrs: { id: "update-check" },
+  }) + actionButton(`${iconSlot("refresh_cw")}<span>${t("action.check_now_button")}</span>`, {
+    variant: "ghost btn-slot", attrs: { id: "update-check" },
   }) + `<span class="message" id="reset-message" role="status"></span>`
     + `<span class="hint">${t("model.reset.hint")}</span></div>`;
   return `<div class="card" data-section="maintenance" id="update-card">${body}</div>`;
 }
 
+async function syncProviderFiles() {
+  if (!state.files.length) return;
+  captureProviderYamlDraft();
+  const dirtyPaths = new Set(
+    state.files.map((file, index) => (fileDirty(index) ? file.path : "")).filter(Boolean),
+  );
+  const previous = new Map(state.files.map((file, index) => [file.path, {
+    text: file.text, saved: state.saved[index], blocks: state.forms[index], formSaved: state.formSaved[index],
+  }]));
+  const openPath = state.files[state.file]?.path ?? "";
+  const fresh = await call("files", { spinner: false });
+  const beforeSignature = JSON.stringify(state.files.map((file) => [file.path, file.text, file.shadow, file.error]));
+  const afterSignature = JSON.stringify(fresh.map((file) => [file.path, file.text, file.shadow, file.error]));
+  if (beforeSignature === afterSignature) return;
+  state.files = fresh.map((file) => (
+    dirtyPaths.has(file.path) ? { ...file, text: previous.get(file.path).text } : file
+  ));
+  state.saved = state.files.map((file) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).saved : file.text
+  ));
+  state.forms = state.files.map((file) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).blocks : clone(file.blocks)
+  ));
+  state.formSaved = state.files.map((file, index) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).formSaved : formText(index)
+  ));
+  const nextIndex = state.files.findIndex((file) => file.path === openPath);
+  if (nextIndex >= 0) {
+    state.file = nextIndex;
+    renderFiles();
+    if (state.fileOpen && !dirtyPaths.has(openPath)) renderForm();
+  } else {
+    state.file = 0;
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    const section = sectionState("provider-form");
+    section.key = "";
+    section.open = false;
+    renderFiles();
+    renderForm();
+  }
+  guarded(refreshEnv);
+}
+
 async function refreshSlow({ fresh = false } = {}) {
+  const catalogVersion = state.catalog?.built ?? "";
   const [pools, models, limits, notifications] = await Promise.all([
-    call("pools"),
-    call("models"),
+    readPageCache("pools", catalogVersion, () => call("pools"), fresh),
+    readPageCache("models", catalogVersion, () => call("models"), fresh),
     call("limits"),
     call("notifications"),
     refreshKeys(),
+    syncProviderFiles(),
   ]);
   const poolsChanged = rememberJson("pools", pools, fresh);
   const modelsChanged = rememberJson("models", models, fresh);
@@ -4651,10 +4932,11 @@ async function start() {
   // Display the page before the first state response.
   $("login").hidden = true;
   $("app").hidden = false;
-  // Size panes after the app becomes visible. Hidden panes have no height.
+  // Size panes and align the active tab after the app becomes visible.
+  syncHeaderWrap();
+  document.querySelector?.("#nav a.on")?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   markNavEdges();
   fitSectionPane();
-  markCardScrollEdges();
   setStateKnown(null);
   if (!state.requests.length) renderRequestTable();
   if (!state.models.length) renderModels();
@@ -4676,6 +4958,7 @@ async function start() {
     setInterval(tickCooldowns, 1000),
     setInterval(tickLive, 100),
   ];
+  refreshRelativeNodes();
   openLive();
 }
 
@@ -4749,7 +5032,7 @@ $("settings").addEventListener("click", async (event) => {
     } finally {
       button.disabled = false;
       button.removeAttribute?.("aria-busy");
-      if (!button.innerHTML) button.innerHTML = `${icon("refresh_cw")} ${t("action.check_now_button")}`;
+      if (!button.innerHTML) button.innerHTML = `${iconSlot("refresh_cw")}<span>${t("action.check_now_button")}</span>`;
     }
     return;
   }
@@ -4799,33 +5082,59 @@ function showLengthLimit(input, message) {
   }
 }
 
+async function submitApiKey(rawName, clientId = nextClientId()) {
+  const enteredName = String(rawName ?? "").trim();
+  const previousKeys = [...(state.keys ?? [])];
+  let row = state.keys.find((item) => item.clientId === clientId);
+  if (enteredName) {
+    if (!row && !previousKeys.some((item) => item.name === enteredName)) {
+      row = { clientId, name: enteredName, start: null, created: Date.now() / 1000, used: null, status: "saving" };
+      state.keys = [row, ...previousKeys];
+    } else if (row) {
+      row.status = "saving";
+    }
+    renderKeys(state.keys);
+    renderOverview();
+  }
+  try {
+    const made = await call("keys", { method: "POST", body: JSON.stringify({ clientId, name: rawName }), spinner: false });
+    if (row) Object.assign(row, { name: made.name, status: "ok" });
+    writeDraft("keyName", "");
+    return made;
+  } catch (error) {
+    state.keys = previousKeys;
+    renderKeys(state.keys);
+    renderOverview();
+    throw error;
+  }
+}
+
 // Delegate API key events to the Settings pane, which survives card renders.
 $("settings").addEventListener("input", (event) => {
-  if (event.target.id === "key-name") showLengthLimit($("key-name"), $("key-message"));
+  if (event.target.id === "key-name") {
+    writeDraft("keyName", $("key-name").value);
+    showLengthLimit($("key-name"), $("key-message"));
+  } else if (event.target.id === "settings-editor") {
+    writeDraft("settingsYaml", settingsDirty() ? $("settings-editor").value : "");
+  } else if (event.target.dataset?.hookField && state.hookOpen) {
+    writeDraft(`hook:${state.hookOpen}`, hookPageValues(state.hookOpen));
+  } else if (event.target.dataset?.hookRuleCell && state.hookOpen) {
+    writeDraft(`hook:${state.hookOpen}`, state.hookDraft[state.hookOpen]);
+  }
 });
 $("settings").addEventListener("submit", async (event) => {
   if (event.target.id !== "new-key") return;
   event.preventDefault();
   const message = $("key-message");
   message.textContent = "";
-  const enteredName = $("key-name").value.trim();
-  const previousKeys = [...(state.keys ?? [])];
-  if (enteredName && !previousKeys.some((item) => item.name === enteredName)) {
-    state.keys = [{ name: enteredName, start: null, created: Date.now() / 1000, used: null }, ...previousKeys];
-    renderKeys(state.keys);
-    renderOverview();
-  }
   try {
-    const made = await call("keys", { method: "POST", body: JSON.stringify({ name: $("key-name").value }), spinner: false });
+    const made = await submitApiKey($("key-name").value);
     $("key-name").value = "";
     $("reveal-name").textContent = made.name;
     $("reveal-key").textContent = made.key;
     $("reveal").hidden = false;
     guarded(refreshKeys);
   } catch (error) {
-    state.keys = previousKeys;
-    renderKeys(state.keys);
-    renderOverview();
     if (error instanceof LoggedOut) return showLogin();
     message.textContent = error.message;
   }
@@ -4943,19 +5252,6 @@ $("requests").addEventListener("keydown", (event) => {
   event.preventDefault();
   openChain(row.dataset.chainAt);
 });
-// Copy button lives in chain dialog, outside table listener.
-$("chain-modal").addEventListener("click", async (event) => {
-  const button = event.target.closest(".copy-chain");
-  if (!button) return;
-  const found = state.requests.find((r) => String(r.at) === button.dataset.at);
-  try {
-    await navigator.clipboard.writeText(chainText(found));
-    button.textContent = t("action.copied_button");
-  } catch {
-    getSelection().selectAllChildren(button.closest(".chain-body"));
-    button.textContent = t("action.press_ctrl_c_button");
-  }
-});
 const PAGES = ["overview", "requests", "models", "limits", "notifications", "settings"];
 const PAGE_LABELS = {
   overview: t("nav.overview_link"),
@@ -5021,35 +5317,9 @@ function requestHash() {
   history.replaceState(null, "", `#/requests${query ? `?${query}` : ""}`);
 }
 
-// A fade grows over the first stretch of scroll, holds, and shrinks at the far end.
-const FADE_GROW = 48;
-const fadeLen = (dist) => `${Math.round(Math.min(1, Math.max(0, dist / FADE_GROW)) * 20)}px`;
-const setFade = (host, name, dist) => host.style?.setProperty(name, fadeLen(dist));
-
-const cssInlineScrollFade = () =>
-  typeof CSS !== "undefined" && Boolean(CSS.supports?.("animation-timeline: scroll(self inline)"))
-  && !globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-
-function markScrollEdges(scroller) {
-  const end = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-  if (!cssInlineScrollFade()) {
-    setFade(scroller, "--fade-left", scroller.scrollLeft);
-    setFade(scroller, "--fade-right", end - scroller.scrollLeft);
-  }
-  return { left: scroller.scrollLeft <= 2, right: scroller.scrollLeft >= end - 2 };
-}
-
-function markCardScrollEdges() {
-  for (const scroller of document.querySelectorAll(".card-scroll")) markScrollEdges(scroller);
-}
-
 function markPaneEdges(pane) {
   pane.classList.toggle("fit-host", pane.querySelector(
     ":scope > .provider-flow:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
-  const end = Math.max(0, pane.scrollHeight - pane.clientHeight);
-  setFade(pane, "--fade-top", pane.scrollTop);
-  setFade(pane, "--fade-bottom", end - pane.scrollTop);
-  return { top: pane.scrollTop <= 2, bottom: pane.scrollTop >= end - 2 };
 }
 
 function markSectionPaneEdges() {
@@ -5101,8 +5371,6 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("scroll", (event) => {
   const scroller = event.target;
-  if (scroller.matches?.(".card-scroll")) markScrollEdges(scroller);
-  if (scroller.matches?.(".section-pane")) markPaneEdges(scroller);
   if (
     shownPage === "requests" && (
       scroller === document
@@ -5180,7 +5448,6 @@ function syncKpiWrap() {
 function markNavEdges() {
   syncHeaderWrap();
   syncKpiWrap();
-  markScrollEdges(nav);
 }
 if (typeof ResizeObserver === "function") {
   const headerObserver = new ResizeObserver(() => markNavEdges());
@@ -5190,7 +5457,6 @@ if (typeof ResizeObserver === "function") {
   if (nav) headerObserver.observe(nav);
   if (kpisEl) headerObserver.observe(kpisEl);
 }
-nav.addEventListener("scroll", markNavEdges, { passive: true });
 // Replace the history entry so phone back leaves the app instead of retracing tabs.
 for (const link of document.querySelectorAll("#nav a")) {
   link.addEventListener("click", (event) => {
@@ -5292,7 +5558,6 @@ function showPage() {
   slideAgain();
   document.title = t("page.title", { page: PAGE_LABELS[page] });
   fitSectionPane();
-  markCardScrollEdges();
   if (page === "requests") queueRequestsFill();
 }
 
@@ -5326,10 +5591,10 @@ function refreshRelativeTimes() {
   if (state.limits) renderLimits(state.limits);
   if (state.notifications) renderNotifications(state.notifications);
   if (state.keys.length && $("keys")) renderKeys(state.keys);
-  if (state.chainAt && $("chain-modal")?.open) openChain(state.chainAt);
-  if (state.diffEvent && $("model-modal")?.open) {
-    $("model-modal-title").textContent = `${state.diffEvent.reason} \u00b7 ${relative(state.diffEvent.at)}`;
-    $("model-modal-title").title = stamp(state.diffEvent.at);
+  if (state.chainAt && $("modal")?.open) openChain(state.chainAt);
+  if (state.diffEvent && $("modal")?.open) {
+    $("modal-title").textContent = `${state.diffEvent.reason} \u00b7 ${relative(state.diffEvent.at)}`;
+    $("modal-title").title = stamp(state.diffEvent.at);
   }
   tickSaveLine();
 }
@@ -5554,7 +5819,6 @@ $("provider-form").addEventListener("keydown", (event) => {
 window.addEventListener("resize", () => {
   markNavEdges();
   fitSectionPane();
-  markCardScrollEdges();
 });
 $("settings").addEventListener("input", (event) => {
   // The nested providers host handles its own events.
@@ -5617,11 +5881,6 @@ $("settings").addEventListener("change", async (event) => {
   // The nested providers host handles its own events.
   if (event.composedPath?.().includes($("provider-form"))) return;
   const input = event.target;
-  if (input.dataset.hookRuleVersion) {
-    const [name, key, index, column] = JSON.parse(input.dataset.hookRuleVersion);
-    setHookRuleCell(name, key, index, column, input.value);
-    return renderSettings();
-  }
   if (input.dataset.hookRuleCell) {
     const [name, key, index, column] = JSON.parse(input.dataset.hookRuleCell);
     setHookRuleCell(name, key, index, column, input.type === "checkbox" ? input.checked : input.value);
@@ -5703,41 +5962,56 @@ document.addEventListener("pointerdown", () => {
   delete document.documentElement.dataset.keyboardNav;
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && state.timers?.length) refresh();
+  if (!document.hidden && state.timers?.length) {
+    refresh();
+    refreshRelativeNodes();
+  }
 });
 window.addEventListener("beforeunload", (event) => {
   if (dirty() || settingsDirty()) event.preventDefault();
 });
 
+mountModalView("prompt");
+
 // Enter in the name field confirms, as the first submit button is Cancel.
-$("modal-input").addEventListener("keydown", (event) => {
-  if (event.key !== "Enter") return;
+$("modal").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.target?.id !== "modal-input") return;
   event.preventDefault();
-  $("modal-ok").click();
+  $("modal-ok")?.click();
 });
 
-// Close on backdrop clicks outside dialog bounds, and restore trigger focus on close.
-for (const [id, cancelValue] of [["modal", "cancel"], ["chain-modal", "close"], ["model-modal", "close"]]) {
-  $(id)?.addEventListener("click", (event) => {
-    const dialog = event.currentTarget;
-    if (event.target !== dialog) return;
-    const box = dialog.getBoundingClientRect();
-    const outside = event.clientX < box.left || event.clientX > box.right
-      || event.clientY < box.top || event.clientY > box.bottom;
-    if (outside) dialog.close(cancelValue);
-  });
-}
+// Handle chain copy clicks inside the shared modal and close on backdrop clicks outside bounds.
+$("modal").addEventListener("click", async (event) => {
+  const button = event.target?.closest?.(".copy-chain");
+  if (button) {
+    const found = state.requests.find((r) => String(r.at) === button.dataset.at);
+    try {
+      await navigator.clipboard.writeText(chainText(found));
+      button.textContent = t("action.copied_button");
+    } catch {
+      getSelection().selectAllChildren(button.closest(".chain-body"));
+      button.textContent = t("action.press_ctrl_c_button");
+    }
+    return;
+  }
+  const dialog = event.currentTarget;
+  if (event.target !== dialog) return;
+  const box = dialog.getBoundingClientRect();
+  const outside = event.clientX < box.left || event.clientX > box.right
+    || event.clientY < box.top || event.clientY > box.bottom;
+  const infoView = dialog.dataset?.modalView === "chain" || dialog.dataset?.modalView === "model";
+  if (outside) dialog.close(infoView ? "close" : "cancel");
+});
 
-// Confirm, Cancel, Escape, and backdrop clicks close the dialog.
+// Confirm, Cancel, Escape, and backdrop clicks close the shared dialog and restore trigger focus.
 $("modal").addEventListener("close", (event) => {
+  state.chainAt = null;
+  state.diffEvent = null;
   restoreModalTrigger(event.currentTarget);
   const done = globalThis.__settle;
   globalThis.__settle = null;
   done?.(event.target.returnValue === "ok");
 });
-for (const id of ["chain-modal", "model-modal"]) {
-  $(id)?.addEventListener("close", (event) => restoreModalTrigger(event.currentTarget));
-}
 
 applyLocale();
 renderLegend();

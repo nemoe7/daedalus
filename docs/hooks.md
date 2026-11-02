@@ -278,7 +278,14 @@ The shipped files log their own decisions. A log line never changes the answer o
 
 daedalus reads a file again when its file time changes. A restart is not necessary.
 
-For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. A hook can also keep data in its own file, such as `cheapest_output.json`.
+For `on-catalog`, daedalus writes only the known columns from the row that the hook returns. The hook arguments do not include a database connection, but this is not an access restriction. Hooks can import `daedalus.store` and access the database directly. Hooks also have persistent state helpers in `daedalus.providers.hooks` (`storage_dir`, `storage_file`, `read_json`, and `write_json`), rooted under `.daedalus-state/hooks/<hook name>/`.
+
+```python
+from daedalus.providers import hooks
+
+saved = hooks.read_json(__file__, "cheapest_output.json") or {}
+hooks.write_json(__file__, "cheapest_output.json", saved)
+```
 
 The dashboard edits `hooks` lists on models and providers. Settings > Hooks lists the
 folder, sources, and loaded files. Only update writes a hook file, writing inside
@@ -362,8 +369,8 @@ shows 1 field for each entry.
 A `rules` field holds an ordered list of rows, and each row holds 1 value for each column. The Hooks
 page draws a table with an add control and a remove control for each row.
 
-A `choice` column draws a select. A column with `options` draws a version select beside a manual
-text box.
+A `choice` column draws a select. A column with `options` draws a single version field backed by a
+`datalist` with `latest` first, followed by historical versions.
 
 ```yaml
 # settings:
@@ -382,9 +389,9 @@ text box.
 #         choices: [owui, kilo, opencode]
 ```
 
-Each hook owns its settings file: a JSON file beside the hook file, named `<hook file>.json`. It
-does not exist until the first save on the Hooks page, and a file update keeps it. The base settings
-file holds no hook values.
+Each hook owns its settings file under `.daedalus-state/hooks/<hook name>/settings.json`. That file
+does not exist until the first save on the Hooks page, and a hook file update keeps it. The base
+settings file holds no hook values.
 
 A hook reads its values with `hooks.values(__file__)`, from
 [`daedalus.providers.hooks`](../daedalus/providers/hooks.py). A value that is absent or does not fit
@@ -392,8 +399,8 @@ its field takes the default.
 
 A hook file may define `options(key, column, row)` to fill the dynamic options of 1 `rules` column.
 The Hooks page calls it through `POST /ui/api/hooks/options` when the page opens and when a row
-changes, off the request path. It returns a list of text choices, and the page keeps a manual text
-box beside the select.
+changes, off the request path. It returns a list of text choices for that column's `datalist`, while
+the same input accepts custom text directly.
 
 ## Sources and the lock
 

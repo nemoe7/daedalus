@@ -7,14 +7,14 @@ through the outbound identity headers of each provider call.
 | --- | --- |
 | Scope | `global`: every provider call, on the `on-upstream` surface |
 | Runs | `on-upstream` before each request to a provider |
-| Reads | The rules in `hooks/client_spoof.json`, beside the hook file |
+| Reads | The rules in `.daedalus-state/hooks/client_spoof/settings.json` |
 | Writes | The identity headers of the matched target client |
 | Named by | The `hooks` list of a provider card or a model entry |
 | Notes | The first rule whose source matches wins. An empty rule list changes nothing. |
 
-The hook ships with no JSON file. The Hooks page creates `hooks/client_spoof.json` on the first
-save. Until then, the frontmatter default applies: 1 rule that presents Kilo as OpenCode at the
-latest version.
+The hook ships with no JSON file. The Hooks page creates `.daedalus-state/hooks/client_spoof/settings.json`
+on the first save. Until then, the frontmatter default applies: 1 rule that presents Kilo as
+OpenCode at the latest version.
 
 ## The rules
 
@@ -40,7 +40,7 @@ session headers, such as `x-opencode-session` and `x-session-affinity`.
 ```mermaid
 flowchart LR
   A[Provider call] --> B{{on_upstream}}
-  C[(client_spoof.json)] --> B
+  C[(hooks/client_spoof/settings.json)] --> B
   B --> D[Detect the source client]
   D --> E[First matching rule]
   E --> F[Replace the identity headers]
@@ -49,12 +49,12 @@ flowchart LR
 
 ## The version choices
 
-The Hooks page fills the version select from the `options` function of the hook, through
+The Hooks page fills the version field's `datalist` from the `options` function of the hook, through
 `POST /ui/api/hooks/options`. The function reads each client registry off the request path: PyPI for
 `owui`, and npm for `kilo` and `opencode`. It returns `latest` first, then the historical versions.
 
-A manual text box beside the select takes any version. If a registry read fails, the hook uses its
-known latest version.
+That single field also accepts any custom version directly. If a registry read fails, the hook uses
+its known latest version.
 
 ## The Open WebUI branding license
 

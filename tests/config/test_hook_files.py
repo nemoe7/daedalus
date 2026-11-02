@@ -65,7 +65,12 @@ def test_on_catalog(cheapest, monkeypatch: pytest.MonkeyPatch) -> None:
   base, headers = "https://openrouter.ai/api/v1", {"Authorization": "Bearer k"}
   assert cheapest.on_catalog({}, GLM, base, headers) is None
   assert asked == [(f"{base}/models/z-ai/glm-5.3-flash/endpoints", "Bearer k")]
-  assert cheapest.orders_file().parent == Path(store.MODELS_DB).parent
+  assert cheapest.orders_file() == (
+    Path(store.MODELS_DB).parent
+    / "hooks"
+    / "or_cheapest_output"
+    / "cheapest_output.json"
+  )
   saved = json.loads(cheapest.orders_file().read_text())
   assert saved == {GLM: ["cheap", "cloud"]}
   down = True

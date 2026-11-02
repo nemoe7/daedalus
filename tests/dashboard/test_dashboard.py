@@ -168,23 +168,45 @@ def test_bundled_fonts(client: TestClient) -> None:
   assert client.get("/ui/fonts/INTER-VAR.woff2").status_code == 404, "the name is exact"
 
 
+def test_nested_ui_assets_serve_from_manifest(client: TestClient) -> None:
+  """Every registered UI_FILES entry, including nested vendor scripts, serves with its media type."""
+  for name, media_type in dashboard.UI_FILES.items():
+    response = client.get(f"/ui/{name}")
+    assert response.status_code == 200, name
+    assert response.headers["content-type"].startswith(media_type), name
+    assert response.headers["cache-control"] == "no-cache", name
+  assert client.get("/ui/vendor/nope.js").status_code == 404
+  assert client.get("/ui/vendor/SORTABLE.MIN.JS").status_code == 404
+
+
 def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
-  """Icon-only remove buttons include aria-label attributes and symmetric CSS boxes."""
+  """Icon-only action buttons share iconButton, aria-label attributes, and square .icon-btn boxes."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function iconButton(" in app
   for marker in (
     '"data-drop": JSON.stringify([...path, key])',
-    '"data-setting-drop": JSON.stringify([group, key, index])',
     '"data-form-hook-drop": at',
   ):
     block = app.split(marker, 1)[0].rsplit("actionButton(icon", 1)[1]
     assert '"aria-label": t("action.remove_button")' in block, marker
-  assert ".pill > button:not(.select), .override > .ghost {" in css
-  assert "[data-hook-source-drop], [data-hook-drop], td.end > .ghost {" in css
+  for marker in (
+    '"data-key": k.name',
+    '"data-setting-drop": JSON.stringify([group, key, index])',
+    '"data-hook-drop": row.path',
+    '"data-hook-source-drop": true',
+    '"data-hook-rule-remove": JSON.stringify([row.name, entry.key, index])',
+    '"data-drop": JSON.stringify([...path, "models", pattern])',
+  ):
+    block = app.split(marker, 1)[0].rsplit('iconButton("trash"', 1)[1]
+    assert "danger: true" in block, marker
+  assert ".pill > button:not(.select) {" in css
+  assert ".icon-btn {" in css and "width: 32px; height: 32px;" in css
+  assert "width: 44px; height: 44px; min-width: 44px; min-height: 44px;" in css
   assert "td.end > .ghost + .ghost { margin-left: 8px; }" in css
-  hook_settings = app.split('"data-hook-open"', 1)[0].rsplit("actionButton(", 1)[1]
-  assert 'icon("settings")' in hook_settings
+  hook_settings = app.split('"data-hook-open"', 1)[0].rsplit("iconButton(", 1)[1]
+  assert '"settings"' in hook_settings
   assert "settings: '<path" in app
   assert "translateY(-6px) scale" not in css
   assert "openModelModal(model, row)" in app
@@ -402,23 +424,16 @@ for (const tier of tiers) {
 
 
 def test_app_js_tab_steps() -> None:
-  """The tab strip breathes its edge fades and carries no chevrons."""
+  """The tab strip carries no chevrons and leaves scroll fades to CSS timelines."""
   code = _app_js_vm(
     """
 assert(!byId.has('nav-left') && !byId.has('nav-right'), 'no chevron buttons remain');
-nav.scrollLeft = 0;
+nav.scrollLeft = 24;
 nav.scrollWidth = 400;
 nav.clientWidth = 200;
 sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '0px', 'no fade at the start');
-assert.strictEqual(nav.style.props['--fade-right'], '20px', 'the far edge breathes in');
-nav.scrollLeft = 24;
-sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '10px', 'the fade grows over the stretch');
-nav.scrollLeft = 200;
-sandbox.markNavEdges();
-assert.strictEqual(nav.style.props['--fade-left'], '20px', 'the near edge holds');
-assert.strictEqual(nav.style.props['--fade-right'], '0px', 'the far fade shrinks away');
+assert.strictEqual(nav.style.props['--fade-left'], undefined, 'no JS inline fade property is written');
+assert.strictEqual(nav.style.props['--fade-right'], undefined, 'CSS scroll timeline owns the edge mask');
 """
   )
   subprocess.run(["node", "-e", code], check=True)
@@ -1227,7 +1242,7 @@ const CHAIN_ROW = {json.dumps(row)};
 probe.state.requests = [CHAIN_ROW];
 probe.openChain(String(CHAIN_ROW.at));
 const chainHtml = node('chain-modal-body').innerHTML;
-assert.strictEqual(node('chain-modal-title').textContent,
+assert.strictEqual(node('modal-title').textContent,
   chainTitle(1, "request.chain.fallback.one_text"),
   'the dialog head carries the count');
 assert(!chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
@@ -1579,7 +1594,7 @@ def test_rebuild_notification_and_catalog_action_have_distinct_targets() -> None
     "state",
     """
 let shown = 0;
-node('model-modal').showModal = () => { shown += 1; };
+node('modal').showModal = () => { shown += 1; };
 probe.state.notifications = {
   rebuilds: [{
     at: 1791600000, reason: 'scheduled', models: 2,
@@ -1595,7 +1610,7 @@ const event = {
 node('notification-feed').handlers.click[0](event);
 for (const handler of documentHandlers.click || []) handler(event);
 assert.strictEqual(shown, 1, 'the bubbling click opens only the diff modal');
-assert(node('model-modal-title').textContent.startsWith('scheduled ·'),
+assert(node('modal-title').textContent.startsWith('scheduled ·'),
   'the rebuild confirmation never replaces the diff title');
 """,
   )
@@ -1624,7 +1639,7 @@ assert.strictEqual(
   '<span class="added">1 added</span> · <span class="removed">1 deleted</span> · <span class="moved">1 changed</span>',
   'the summary reads the shared descriptors',
 );
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.openDiffModal(event);
 let modal = node('model-modal-body').innerHTML;
 for (const [kind, mark] of [['added', '+'], ['removed', '-'], ['moved', '~']]) {
@@ -1653,7 +1668,7 @@ def test_a_rebuild_row_opens_the_diff_modal() -> None:
   assert "openDiffModal(state.notifications.rebuilds[index])" in app
   assert "const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>" in app
   assert "event[key].map((text) => [kind, mark, text])" in app
-  assert '$("model-modal").showModal();' in app
+  assert 'mountModalView("model")' in app
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 
 
@@ -1714,7 +1729,7 @@ assert(changed.includes('class="chip flag">' + LOCALE["model.column.context_colu
 assert(!changed.includes('>+') && !changed.includes('>-'), 'field chips carry no diff signs');
 assert(!changed.includes('supported_efforts'), 'the raw field names leave the row');
 assert(!changed.includes('->'), 'raw arrows leave the changed row');
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.openDiffModal({
   reason: 'scheduled', at: 1791600000, models: 3,
   added: ['openrouter/dots-studio/dots-3-note-preview:free'],
@@ -2167,7 +2182,7 @@ def test_the_fallback_chain_opens_in_a_modal() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   index = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  assert 'id="chain-modal"' in index, "the page carries the chain dialog"
+  assert 'data-modal-template="chain"' in index and 'id="chain-modal-body"' in index
   assert "mobile-fallback-chain" not in app and "mobile-fallback-chain" not in css, (
     "the expand list leaves the page"
   )
@@ -2546,7 +2561,7 @@ def test_provider_back_controls_have_room_and_a_touch_target() -> None:
   assert "back.textContent = label;" in app
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert ".pane-bar { display: flex; align-items: center; gap: 8px; }" in css
-  assert "background: var(--bg); padding: 6px 20px; margin: 0 -20px;" in css
+  assert "background: var(--bg); padding: 6px 0; margin: 0;" in css
   assert "padding: 4px 8px;" in css and "gap: 6px;" in css
   assert ".section-pane .back, #nav a { min-height: 44px; min-width: 44px; }" in css
 
@@ -2650,7 +2665,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   assert ".requests .mobile-request-more" not in mobile_css, (
     "the more disclosure is gone"
   )
-  assert ".requests tr.live-row > td:nth-child(1) .pulse" in narrow_css
+  assert ".requests tr.live-row > td:nth-child(1) .dot" in narrow_css
   assert "grid-column" not in narrow_css, (
     "the pair rows already fit a narrow card, so no row steps down again"
   )
@@ -3131,12 +3146,23 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
   assert ".modal[open]::backdrop { background: rgb(0 0 0 / 0.45); }" in css, (
     "the backdrop fades in"
   )
-  assert 'replay([...host.querySelectorAll(".section-pane > .card")]' in app, (
-    "the selected section card arrives"
+  assert (
+    "if (arrived && (moved || (before && arrived.dataset.section !== before)) && !phoneSection()) replay(arrived);"
+    in app
+  ), "desktop section and drill swaps replay once without duplicating phone slides"
+  assert 'replay([...host.querySelectorAll(".section-pane > .card")]' not in app, (
+    "openSection does not fire a second competing replay"
   )
   assert (
-    'const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));' in app
-  ), "the card fades in GSAP without a y offset so the scroll pane never clips its top"
+    'const inPaneCard = Boolean(host?.matches?.(".section-pane > .card, .section-pane > [data-section], .hook-page"));'
+    in app
+  ), "section cards, provider flows, and hook pages fade in GSAP without a y offset"
+  assert ".tile, .rail-search {" in css, (
+    "rail tiles and search follow the fast ease token"
+  )
+  assert "function animateHookSwap(open)" in app, (
+    "hook drill-downs share Settings swap motion"
+  )
   assert 'replay($("provider-form"));' in app, "a file change arrives its form"
   assert "if (!off) replay(field);" not in app, "a switch toggle replays no row fade"
   assert (
@@ -3448,11 +3474,11 @@ node('set-affinity-mode').value = 'session';
 node('set-personalization-theme').dataset = {{ themeValue: 'system' }};
 node('set-personalization-time_format').value = '24h';
 assert.strictEqual(JSON.stringify(probe.settingsChanges()), '{{}}', 'a loaded file reports no change');
-// The keyword fields are chip lists with a + adder, not a text box.
+// The keyword fields are stacked lists with a + adder, not a text box.
 const list = html.slice(Math.max(0, html.indexOf('id="set-routing-escalation"') - 40),
-  html.indexOf('id="set-routing-escalation"') + 2600);
-assert(list.includes('class="pills"'), 'the keyword field is a chip list');
-assert(list.includes('class="pill"'), 'each keyword is a chip');
+  html.indexOf('id="set-routing-escalation"') + 3400);
+assert(list.includes('class="setting-list"'), 'the keyword field is a list');
+assert(list.includes('class="setting-list-row"'), 'each keyword is a list row');
 const adder = html.indexOf('data-setting-add=');
 assert(adder > 0, 'the + adder is in the form');
 assert(html.slice(adder, adder + 80).includes('escalation'), 'the + adder names its list');
@@ -3497,7 +3523,7 @@ def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
     "category tiles use semantic role tokens without hex literals"
   )
   assert (
-    "background: var(--field); color: var(--muted); border: 1px solid var(--line);"
+    "background: transparent; color: var(--muted); border: 1px solid transparent;"
     in css
   )
   assert (
@@ -3786,7 +3812,10 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   assert "position: absolute" in menu.group(1), "the list hangs under the chip"
   assert "border: 1px solid var(--line)" in menu.group(1)
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'const settingPill = (group, key, value, index) => `<span class="pill">' in app
+  assert (
+    'const settingListRow = (group, key, value, index) => `<li class="setting-list-row">'
+    in app
+  )
   markup = re.search(r"const hookFormRow = .*?\n};", app, re.DOTALL)
   assert markup, "the hook row builds 1 chip"
   assert 'class="pill hook"' in markup.group(0), "the row rides in a chip"
@@ -4298,7 +4327,7 @@ def test_app_js_hooks_section() -> None:
   script = TestClient(api.app).get("/ui/app.js")
   assert script.status_code == 200
   for piece in (
-    'id="set-hooks-dir"',
+    'id: "set-hooks-dir"',
     "data-hook-source-add",
     "data-hook-source-drop",
     "data-hook-source",
@@ -4417,7 +4446,7 @@ def test_app_js_hooks_manager_renders() -> None:
     }
   )
   run_app_js(
-    "state, renderSettings, settingsChanges, setListValue, icon",
+    "state, renderSettings, settingsChanges, setListValue, iconSlot",
     f"""
 probe.state.settings = {payload};
 probe.renderSettings();
@@ -4427,8 +4456,8 @@ assert(html.includes('value="hooks"'), 'the folder shows the saved value');
 assert(html.includes('id="hook-source"') && html.includes('>owner/name/hooks<'), 'the sources show the saved repo');
 assert(html.includes('data-hook-source-add') && html.includes('data-hook-source-drop') &&
   html.includes('data-hooks-update'), 'the source controls');
-assert(html.includes(probe.icon('refresh_cw') + ' ' + LOCALE['action.update_sources_button']),
-  'the update button leads with the refresh glyph');
+assert(html.includes(probe.iconSlot('refresh_cw') + '<span>' + LOCALE['action.update_sources_button'] + '</span>'),
+  'the update button leads with the refresh glyph slot');
 assert(html.includes('<th>' + LOCALE["hook.column.author_title"] + '</th>'),
   'the table names its author and title column');
 assert(html.includes('One hook'), 'the title of the file shows');
@@ -5189,6 +5218,32 @@ def test_broken_file(client: TestClient, folder: Path) -> None:
   assert gone.status_code == 200, gone.text
 
 
+def test_external_provider_yaml_registers_on_files_read(
+  client: TestClient, folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """Creating `{provider}.yml` on disk outside Daedalus registers it and queues a rebuild."""
+  queued = []
+
+  def cached() -> None:
+    pass
+
+  monkeypatch.setattr(api, "CATALOG_REBUILD_CACHED", cached)
+  monkeypatch.setattr(schedule, "request", lambda task: queued.append(task) or True)
+  config.load_config(config.DEFAULT_PATH)
+  external = folder / "external.yml"
+  try:
+    external.write_text("", encoding="utf-8")
+    listed = client.get("/ui/api/files")
+    assert listed.status_code == 200, listed.text
+    found = next(item for item in listed.json() if item["path"] == str(external))
+    assert found["blocks"] == {"external": {}}
+    assert config.get_config()["external"][config.FILE_KEY] == {}
+    assert queued == [cached]
+  finally:
+    external.unlink(missing_ok=True)
+    config.load_config(config.DEFAULT_PATH)
+
+
 def test_catalog(client: TestClient) -> None:
   assert (
     client.post(
@@ -5633,10 +5688,11 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   fade = re.search(r"\n\.scroll-fade \{([^}]*)\}", css)
-  assert fade and "mask-image: linear-gradient(90deg, transparent 0," in fade.group(
-    1
-  ), "the shared class carries the edge mask"
-  assert "overflow-x: auto;" in fade.group(1), "the shared class owns its overflow"
+  assert fade and "overflow-x: auto;" in fade.group(1), (
+    "the shared class owns its overflow"
+  )
+  assert "scroll-padding-inline: var(--edge-fade);" in fade.group(1)
+  assert ".tabs.scroll-fade { padding-inline: 4px; }" in css
   assert "#nav," not in css, (
     "the strip joins the scrollers through the class, not an id"
   )
@@ -5649,7 +5705,9 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
     "the header carries no step buttons"
   )
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "markScrollEdges(nav)" in app, "the bar fades only while it clips"
+  assert "setFade" not in app and "markScrollEdges" not in app, (
+    "no legacy JavaScript scroll-fade listener remains"
+  )
   assert app.count('class="card-scroll scroll-fade"') == 3, (
     "the card scrollers wear the same class"
   )
@@ -5659,28 +5717,18 @@ def test_the_tab_bar_fades_its_clipped_edges() -> None:
 
 
 def test_scroll_edge_affordances_share_the_soft_motion() -> None:
-  """Pane and tab fade CSS shares soft-motion duration with chevrons."""
+  """Scroll-edge fade registers block and inline @property lengths and scrollbar carve-outs."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  for edge in ("left", "right", "top", "bottom"):
-    registered = re.search(rf"@property --fade-{edge} \{{([^}}]*)\}}", css)
+  for edge in ("start", "end", "inline-start", "inline-end"):
+    registered = re.search(rf"@property --edge-{edge} \{{([^}}]*)\}}", css)
     assert registered and 'syntax: "<length>";' in registered.group(1), (
       f"the {edge} mask stop can interpolate"
     )
     assert "initial-value: 0px;" in registered.group(1)
-
-  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert 'setFade(scroller, "--fade-left", scroller.scrollLeft);' in app, (
-    "the header fade follows the scrolled distance"
-  )
-  assert 'setFade(pane, "--fade-top", pane.scrollTop);' in app, (
-    "the settings fade follows the scrolled distance"
-  )
-
+  assert "@property --fade-" not in css, "legacy JS fade properties are gone"
+  assert "var(--scrollbar-carve)" in css, "vertical masks carve out the scrollbar track"
+  assert "scroll-padding-block: var(--edge-fade);" in css
   assert ".tab-step" not in css, "no chevron remains to animate"
-  app_nav = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert (
-    'nav.addEventListener("scroll", markNavEdges, { passive: true });' in app_nav
-  ), "the strip recomputes its fades on scroll"
 
 
 def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> None:
@@ -5703,7 +5751,7 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   )
   table_end = hooks.index("</table></div>")
   update = hooks.index(
-    'actionButton(`${icon("refresh_cw")} ${t("action.update_sources_button")}`',
+    'actionButton(`${iconSlot("refresh_cw")}<span>${t("action.update_sources_button")}</span>`',
     table_end,
   )
   assert (
@@ -5713,68 +5761,38 @@ def test_card_tables_own_horizontal_overflow_and_fade_only_clipped_edges() -> No
   assert card_scroll and "overflow-x: auto;" in card_scroll.group(1), (
     "the table region, not the card or settings pane, owns horizontal overflow"
   )
-  assert ".card-scroll.fade-left" not in css, "the fades ride on inline lengths"
-  assert "function markScrollEdges(scroller)" in app
-  assert 'document.querySelectorAll(".card-scroll")' in app
-  assert 'setFade(scroller, "--fade-left"' in app
-  assert 'setFade(scroller, "--fade-right"' in app
-  assert re.search(
-    r'document\.addEventListener\("scroll",.*?\.card-scroll.*?, true\);',
-    app,
-    re.DOTALL,
-  ), "a card updates its fades as its own table scrolls"
+  assert ".card-scroll.fade-left" not in css
 
 
 def test_wide_section_pane_fades_only_clipped_vertical_edges() -> None:
-  """Pane code sets fade classes by scroll bounds, with vertical masks in wide-layout CSS."""
+  """Pane code toggles fit-host cleanly while CSS scroll timelines handle vertical masks."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
   assert wide, "the wide section layout"
   pane = re.search(r"\.section-pane \{([^}]*)\}", wide.group(1))
-  assert pane and "mask-image: linear-gradient(180deg, transparent 0," in pane.group(
+  assert pane and "overflow-y: auto;" in pane.group(1)
+  assert "padding: 4px;" in pane.group(
     1
-  ), "the vertical scrollport carries its own edge mask"
-  assert ".section-pane.fade-top" not in css and "#nav.fade-left" not in css, (
-    "the fades ride on inline lengths, not classes"
-  )
+  ) and "scroll-padding-block: var(--edge-fade);" in pane.group(1)
+  assert ".section-pane.fade-top" not in css and "#nav.fade-left" not in css
   assert "function markPaneEdges(pane)" in app
-  assert 'setFade(pane, "--fade-top"' in app
-  assert 'setFade(scroller, "--fade-left"' in app
-  assert re.search(
-    r'document\.addEventListener\("scroll",.*?\.section-pane.*?, true\);',
-    app,
-    re.DOTALL,
-  ), "the pane updates the mask at each vertical edge"
+  assert "--fade-top" not in app and "--fade-top" not in css
 
   run_app_js(
     "markPaneEdges",
     """
-const fades = {};
+let fitHost = false;
 const pane = {
-  scrollTop: 0, clientHeight: 200, scrollHeight: 600,
-  classList: { toggle: () => {} }, querySelector: () => null,
-  style: { setProperty: (name, value) => { fades[name] = value; } },
+  classList: { toggle: (name, on) => { if (name === 'fit-host') fitHost = on; } },
+  querySelector: () => ({}),
 };
 probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '20px', 'the near edge starts clear');
-pane.scrollTop = 24;
+assert.strictEqual(fitHost, true, 'a filling child marks fit-host');
+pane.querySelector = () => null;
 probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '10px', 'the fade grows with the scrolled distance');
-pane.scrollTop = 200;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '20px', 'the middle holds both fades');
-pane.scrollTop = 376;
-probe.markPaneEdges(pane);
-assert(fades['--fade-bottom'] === '10px', 'the far fade shrinks on the way back');
-pane.scrollTop = 400;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '20px' && fades['--fade-bottom'] === '0px', 'the far end clears');
-pane.scrollTop = 0;
-pane.scrollHeight = 200;
-probe.markPaneEdges(pane);
-assert(fades['--fade-top'] === '0px' && fades['--fade-bottom'] === '0px', 'a fitting card has no fade');
+assert.strictEqual(fitHost, false, 'normal cards clear fit-host');
 """,
   )
 
@@ -6242,8 +6260,8 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   assert 'id="limits-search"' in page and 'id="limits-clear"' in page, page
   check = page.split('id="limits-check"')[1].split("</button>")[0]
-  assert '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />' in check, (
-    "the check button draws the lucide refresh glyph"
+  assert 'data-icon="refresh_cw"' in check, (
+    "the check button hydrates the lucide refresh glyph from ICON_PATHS"
   )
   assert '<span data-i18n="action.check_now_button">' in check, (
     "the word stays for a screen reader, and the locale fill keeps the glyph"
@@ -6376,7 +6394,7 @@ def test_the_page_carries_a_motion_base() -> None:
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "--fast:" in css and "--soft:" in css and "--ease:" in css, "the motion tokens"
-  assert "animation: pulse 1.4s ease-in-out infinite" in css, (
+  assert "animation: pulse 1.4s var(--ease) infinite" in css, (
     "the live dot uses the nuu 1.4 s pulse"
   )
   assert "a, button, .snippet, .card, .chip, .pill, tr.request td {" in css, (
@@ -6468,20 +6486,176 @@ process.exit(0);
 
 
 def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
-  """Loading source marks aria-busy without loading bars, button spinners, or skeleton rows."""
+  """Loading source renders the nuu delayed header edge bar and fixed-slot button spin."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   brand = next(line for line in page.splitlines() if 'class="brand"' in line)
   assert "spinner" not in brand and 'id="spinner"' not in page
-  assert "nuu-edge-loading" not in css and "tr.skeleton" not in css
-  assert "@keyframes spin" not in css and 'classList.add("checking")' not in app
+  assert "nuu-edge-loading" in css and "nuu-edge-loading-done" in css
+  assert "tr.skeleton" not in css and "function skeletons(" not in app
+  assert "@keyframes spin" not in css and "@keyframes nuu-spin" in css
+  assert 'classList.add("checking")' not in app
   assert (
     'setAttribute?.("aria-busy", "true")' in app
     and 'setAttribute?.("aria-busy", "false")' in app
   )
-  assert "region.dataset.loading" not in app and "function skeletons(" not in app
+  assert 'active.dataset.loading = "true"' in app
+  assert 'region.dataset.loading = "done"' in app
+
+
+def test_table_to_cards_recipe_grids_across_mobile_tables() -> None:
+  """Mobile tables hide thead and fold into auto-fill rounded card grids with 12 px gaps."""
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
+  for selector in (".requests thead", ".models thead", ".keys thead", ".limits thead"):
+    assert f"{selector} {{ display: none; }}" in phone
+  assert "clip: rect" not in css
+  assert (
+    ".models tbody, .keys tbody {\n"
+    "    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));"
+    " gap: 12px; margin-top: 16px;"
+  ) in phone
+  assert (
+    "#limit-rows {\n"
+    "    display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));"
+    " gap: 12px;"
+  ) in phone
+  assert (
+    "border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel);"
+    in phone
+  )
+
+
+def test_page_memory_version_cache_client_id_and_draft_persistence() -> None:
+  """Page memory caches versioned tabs, deduplicates clientId retries, and persists drafts."""
+  code = _app_js_vm(
+    r"""
+const storeMap = new Map();
+sandbox.sessionStorage = { getItem: () => null };
+sandbox.localStorage = {
+  getItem: (k) => (storeMap.has(k) ? storeMap.get(k) : null),
+  setItem: (k, v) => storeMap.set(k, String(v)),
+  removeItem: (k) => storeMap.delete(k),
+};
+sandbox.crypto = { randomUUID: () => "uuid-fixed-1" };
+const probe = vm.runInContext(
+  "({ state, readPageCache, submitApiKey, readDraft, writeDraft })",
+  sandbox,
+);
+(async () => {
+  let loads = 0;
+  const first = await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m1" }];
+  });
+  const second = await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m2" }];
+  });
+  assert.strictEqual(loads, 1, "matching catalog version hits cache");
+  assert.strictEqual(second[0].id, first[0].id);
+  await probe.readPageCache("models", 1700000000, async () => {
+    loads += 1;
+    return [{ id: "demo/m2" }];
+  }, true);
+  assert.strictEqual(loads, 2, "fresh reload bypasses cache");
+  await probe.readPageCache("models", 1700000005, async () => {
+    loads += 1;
+    return [{ id: "demo/m3" }];
+  });
+  assert.strictEqual(loads, 3, "new catalog version misses stale cache");
+
+  probe.writeDraft("keyName", "laptop");
+  assert.strictEqual(probe.readDraft("keyName"), "laptop");
+
+  let postBodies = [];
+  sandbox.fetch = async (url, init = {}) => {
+    postBodies.push(JSON.parse(init.body));
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ name: "laptop", key: "sk-test" }),
+    };
+  };
+  probe.state.keys = [{ clientId: "uuid-fixed-1", name: "laptop", status: "failed" }];
+  await probe.submitApiKey("laptop", "uuid-fixed-1");
+  assert.strictEqual(probe.state.keys.length, 1, "retrying same clientId never duplicates row");
+  assert.strictEqual(probe.state.keys[0].status, "ok");
+  assert.strictEqual(postBodies[0].clientId, "uuid-fixed-1");
+  assert.strictEqual(probe.readDraft("keyName"), undefined, "successful submit clears draft");
+})().catch((err) => { console.error(err); process.exit(1); });
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
+def test_shared_back_button_uses_lucide_chevron_left() -> None:
+  """All drill-down back controls render through one backButton helper with chevron-left."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function backButton(" in app
+  assert (
+    "lsaquo" not in app and "ghost hook-back" not in app and ".hook-back" not in css
+  )
+
+
+def test_shared_add_button_uses_lucide_plus() -> None:
+  """All inline add buttons render through one addButton helper with Lucide plus."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  locale = Path("daedalus/dashboard/ui/en.js").read_text(encoding="utf-8")
+  assert "function addButton(" in app
+  assert app.count('variant: "add"') == 1
+  assert '"+ Add' not in locale and '"+ New' not in locale
+  run_app_js(
+    "addButton",
+    """
+const html = probe.addButton("Add rule", { "data-hook-rule-add": "[1]" });
+assert(html.includes('class="add"'), html);
+assert(html.includes("M5 12h14") && html.includes("<span>Add rule</span>"), html);
+""",
+  )
+
+
+def test_shared_info_hint_and_pane_bar() -> None:
+  """Field labels and folds share infoHint(), and drill-down headers share paneBar()."""
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert "function infoHint(" in app and "function paneBar(" in app
+  assert "hook-bar" not in app and ".hook-bar" not in css and ".hook-heading" not in css
+  assert ".field.info .hint, .fold summary .hint {" in css
+
+
+def test_shared_static_icons_and_modal_value_input() -> None:
+  """Static index.html buttons hydrate from ICON_PATHS and modal inputs share modalValueInput()."""
+  page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
+  app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  assert page.count('data-icon="x"') == 2
+  assert 'data-icon="rotate_cw"' in page
+  assert 'data-icon="activity"' in page
+  assert 'data-icon="refresh_cw"' in page
+  assert app.count("modalValueInput({") >= 4
+  run_app_js(
+    "hydrateIcons, modalValueInput",
+    """
+const target = { innerHTML: "", getAttribute: (k) => (k === "data-icon" ? "x" : null) };
+probe.hydrateIcons({ querySelectorAll: () => [target] });
+assert(target.innerHTML.includes("M18 6 6 18"), target.innerHTML);
+const input = probe.modalValueInput({ id: "demo", label: "Folder", value: "hooks", placeholder: "hooks" });
+assert(input.includes('aria-haspopup="dialog" aria-controls="modal"') && input.includes('id="demo"'), input);
+""",
+  )
+  run_app_js(
+    "backButton, icon",
+    """
+const rendered = probe.backButton('Settings', { 'data-back': true });
+assert(rendered.includes('class="ghost back"'));
+assert(rendered.includes('data-back'));
+assert(rendered.includes(probe.icon('chevron_left')));
+assert(rendered.includes('<span class="back-label">Settings</span>'));
+""",
+  )
 
 
 def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
@@ -6597,9 +6771,7 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   )
   assert 'data-i18n-aria-label="notice.dismiss_label"' in close.group(0)
   body = page.split('id="notice-close"')[1].split("</button>")[0]
-  assert '<path d="M18 6 6 18" />' in body and '<path d="m6 6 12 12" />' in body, (
-    "the x draws the lucide glyph"
-  )
+  assert 'data-icon="x"' in body, "the x hydrates the lucide glyph from ICON_PATHS"
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'note.classList.add("leave");' in app
   assert 'clearProps: "opacity,transform"' in app
@@ -6909,7 +7081,7 @@ def test_a_phone_opens_a_section_as_its_own_page() -> None:
   ), "the phone lifts the boxed controls to the touch floor"
   assert (
     '.pills [data-drop]::after, .pills [data-setting-drop]::after { content: "";'
-    " position: absolute; inset: -10px; }" in phone
+    " position: absolute; inset: -10px -2px -10px -18px; }" in phone
   ), "keyword pills stay compact while expanding their delete hit area"
   assert (
     '.pills [data-add]::after, .pills [data-setting-add]::after { content: "";'
@@ -7074,8 +7246,8 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
   ).read_text(encoding="utf-8")
-  assert app.count('actionButton(icon("trash")') >= 2, (
-    "the key row and the hook row draw the icon"
+  assert app.count('iconButton("trash"') >= 6, (
+    "keys, lists, overrides, and hooks share iconButton with trash"
   )
   assert 'data-key="${esc(k.name)}">Delete</button>' not in app, "the key row"
   assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"
@@ -7120,8 +7292,11 @@ def test_dashboard_form_rows_keep_their_contracts() -> None:
   provider = app[
     app.index("function providerCard(") : app.index("function renderForm()")
   ]
-  assert provider.count('readonly spellcheck="false" autocomplete="off"') == 1, (
-    "provider text fields share one input renderer"
+  assert app.count('aria-haspopup="dialog" aria-controls="modal"') == 1, (
+    "all click-to-edit modal fields share modalValueInput"
+  )
+  assert provider.count("modalValueInput(") == 1, (
+    "provider text fields share modalValueInput"
   )
 
   run_app_js(
@@ -7158,7 +7333,7 @@ const apiKey = inputFor(LOCALE["provider.api_key.label"]);
 assert(apiKey.includes('type="text"') && apiKey.includes('readonly'), apiKey);
 assert(apiKey.includes('value="env:CF_TOKEN"'), 'an environment token stays visible');
 assert(apiKey.includes('placeholder="' + LOCALE["provider.secret.environment_text"] + '"'), apiKey);
-assert(apiKey.includes("data-set='[&quot;cloudflare&quot;,&quot;api_key&quot;]'"), apiKey);
+assert(apiKey.includes('data-set="[&quot;cloudflare&quot;,&quot;api_key&quot;]"'), apiKey);
 const account = inputFor(LOCALE["provider.account_id.label"]);
 assert(account.includes('type="password"') && account.includes('value=""'), account);
 assert(account.includes('placeholder="acct••••"'), 'a database token stays masked');
@@ -7236,10 +7411,11 @@ assert.strictEqual(probe.kpi('<strong>7</strong>', '<models>'),
   '<div class="kpi"><b><strong>7</strong></b><small>&lt;models&gt;</small></div>');
 const at = Date.now() / 1000 - 600;
 const tenMinutesAgo = LOCALE["time.minute_ago.other_text"].replace("{count}", "10");
+const atIso = new Date(at * 1000).toISOString();
 assert.strictEqual(probe.timeText(at),
-  `<span title="${probe.stamp(at)}">${tenMinutesAgo}</span>`);
+  `<span data-timestamp="${atIso}" title="${probe.stamp(at)}">${tenMinutesAgo}</span>`);
 assert.strictEqual(probe.timeText(at, { tag: 'time', variant: 'muted' }),
-  `<time class="muted" title="${probe.stamp(at)}">${tenMinutesAgo}</time>`);
+  `<time class="muted" datetime="${atIso}" title="${probe.stamp(at)}">${tenMinutesAgo}</time>`);
 assert.strictEqual(probe.statusBadge('<bad>', { variant: 'bad', title: '<reason & "x">' }),
   '<span class="bad" title="&lt;reason &amp; &quot;x&quot;&gt;">&lt;bad&gt;</span>');
 assert.strictEqual(probe.statusCell({ status: '<bad>' }), '&lt;bad&gt;');
@@ -7322,7 +7498,7 @@ assert.strictEqual(probe.actionButton('Select', {
   for name, markup, selector in contracts:
     assert markup in app, f"{name} markup"
     assert selector in app, f"{name} handler"
-  assert 'value="cancel"' in page and 'value="ok"' in page and 'value="close"' in page
+  assert 'value="cancel"' in page and 'value="ok"' in page
   assert '$("modal").addEventListener("close"' in app
   assert 'event.target.returnValue === "ok"' in app
 
@@ -7357,10 +7533,7 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   assert 'id="key-message" role="alert"' in app
   assert 'id="reset-message" role="status"' in app
   assert '<dialog id="modal" class="modal" aria-labelledby="modal-title">' in page
-  assert (
-    '<dialog id="model-modal" class="modal model-modal" aria-labelledby="model-modal-title">'
-    in page
-  )
+  assert '<template id="modal-model-template" data-modal-template="model">' in page
 
 
 def test_dashboard_dialog_modes_clear_stale_state() -> None:
@@ -7622,7 +7795,7 @@ const html = node('models').innerHTML;
 assert(html.includes('class="model-open" type="button"'));
 assert(html.includes('aria-label="synthetic/model"'));
 assert(html.includes('aria-haspopup="dialog"'));
-assert(html.includes('aria-controls="model-modal"'));
+assert(html.includes('aria-controls="modal"'));
 assert(html.includes('data-model="synthetic/model"'));
 """,
   )
@@ -7712,6 +7885,15 @@ input.closest = () => null;
 send('keydown', 'Enter');
 assert.strictEqual(opened, 3);
 assert.strictEqual(prevented, 3);
+
+const providerInput = node('provider-value');
+providerInput.closest = (sel) => (
+  sel === '#provider-form' ? node('provider-form') : sel === '[data-value]' ? providerInput : null
+);
+node('settings').handlers.click.forEach(fn => fn({
+  target: providerInput, preventDefault: () => assert.fail('settings must ignore provider-form rows'),
+}));
+assert.strictEqual(opened, 3);
 """,
   )
 
@@ -7750,9 +7932,9 @@ const key = (target, name) => node('requests').handlers.keydown.forEach(fn => fn
   target, key: name, preventDefault: stop,
 }));
 click(tr);
-assert(node('chain-modal').shown, 'clicking the row opens the dialog');
+assert(node('modal').shown, 'clicking the row opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('<li class="step'), 'the dialog lists every attempt');
-assert(node('chain-modal-title').textContent.length > 0, 'the dialog carries a title');
+assert(node('modal-title').textContent.length > 0, 'the dialog carries a title');
 const iconRow = {at: 99, model: 'groq/synthetic', status: 500, attempts: [
   {model: 'groq/synthetic', result: 'error', seconds: 1},
   {model: 'openai/synthetic', result: 'answered', seconds: 1}]};
@@ -7777,25 +7959,25 @@ const tr3 = {
   closest: selector => selector === '[data-chain-at]' || selector === 'tr[data-chain-at]' ? tr3 : null,
   focus: () => {},
 };
-node('chain-modal').shown = false;
+node('modal').shown = false;
 click(tr3);
-assert(node('chain-modal').shown, 'clicking a failed row without attempts opens the dialog');
+assert(node('modal').shown, 'clicking a failed row without attempts opens the dialog');
 assert(node('chain-modal-body').innerHTML.includes('ui/icons/mistral.svg'),
   'the fallback step shows the requested model mark');
 assert(node('chain-modal-body').innerHTML.includes(LOCALE['request.status.rate_limited_text']),
   'the fallback step shows the rate-limit status note');
 probe.state.requests = [row, plain];
-node('chain-modal').shown = false;
+node('modal').shown = false;
 key(tr, 'Enter');
-assert(node('chain-modal').shown, 'enter on the row opens the dialog');
-node('chain-modal').shown = false;
+assert(node('modal').shown, 'enter on the row opens the dialog');
+node('modal').shown = false;
 key(tr, ' ');
-assert(node('chain-modal').shown, 'space on the row opens the dialog');
+assert(node('modal').shown, 'space on the row opens the dialog');
 assert.strictEqual(prevented, 2, 'the row keys swallow the page scroll');
-node('chain-modal').shown = false;
+node('modal').shown = false;
 click({closest: () => null});
 key({closest: () => null}, 'Enter');
-assert(!node('chain-modal').shown, 'a chain-less surface opens nothing');
+assert(!node('modal').shown, 'a chain-less surface opens nothing');
 sandbox.document.activeElement = tr;
 node('requests').querySelectorAll = () => [tr];
 probe.renderRequests([]);
@@ -8318,17 +8500,16 @@ def test_validation_errors_keep_exception_details_private(
 
 
 def test_scrollbars_are_thin_and_consistent_across_containers() -> None:
-  """Scrollbars use 10 px WebKit thumbs, hidden buttons, and non-WebKit thin fallbacks."""
+  """Scrollbars use 10 px WebKit tracks, 6 px padded thumbs, and non-WebKit thin fallbacks."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   root = re.search(r":root\s*\{([^}]+)\}", css)
   tabs = re.search(r"\.tabs\s*\{([^}]+)\}", css)
   assert root is not None and tabs is not None
-  assert "--scrollbar-thumb: #c8c8d0;" in root.group(1)
+  assert "--scrollbar-thumb: #767682;" in root.group(1)
   assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
-  assert (
-    "::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 6px; }"
-    in css
-  )
+  assert "border: 2px solid var(--bg);" in css
+  assert "background-clip: padding-box; border-radius: 9999px;" in css
+  assert ':root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover' in css
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
   assert "@supports not selector(::-webkit-scrollbar)" in css
   assert (
@@ -8503,7 +8684,7 @@ def test_model_cards_show_registered_db_limits_and_exclude_provider_only_limits(
   run_app_js(
     "state, openModelModal, useStats",
     """
-node('model-modal').showModal = () => {};
+node('modal').showModal = () => {};
 probe.state.requests = [];
 probe.state.limits = {
   providers: [
@@ -8626,9 +8807,10 @@ assert.strictEqual(probe.stamp(afternoon), "2026-10-25 14:30:46");
 
 const timeMarkup = probe.timeText(afternoon, { tag: "time", variant: "muted" });
 const relativeLabel = probe.timeText(afternoon).replace(/^<span[^>]*>|<\/span>$/g, "");
+const afternoonIso = new Date(afternoon * 1000).toISOString();
 assert.strictEqual(
   timeMarkup,
-  '<time class="muted" title="2026-10-25 14:30:46">' + relativeLabel + "</time>",
+  '<time class="muted" datetime="' + afternoonIso + '" title="2026-10-25 14:30:46">' + relativeLabel + "</time>",
 );
 
 probe.state.keys = [{ name: "ops", start: "dae_1", created: afternoon, used: afternoon }];
@@ -8646,7 +8828,7 @@ probe.state.requests = [{
     { model: "demo/m1", result: "answered", seconds: 0.4, error: "" },
   ],
 }];
-node("chain-modal").showModal = function () { this.open = true; };
+node("modal").showModal = function () { this.open = true; };
 probe.openChain(String(afternoon));
 assert(node("chain-modal-body").innerHTML.includes("2026-10-25 14:30:46"));
 
@@ -8693,7 +8875,7 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
   phone = css.split("@media (max-width: 30em) {", 1)[1].split("\n}", 1)[0]
   assert (
     ".requests tbody {" in phone
-    and "repeat(auto-fit, minmax(min(280px, 100%), 1fr))" in phone
+    and "repeat(auto-fill, minmax(min(280px, 100%), 1fr))" in phone
   )
 
 
@@ -8702,31 +8884,38 @@ def test_nuu_scrollbars_and_live_dot_recipes() -> None:
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert "--scrollbar-thumb: #c8c8d0;" in css
-  assert "--scrollbar-thumb: #302e2c;" in css
+  assert "--scrollbar-thumb: #767682;" in css
+  assert "--scrollbar-thumb: #6e6e7a;" in css
   assert "::-webkit-scrollbar { width: 10px; height: 10px; }" in css
+  assert "border: 2px solid var(--bg);" in css
+  assert "background-clip: padding-box; border-radius: 9999px;" in css
+  assert ':root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover' in css
   assert "::-webkit-scrollbar-button { display: none; width: 0; height: 0; }" in css
   assert "@supports not selector(::-webkit-scrollbar)" in css
+  assert ".dot.live { background: var(--orange); }" in css
   assert (
-    "background: var(--orange); flex: none; animation: pulse 1.4s ease-in-out infinite;"
+    ".ico-svg > .dot, .dot.live, .pill.warn .dot { animation: pulse 1.4s var(--ease) infinite; }"
     in css
   )
-  assert (
-    '<span class="ico-svg" aria-hidden="true"><span class="pulse" aria-hidden="true"></span></span>'
-    in app
-  )
+  assert ".ico-slot > svg, .btn-spinner { width: 14px; height: 14px; }" in css
+  assert "animation: nuu-spin 0.8s linear infinite;" in css
+  assert "const liveDot =" in app and '${liveDot()}<span class="live-ago">' in app
+  assert "const iconSlot =" in app and 'iconSlot("refresh_cw")' in app
 
 
 def test_nuu_modal_manager_and_delete_confirmations() -> None:
-  """Modals expose top-right close buttons, restore trigger focus, and gate deletions."""
+  """Modals expose top-right close buttons, action Cancel, focus restore, and delete gates."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  assert page.count('class="ghost modal-close"') == 3
+  assert page.count("<dialog ") == 1
+  assert page.count('class="ghost modal-close"') == 1
+  assert page.count("data-modal-template=") == 3
   assert page.count('class="modal-actions"') == 1
   assert 'id="modal-close"' in page
-  assert 'id="modal-cancel"' not in page
+  assert page.count('id="modal-cancel"') == 1
   for marker in (
+    "mountModalView(",
     "confirmDeleteEntry(",
     "restoreModalTrigger(",
     "rememberModalTrigger(",
@@ -8734,7 +8923,7 @@ def test_nuu_modal_manager_and_delete_confirmations() -> None:
   ):
     assert marker in app, marker
   run_app_js(
-    "ask, restoreModalTrigger",
+    "ask, openLegend, restoreModalTrigger",
     r"""
 let restored = 0;
 let cancelFocused = 0;
@@ -8746,14 +8935,24 @@ node("modal-close").focus = () => { cancelFocused += 1; };
 node("modal-ok").classList = { toggle: () => {} };
 probe.ask("Delete entry", "Delete \"test\"?", "Delete", true);
 assert.strictEqual(cancelFocused, 1, "confirmation modals focus Cancel");
+node("modal").open = false;
 probe.restoreModalTrigger(node("modal"));
 assert.strictEqual(restored, 1, "closing the modal restores trigger focus");
+
+let legendRestored = 0;
+const legendBtn = { focus: () => { legendRestored += 1; } };
+node("legend-body").innerHTML = "<span><code>fr</code>fallback</span>";
+probe.openLegend({ currentTarget: legendBtn });
+assert.strictEqual(node("modal").open, true, "openLegend opens shared modal");
+node("modal").open = false;
+probe.restoreModalTrigger(node("modal"));
+assert.strictEqual(legendRestored, 1, "closing legend restores #legend-open focus");
 """,
   )
 
 
 def test_nuu_loading_bar_and_page_memory_recipes() -> None:
-  """API calls toggle aria-busy in finally, and page memory skips unchanged redraws."""
+  """API calls drive data-loading and aria-busy, and page memory skips unchanged redraws."""
   code = _app_js_vm(
     r"""
 const active = {
@@ -8763,12 +8962,19 @@ const active = {
   setAttribute(name, value) { this.attrs[name] = value; },
 };
 const header = { dataset: {} };
+const scheduled = [];
+sandbox.setTimeout = (fn, ms) => {
+  scheduled.push({ fn, ms });
+  return scheduled.length;
+};
+sandbox.clearTimeout = () => {};
 sandbox.document.querySelector = (sel) => {
   if (sel === "#app > header") return header;
   if (sel === "section[data-page]:not([hidden])") return active;
   return null;
 };
 let seenBusyDuringFetch = null;
+let seenLoadingDuringFetch = null;
 const payload = {
   values: {
     personalization: { theme: "dark", time_format: "24h" },
@@ -8786,15 +8992,19 @@ sandbox.localStorage = { getItem: () => null };
 sandbox.sessionStorage = { getItem: () => null };
 sandbox.fetch = async () => {
   seenBusyDuringFetch = active.attrs["aria-busy"];
+  seenLoadingDuringFetch = active.dataset.loading;
   return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(payload)) };
 };
 vm.runInContext("globalThis.__renders = 0; renderSettings = () => { globalThis.__renders += 1; };", sandbox);
 (async () => {
   await sandbox.loadSettings();
   assert.strictEqual(seenBusyDuringFetch, "true", "active section is aria-busy while fetching");
+  assert.strictEqual(seenLoadingDuringFetch, "true", "active section sets data-loading=true while fetching");
   assert.strictEqual(active.attrs["aria-busy"], "false", "finally resets aria-busy to false");
-  assert.strictEqual(active.dataset.loading, undefined, "finally clears data-loading");
-  assert.strictEqual(header.dataset.loading, undefined, "finally clears header loading");
+  assert.strictEqual(active.dataset.loading, "done", "finally marks data-loading=done for completion fade");
+  while (scheduled.length) scheduled.shift().fn();
+  assert.strictEqual(active.dataset.loading, undefined, "220 ms timer clears data-loading");
+  assert.strictEqual(header.dataset.loading, undefined, "header carries no imperative dataset state");
   assert.strictEqual(sandbox.__renders, 1, "first settings load renders");
   await sandbox.loadSettings();
   assert.strictEqual(sandbox.__renders, 1, "unchanged settings payload skips redraw");
@@ -8985,11 +9195,11 @@ node("set-personalization-time_format").value = "24h";
   assert.strictEqual(sandbox.document.documentElement.dataset.theme, "light", "rollback restores prior theme");
   assert(node("settings").innerHTML.includes('data-theme-value="system"'), "rollback restores themeValue");
   const at = Date.now() / 1000 - 300;
-  node("model-modal").open = true;
-  node("model-modal").showModal = () => {};
+  node("modal").open = true;
+  node("modal").showModal = () => {};
   probe.openDiffModal({ reason: "startup", at, added: [], removed: [], changed: [] });
-  assert(node("model-modal-title").textContent.includes("ago"), "diff modal title uses relative age");
-  assert(node("model-modal-title").title.includes("-"), "diff modal title keeps exact stamp on hover");
+  assert(node("modal-title").textContent.includes("ago"), "diff modal title uses relative age");
+  assert(node("modal-title").title.includes("-"), "diff modal title keeps exact stamp on hover");
   probe.refreshRelativeTimes();
 })().catch((err) => { console.error(err); process.exit(1); });
 """,
@@ -9001,6 +9211,14 @@ def test_semantic_category_tiles_match_vertical_and_horizontal_spacing() -> None
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   assert (
     f"width: {EXPECTED_TILE_PX}px; height: {EXPECTED_TILE_PX}px; border-radius: 6px;"
+    in css
+  )
+  assert (
+    "background: transparent; color: var(--muted); border: 1px solid transparent;"
+    in css
+  )
+  assert (
+    "background: var(--accent); color: var(--on-accent); border-color: var(--accent);"
     in css
   )
   assert (
@@ -9064,13 +9282,15 @@ def test_hook_settings_save_leaves_base_config_unchanged(
   )
   base = settings.DEFAULT_PATH
   before = base.read_bytes()
-  config = root / "fields.json"
+  config = hooks.config_file(root / "fields.py")
+  assert config == state_folder / "hooks" / "fields" / "settings.json"
   assert not config.exists()
   answer = client.put(
     "/ui/api/hooks/settings", json={"name": "fields.py", "values": {"target": "kilo"}}
   )
   assert answer.status_code == 200, answer.text
   assert base.read_bytes() == before
+  assert not (root / "fields.json").exists()
   assert json.loads(config.read_text(encoding="utf-8")) == {"target": "kilo"}
   rows = {
     row["name"]: row for row in client.get("/ui/api/settings").json()["hook_rows"]
@@ -9088,4 +9308,42 @@ def test_hook_settings_save_leaves_base_config_unchanged(
   )
   assert outside.status_code == 404, outside.text
   assert not (state_folder / "fields.json").exists()
+  assert not (state_folder / "hooks" / "fields.json").exists()
   assert base.read_bytes() == before
+
+
+def test_hooks_table_to_cards_and_single_version_datalist() -> None:
+  """Hooks manager and rule tables use table-to-cards responsive CSS and a single datalist input."""
+  root = Path(__file__).resolve().parents[2]
+  app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
+  css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
+  assert '<table class="keys hook-table">' in app
+  assert "hookRuleVersion" not in app
+  assert '.card[data-section="hooks"] .keys.hook-table tbody {' in css
+  assert ".hook-rules td .input input[list] {" in css
+
+
+def test_relative_timestamps_emit_utc_datetime_and_unit_boundary_delays() -> None:
+  """Relative timestamps carry UTC metadata and schedule unit-boundary refresh delays."""
+  run_app_js(
+    "isoUtc, nextRelativeDelay, refreshRelativeNodes, timeText, stamp",
+    """
+const baseNow = Date.UTC(2026, 10, 2, 12, 0, 15);
+assert.strictEqual(probe.nextRelativeDelay(baseNow - 10_000, baseNow), 50_000);
+assert.strictEqual(probe.nextRelativeDelay(baseNow - 7_200_000, baseNow), 3_600_000);
+const stampSec = (baseNow - 120_000) / 1000;
+const iso = probe.isoUtc(stampSec);
+const item = {
+  textContent: "stale",
+  title: "",
+  getAttribute: (name) => (name === "datetime" ? iso : null),
+};
+const delay = probe.refreshRelativeNodes(
+  { querySelectorAll: () => [item] },
+  { now: baseNow, schedule: false },
+);
+assert.strictEqual(item.textContent, "2 minutes ago");
+assert.strictEqual(item.title, probe.stamp(stampSec));
+assert.strictEqual(delay, 60_000);
+""",
+  )

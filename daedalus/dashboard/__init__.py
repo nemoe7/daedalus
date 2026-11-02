@@ -720,11 +720,20 @@ def page() -> APIRouter:
   async def ui_index() -> RedirectResponse:
     return RedirectResponse("/", status_code=307)
 
+  async def serve_ui_asset(key: str) -> Response:
+    if key not in UI_PATHS:
+      return failure(404, "Not found.", "invalid_request_error")
+    return FileResponse(UI_PATHS[key], media_type=UI_FILES[key], headers=FRESH)
+
+  for folder in sorted({name.split("/", 1)[0] for name in UI_FILES if "/" in name}):
+
+    @pages.get(f"/ui/{folder}/{{name:path}}", include_in_schema=False)
+    async def nested_asset(name: str, prefix: str = folder) -> Response:
+      return await serve_ui_asset(f"{prefix}/{name}")
+
   @pages.get("/ui/{name}", include_in_schema=False)
   async def asset(name: str) -> Response:
-    if name not in UI_PATHS:
-      return failure(404, "Not found.", "invalid_request_error")
-    return FileResponse(UI_PATHS[name], media_type=UI_FILES[name], headers=FRESH)
+    return await serve_ui_asset(name)
 
   @pages.get("/ui/icons/{name}", include_in_schema=False)
   async def model_mark(name: str) -> Response:
@@ -1175,6 +1184,8 @@ def file_routes(
     if not allowed(request):
       return denied()
     main = FILES[0]
+    if config.sync_files():
+      rebuild()
     shadows = config.file_shadows(main)
     found = []
     for path in config_files():
@@ -1256,6 +1267,7 @@ def file_routes(
   async def env_list(request: Request) -> JSONResponse:
     if not allowed(request):
       return denied()
+    config.sync_files()
     return JSONResponse(env_rows())
 
   @api.put("/env")
