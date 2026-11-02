@@ -370,9 +370,14 @@ async function editValue(input, write) {
 // Open the row-value editor on a click.
 function bindValueRows(host, write) {
   const activate = (event) => {
+    if (
+      host.id === "settings"
+      && (event.composedPath?.().includes($("provider-form")) || event.target?.closest?.("#provider-form"))
+    ) return;
     const input = event.target.closest("[data-value]");
     if (!input || input.disabled) return;
     event.preventDefault();
+    event.stopPropagation?.();
     editValue(input, write);
   };
   host.addEventListener("click", activate);
