@@ -705,6 +705,7 @@ section[data-page="providers"], section[data-page="settings"] {
 td.end > .ghost + .ghost { margin-left: 8px; }
 .pill button:hover, .override > .ghost:hover { color: var(--bad); }
 .add {
+  display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 12px; border: 1px dashed var(--control-line); border-radius: 9999px; background: transparent;
   color: var(--muted); font-size: 12px; line-height: 22px; cursor: pointer;
 }
