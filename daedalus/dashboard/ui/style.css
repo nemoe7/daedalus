@@ -115,6 +115,10 @@ a, button, .snippet, .card, .chip, .pill, tr.request td {
   transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease),
     border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
 }
+.tile, .rail-search {
+  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), opacity var(--fast) var(--ease);
+}
 .skip-link {
   position: fixed; top: 8px; left: 16px; z-index: 100;
   display: inline-flex; align-items: center; min-height: 44px; padding: 8px 16px;
@@ -830,18 +834,19 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 .field input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 /* A boolean row draws a switch at the right edge of the row: a pill with a knob that
    slides when the value changes. The label keeps the left of the row. */
-.field input.switch {
+input.switch, .field input.switch {
   appearance: none; position: relative; width: 44px; height: 26px; margin: 0; flex: none; cursor: pointer;
   border: 1px solid var(--line); border-radius: 9999px; background: var(--field);
   transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
 }
-.field input.switch::before {
+input.switch::before, .field input.switch::before {
   content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
   border-radius: 50%; background: var(--muted);
   transition: transform var(--fast) var(--ease), background-color var(--fast) var(--ease);
 }
-.field input.switch:checked { border-color: var(--accent); background-color: var(--accent); }
-.field input.switch:checked::before { background: var(--on-accent); transform: translateX(18px); }
+input.switch:checked, .field input.switch:checked { border-color: var(--accent); background-color: var(--accent); }
+input.switch:checked::before, .field input.switch:checked::before { background: var(--on-accent); transform: translateX(18px); }
+:root[data-keyboard-nav="true"] input.switch:focus-visible,
 :root[data-keyboard-nav="true"] .field input.switch:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 .theme-seg {
   display: inline-flex; align-items: center; gap: 2px; padding: 2px; flex: none;
@@ -850,6 +855,8 @@ section[data-page="settings"] .field input[type=text] { width: 110px; padding: 4
 .theme-seg button {
   display: inline-grid; place-items: center; width: 32px; height: 32px; padding: 0;
   border: 0; border-radius: 4px; background: transparent; color: var(--muted);
+  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease),
+    box-shadow var(--fast) var(--ease);
 }
 @media (hover: hover) {
   .theme-seg button:hover { color: var(--text); }

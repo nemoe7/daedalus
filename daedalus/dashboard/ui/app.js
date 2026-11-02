@@ -1283,7 +1283,7 @@ function renderRequestTable() {
     state.liveCount = live;
     hint.classList.remove("bump");
     hint.classList.add("bump");
-    tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }, { duration: 0.2, clearProps: "opacity" });
+    tweenFromTo(hint, { opacity: 0.45 }, { opacity: 1 }, { clearProps: "opacity" });
   }
   queueRequestsFill();
 }
@@ -1599,7 +1599,7 @@ const DRAWN = new Map();
 // Animate each host only on its first data render.
 const DRAWN_SHOWN = new Set();
 function animateArrival(host) {
-  const inPaneCard = Boolean(host?.matches?.(".section-pane > .card"));
+  const inPaneCard = Boolean(host?.matches?.(".section-pane > .card, .section-pane > [data-section], .hook-page"));
   tweenFromTo(host, inPaneCard ? { opacity: 0 } : { opacity: 0, y: -4 }, inPaneCard ? { opacity: 1 } : { opacity: 1, y: 0 });
 }
 function firstDraw(host) {
@@ -1832,7 +1832,8 @@ function openProviderFile(index) {
   renderFiles();
   renderForm();
   setProviderRoute(state.files[index]?.path, null);
-  replay($("provider-form"));
+  if (phoneSection()) playSlide($("provider-form"), true);
+  else replay($("provider-form"));
 }
 
 function captureProviderYamlDraft() {
@@ -2274,12 +2275,20 @@ function hookPageNote(text, bad = false) {
   note.classList.toggle("bad", Boolean(bad));
 }
 
+function animateHookSwap(open) {
+  const card = document.querySelector('#settings .card[data-section="hooks"]');
+  if (!card) return;
+  if (phoneSection()) tweenFromTo(card, { opacity: 0, x: open ? 14 : -14 }, { opacity: 1, x: 0 });
+  else replay(card.querySelector(".hook-page") || card);
+}
+
 async function openHookPage(name) {
   const row = (state.settings.hook_rows || []).find((item) => item.name === name);
   state.hookOpen = name;
   state.hookDraft[name] = clone(row?.values || {});
   state.hookOptions = {};
   renderSettings();
+  animateHookSwap(true);
   for (const entry of row?.settings || []) {
     if (entry.type !== "rules") continue;
     const rules = state.hookDraft[name][entry.key] || [];
@@ -2292,6 +2301,7 @@ function closeHookPage() {
   delete state.hookDraft[state.hookOpen];
   state.hookOpen = "";
   renderSettings();
+  animateHookSwap(false);
 }
 
 // The draft rules of 1 field, kept in state so a redraw keeps an unsaved edit.
@@ -2988,7 +2998,7 @@ function selectSection(host, key, open = sectionState(host).open) {
   }
   // A desktop section change fades the arriving card in, as a phone slides it.
   const arrived = host.querySelector(":scope > .section-pane > [data-section]:not([hidden])");
-  if (arrived && before && arrived.dataset.section !== before && !phoneSection()) replay(arrived);
+  if (arrived && (moved || (before && arrived.dataset.section !== before)) && !phoneSection()) replay(arrived);
   // A provider file names its list, while a selected provider names its detail page.
   if (host.id === "provider-form") {
     const file = state.files[state.file];
@@ -3067,9 +3077,6 @@ function openSection(host, key) {
     renderForm();
   }
   selectSection(host, key, true);
-  // Animate section changes in Providers and Settings.
-  replay([...host.querySelectorAll(".section-pane > .card")]
-    .find((card) => card.dataset.section === key));
   // A nested pane changes height with its section, so refit the scroll bounds here.
   fitSectionPane();
   if (host.id === "provider-form") {
@@ -3103,6 +3110,7 @@ function closeSection(host) {
     selectSection(host, key, false);
     renderFiles();
     renderForm();
+    slideAgain();
     return;
   }
   const file = state.files[state.file];
@@ -3131,6 +3139,8 @@ function closeSection(host) {
     renderForm();
     setProviderRoute(null, null, false);
   }
+  if (phoneSection()) slideAgain();
+  else replay(host);
 }
 
 // Read the section hash for deep links and the phone back gesture.
