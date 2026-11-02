@@ -130,7 +130,7 @@ The UI implementation in `daedalus/dashboard/ui/app.js` and `daedalus/dashboard/
 4. **Filter Toolbar (`.toolbar`, `.editbar`, `.requests-bar`)**: Flex row (`gap: 8px`) with text search, status `<select>`, time-range `<select>`, `#live-toggle`, `#legend-open` (`<= 68em`), and `#request-clear`.
 5. **Requests Table and Legend (`table.requests`, `.legend`, `#requests-legend`, `#legend-open`)**: 11-column log table paired with a `260px` side card above `68em` (`#legend-open` modal at `<= 68em`, `auto-fit` cards at `<= 30em`).
 6. **Settings Shell (`.settings`, `.rail`, `.sections`, `.section-pane`, `.field`, `.theme-seg`)**: 4 `.rail` cards load `.section-pane`, and `24x24` `.tile` icons stay transparent until selected (`--accent`). Provider drill-down bars and override rows clamp inside `.section-pane`, and `Personalization` renders `theme` as a 3-way `monitor` / `sun` / `moon` `radiogroup` (`.theme-seg`).
-7. **Token Chip Editor (`.pills`, `.pill`, `[data-add]`)**: Inline keyword and pattern tag lists with confirmation-gated removal and modal or inline addition.
+7. **Keyword Lists and Token Chips (`.setting-list`, `.pills`, `.pill`, `[data-add]`)**: Settings list fields render stacked `.setting-list-row` items with trash actions and inline add inputs. Provider forms keep compact `.pill` tags for inline model and tier lists.
 8. **Modal Dialogs (`<dialog id="modal">`, `<dialog id="chain-modal">`, `<dialog id="model-modal">`)**: Native `<dialog>` overlays opened via `showModal()` use a borderless top-right `x` button (`margin: -8px -8px -8px 0`) and no footer `Cancel` or `Close` buttons. They focus `x` on confirmations, restore focus on `close`, and fade and lift without scaling.
 
 ### Hook Page
