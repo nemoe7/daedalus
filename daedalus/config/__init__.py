@@ -19,21 +19,11 @@ DEFAULT_PATH = Path("config/providers/free.yml")
 STATE_DIR = Path(__file__).resolve().parents[2] / ".daedalus-state"
 # The key of a provider block that holds the block of its own `{provider}.yml` file.
 FILE_KEY = "_file"
-# A provider file names at least 1 of these keys. The settings file names none of them.
-PROVIDER_KEYS = (
-  "api_key",
-  "client_keys",
-  "api_base",
-  "api_type",
-  "discovery_url",
-  "discovery_match",
-  "exclude",
-  "tier",
-  "models",
-)
 
 _config: dict[str, Any] | None = None
 _local_config: dict[str, Any] | None = None
+_loaded_path: Path | None = None
+_loaded_files: tuple[tuple[Path, int], ...] | None = None
 SAVED: dict[str, str] = {}
 
 # The shape of each known key of a provider block: the type of the value, and the words of a refusal.
@@ -156,21 +146,47 @@ def provider_blocks(
   return [(file, read_yaml(file)) for file in provider_files(path)]
 
 
+def _is_settings_block(content: dict[str, Any], groups: set[str]) -> bool:
+  """Tell whether a YAML mapping holds settings groups rather than a provider block."""
+  if not content or not (set(content) <= groups):
+    return False
+  hooks = content.get("hooks")
+  return hooks is None or isinstance(hooks, dict)
+
+
 def provider_files(path: Path | str = DEFAULT_PATH) -> list[Path]:
-  """List the `{provider}.yml` paths beside the main file, including files with invalid YAML."""
+  """List the `{provider}.yml` paths beside the main file, sorted by name."""
+  from daedalus.config import defaults, settings
+
   main = Path(path)
+  skip_paths = {
+    main.resolve(),
+    settings.DEFAULT_PATH.resolve(),
+    defaults.PATH.resolve(),
+  }
+  groups = set(settings.DEFAULTS)
   found = []
   for file in sorted(main.parent.glob("*.yml")):
-    if file.name == main.name:
+    if "." in file.stem or file.name == "daedalus.yml" or file.resolve() in skip_paths:
       continue
     try:
       content = read_yaml(file)
     except yaml.YAMLError:
       found.append(file)
       continue
-    if any(key in content for key in PROVIDER_KEYS):
-      found.append(file)
+    if _is_settings_block(content, groups):
+      continue
+    found.append(file)
   return found
+
+
+def _file_stamps(path: Path) -> tuple[tuple[Path, int], ...]:
+  """Return resolved paths and nanosecond mtimes for the main file and its provider files."""
+  return tuple(
+    (file.resolve(), file.stat().st_mtime_ns)
+    for file in (path, *provider_files(path))
+    if file.exists()
+  )
 
 
 def file_shadows(path: Path | str = DEFAULT_PATH) -> dict[str, str]:
@@ -246,7 +262,7 @@ def drop_wrong_shapes(loaded: dict[str, Any], where: str, stem: str) -> None:
 
 def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
   """Read the local provider files and cached defaults into memory."""
-  global _config, _local_config
+  global _config, _local_config, _loaded_path, _loaded_files
   load_saved()
   source = Path(path)
   try:
@@ -273,7 +289,27 @@ def load_config(path: Path | str = DEFAULT_PATH) -> dict[str, Any]:
 
   defaults.fill(loaded)
   _config = loaded
+  _loaded_path = source
+  _loaded_files = _file_stamps(source)
   return _config
+
+
+def sync_files(path: Path | str | None = None) -> bool:
+  """Reload provider files when files on disk appear, change, or leave."""
+  global _loaded_files
+  source = Path(path) if path is not None else _loaded_path
+  if source is None:
+    return False
+  stamps = _file_stamps(source)
+  if stamps == _loaded_files:
+    return False
+  try:
+    load_config(source)
+  except yaml.YAMLError as exc:
+    _loaded_files = stamps
+    logger.warning("provider reload skipped (%s)", error_text(exc))
+    return False
+  return True
 
 
 def file_block(provider: Any) -> dict[str, Any] | None:
@@ -333,6 +369,8 @@ def get_config() -> dict[str, Any]:
 
 def set_config(config: dict[str, Any] | None) -> None:
   """Replace the loaded and local config for tests."""
-  global _config, _local_config
+  global _config, _local_config, _loaded_path, _loaded_files
   _config = config
   _local_config = dict(config) if config is not None else None
+  _loaded_path = None
+  _loaded_files = None

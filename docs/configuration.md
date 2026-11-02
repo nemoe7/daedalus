@@ -45,11 +45,10 @@ A restart reads the edited file.
 | Item | Rule |
 | --- | --- |
 | Name | The file name is the provider name: [`openrouter.yml`](../config/providers/openrouter.yml) holds `openrouter`. |
-| Provider key | A file with no provider key, like `api_key` or `models`, is not a provider file. |
 | Discovery | Each file discovers the models of its provider with its own settings. |
 | Models | A file keeps only the models of its `models` keys. `"*"` keeps each model. |
 | Values | A kept model takes its values from its file only, not [`free.yml`](../config/providers/free.yml). |
-| New file | The **Providers** page makes a file. An unknown name also gets an empty `api_base`. |
+| New file | Create `{provider}.yml` on the **Providers** page or in `config/providers/`. An unknown name on **Providers** starts with an empty `api_base`. |
 
 ## Environment variables
 

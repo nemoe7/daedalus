@@ -4126,6 +4126,7 @@ async function selectSettingsSection(key) {
     clearWrite("settings");
     renderSettings();
   }
+  if (key === "providers") guarded(syncProviderFiles);
   openSection($("settings"), key);
 }
 
@@ -4615,6 +4616,50 @@ function maintenanceCard() {
   return `<div class="card" data-section="maintenance" id="update-card">${body}</div>`;
 }
 
+async function syncProviderFiles() {
+  if (!state.files.length) return;
+  captureProviderYamlDraft();
+  const dirtyPaths = new Set(
+    state.files.map((file, index) => (fileDirty(index) ? file.path : "")).filter(Boolean),
+  );
+  const previous = new Map(state.files.map((file, index) => [file.path, {
+    text: file.text, saved: state.saved[index], blocks: state.forms[index], formSaved: state.formSaved[index],
+  }]));
+  const openPath = state.files[state.file]?.path ?? "";
+  const fresh = await call("files", { spinner: false });
+  const beforeSignature = JSON.stringify(state.files.map((file) => [file.path, file.text, file.shadow, file.error]));
+  const afterSignature = JSON.stringify(fresh.map((file) => [file.path, file.text, file.shadow, file.error]));
+  if (beforeSignature === afterSignature) return;
+  state.files = fresh.map((file) => (
+    dirtyPaths.has(file.path) ? { ...file, text: previous.get(file.path).text } : file
+  ));
+  state.saved = state.files.map((file) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).saved : file.text
+  ));
+  state.forms = state.files.map((file) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).blocks : clone(file.blocks)
+  ));
+  state.formSaved = state.files.map((file, index) => (
+    dirtyPaths.has(file.path) ? previous.get(file.path).formSaved : formText(index)
+  ));
+  const nextIndex = state.files.findIndex((file) => file.path === openPath);
+  if (nextIndex >= 0) {
+    state.file = nextIndex;
+    renderFiles();
+    if (state.fileOpen && !dirtyPaths.has(openPath)) renderForm();
+  } else {
+    state.file = 0;
+    state.fileOpen = false;
+    state.providerReturnKey = "";
+    const section = sectionState("provider-form");
+    section.key = "";
+    section.open = false;
+    renderFiles();
+    renderForm();
+  }
+  guarded(refreshEnv);
+}
+
 async function refreshSlow({ fresh = false } = {}) {
   const [pools, models, limits, notifications] = await Promise.all([
     call("pools"),
@@ -4622,6 +4667,7 @@ async function refreshSlow({ fresh = false } = {}) {
     call("limits"),
     call("notifications"),
     refreshKeys(),
+    syncProviderFiles(),
   ]);
   const poolsChanged = rememberJson("pools", pools, fresh);
   const modelsChanged = rememberJson("models", models, fresh);
