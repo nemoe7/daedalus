@@ -2,6 +2,7 @@
 
 import inspect
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -18,6 +19,17 @@ from daedalus.store import database
 
 # The master key of a test file without its own MASTER value.
 MASTER = "test-master-key-0001"
+# The variables that .env sets, also when an editor loads .env into the shell.
+ENV_NAMES = re.findall(
+  r"(?m)^#?\s*([A-Z][A-Z0-9_]*)=",
+  (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8"),
+)
+
+
+def clear_shell_env() -> None:
+  """Remove each .env.example variable from the environment of the test process."""
+  for name in ENV_NAMES:
+    os.environ.pop(name, None)
 
 
 class StoreDirectory(tempfile.TemporaryDirectory):
@@ -97,7 +109,7 @@ def state_folder(
   """Create temporary per-file state and reset shared router state."""
   folder = tmp_path_factory.mktemp("state")
   environ = dict(os.environ)
-  os.environ.pop(headroom.HEADROOM_URL, None)
+  clear_shell_env()
   os.environ[dashboard.DAEDALUS_MASTER_KEY] = getattr(request.module, "MASTER", MASTER)
   with pytest.MonkeyPatch.context() as patch:
     patch.setattr(tempfile, "TemporaryDirectory", StoreDirectory)
