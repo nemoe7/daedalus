@@ -18,12 +18,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-  "aiohttp>=3.14",
-  "pytest>=9.1",
-  "pytest-xdist>=3.8",
-  "ruff==0.17.3",
-]
+dev = ["aiohttp>=3.14", "pytest>=9.1", "pytest-xdist>=3.8", "ruff==0.17.3"]
 
 [project.scripts]
 daedalus = "daedalus.cli:run"
@@ -57,7 +52,7 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # loadfile: the tests of 1 file run in 1 worker, in file order, with its module fixtures.
-addopts = "-n auto --dist loadfile -p no:cacheprovider"
+addopts = "-n auto -q --dist loadfile -p no:cacheprovider"
 
 [tool.nemoizer]
 context = "description"
@@ -95,4 +90,3 @@ extend-exclude = [
 "integrations/openwebui/tools/github.py" = ["NMO901"]
 # A migration step on the main branch keeps its text, and a new step replaces it.
 "daedalus/store/migrations/versions/*.py" = ["NMO901", "NMO902"]
-
