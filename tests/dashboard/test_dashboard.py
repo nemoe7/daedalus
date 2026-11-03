@@ -7234,10 +7234,10 @@ def test_hook_table_columns() -> None:
     '<th>${t("hook.column.author_title")}</th>'
     '<th>${t("hook.column.version_column")}</th>'
     '<th>${t("hook.column.surfaces_column")}</th>'
-    '<th>${t("hook.column.scopes_column")}</th>'
+    '<th class="hook-scope">${t("hook.column.scopes_column")}</th>'
   )
   assert columns in app, "the hooks table names its columns in the note order"
-  assert '<th class="hide-sm">${t("hook.column.source_column")}</th>' in app
+  assert '<th class="hook-source hide-sm">${t("hook.column.source_column")}</th>' in app
   assert '<th>${t("hook.column.enabled_column")}</th>' in app
 
 
@@ -8850,7 +8850,10 @@ def test_house_breakpoints_rail_search_and_responsive_folds() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   allowed = {"68em", "60em", "30em", "24em"}
   media_re = re.compile(r"\(\s*(?:min|max)-(?:width|height)\s*:\s*([^)]+?)\s*\)")
-  css_breakpoints = set(media_re.findall(css))
+  media_css = "\n".join(
+    line for line in css.splitlines() if not line.lstrip().startswith("@container")
+  )
+  css_breakpoints = set(media_re.findall(media_css))
   js_breakpoints = set(media_re.findall(app))
   assert css_breakpoints == allowed
   assert js_breakpoints <= allowed
@@ -9320,6 +9323,10 @@ def test_hooks_table_to_cards_and_single_version_datalist() -> None:
   assert '<table class="keys hook-table">' in app
   assert "hookRuleVersion" not in app
   assert '.card[data-section="hooks"] .keys.hook-table tbody {' in css
+  assert ".hook-group { container: hooks / inline-size; }" in css
+  assert css.index("@container hooks (max-width: 50rem) {") < css.index(
+    ".keys.hook-table tbody {"
+  )
   assert ".hook-rules td .input input[list] {" in css
 
 

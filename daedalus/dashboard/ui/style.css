@@ -538,6 +538,8 @@ table.limits td.num .weight { justify-content: flex-end; }
 .card[data-section="hooks"] .keys td.surfaces { min-width: 9.5rem; white-space: normal; }
 .card[data-section="hooks"] .keys td.surfaces .pill { white-space: nowrap; }
 .card[data-section="hooks"] .keys td.end { white-space: nowrap; text-align: right; padding-right: 2px; }
+.card[data-section="hooks"] .keys.hook-table :is(th, td):is(.hook-scope, .hook-source) { width: auto; white-space: normal; overflow-wrap: break-word; }
+.hook-group { container: hooks / inline-size; }
 .card[data-section="hooks"] [data-hooks-update] { margin-top: 8px; }
 #hook-source { max-width: 100%; min-width: 0; }
 .card[data-section="hooks"] .hook-order { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
@@ -1222,7 +1224,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   .chain-modal li { overflow-wrap: anywhere; white-space: normal; }
   .chain-modal pre { overflow-wrap: anywhere; white-space: pre-wrap; }
   .chain-modal pre, .chain-modal .from, .chain-modal code { font-size: inherit; }
-  /* Stack hook rules and installed hooks as table-to-cards grids below 60em. */
+  /* Stack hook rules as table-to-cards grids below 60em. */
   .card[data-section="hooks"] .card-scroll { overflow: visible; mask-image: none; }
   .hook-rules thead { display: none; }
   .hook-rules { display: block; border: 0; }
@@ -1243,6 +1245,12 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
     display: flex; grid-column: 1 / -1; width: 100%; justify-content: flex-end; padding: 0;
   }
   .hook-rules .mobile-label { display: inline; color: var(--muted); font-size: inherit; }
+}
+
+/* Installed hooks turn into cards when the hook group is too narrow for the table. */
+@container hooks (max-width: 50rem) {
+  .card[data-section="hooks"] .card-scroll { overflow: visible; mask-image: none; }
+  .card[data-section="hooks"] .keys.hook-table .only-sm { display: block; }
   .card[data-section="hooks"] .keys.hook-table { display: block; border: 0; }
   .card[data-section="hooks"] .keys.hook-table thead { display: none; }
   .card[data-section="hooks"] .keys.hook-table tbody {

@@ -2376,7 +2376,7 @@ function hooksManager() {
       <td role="cell" class="hook-ver"><span class="cell-value">${esc(hookVersion(row))}</span></td>
       <td role="cell" class="surfaces">${hookSurfacesCell(row)}</td>
       <td role="cell" class="hook-scope">${mobileLabel(t("hook.column.scopes_column"))}<span class="cell-value">${esc(row.scope || t("hook.scope.global_text"))}${(row.targets || []).length ? `: ${esc(row.targets.join(", "))}` : ""}</span></td>
-      <td role="cell" class="hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
+      <td role="cell" class="hook-source hide-sm"><span class="cell-value" title="${esc(row.problem || source || t("hook.scope.local_text"))}">${row.problem ? statusBadge(row.problem, { variant: "bad" }) : esc(record.repo || t("hook.scope.local_text"))}${record.commit ? `<span class="hook-sha">${esc(record.commit.slice(0, 7))}</span>` : ""}</span></td>
       <td role="cell" class="hook-enabled"><input type="checkbox" role="switch" class="switch" data-hook-toggle="${esc(row.name)}"
         ${row.enabled ? "checked" : ""} aria-label="${t("hook.state.enabled_named_label", { name: esc(row.name) })}">${mobileLabel(t("hook.column.enabled_column"))}</td>
       <td class="end">${(row.settings || []).length ? iconButton("settings", {
@@ -2395,7 +2395,7 @@ function hooksManager() {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
-      <div class="card-scroll scroll-fade"><table class="keys hook-table"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th>${t("hook.column.scopes_column")}</th><th class="hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
+      <div class="card-scroll scroll-fade"><table class="keys hook-table"><thead><tr><th>${t("hook.column.author_title")}</th><th>${t("hook.column.version_column")}</th><th>${t("hook.column.surfaces_column")}</th><th class="hook-scope">${t("hook.column.scopes_column")}</th><th class="hook-source hide-sm">${t("hook.column.source_column")}</th><th>${t("hook.column.enabled_column")}</th><th></th></tr></thead>
       <tbody>${list}</tbody></table></div>
       ${actionButton(`${iconSlot("refresh_cw")}<span>${t("action.update_sources_button")}</span>`, {
         variant: "ghost btn-slot", attrs: { "data-hooks-update": true },
