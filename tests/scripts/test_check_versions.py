@@ -84,8 +84,20 @@ def test_missing_git_refs_fail(version_repository, missing):
     ("new-unversioned", 1),
     ("delete", 0),
     ("unwatched", 0),
-    ("new-tab", 0),
-    ("new-tab-unversioned", 1),
+    pytest.param(
+      "new-tab",
+      0,
+      marks=pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows forbids tabs in filenames"
+      ),
+    ),
+    pytest.param(
+      "new-tab-unversioned",
+      1,
+      marks=pytest.mark.skipif(
+        sys.platform == "win32", reason="Windows forbids tabs in filenames"
+      ),
+    ),
     ("rename", 0),
   ],
 )

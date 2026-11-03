@@ -124,7 +124,7 @@ def client(token: str = "t0ken") -> "tool.Tools":
 
 
 def test_the_surface_holds_the_tool_list():
-  tree = ast.parse(TOOL.read_text())
+  tree = ast.parse(TOOL.read_text(encoding="utf-8"))
   cls = next(
     node
     for node in tree.body
@@ -156,7 +156,7 @@ def test_always_ask_holds_a_read_without_a_dialog():
 
 
 def test_every_write_goes_through_the_gate():
-  tree = ast.parse(TOOL.read_text())
+  tree = ast.parse(TOOL.read_text(encoding="utf-8"))
   cls = next(
     node
     for node in tree.body

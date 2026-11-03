@@ -1,5 +1,6 @@
 """Tests of the state file connections."""
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -24,7 +25,7 @@ def test_open(folder: Path) -> None:
   assert durable.execute("PRAGMA synchronous").fetchone()[0] == 2, "FULL"
   assert durable.execute("SELECT a FROM t").fetchall() == [(1,)]
   durable.close()
-  database._KEEPERS.pop(str(path)).close()
+  database.prune(str(path))
   for name in ("state.sqlite3", "state.sqlite3-wal", "state.sqlite3-shm"):
     (path.parent / name).unlink(missing_ok=True)
   again = database.open_db(path, TABLE)
@@ -32,6 +33,7 @@ def test_open(folder: Path) -> None:
   again.close()
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Windows cannot unlink an open SQLite file")
 def test_open_reconnects_when_state_file_is_replaced(folder: Path) -> None:
   """Replacing a state file on disk prunes stale cached and keeper connections."""
   import threading
@@ -91,7 +93,12 @@ def folder(tmp_path: Path) -> Path:
   [
     "plain.sqlite3",
     "hash#state.sqlite3",
-    "query?state.sqlite3",
+    pytest.param(
+      "query?state.sqlite3",
+      marks=pytest.mark.skipif(
+        os.name == "nt", reason="Windows forbids ? in filenames"
+      ),
+    ),
     "percent%20state.sqlite3",
   ],
 )
@@ -117,7 +124,12 @@ def test_read_uri_path(tmp_path: Path, monkeypatch, name: str, relative: bool) -
   [
     "plain.sqlite3",
     "hash#state.sqlite3",
-    "query?state.sqlite3",
+    pytest.param(
+      "query?state.sqlite3",
+      marks=pytest.mark.skipif(
+        os.name == "nt", reason="Windows forbids ? in filenames"
+      ),
+    ),
     "percent%20state.sqlite3",
   ],
 )

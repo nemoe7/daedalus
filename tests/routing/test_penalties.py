@@ -331,7 +331,7 @@ def test_requests() -> None:
   original = api.get_config, api.chain
   affinity = api.PENALTIES.enabled, api.PENALTIES.change_on_draw, api.PENALTIES.stay
   api.get_config = lambda: config
-  api.chain = lambda model, body, config, key="": (
+  api.chain = lambda model, body, config, key="", headers=None: (
     [["a/1", "b/1"], ["c/1"]],
     "daedalus/deinos",
   )
@@ -393,7 +393,10 @@ def test_ttft() -> None:
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain, api.SLOW_SECONDS
   api.get_config = lambda: config
-  api.chain = lambda model, body, config, key="": ([["a/1"]], "daedalus/deinos")
+  api.chain = lambda model, body, config, key="", headers=None: (
+    [["a/1"]],
+    "daedalus/deinos",
+  )
   frames = [role, text, "[DONE]"]
   sse = "".join(
     f"data: {json.dumps(item) if item != '[DONE]' else item}\n\n" for item in frames
@@ -541,7 +544,10 @@ def test_a_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config, key="": (([["a/1"]]), "daedalus/deinos")
+  api.chain = lambda model, body, config, key="", headers=None: (
+    ([["a/1"]]),
+    "daedalus/deinos",
+  )
   upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
   client = TestClient(api.app, headers=AUTH)
   body = {"model": "daedalus/deinos", "messages": [{"role": "user", "content": "x"}]}

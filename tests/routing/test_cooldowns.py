@@ -257,7 +257,7 @@ def test_requests() -> None:
 
   original = api.get_config, api.chain
   api.get_config = lambda: config
-  api.chain = lambda model, body, config, key="": (
+  api.chain = lambda model, body, config, key="", headers=None: (
     ([[model]], None)
     if "/" in model and "daedalus" not in model
     else ([["first/a", "second/b"]], "daedalus/koinos")

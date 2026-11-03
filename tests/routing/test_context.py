@@ -85,7 +85,10 @@ def test_requests(monkeypatch, tmp_path) -> None:
     "messages": [{"role": "user", "content": "x" * 400}],
   }
   try:
-    api.chain = lambda model, body, config, key="": ([["a/1", "b/1"]], None)
+    api.chain = lambda model, body, config, key="", headers=None: (
+      [["a/1", "b/1"]],
+      None,
+    )
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 200, response.text
     assert response.json()["choices"][0]["message"]["content"] == "b.test"
@@ -96,7 +99,10 @@ def test_requests(monkeypatch, tmp_path) -> None:
     ]
     assert steps == [("b/1", "answered")], "a skip is silent"
     assert "fallbacks=0" in lines.lines[-1], lines.lines[-1]
-    api.chain = lambda model, body, config, key="": ([["c/1", "b/1"]], None)
+    api.chain = lambda model, body, config, key="", headers=None: (
+      [["c/1", "b/1"]],
+      None,
+    )
     small = {**large, "messages": [{"role": "user", "content": "x"}]}
     assert client.post("/v1/chat/completions", json=small).status_code == 200
     failed = dashboard.HISTORY.latest(1)[0]["attempts"][0]
@@ -104,21 +110,27 @@ def test_requests(monkeypatch, tmp_path) -> None:
     assert failed["error"] == upstream.RateLimited().safe_line, failed
     assert "Rate limit for c" not in failed["error"], failed
     assert isinstance(failed["seconds"], float), failed
-    api.chain = lambda model, body, config, key="": ([["a/1", "b/1"]], None)
+    api.chain = lambda model, body, config, key="", headers=None: (
+      [["a/1", "b/1"]],
+      None,
+    )
     response = client.post("/v1/chat/completions", json=small)
     assert response.json()["choices"][0]["message"]["content"] == "a.test"
-    api.chain = lambda model, body, config, key="": ([["a/1"]], None)
+    api.chain = lambda model, body, config, key="", headers=None: ([["a/1"]], None)
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 400, response.text
     assert response.json()["error"]["code"] == "context_length_exceeded"
-    api.chain = lambda model, body, config, key="": ([[]], None)
+    api.chain = lambda model, body, config, key="", headers=None: ([[]], None)
     response = client.post("/v1/chat/completions", json=large)
     assert response.status_code == 502, "an empty chain is not a context error"
     api.PENALTIES.clear()
     key = api.session_key(MASTER, large["messages"])
     api.PENALTIES.pin(key, "deinos", "a/1")
     api.PENALTIES.record("b/1", 0.5)
-    api.chain = lambda model, body, config, key="": ([["a/1", "b/1", "d/1"]], "deinos")
+    api.chain = lambda model, body, config, key="", headers=None: (
+      [["a/1", "b/1", "d/1"]],
+      "deinos",
+    )
     response = client.post("/v1/chat/completions", json=large)
     assert response.json()["choices"][0]["message"]["content"] == "b.test", (
       "the draw skips a too-small pinned model"

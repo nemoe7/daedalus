@@ -326,7 +326,10 @@ from daedalus.cli import run
 with tempfile.TemporaryDirectory() as folder:
   store.MODELS_DB = Path(folder) / "models.sqlite3"
   discovery.DUMP_DIR = Path(folder) / "dump"
-  run()
+  try:
+    run()
+  finally:
+    store.prune(str(store.MODELS_DB))
 """
 
 

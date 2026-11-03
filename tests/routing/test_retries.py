@@ -149,7 +149,8 @@ def shipped_hook() -> str:
   folder.mkdir(parents=True, exist_ok=True)
   target = folder / "owui_auto_reasoning_effort.py"
   target.write_text(
-    Path("hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8")
+    Path("hooks/owui_auto_reasoning_effort.py").read_text(encoding="utf-8"),
+    encoding="utf-8",
   )
   return "hooks/owui_auto_reasoning_effort.py"
 

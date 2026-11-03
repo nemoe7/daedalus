@@ -75,6 +75,7 @@ def test_due() -> None:
 
 
 async def test_run(monkeypatch: pytest.MonkeyPatch) -> None:
+  store.prune(str(store.MODELS_DB))
   store.MODELS_DB.unlink(missing_ok=True)
   calls: list[str] = []
 

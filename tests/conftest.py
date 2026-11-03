@@ -2,6 +2,8 @@
 
 import inspect
 import os
+import tempfile
+from pathlib import Path
 
 import httpx
 import pytest
@@ -12,9 +14,24 @@ from daedalus.config import defaults as defaults_module
 from daedalus.providers import hooks, signatures
 from daedalus.routing import loops, router
 from daedalus.server import api, headroom, media, upstream
+from daedalus.store import database
 
 # The master key of a test file without its own MASTER value.
 MASTER = "test-master-key-0001"
+
+
+class StoreDirectory(tempfile.TemporaryDirectory):
+  """Close cached SQLite connections before deleting a temporary test directory."""
+
+  def cleanup(self) -> None:
+    root = Path(self.name).resolve()
+    paths = set(database._KEEPERS)
+    paths.update(key[1] for key in database._OPEN)
+    paths.update(key[1] for key in database._READ)
+    for path in paths:
+      if Path(path).resolve().is_relative_to(root):
+        database.prune(path)
+    super().cleanup()
 
 
 def no_network(*_args: object, **_kwargs: object) -> str:
@@ -83,6 +100,7 @@ def state_folder(
   os.environ.pop(headroom.HEADROOM_URL, None)
   os.environ[dashboard.DAEDALUS_MASTER_KEY] = getattr(request.module, "MASTER", MASTER)
   with pytest.MonkeyPatch.context() as patch:
+    patch.setattr(tempfile, "TemporaryDirectory", StoreDirectory)
     patch.setattr(store, "MODELS_DB", folder / "models.sqlite3")
     # No test reads default provider file of repo over network.
     patch.setattr(defaults_module, "PATH", folder / "free.defaults.yml")

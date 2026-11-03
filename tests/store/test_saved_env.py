@@ -1,3 +1,4 @@
+import os
 import sqlite3
 from pathlib import Path
 
@@ -28,7 +29,12 @@ def test_saved_env(tmp_path: Path) -> None:
   [
     "plain.sqlite3",
     "hash#state.sqlite3",
-    "query?state.sqlite3",
+    pytest.param(
+      "query?state.sqlite3",
+      marks=pytest.mark.skipif(
+        os.name == "nt", reason="Windows forbids ? in filenames"
+      ),
+    ),
     "percent%20state.sqlite3",
   ],
 )

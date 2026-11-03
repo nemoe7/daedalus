@@ -27,7 +27,10 @@ from daedalus.cli import run
 with tempfile.TemporaryDirectory() as folder:
   store.MODELS_DB = Path(folder) / "models.sqlite3"
   discovery.DUMP_DIR = Path(folder) / "dump"
-  run()
+  try:
+    run()
+  finally:
+    store.prune(str(store.MODELS_DB))
 """
 DAEDALUS = [sys.executable, "-c", CLI]
 
@@ -124,6 +127,7 @@ def test_commands() -> None:
       tables = {row[0] for row in layout.execute("SELECT name FROM sqlite_master")}
       layout.close()
       assert {"alembic_version", "models"} <= tables, "serve runs the Alembic steps"
+      store.prune(str(store.MODELS_DB))
       store.MODELS_DB.unlink()
       cli.run(["catalog"])
       assert store.MODELS_DB.exists(), "catalog runs the Alembic steps"
@@ -134,6 +138,7 @@ def test_commands() -> None:
       calls.clear()
       cli.run(["serve"])
       assert calls == ["listen:3357"], calls
+      store.prune(str(store.MODELS_DB))
       store.MODELS_DB.write_text("not a database")
       calls.clear()
       cli.run(["serve"])
@@ -323,6 +328,7 @@ def assert_key_command(calls: list[str]) -> None:
     [*DAEDALUS, "key"], capture_output=True, text=True, check=False
   )
   assert wrong.returncode == 2, "the dashboard manages the API keys"
+  store.prune(str(store.MODELS_DB))
   store.MODELS_DB.unlink()
   keys.add(store.MODELS_DB, "ci")
   calls.clear()

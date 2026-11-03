@@ -162,10 +162,11 @@ async def test_export_keeps_the_guard_until_capture_finishes(monkeypatch, cancel
 def test_export_refuses_a_snapshot_not_updated_by_the_refresh(monkeypatch):
   """Export rejects an old snapshot from a provider without credentials."""
   import sqlite3
+  from contextlib import closing
 
   url = "https://stale.test/models"
   discovery.save_snapshot(url, {"data": [{"id": "old"}]})
-  with sqlite3.connect(store.MODELS_DB) as database:
+  with closing(sqlite3.connect(store.MODELS_DB)) as database, database:
     database.execute("UPDATE provider_snapshots SET updated = 1")
   monkeypatch.setattr(discovery, "get_config", lambda: {"p": {"discovery_url": url}})
   monkeypatch.setattr(catalog, "LAST_FAILED", [])

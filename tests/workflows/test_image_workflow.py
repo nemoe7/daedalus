@@ -4,6 +4,7 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
 from ruamel.yaml import YAML
 
 WORKFLOW = Path(".github/workflows/docker.yml")
@@ -245,6 +246,9 @@ def test_docker_workflow_dev_build_waits_for_image_paths() -> None:
   )
 
 
+@pytest.mark.skipif(
+  os.name == "nt", reason="GitHub Actions Bash script needs POSIX paths"
+)
 def test_docker_workflow_filter_reads_all_commits_after_last_dev_merge(
   tmp_path: Path,
 ) -> None:
@@ -306,6 +310,9 @@ def test_docker_workflow_filter_reads_all_commits_after_last_dev_merge(
   assert run_filter(docs_sha, event="workflow_dispatch") == "build=yes"
 
 
+@pytest.mark.skipif(
+  os.name == "nt", reason="GitHub Actions Bash script needs POSIX paths"
+)
 def test_docker_workflow_pin_step_checks_out_tested_main_ancestor(
   tmp_path: Path,
 ) -> None:
