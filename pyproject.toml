@@ -52,7 +52,7 @@ packages = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # loadfile: the tests of 1 file run in 1 worker, in file order, with its module fixtures.
-addopts = "-n auto -q --dist loadfile -p no:cacheprovider"
+addopts = "-n auto -q --dist loadfile"
 
 [tool.nemoizer]
 context = "description"
