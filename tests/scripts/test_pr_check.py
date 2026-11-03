@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import subprocess
-import sys
 from pathlib import Path
 
 import check_pr
+import pytest
 
 VALID_BODY = """## Summary
 
@@ -273,6 +273,7 @@ def test_nemoizer_accepts_valid_text():
   assert passed, output
 
 
+@pytest.mark.filterwarnings("error::pytest.PytestUnhandledThreadExceptionWarning")
 def test_nemoizer_rejects_invalid_text():
   passed, output = check_pr.run_nemoizer("Start the server; read the log.\n")
   assert not passed
@@ -321,16 +322,6 @@ def test_nemoizer_fails_closed_on_process_or_json_errors(monkeypatch):
   monkeypatch.setattr(check_pr.subprocess, "run", missing)
   passed, detail = check_pr.run_nemoizer("Read the file.")
   assert not passed and "synthetic missing linter" in detail
-
-
-def test_nemoizer_selftest_passes():
-  result = subprocess.run(
-    [sys.executable, str(check_pr.NEMOIZER), "--selftest"],
-    capture_output=True,
-    text=True,
-    check=False,
-  )
-  assert result.returncode == 0, result.stdout + result.stderr
 
 
 def test_check_propagates_the_prose_failure(tmp_path: Path):

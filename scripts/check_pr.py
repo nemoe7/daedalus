@@ -366,7 +366,6 @@ def lint_prose_lines(
           "description",
           str(sample),
         ],
-        input="\n".join(lines),
         capture_output=True,
         text=True,
         check=False,
