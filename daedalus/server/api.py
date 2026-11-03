@@ -1163,11 +1163,11 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
       found = (
         retry_chain(turn, model, body, config)
         if model == router.RESERVED_MODEL or model in router.POOLS
-        else chain(model, body, config, key)
+        else chain(model, body, config, key, headers=dict(request.headers))
       )
       request.state.retry = str(turn.count)
     else:
-      found = chain(model, body, config, key)
+      found = chain(model, body, config, key, headers=dict(request.headers))
   finally:
     REQUEST_HEADERS.reset(header_token)
   if found is None:

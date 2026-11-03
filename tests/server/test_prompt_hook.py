@@ -52,7 +52,7 @@ def post(
   """One chat request through a fake chain, and the body the provider received."""
   original = api.get_config, api.chain
   api.get_config = lambda: CONFIG
-  api.chain = lambda model, body, config, key="": ([["a/1"]], slot)
+  api.chain = lambda model, body, config, key="", headers=None: ([["a/1"]], slot)
   marks = {"OWUI": {"x-openwebui-chat-id": "c1"}, "Kilo": {"x-title": "kilo"}}
   client = TestClient(api.app, headers={**AUTH, **(marks.get(app or "", {}))})
   asked = body or {**BODY, "model": slot if slot in api.router.POOLS else BODY["model"]}
