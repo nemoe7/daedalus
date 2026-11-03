@@ -11,3 +11,5 @@ hooks:
       path: hooks
       ref: main
       auto_update: false
+affinity:
+  mode: race
