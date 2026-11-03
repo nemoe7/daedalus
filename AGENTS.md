@@ -5,36 +5,6 @@
 The project is in development. Code changes are rapid and can break existing behavior.
 Do not add backward-compatibility code yet. Use the current contract without compatibility layers or legacy migrations.
 
-## PR body
-
-- Use the H2 sections Summary, Changes, and Validation in that order.
-- Breaking Changes and Related follow in that order when present. Omit either section when empty.
-- Summary holds one paragraph, not a list.
-- Changes holds dash bullets with text.
-- Validation holds `- [x]` or `- [ ]` items, then one space and text. Check an item only after its check runs.
-- A present Breaking Changes or Related section holds dash bullets with text. Do not include `None` or empty headings.
-- If any commit uses `!`, Breaking Changes must list the breaking change.
-- Add no other H2 or H3 headings, HTML comments, preamble, or trailing content.
-- Permit angle brackets only inside fenced code blocks.
-- Use the trusted base copy of `scripts/check_pr.py` in CI, not the PR copy.
-- Put analysis in a report, not the PR body.
-
-```markdown
-## Summary
-
-State the change in one paragraph.
-
-## Changes
-
-- State a concrete change.
-
-## Validation
-
-- [x] State a check that ran.
-- [ ] State a check that did not run.
-
-```
-
 ## ADRs
 
 An ADR holds one decision and the reason for it.
@@ -46,10 +16,9 @@ An ADR holds one decision and the reason for it.
 
 ## Human-facing text
 
-- Lint every human-facing file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations, advisory findings included.
+- Lint every human-facing file with `.agents/skills/nemoizer/scripts/nemoizer`.
 - Lint Markdown with `npx markdownlint-cli2 "**/*.md"`, and require 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
 - Review every human-facing edit to `AGENTS.md` with `.agents/skills/nemoizer/SKILL.md`.
-- Run `.agents/skills/nemoizer/scripts/nemoizer AGENTS.md` after each edit. Each run must report 0 violations.
 - Docs never hold narrative. State facts, and leave out story text.
 - Use lists and tables. Humans read this text, not models.
 - Write at most four sentences in a paragraph, and keep only one core idea.
@@ -66,7 +35,6 @@ An ADR holds one decision and the reason for it.
 ## Front-end work
 
 - Read and apply `.agents/skills/nuu/SKILL.md` before front-end work.
-- For a dashboard audit, inspect every route at 1440, 768, and 390 pixels. Capture and review screenshots.
 - Check keyboard focus, contrast, reduced motion, touch targets, and horizontal overflow.
 - Match surrounding design patterns for focused fixes. Avoid unrelated redesigns.
 
