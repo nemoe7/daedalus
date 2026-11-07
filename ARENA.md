@@ -14,12 +14,13 @@
 - Before pushing, ALWAYS check `origin/main`; if moved, rebase, then push `--force-with-lease`.
 - ALWAYS push verified commits after each task on public repos; allow small batches (<=3 commits) on private repos.
 - After each push, confirm `git ls-remote origin <branch>` = `git rev-parse HEAD`; report remote landing (subject + short hash). After sandbox reset: fetch, confirm HEAD = remote branch before edits.
-- ALWAYS install `arena-skill` via its installer from repo root before activation, NEVER by hand or background-process tool, even with ntfy/no steering; read inbox at every cadence point.
-- After any arena-skill source change, MUST rerun installer from repo root before next CLI call/preview start.
+- ALWAYS run `steer --version` at every turn start and follow arena-steering's turn-start recipe for installation and server startup; read the inbox at every cadence point.
+- After any arena-steering source change, MUST rerun its installer from the repo root before the next CLI call or preview start.
+- NEVER stop or restart a running Steering preview server unless a health check fails or the user asks.
 - NEVER merge the PR; no authorization or instruction overrides this.
 - On a rule collision or any doubt, stop and use the question route below; NEVER improvise.
-- NEVER edit this file or `arena-skill`, installed copies included; suggest amendments only, unless home repo waives protection.
-- Before first repo inspection, edit, or preview start—and on the first tool call after any session summary or violation notice—MUST read ARENA.md, root AGENTS.md, and arena-skill SKILL.md in full via read_file; read nested AGENTS.md via `arena-preview agents <path>` only when working in their directory; a session summary NEVER counts as full text in context.
+- NEVER edit this file or `arena-steering`, installed copies included; suggest amendments only, unless home repo waives protection.
+- Before first repo inspection, edit, or preview start—and on the first tool call after any session summary—MUST read ARENA.md, root AGENTS.md, and arena-steering SKILL.md in full via read_file; read nested AGENTS.md in full via read_file only when working in their directory; a session summary NEVER counts as full text in context.
 - Give one short receipt for a corrected routine no-impact slip.
 - Suggest amendments only for an identified contributing rule gap.
 - Corrected routine command-input/process slips (e.g. late read) alone are not rule violations.
@@ -39,15 +40,15 @@
 
 - Session start: read bible; next action `10-4: ARENA.md loaded`; install; start preview; ask visibility.
 - Resumed/next turn: check preview (restart if needed); read missing-context paths in the bible; continue open task or poll.
-- Load `arena-skill` for inbox, reports, gate, proxy routes to sandbox-unreachable sources.
-- Bible ("bible" or "the bible", NEVER "bible files" or "required bible files"): ARENA.md, root AGENTS.md, and arena-skill SKILL.md, plus any nested AGENTS.md in a directory you work in (via `arena-preview agents <path>`).
+- Load `arena-steering` for inbox, reports, gates, and GitHub Actions job logs.
+- Bible ("bible" or "the bible", NEVER "bible files" or "required bible files"): ARENA.md, root AGENTS.md, and arena-steering SKILL.md, plus any nested AGENTS.md in a directory you work in (read in full via read_file).
 - MUST read required paths in the bible fully via read tool, NEVER Bash.
 - After mid-turn compaction/summary/context replacement, read missing-context paths in the bible end-to-end before other tools; resumed/next turns use their start sequence.
-- Every 10 preview calls and on the first call after any session summary, preview check runs; if any bible text is absent from active context (including after a summary), MUST read ARENA.md, root AGENTS.md, and arena-skill SKILL.md in full via read_file before acting, plus nested AGENTS.md only when working in their directory.
+- Every 6 preview calls and on the first call after any session summary, preview check runs; if any bible text is absent from active context (including after a summary), MUST read ARENA.md, root AGENTS.md, and arena-steering SKILL.md in full via read_file before acting, plus nested AGENTS.md only when working in their directory.
 - NEVER count filename, receipt, summary, remembered rule, or partial read (head/tail/grep) as current full text.
 - MUST batch required bible reads in one call; split only at harness output caps.
 - MUST finish required reads end-to-end (all continuations) before queued work/pending push.
-- Run arena-skill survey immediately after initial visibility response, before first inbox poll, and after a preview restart or compaction/summary/context replacement, before queued work.
+- Run `steer survey` immediately after initial visibility response, before first inbox poll, and after a preview restart or compaction/summary/context replacement, before queued work.
 - Each Markdown file under `references/` is supplementary: read/grep only needed files; no end-to-end read; gate/read-cadence mechanics live in `references/commands.md` and `references/cadence.md`. Installation template copies are supplementary too.
 - In saved context, state the start sequence and full missing-context bible reads before queued work; no verbatim ARENA.md copy required.
 - After bible changes (incl. rebase/`main` update), MUST read full diff from last-read version before next work; unavailable/unclear → read full file.
@@ -57,9 +58,9 @@
 
 ## General
 
-- Stderr reminder = only read schedule; Bash gate = repair, NEVER schedule. Mechanics: skill reference, Read cadence. No reminder line MAY mean sandbox reset: run reset steps first.
+- Stderr read reminder = only read schedule; act on other stderr reminders as directed. Bash gate = repair, NEVER schedule. Mechanics: skill reference, Read cadence.
 - Before the first start there is no inbox.
-- Ack delivered notes via `ack <id> <Markdown>` in log, exactly that note; one answer/call; separate differing answers; NEVER ack all pending blindly.
+- ALWAYS answer each delivered message substantively in its own `ack <id> <Markdown>` before chat; one answer/call; NEVER ack pending blindly.
 - Cite notes by ID, NEVER sequence/list position: first 6 chars in prose/tasks/reports/notes; extend on prefix collision.
 - Receipt ≠ completion: ack in same block as surfacing read, before announced implementation; longer work acked in progress.
 - One to three lines naming the change and commit — analysis goes to a report or CHANGELOG, NEVER the receipt.
@@ -89,7 +90,7 @@
 - Chat/reports MUST be concise, vertical-display readable (phone/vertical monitor), human-digestible; limit prose; essays only if strictly necessary; requested explanation is NEVER debt.
 - Explain findings, bugs, decisions, and options in plain English, not internal function, table, or variable identifiers.
 - Fielded-report questions: keep context/prompt/controls on one vertical screen; put the question right after ≤1 short paragraph or ≤3 short bullets of needed facts; NEVER collect at long report end.
-- Mermaid: ALWAYS in documentation, NEVER anywhere else.
+- Mermaid: NEVER in chat, ALWAYS everywhere else.
 - For user-run commands, print Windows cmd by default, plus bash for Raspberry Pi or bash requests.
 - Task completion alone needs no report.
 - MUST update task status and keep scope, progress, verification, and landed commit details complete in its record (`-A`/`--append` to add steps) so compaction/resets lose nothing.
@@ -109,7 +110,7 @@
 - Use `ask_user` ONLY for: explicit tool request, unavailable preview (incl. failed publish), unconfirmed steering visibility, ntfy/"continue without steering", GitHub reconnect. NEVER when a report/new report can carry it.
 - Visibility question alone; after "Yes", all questions via fielded reports. Failed start: report + block on that question before non-setup work; banner ≠ owner confirmation. Tool fail/timeout/partial batch: retry `ask_user`; NEVER plain-text fallback.
 - First successful unconfirmed start or branch change still needs visibility question (incl. starts repairing failed reads); same-session same-branch restart does not.
-- 3+ options/open choice MUST carry a recommended answer, marked with `(x)`/`[x]` (never `(recommended)` or `*` in text); yes/no/confirm: none.
+- Every question with options MUST carry a recommended answer, marked with `(x)`/`[x]` (never `(recommended)` or `*` in text).
 - NEVER count a preselected option, recommendation, or silence as an answer; unanswered stays unanswered.
 - NEVER end turn with open tasks: link live gates (run owns blocked state, no report); publish fielded reports immediately for other blocked tasks, one line each; continue independent work; poll only when no unblocked work remains.
 - MUST state each unavoidable assumption in the acknowledgement before work.
@@ -134,14 +135,14 @@
 
 - Prefer several passes with a re-check after each.
 - ask_user batches only: label Q1, Q2, …, and state the total before the batch and before any addition.
-- Before final poll: state no unblocked tasks remain; identify blocked tasks in published reports. End every turn with final-Bash `arena-preview poll` unless `skip_poll` stamped; MUST NOT substitute sleep; NEVER treat a bounded no-result poll as a successful wait.
+- Before final poll: state no unblocked tasks remain; identify blocked tasks in published reports. End every turn with final-Bash `arena-preview poll` unless `skip_poll` stamped; ALWAYS use Bash tool timeout 1800; NEVER wrap it in a shell timeout; MUST NOT substitute sleep; NEVER treat a bounded no-result poll as a successful wait.
 - Duplicated/garbled/disowned message: confirm reading in one line before acting; keep caused edits reversible until confirmed.
 - Preview inbox is truth for steering/acks; verify pending/completed there, not Arena chat. Repeats are resends: answer pending, restate done in one line, NEVER redo/widen scope.
 - Debug: reproduce, isolate, hypothesize, verify, fix root cause not symptom, cover, recheck. Grep callers before editing; falsifiable hypotheses; one variable at a time; NEVER guess, arbitrary-fallback, or hide failures; revise disproven assumptions.
 - Test: red first where fitting → smallest green change → behavior-preserving refactor → recheck. Cover public interfaces/integration boundaries; reuse project frameworks/fixtures/helpers/conventions; NEVER weaken/drop tests to pass; no speculative behavior/tests. Prose-only: existing linters/structural validators; NEVER prose-wording tests; exact-text only for executable interface/protocol contracts.
 - Prefer a named constant to its literal when it defines an assertion's expected value.
 - MUST assert growth/presence/absence relations for pixel/config values and implementation measurements.
-- MUST leave one runnable check for non-trivial logic (branch, loop, parser, money/security path): assert-based demo or small test file; no frameworks, fixtures, per-function suites beyond it. Mechanical changes get proportional checks.
+- MUST add each non-trivial runnable check (branch/loop/parser/money/security) to its mirrored module test; create only if absent, keep assets in fixtures/, NEVER per-fix files, frameworks, or per-function suites. Mechanical changes get proportional checks.
 - Grep-verify each file edit landed before building on it.
 - Review each diff for requirements, acceptance criteria, scope, correctness, edge cases, security, maintainability, regressions, complexity, unrelated changes, formatting noise, and debug artifacts; fix in-scope issues, recheck, ALWAYS criticize documentation and code in chat and reports, and check external or version-specific facts against authoritative sources.
 - Before finishing, run repo validation entrypoints; parse every touched generated config.
@@ -165,7 +166,7 @@
 - Follow project convention first; else Conventional Commits: `<type>[optional scope]: <description>`, imperative, specific, lowercase after colon, no period, <=72 chars, no body, `!` = breaking. Types: `feat fix refactor perf style docs test build chore` (prefer history); reuse scopes, add only if none fits.
 - Reports/audits/preview state/inboxes/receipts live in Git-ignored workspace dirs outside transient caches; NEVER commit/push.
 - NEVER cite session-local IDs (note/report/submission/task/session-minted) or local-only paths (ignored state/scratch or sandbox home) in repo files, commits, PRs, task details, or reports; strip on sight; cite CHANGELOG/repo path/commit instead.
-- Longer reports use the `arena-skill` skill, not diff-viewer commits; mark each finding's disposition where it is recorded.
+- All reports use the `arena-steering` skill, not diff-viewer commits; mark each finding's disposition where it is recorded.
 - `GH_TOKEN` can expire mid-turn, repo unchanged: `gh auth status` = invalid, push fails, `gh auth setup-git` won't help.
 - Retry once, NEVER loop or ask for credentials — then ask through `ask_user` for a GitHub reconnect in Arena and a reply in chat; NEVER end silently.
 - Prove recovery with `git ls-remote origin <branch>` before pushing again.
@@ -181,7 +182,7 @@
 
 ## Workspace
 
-- For Chromium work, use the [recipe](.agents/skills/arena-skill/references/recipes/chromium.md).
+- For Chromium work, use the [recipe](.agents/skills/arena-steering/references/recipes/chromium.md).
 - UI work: verify via screenshots from that pinned Chromium package; read rendered result before counting landed; when `nuu` is available and used for a UI task or audit, embed its screenshots, including before-and-after images, in the published report for user review.
 - Install repo tooling (deps, venvs) via `arena-preview run start` after the visibility question and before the first `poll` or `read` so the install runs detached without blocking a task; reserve `start_process` for the steering preview and demos/presentations.
 - Start each local gate on a stable tree; NEVER edit its covered root files while it runs. A remote PR CI watch does not freeze the working tree.
@@ -200,14 +201,14 @@
 
 ## Deliverables
 
-- Save/open the main deliverable.
 - Other formats remain request-only.
 - If preview delivery fails, report it and agree on a replacement.
 - A local commit is not an automatic fallback.
 - Previews have no network: inline CSS, embedded SVG/data URIs; no CDNs/remote fonts/stylesheets.
 - Servers bind 0.0.0.0; browser URLs stay relative via the dev-server proxy, NEVER localhost/127.0.0.1.
 - Regenerate generated doc sections via committed script after source-data changes; NEVER hand-edit.
-- For agent handoffs or cross-session specs, follow the [handoff template](.agents/skills/arena-skill/references/handoff.md) with no form fields.
+- For agent handoffs or cross-session specs, follow the [handoff template](.agents/skills/arena-steering/references/handoff.md) and publish an unfielded Steering report.
+- Include all required context in each handoff. NEVER require access to the sender's state or local-only files.
 
 ## When in doubt
 

@@ -62,9 +62,10 @@ Suppress a rule-ID finding on a line with `nonuu: <ID>` (legacy `NU*` aliases re
 | `ACC101` | Rendered `a11y` | Rendered text contrast below `4.5:1` (`3:1` on large text) |
 | `ACC201` | Source (`lint`) | CSS suppresses focus outline (`outline: 0` or `outline: none`) |
 | `ACC202` | Rendered `a11y` | Interactive control shows a visible focus outline on pointer focus before keyboard navigation |
-| `ACC203` | Rendered `a11y` | Focus halo or visible tooltip extends outside an overflow-clipping ancestor |
+| `ACC203` | Rendered `a11y` / live `audit` | Focus halo or tooltip is clipped; live audits also check visible dialog/overlay text and controls against all four viewport and clipping edges, occlusion, and missing tooltip/popover backgrounds (Clause 33) |
 | `ACC204` | Source (`lint`) | CSS `:hover`, `:focus`, or `:active` rule shifts layout dimensions |
 | `ACC205` | Rendered `a11y` | Interactive control changes dimensions on focus, `aria-busy`, disabled state, or a measured flow action |
+| `ACC206` | Live `audit` | No changed visible name or status text after a flow click within the flow timeout; review inferred feedback for a completed or failed outcome |
 | `RUN001` | Browser (`audit`) | Uncaught `pageerror` or `console.error` during capture |
 | `RUN101`–`RUN102` | Browser (`audit`) | Flow step failure (`RUN101`) or `--ready SELECTOR` timeout (`RUN102`) |
 
@@ -83,5 +84,5 @@ Suppress a rule-ID finding on a line with `nonuu: <ID>` (legacy `NU*` aliases re
 - [references/recipes/live-dot.md](recipes/live-dot.md): `8x8 px` pulsing `.dot` in a fixed `16x16 px` slot, with row text naming the state.
 - [references/recipes/scroll-edge-fade.md](recipes/scroll-edge-fade.md): scroll-driven CSS edge-fade mask (`@supports (animation-timeline: scroll(self))`).
 - [references/recipes/floating-overlay-scroll-fade.md](recipes/floating-overlay-scroll-fade.md): full-bleed scroll container fade behind floating header and composer overlays.
-- [references/recipes/scrollbars.md](recipes/scrollbars.md): use a 6 px rounded thumb (`var(--scrollbar-thumb)`) in a 10 px track. Omit arrows and hover highlights unless keyboard navigation is active.
+- [references/recipes/scrollbars.md](recipes/scrollbars.md): pill-thumb scrollbar (`var(--scrollbar-thumb)`) in a `15px` track (`transparent`) with `margin: 8px 0`, `9999px` radius, no arrows, keyboard-nav hover highlights; global `*` fallback for Firefox.
 - [references/recipes/overflow-and-clipping.md](recipes/overflow-and-clipping.md): focus-ring, shadow, and tooltip anti-clipping rules.

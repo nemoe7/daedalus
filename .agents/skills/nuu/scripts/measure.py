@@ -633,6 +633,8 @@ def check(
   elements = report.get("elements", [])
   for element in elements:
     selector = element.get("selector", "?")
+    if selector.startswith("::-webkit-scrollbar"):
+      continue
     list_status = _list_indent_status(element)
     if list_status and list_status[1]:
       findings.append(f"TYP203 {selector}: {'; '.join(list_status[1])}")

@@ -115,8 +115,8 @@ when the evidence cannot establish compatibility.
   ),
 }
 
-# An initial release (no published baseline) shows Summary and Features only and has no
-# commit range to compare, so it gets the short template.
+# An initial release (no published baseline) shows Summary and Features only.
+# It has no commit range to compare, so it gets the short template.
 INITIAL_TEMPLATE = """\
 ## Summary
 
@@ -933,8 +933,8 @@ def release_body(
   final_phase = context.get("phase", "release")
   attempts = len(model) if isinstance(model, (list, tuple)) else 1
   group = prepared(units, context, model, generate_fn, final_phase)
-  # The last request writes the release body or the classification, whichever phase the caller named, and
-  # an answer the accept check refuses retries on the next rung, so one bad word does not stop the run.
+  # The last request writes the release body or the classification, whichever phase the caller named.
+  # An answer the accept check refuses retries on the next rung. One bad word does not stop the run.
   final = {**context, "phase": final_phase}
   for attempt in range(attempts):
     answer = (

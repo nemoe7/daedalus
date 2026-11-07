@@ -8,12 +8,18 @@ import configparser
 import contextlib
 import fnmatch
 import json
+import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import tokenize
 import tomllib
+from concurrent.futures import FIRST_COMPLETED, Future, wait
+from itertools import pairwise
 from pathlib import Path
 
 try:
@@ -139,18 +145,32 @@ from prose import (
   workflow_name_spans,
 )
 
-# (name, avoided pattern, plain word).
-# A stem word that takes its own plain word.
-EXCEPTIONS = {
+# Exact inflections and their replacements.
+ROTATION_FORMS = {
+  "transmit": "send",
+  "transmits": "sends",
+  "transmitted": "sent",
+  "transmitting": "sending",
+  "transmitter": "sender",
+  "transmitters": "senders",
+  "pick": "select",
+  "picks": "selects",
+  "picked": "selected",
+  "picking": "selecting",
   "picker": "selector",
   "pickers": "selectors",
+  "kind": "type",
+  "kinds": "types",
+  "repository": "repo",
   "repositories": "repos",
   "pull request": "PR",
   "pull requests": "PRs",
+  "name": "specify",
   "names": "specifies",
   "named": "specified",
   "naming": "specifying",
 }
+
 NEMOIZER_MODIFIED_NOUNS = (
   r"rules?|lists?|linters?|prose|skills?|configs?|checks?|scripts?|"
   r"parsers?|suites?|tests?|plugins?|domains?|targets?|markers?"
@@ -159,37 +179,44 @@ KEEP_LOWER = {"nemoizer"}
 NAME_VERB_PATTERN = (
   r"(?:"
   r"(?:(?<=^)|(?<=\n)|(?<=^- )|(?<=\* )|(?<=\. )|(?<=, and )"
-  r"|(?<=, or )|(?<=\bto )|(?<=\bmust )|(?<=\bcan )|(?<=\bmay )|(?<=\bwill ))"
-  r"name(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+(?!few\b)[A-Za-z]+)"
+  r"|(?<=, or )|(?<=\bto )|(?<=\bmust )|(?<=\bcan )|(?<=\bmay )|(?<=\bwill )"
+  r"|(?<=\bshould )|(?<=\bnever )|(?<=\balways )|(?<=\bnot )|(?<=\bplease )|(?<=\balso ))"
+  r"name(?=\s+(?:(?:the|a|an|each|every|all|any|this|that|its|their)\s+(?!few\b)[A-Za-z]+|[A-Za-z]+s\b))"
   r"|"
   r"(?:(?<=\bit )|(?<=\bthat )|(?<=\bwhich )|(?<=\bwho )|(?<=\bsheet )"
   r"|(?<=\bcontrol )|(?<=\btable )|(?<=\brule )|(?<=\bclause )|(?<=\breport )"
   r"|(?<=\bconfig )|(?<=\bscript )|(?<=\bcheck )|(?<=\btool )|(?<=\bpage )|(?<=, and ))"
   r"names(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their|[A-Z])[A-Za-z]*)"
+  r"|(?<![A-Za-z0-9_$.\/-])names(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+[A-Za-z]+)"
+  r"|(?<![A-Za-z0-9_$.\/-])naming(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+[A-Za-z]+)"
+  r"|(?<![A-Za-z0-9_$.\/-])named(?=\s+(?:in|under|by)\s+the\s+[A-Za-z]+)"
   r")"
 )
+
+
+def rotation_pattern(prefix):
+  """Match only the listed inflections, outside identifiers and paths."""
+  forms = (form for form in ROTATION_FORMS if form.startswith(prefix))
+  choices = "|".join(re.escape(form) for form in sorted(forms, key=len, reverse=True))
+  return rf"(?<![A-Za-z0-9_$.\/-])(?:{choices})(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])"
+
+
 ROTATIONS = (
+  ("pick", rotation_pattern("pick"), "select"),
+  ("transmit", rotation_pattern("transmit"), "send"),
+  ("kind", r"(?<!\bbe )(?<!\bin )" + rotation_pattern("kind"), "type"),
+  ("repository", rotation_pattern("repositor"), "repo"),
   (
-    "pick",
-    r"(?<![A-Za-z0-9_$.\/-])pick\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "select",
+    "pull request",
+    r"(?<![A-Za-z0-9])(?:"
+    + "|".join(
+      re.escape(form).replace(r"\ ", r"[ \t]+")
+      for form in sorted(ROTATION_FORMS, key=len, reverse=True)
+      if form.startswith("pull request")
+    )
+    + r")(?![A-Za-z0-9])",
+    "PR",
   ),
-  (
-    "transmit",
-    r"(?<![A-Za-z0-9_$.\/-])transmit\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "send",
-  ),
-  (
-    "kind",
-    r"(?<![A-Za-z0-9_$.\/-])kinds?(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "type",
-  ),
-  (
-    "repository",
-    r"(?<![A-Za-z0-9_$.\/-])repositor(?:y|ies)(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "repo",
-  ),
-  ("pull request", r"(?<![A-Za-z0-9])pull[ \t]+requests?(?![A-Za-z0-9])", "PR"),
   ("name", NAME_VERB_PATTERN, "specify"),
   (
     "nemoizer",
@@ -478,7 +505,7 @@ SKIP_DIRS = {
   "out",
 }
 SKIP_PATHS = (
-  ".agents/skills",
+  ".agents",
   "arena-state",
   "AGENTS.md",
   "**/AGENTS.md",
@@ -890,9 +917,11 @@ def git_ignored(root, candidates):
       input="\0".join(rel_map),
       capture_output=True,
       text=True,
+      encoding="utf-8",
+      errors="replace",
       check=False,
     )
-  except OSError:
+  except (OSError, UnicodeError):
     return set()
   if proc.returncode not in (0, 1):
     return set()
@@ -903,15 +932,20 @@ def walk(targets, ignores):
   """Yield every text file under the targets that survives the skip rules."""
   for target in targets:
     path = Path(target)
+    if not path.exists():
+      raise ValueError(f"target does not exist: {target}")
     if path.is_file():
       if path.suffix.lower() not in SKIP_SUFFIXES and not is_license_file(path):
         yield path
       continue
-    root = path if path.is_dir() else Path(".")
+    root = path
+    # Exclusion patterns are rooted at the config's project root, never at the walk target.
+    # A subdirectory target keeps the same relative paths.
+    skip_root = ACTIVE_CONFIG.get("root") or root
     candidates = [
       candidate
       for candidate in sorted(root.rglob("*"))
-      if candidate.is_file() and not skipped(candidate, root, ignores)
+      if candidate.is_file() and not skipped(candidate, skip_root, ignores)
     ]
     ignored_set = git_ignored(root, candidates)
     for candidate in candidates:
@@ -942,9 +976,7 @@ def plain(word, name, use):
   if name in KEEP_LOWER:
     return use
   normalized = " ".join(word.lower().split())
-  form = EXCEPTIONS.get(normalized) or re.sub(
-    re.escape(name), use, word, flags=re.IGNORECASE
-  )
+  form = ROTATION_FORMS[normalized]
   if word.isupper():
     return form.upper()
   if word[:1].isupper():
@@ -974,6 +1006,8 @@ def collapse_list_articles(line):
 
 PROTECTED_ROTATE_SPAN = re.compile(
   r"(`+)(?:(?!\1).)+?\1"
+  r"|(?<=\()https?://[^\s)]+(?=\))"
+  r"|https?://[^\s<>]+"
   r"|\$\{\{.*?\}\}"
   r"|:(?:param|type|ivar|vartype|keyword)\s+[A-Za-z0-9_]+\s*:"
   r"|^\s*(?:-\s+)?[A-Za-z0-9_.-]+\s*:(?=\s|$)"
@@ -1066,10 +1100,38 @@ def format_summary(findings):
   )
 
 
-def scan(targets, ignores, audit=False):
+def fenced_lines(lines):
+  """Return physical line numbers inside Markdown fences, including delimiters."""
+  result = set()
+  fence = None
+  for number, line in enumerate(lines, 1):
+    marker = re.match(r"^\s*(`{3,}|~{3,})", line)
+    if fence is not None or marker:
+      result.add(number)
+    if marker:
+      if fence is None:
+        fence = marker[1]
+      elif (
+        marker[1][0] == fence[0]
+        and len(marker[1]) >= len(fence)
+        and not line[marker.end() :].strip()
+      ):
+        fence = None
+  return result
+
+
+def rotation_legend(line):
+  return bool(
+    re.match(r"^\|\s*`?avoid`?\s*\|\s*`?use`?\s*\|", line.strip(), re.IGNORECASE)
+  )
+
+
+def scan(targets, ignores, audit=False, verbose=False):
   """Return findings and all exclusion markers with locations and rule IDs."""
   findings, marks = [], []
   for path in walk(targets, ignores):
+    if verbose:
+      print(f"scan {path}", file=sys.stderr, flush=True)
     text = text_file(path)
     if text is None:
       continue
@@ -1094,8 +1156,11 @@ def scan(targets, ignores, audit=False):
       line_pairs = sorted(prose_map.items())
     else:
       line_pairs = list(enumerate(lines, 1))
+    fenced = (
+      fenced_lines(lines) if path.suffix.lower() in {".md", ".markdown"} else set()
+    )
     for number, line in line_pairs:
-      if TABLE_ROW.match(line.strip()):
+      if number in fenced or rotation_legend(line):
         continue
       excluded = file_ids | line_ids[number - 1]
       visible = mask_protected_spans(
@@ -1112,13 +1177,34 @@ def scan(targets, ignores, audit=False):
         code = RULE_IDS[name]
         if suppressed(code, excluded, name):
           continue
-        target_line = prose_visible if (is_code and code == "NMO901") else visible
+        target_line = prose_visible if is_code else visible
         if not target_line:
           continue
         for word in sorted(set(re.findall(pattern, target_line, flags=re.IGNORECASE))):
           if name in KEEP_LOWER and word == use:
             continue
           findings.append(format_finding(path, number, code, f"{word} -> {use}", line))
+    if not is_code:
+      for _, _, _, numbers in prose_blocks(text):
+        for previous, current in pairwise(numbers):
+          if current != previous + 1:
+            continue
+          if "NMO901" in file_ids | line_ids[previous - 1] | line_ids[current - 1]:
+            continue
+          left = mask_protected_spans(lines[previous - 1])
+          right = mask_protected_spans(lines[current - 1])
+          match = re.search(
+            r"(?<![A-Za-z0-9])pull[ \t]*\n[ \t]*requests?(?![A-Za-z0-9])",
+            left + "\n" + right,
+            flags=re.IGNORECASE,
+          )
+          if match:
+            word = " ".join(match.group(0).split())
+            findings.append(
+              format_finding(
+                path, previous, "NMO901", f"{word} -> PR", lines[previous - 1]
+              )
+            )
   return findings, marks
 
 
@@ -1150,13 +1236,30 @@ def format_paths(targets, ignores, out=None):
       if not any("NMO902" in (file_ids | line_ids[ln - 1]) for ln in group):
         dense_lines.update(group)
     rewritten, touched = [], False
+    fenced = (
+      fenced_lines(lines) if path.suffix.lower() in {".md", ".markdown"} else set()
+    )
     for number, line in enumerate(lines, 1):
-      if TABLE_ROW.match(line.strip()):
+      if number in fenced or rotation_legend(line):
         rewritten.append(line)
         continue
       suppressed = set(file_ids | line_ids[number - 1])
-      if is_code and prose_map is not None and number not in prose_map:
-        suppressed.add("NMO901")
+      if is_code:
+        prose = prose_map.get(number, "") if prose_map is not None else ""
+        changed_line = line
+        for fragment in prose.splitlines():
+          if fragment and changed_line.count(fragment) == 1:
+            rotated_fragment = rotate(fragment, suppressed)
+            if number in dense_lines and "NMO902" not in suppressed:
+              rotated_fragment = collapse_list_articles(rotated_fragment)
+            changed_line = changed_line.replace(fragment, rotated_fragment, 1)
+        if changed_line != line:
+          print(f"{path}:{number}: -{line}", file=out)
+          print(f"{path}:{number}: +{changed_line}", file=out)
+          changed += 1
+          touched = True
+        rewritten.append(changed_line)
+        continue
       collapse_the = number in dense_lines and "NMO902" not in suppressed
       parts, start = [], 0
       for marker in MARKER.finditer(line):
@@ -2923,6 +3026,8 @@ def javascript_pairs(text):
     input=text,
     capture_output=True,
     text=True,
+    encoding="utf-8",
+    errors="replace",
     timeout=NODE_TIMEOUT,
     check=False,
   )
@@ -3079,6 +3184,11 @@ def is_test_file(path, text, helpers):
 
 def main(argv=None):
   global ACTIVE_CONFIG, BASE_CONFIG
+  # Windows consoles default to cp1252. Force UTF-8 output so findings with any
+  # decoded character print instead of crashing the report.
+  for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+      stream.reconfigure(encoding="utf-8", errors="replace")
   argv = list(sys.argv[1:] if argv is None else argv)
   if argv[:1] == ["prose"]:
     return prose_main(argv[1:])
@@ -3093,6 +3203,12 @@ def main(argv=None):
     action="append",
     default=[],
     help="skip a directory or file, relative to the target",
+  )
+  parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    help="print each file as it is scanned and processed",
   )
   parser.add_argument(
     "--ignores", action="store_true", help="list every nonemo marker instead"
@@ -3122,6 +3238,9 @@ def main(argv=None):
     assert any(row["rule"] == "STE100" for row in sample)
     return 0
   targets = arguments.targets or ["."]
+  for target in targets:
+    if not Path(target).exists():
+      parser.error(f"target does not exist: {target}")
   try:
     BASE_CONFIG = load_config(targets, arguments.config, arguments.no_config)
   except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
@@ -3154,7 +3273,9 @@ def main(argv=None):
     print(f"{changed} lines rotated", file=sys.stderr)
     return 0
   try:
-    findings, marks = scan(targets, arguments.ignore, audit=arguments.audit)
+    findings, marks = scan(
+      targets, arguments.ignore, audit=arguments.audit, verbose=arguments.verbose
+    )
   except ValueError as error:
     parser.error(str(error))
   if arguments.ignores:
@@ -3162,15 +3283,20 @@ def main(argv=None):
     return 0
   errors, tests = [], []
   helpers = {Path(path).resolve() for path in test_helpers}
-  for path in walk([*targets, *test_helpers], arguments.ignore):
+  files = list(walk([*targets, *test_helpers], arguments.ignore))
+  total = len(files)
+
+  def process_one(path):
+    result = {"test": None, "error": None, "rows": [], "text": None}
     text = text_file(path)
+    result["text"] = text
     try:
       if is_test_file(path, text or "", helpers):
-        tests.append(str(path))
+        result["test"] = str(path)
       if text is None:
-        continue
+        return result
       file_cfg = file_config(path, text)
-      rows = source_prose(
+      result["rows"] = source_prose(
         path,
         text,
         context
@@ -3190,7 +3316,114 @@ def main(argv=None):
       RuntimeError,
       RecursionError,
     ) as error:
-      errors.append(f"{path}: {type(error).__name__}: {error}")
+      result["error"] = f"{path}: {type(error).__name__}: {error}"
+    return result
+
+  results = {}
+  skipped = []
+  workers = min(8, (os.cpu_count() or 4))
+  file_timeout = 10.0
+  pending = {}
+  next_index = 0
+  jobs = queue.Queue(maxsize=workers)
+
+  def worker():
+    while True:
+      job = jobs.get()
+      if job is None:
+        return
+      future, path = job
+      if not future.set_running_or_notify_cancel():
+        continue
+      try:
+        future.set_result(process_one(path))
+      except BaseException as error:
+        future.set_exception(error)
+
+  for _ in range(workers):
+    threading.Thread(target=worker, daemon=True).start()
+
+  def submit_more(count):
+    nonlocal next_index
+    for _ in range(count):
+      if next_index >= len(files):
+        return
+      path = files[next_index]
+      if arguments.verbose:
+        print(f"start {path}", file=sys.stderr, flush=True)
+      future = Future()
+      jobs.put_nowait((future, path))
+      pending[future] = (path, time.monotonic() + file_timeout)
+      next_index += 1
+
+  submit_more(workers)
+  done_count = 0
+  while pending:
+    timeout = max(
+      min(deadline for _, deadline in pending.values()) - time.monotonic(), 0
+    )
+    done, _ = wait(list(pending), timeout=timeout, return_when=FIRST_COMPLETED)
+    now = time.monotonic()
+    expired = [
+      future
+      for future, (_, deadline) in pending.items()
+      if future not in done and deadline <= now
+    ]
+    for future in done | set(expired):
+      path = pending[future][0]
+      if arguments.verbose:
+        outcome = "timeout" if future in expired else "done"
+        print(f"{outcome} {path}", file=sys.stderr, flush=True)
+      del pending[future]
+      if future in expired:
+        future.cancel()
+        skipped.append(path)
+      else:
+        try:
+          results[path] = future.result()
+        except Exception as error:
+          results[path] = {
+            "test": None,
+            "error": f"{path}: {type(error).__name__}: {error}",
+            "rows": [],
+            "text": None,
+          }
+      done_count += 1
+      print(".", end="", file=sys.stderr, flush=True)
+      if done_count % 25 == 0 or done_count == total:
+        print(f" [{done_count * 100 // total:>3}%]", file=sys.stderr, flush=True)
+    retained = []
+    while True:
+      try:
+        job = jobs.get_nowait()
+      except queue.Empty:
+        break
+      if not job[0].cancelled():
+        retained.append(job)
+    for job in retained:
+      jobs.put_nowait(job)
+    submit_more(len(done) + len(expired))
+  if skipped:
+    print(
+      "\nSkipped (no result within 10s):\n" + "\n".join(str(path) for path in skipped),
+      file=sys.stderr,
+    )
+  for _ in range(workers):
+    jobs.put_nowait(None)
+  for path in files:
+    result = results.get(path) or {
+      "test": None,
+      "error": None,
+      "rows": [],
+      "text": None,
+    }
+    if result["test"]:
+      tests.append(result["test"])
+    if result["error"]:
+      errors.append(result["error"])
+      continue
+    text = result["text"]
+    if text is None:
       continue
     lines = text.splitlines()
     findings.extend(
@@ -3202,7 +3435,7 @@ def main(argv=None):
         lines[row["line"] - 1] if 0 < row["line"] <= len(lines) else None,
         status=row.get("status"),
       )
-      for row in rows
+      for row in result["rows"]
     )
     if arguments.audit:
       findings.extend(docs_drift_findings(path, text, ACTIVE_CONFIG.get("root")))

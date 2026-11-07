@@ -134,6 +134,9 @@ def javascript_comments(
     input=source,
     capture_output=True,
     text=True,
+    encoding="utf-8",
+    errors="replace",
+    timeout=10,
     check=True,
   )
   comments = []
@@ -161,6 +164,9 @@ def javascript_comment_spans(
     input=source,
     capture_output=True,
     text=True,
+    encoding="utf-8",
+    errors="replace",
+    timeout=10,
     check=True,
   )
   return tuple(
@@ -817,7 +823,7 @@ def js_ui_prose_spans(path: Path, source: str) -> list[tuple[str, int, int]]:
   """Collect UI labels and DOM prose strings from JS files for full prose checks.
 
   NMU100 keeps its <=6-word cap in ui_label_spans so filler-article checks apply
-  only to compact button/tab labels rather than full sentences, whereas this
+  only to compact button/tab labels rather than full sentences. This
   extractor feeds all UI labels and longer UI messages into prose_review.
   """
   lower_name = path.name.lower()

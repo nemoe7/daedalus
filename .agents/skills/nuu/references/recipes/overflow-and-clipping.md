@@ -11,6 +11,7 @@ Prevent non-scrolling container clipping (`SPC204`), unintended sibling box over
 - Reserve inner container padding or `scroll-padding` of at least `outline-width + outline-offset` (`4 px` for a `2 px` ring with `2 px` offset) on every side so an ancestor `overflow` or `mask-image` boundary never shaves the top, bottom, left, or right of a `:focus-visible` ring (`ACC203`).
 - Never apply a top-edge `mask-image` fade across a container that holds a `position: sticky; top: 0` toolbar; mask only the scrolling list below the sticky bar or use a bottom-only mask on the outer panel.
 - Render tooltips in the top layer or with `position: fixed` clamped to viewport bounds (`8px` inset) so ancestor scroll and `overflow` containers never clip them (`ACC203`).
+- On a live `nuu audit --url`, inspect every visible dialog, drawer, menu, popover, and tooltip at all five house viewports. Check actual text fragments and controls against the viewport and non-scrollable clipping ancestors on all four edges; check for visual occlusion and ensure tooltips and popovers paint a background over their own surface. Include the selector, viewport, bounds, clipping ancestor, and computed surface color in findings (`ACC203`, Clause 33). Scrollable and reachable content is not a clipping failure. Re-run configured opening/focus flows at each audited viewport so hidden overlays are inspected only when opened; ordinary sibling overlap capture still needs `-O`.
 
 ```css
 /* Reserve room for 2px solid focus rings + 2px offset inside clipped or masked containers */

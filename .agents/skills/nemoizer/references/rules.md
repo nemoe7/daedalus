@@ -54,7 +54,7 @@ To fix this issue, rewrite the text as follows:
 Select a file from the repo, specify each field, and open a PR.
 ```
 
-Note: Default checks report `NMO901` as `(manual review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Only a verb `name` rotates, so a noun `name` stays.
+Note: Default checks report `NMO901` as `(manual review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Verb forms include `naming` before a determiner and `named` before `in the`, `under the`, or `by the`; noun and identifier uses stay.
 
 Rationale: Consistent terms reduce variation while keeping manual review for false friends such as `pickle`.
 

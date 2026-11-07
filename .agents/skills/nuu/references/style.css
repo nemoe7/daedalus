@@ -518,20 +518,21 @@ h6,
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 15px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
-  background: var(--bg);
+  background: transparent;
+  margin: 8px 0;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border: 2px solid var(--bg);
+  border: 1px solid transparent;
   background-clip: padding-box;
-  border-radius: var(--space-2);
+  border-radius: 9999px;
 }
 
 :root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover,
@@ -545,10 +546,7 @@ h6,
   height: 0;
 }
 
-@supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--bg);
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
-

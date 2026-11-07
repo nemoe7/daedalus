@@ -188,6 +188,12 @@ Pass: inspect the real content in the selected typeface and loosen tracking when
 
 ![Clause 32](examples/real-heading-tracking.png)
 
+## 33. Inspect live overlay edges and surfaces
+
+Pass: at all five house viewports, open the dialog and tooltip, verify visible headings, prose, and controls stay inside their clipping and viewport bounds, and paint a readable tooltip surface. Fail: inspect only the closed page, hide a heading under the top edge, or leave a transparent tooltip over mixed content. Reachable text in a scrollable modal body is not clipped.
+
+![Clause 33: Overflow and Clipping](examples/overflow-and-clipping.png)
+
 ## Recipe and Audit-Rule Examples
 
 - **Modal `.close-button` and confirmation (`recipes/modal-manager.md`):**
