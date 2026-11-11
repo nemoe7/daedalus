@@ -1,10 +1,12 @@
 # Recipe: Scroll-edge fade
 
-Fade standalone scrollable containers and scrollable inputs (`28px` edge height over a `36px` scroll ramp, with a `14px` scrollbar carve-out and `scroll-padding-block: var(--edge-fade)`) using CSS scroll-driven animations while keeping non-scrollable containers and single-line inputs unmasked. For scroll containers with floating headers or composers layered on top, use `references/recipes/floating-overlay-scroll-fade.md`.
+Fade scrollable containers and inputs (`24px` edge, `32px` ramp, `15px` scrollbar carve, `scroll-padding-block: var(--edge-fade)`). Keep non-scrollable containers and single-line inputs unmasked. Use `references/recipes/floating-overlay-scroll-fade.md` behind floating bars.
 Keep clearance between a scroll-edge-fade region and adjacent non-overlapping siblings proportional to nearby Clause 6 and Clause 21 spacing.
 
+![Scroll-Edge Fade Dark-Mode Example](../examples/scroll-edge-fade.png)
+
 ```css
-:root { --edge-fade: 28px; --edge-ramp: 36px; --scrollbar-carve: 14px; }
+:root { --edge-fade: 24px; --edge-ramp: 32px; --scrollbar-carve: 15px; }
 @property --edge-start { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @property --edge-end { syntax: "<length>"; inherits: false; initial-value: 0px; }
 @media (prefers-reduced-motion: no-preference) {

@@ -1,12 +1,12 @@
 # Recipe: Loading bar and fixed-slot control loading
 
-Render a subtle `2px` edge loading bar after a `200ms` delay with `aria-busy="true"` on the loading region, compositor-only `transform`/`opacity` motion, and a fixed `16x16 px` indicator slot (`8x8 px` `.dot` or `14x14 px` `.btn-spinner`) centered with the label inside inline controls so switching between idle and loading causes `0 px` width or height shift (`ACC205`, `ACC204`).
+Render a `2px` edge loading bar after `200ms` with `aria-busy="true"` and compositor-only motion. Match text-paired `.ico-slot` and `.btn-spinner` to `1lh` (`ICN102`), or `16x16 px` solo, for `0 px` shift (`ACC205`, `ACC204`).
 
 ![Loading Bar Dark-Mode Example](../examples/loading-bar.png)
 
 ## Rules
 
-- Keep a fixed `16x16 px` indicator slot (`8x8 px` `.dot` or `14x14 px` `.btn-spinner`) centered with the label inside controls so switching between idle and loading (`aria-busy="true"`) causes `0 px` width or height shift (`ACC205`, `ACC204`).
+- Match text-paired `.ico-slot` and `.btn-spinner` to `1lh` (`ICN102`), or `16x16 px` when icon-only, preventing shift (`SPC001`, `ACC205`).
 - Default to a subtle `2px` edge loading bar anchored along the bottom of the top bar or panel toolbar; use an in-flow loud `<progress>` bar only when requested.
 - Delay visual appearance by `200ms` (`150–300ms`) so fast operations complete without flashing a transient indicator.
 - Set `aria-busy="true"` on the region whose content is being updated (`section`, `article`, or `main`) while loading and reset to `aria-busy="false"` in `finally`; never put `role="progressbar"` on a decorative edge pseudo-element.
@@ -110,7 +110,7 @@ async function loadPanel(panel, task) {
 }
 ```
 
-## Inline button or compact control loading (fixed `16x16 px` slot)
+## Inline button or compact control loading (`1lh` paired slot, `16x16 px` icon-only)
 
 ```css
 .btn {
@@ -120,26 +120,35 @@ async function loadPanel(panel, task) {
   gap: var(--space-2);
 }
 
-.btn .ico-slot {
+.btn .ico-slot,
+.btn .btn-spinner {
   display: inline-grid;
   place-items: center;
-  width: 16px;
-  height: 16px;
+  width: 1lh;
+  height: 1lh;
   flex: none;
 }
 
-.btn[aria-busy="true"] .btn-spinner {
-  width: 14px;
-  height: 14px;
-  animation: nuu-spin 0.8s linear infinite;
+.btn.icon-only .ico-slot,
+.btn.icon-only .btn-spinner {
+  width: 16px;
+  height: 16px;
 }
 
-.btn[aria-busy="true"] .dot {
+.btn .dot {
   width: 8px;
   height: 8px;
   border-radius: 9999px;
   background: currentColor;
-  animation: pulse 1.4s var(--ease) infinite;
+  flex: none;
+}
+
+.btn[aria-busy="true"] .btn-spinner {
+  animation: nuu-spin 220ms var(--ease) infinite;
+}
+
+.btn[aria-busy="true"] .dot {
+  animation: pulse var(--slow) var(--ease) infinite alternate;
 }
 
 @keyframes nuu-spin {

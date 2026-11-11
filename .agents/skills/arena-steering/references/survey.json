@@ -1,0 +1,53 @@
+{
+  "response_order": ["id", "answer", "confidence"],
+  "boolean_response_order": ["id", "answer"],
+  "confidence": {"minimum": 0, "maximum": 1, "all_unknown": 0},
+  "unknown_value": "unknown",
+  "quantity": {
+    "operators": ["gt", "eq", "lt", "unknown"],
+    "unknown": {"operator": "unknown", "value": "unknown"}
+  },
+  "questions": [
+    {
+      "id": "R3S0N",
+      "deterministic": true,
+      "answer_fields": {
+        "reasoning": "boolean"
+      }
+    },
+    {
+      "id": "V1S0N",
+      "deterministic": true,
+      "answer_fields": {
+        "vision": "boolean"
+      }
+    },
+    {
+      "id": "S2E5P",
+      "deterministic": false,
+      "answer_fields": {
+        "first_name": "string|unknown",
+        "last_name": "string|unknown",
+        "organization": "string|unknown",
+        "role": "string|unknown"
+      }
+    },
+    {
+      "id": "A2P6R",
+      "deterministic": false,
+      "answer_fields": {
+        "command_name": "string|unknown",
+        "concurrency_option": "string|unknown"
+      }
+    },
+    {
+      "id": "M2A6Y",
+      "deterministic": false,
+      "answer_fields": {
+        "data_center": "string|unknown",
+        "power_capacity_mw": "quantity",
+        "nvidia_gpu_count": "quantity"
+      }
+    }
+  ]
+}

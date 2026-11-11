@@ -1,4 +1,4 @@
-<!-- nonemo: NMO100; nonemo: NMO901; nonemo: NMO902; nonemo: NMO003; nonemo: STE001; nonemo: STE100; nonemo: STE200; nonemo: STE300; nonemo: STE400; nonemo: STE401; nonemo: STE901; nonemo: STE902; nonemo: STE903; nonemo: STE904; nonemo: STE905; nonemo: STE906; nonemo: STE908; nonemo: STE909; nonemo: STE910; nonemo: HMN100; nonemo: HMN200; nonemo: HMN300; nonemo: HMN400; nonemo: HMN500; nonemo: HMN600; nonemo: HMN901; nonemo: HMN902; nonemo: HMN903; nonemo: HMN904; nonemo: HMN905; nonemo: HMN906; nonemo: HMN907; nonemo: HMN908; nonemo: HMN909; nonemo: HMN910; nonemo: NMP100; nonemo: NMP101; nonemo: NMU100; nonemo: NMT100; nonemo: NMT200 -->
+<!-- nonemo: NMO100; nonemo: NMO901; nonemo: NMO902; nonemo: NMO003; nonemo: STE001; nonemo: STE100; nonemo: STE200; nonemo: STE300; nonemo: STE400; nonemo: STE401; nonemo: STE901; nonemo: STE902; nonemo: STE903; nonemo: STE904; nonemo: STE905; nonemo: STE906; nonemo: STE908; nonemo: STE909; nonemo: STE910; nonemo: HMN100; nonemo: HMN200; nonemo: HMN300; nonemo: HMN400; nonemo: HMN500; nonemo: HMN600; nonemo: HMN901; nonemo: HMN902; nonemo: HMN903; nonemo: HMN904; nonemo: HMN905; nonemo: HMN906; nonemo: HMN907; nonemo: HMN908; nonemo: HMN909; nonemo: HMN910; nonemo: NMP100; nonemo: NMP101; nonemo: NMU100; nonemo: NMT100; nonemo: NMT200; nonemo: NMT300 -->
 # Rules
 
 This document describes the rules enforced by `nemoizer`. Each rule also has a standalone reference file (`<id>.md`) in this directory.
@@ -30,7 +30,7 @@ To fix this issue, rewrite the text as follows:
 Do not send this type of token.
 ```
 
-Note: Each rotation matches the word stem in lower, capital, and upper case. Proper-name variations of `nemoizer` and `the nemoizer` in any case rotate to lowercase `nemoizer` with no leading `the`. Use `# nonemo: NMO100` or `<!-- nonemo: NMO100 -->` when an identifier or false friend must keep its spelling.
+Note: Rotations match listed word forms case-insensitively, subject to their context and boundary rules. Proper-name variations rotate to lowercase `nemoizer`; a preceding `the` stays when the name modifies certain nouns. Use `# nonemo: NMO100` or `<!-- nonemo: NMO100 -->` when an identifier or false friend must keep its spelling.
 
 Rationale: Plain, consistent words are shorter and easier to scan across documentation and code.
 
@@ -54,7 +54,7 @@ To fix this issue, rewrite the text as follows:
 Select a file from the repo, specify each field, and open a PR.
 ```
 
-Note: Default checks report `NMO901` as `(manual review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Only a verb `name` rotates, so a noun `name` stays.
+Note: Default checks report `NMO901` as `(manual review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Verb forms include `naming` before a determiner and `named` before `in the`, `under the`, or `by the`; noun and identifier uses stay.
 
 Rationale: Consistent terms reduce variation while keeping manual review for false friends such as `pickle`.
 
@@ -163,7 +163,7 @@ Start the local preview server from the root directory and wait until the status
 To fix this issue, rewrite the text as follows:
 
 ```text
-Start the local preview server from the root directory. Wait until the status endpoint is ready.
+Start the local preview server from the root directory. Wait until every background worker is ready.
 ```
 
 Note: Inline code spans and fenced code blocks are excluded from the word count.
@@ -405,7 +405,7 @@ Timeouts are not uncommon when the network is slow.
 To fix this issue, rewrite the text as follows:
 
 ```text
-Timeouts are common when the network is slow.
+Timeouts are frequent when the network is slow.
 ```
 
 Rationale: Positive statements express conditions directly without mental inversion.
@@ -609,7 +609,7 @@ The server starts. The server listens. The server logs.
 To fix this issue, rewrite the text as follows:
 
 ```text
-The server starts, listens on port 8000, and writes to the log.
+The server starts, listens, and logs.
 ```
 
 Rationale: Varying or combining repetitive sentence starts improves readability.
@@ -868,7 +868,7 @@ Tags: `tests`, `measurements`, `blocking`
 
 Aliases: `measurement-equality`
 
-This rule triggers when a test asserts exact literal equality against a measurement call (`measure`, `token_count`, `byte_count`, `duration`, `width`, `height`).
+This rule flags tests that assert literal equality on measurement calls (`measure`, `token_count`, `byte_count`, `duration`, `width`, `height`). Only positive numeric values trigger it. Zero-valued measurements are exempt.
 
 ```text
 assert check.measure(path) == 42
@@ -877,7 +877,39 @@ assert check.measure(path) == 42
 To fix this issue, rewrite the text as follows:
 
 ```text
-assert check.measure(path) > 0
+assert check.measure(path) == EXPECTED
 ```
 
 Rationale: Relational or named-constant assertions keep tests resilient to legitimate size or timing changes.
+
+## `NMT300` - Unconditional real-time wait in tests
+
+Tags: `tests`, `timing`, `advisory`
+
+Aliases: `unconditional-test-wait`
+
+This rule reports direct real-time sleeps in discovered tests: Python `sleep`, `time.sleep`, and awaited `asyncio.sleep`. It also reports awaited JavaScript `sleep` calls and `setTimeout` delays inside awaited Promises.
+
+A bounded polling loop guarded by a clock check and a deadline or timeout is exempt. Python tests that patch sleep calls and JavaScript tests that enable fake timers are exempt. Playwright `wait_for_timeout` and `waitForTimeout` calls are outside this rule.
+
+```text
+time.sleep(0.1)
+```
+
+To fix this issue, replace the fixed delay with a condition-based wait, bounded polling, or a fake timer.
+
+Rationale: Real-time sleeps add latency and can make tests depend on scheduling.
+
+## `NMT400` - Copied numeric production setting
+
+Tags: `tests`, `numeric-settings`, `advisory`
+
+Aliases: `numeric-setting-copy`
+
+This advisory reports numeric literals compared directly with statically resolved Python production settings and cites the source declaration.
+Resolution covers direct module and constant imports from local Python files, without executing source code.
+Unresolved imports, computed settings, reassigned settings, parameterized tests, fixture arguments, shadowing, and possible local mutations remain outside coverage.
+Protocol-related setting names and external modules remain excluded.
+The rule does not rewrite assertions, loosen exact dimensions, or block validation.
+
+Rationale: Source citations distinguish copied defaults from explicit input contracts.

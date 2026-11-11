@@ -1,119 +1,70 @@
-# The design document
+# The Design Document (`docs/design.md` v2)
 
-Keep one authoritative design record per repository, using the existing record or docs/design.md when none exists.
+Keep one authoritative design record per repository at `[paths].doc` in `nuu.toml` (`docs/design.md` default), updated in the same change as any visual work (`DOC001`).
 
-## Sections
+## Six Sections
 
-Use these eleven sections for new design records, and map their contents onto existing records without forcing heading changes.
+Use these six sections for new design records (`docs/design.md` v2), and map their contents onto existing records without forcing heading rewrites. Pair sections with composite boards rendered via `nuu board -T 1..9,0,canvas` (see [design-visuals.md](design-visuals.md)):
 
-1. **Purpose and status**: Record the product goal, scope, constraints, acceptance checks, owner, and current design status.
-2. **Users, tasks, and language**: Record supported user groups, primary tasks, domain objects, terminology, and the evidence behind stated needs.
-3. **Journeys and information architecture**: Record entry points, navigation, task paths, branch conditions, exits, and recovery routes.
-4. **Screens and states**: Record each screen and its applicable default, loading, empty, error, offline, disabled, and permission states.
-5. **Design system and tokens**: Record color, type, icons, layout, breakpoints, themes, motion, and their authoritative token sources.
-6. **Components and contracts**: Record component sources, variants, inputs, states, interaction contracts, and justified local exceptions.
-7. **Accessibility and inclusion**: Record the accessibility target, applicable criteria, test methods, results, exceptions, and unverified coverage.
-8. **Content and assets**: Record interface copy, locale rules, user-content constraints, asset sources, licenses, and credits.
-9. **Behavior and data**: Record preferences, defaults, persistence, validation, mutations, retry rules, and data-dependent behavior.
-10. **Evidence and handoff**: Link dated screenshots, measurements, task-flow results, research findings, implementation readiness, and known limits.
-11. **Decisions and history**: Record significant decisions with their status, context, evidence, tradeoffs, implementation links, and change history.
+1. **Pitch and Scope (`Board 1`: `design-visuals/overview-1.png`)**: Problem statement, appetite and constraints, routed flow overview (`-T 1` / `lay-of-the-land`), and explicit **No-gos**.
+2. **Domain and Copy Rules**: Domain nouns, ID formats (`--font-mono`, tabular figures), UTC storage / relative display rules (`HRC201`–`HRC202`), and realistic copy rules with zero `Lorem ipsum` (`HRC203`).
+3. **Foundations and Tokens (`Board 6`: `design-visuals/styles-6.png`)**: Authoritative `[paths].stylesheet` role tokens (`--bg`..`--scrollbar-thumb`), `Inter` / `Monaspace Neon` `9`-step type ramp (`11..32 px`, weights `400..700`), `16 px` / `20 px` Lucide icons (`ICN101`, `ICN102`), `68em/60em/30em` + `24em` breakpoints, and `var(--ease)`.
+4. **Global Components (`Boards 5 & 7`: `design-visuals/components-5.png`, `anatomy-7.png`)**: Holistic variants vs `In current use` variants, all six Clause 9 states, concentric radii, and contrast-checked anatomy redlines.
+5. **Major Areas (`Boards 2, 3, 4, 8`: `<area>-2.png`, `<area>-3.png`, `<area>-4.png`, `responsive-8.png`)**: Per-area deep dive, `Default` / `Empty` / `Error` / `Offline` views, control state matrix, `5`-viewport reflow strip, optimistic slow-network writes (`ACC207`), and URL/`localStorage` state memory.
+6. **Evidence, Deviations, and Decisions (`Boards 9 & 0`: `a11y-9.png`, `diff-0.png`)**: Latest `nuu audit` summary, keyboard `:focus-visible` and contrast trail, `nuurecipe:` list, human-approved `nuu-deviation:` log, `[[assets]]` credits, and dated `Proposed` / `Accepted` / `Retired` ADRs.
 
-Visual-reference template: [design-visuals.md](design-visuals.md).
-
-## Filled example
+## Filled Example
 
 ```markdown
-# Design example
+# Ops Inbox Design
 
-## Purpose and status
+Status: proposed | Owner: web-team | Stylesheet: `src/style.css`
 
-- Goal: route requests through the inbox and settings.
-- Scope: inbox and settings.
-- Constraints, acceptance checks, and owner: <constraints; acceptance checks; design owner>.
-- Design status: proposed example.
+## 1. Pitch and Scope (`Board 1`: `design-visuals/overview-1.png`)
 
-## Users, tasks, and language
+- **Problem:** Operators lose triage context when switching between incoming requests and workspace settings.
+- **Appetite and constraints:** Two views (`Inbox`, `Settings`), offline bundled fonts, zero external CDNs.
+- **Flow overview:** `Inbox` list -> `Inspector` drawer -> `Resolve` optimistic mutation, plus `Settings` 3-way theme control.
+- **No-gos:** No custom query-builder DSL, no multi-window popouts, no decorative shadows in dark mode.
 
-- User groups, primary tasks, and research: <supported user groups; primary tasks; research links>.
-- Request: one item a person sent. Identifier `req_<number>`.
-- Owner: the person who answers it.
+## 2. Domain and Copy Rules
 
-## Journeys and information architecture
+| Concept / Noun | Token / Format | Copy Rule |
+| --- | --- | --- |
+| `Request` | `req_<id>` (`--font-mono`, `tabular-nums`) | Store UTC epoch ms, localize relative age (`relative-timestamps`), zero `Lorem ipsum` (`HRC203`) |
+| `Workspace` | `ws_<slug>` (`--font-mono`, `tabular-nums`) | Concrete destructive verbs (`Delete workspace`, never `Yes`/`No`, `HRC001`) |
 
-- Entry points, navigation, task paths, branch conditions, exits, and recovery routes: <entry points; navigation; task paths; branches; exits; recovery routes>.
+## 3. Foundations and Tokens (`Board 6`: `design-visuals/styles-6.png`)
 
-## Screens and states
+- **Color roles (`src/style.css`):** `--bg`, `--surface`, `--surface-2`, `--field`, `--line`, `--text`, `--muted`, `--accent`, `--accent-fill`, `--on-accent`, `--danger`, `--warn`, `--ok`, `--focus`, and `--scrollbar-thumb` (`#767686` in dark mode, `>= 3.5:1`).
+- **Typography:** Bundled `Inter` (`--font-sans`) and `Monaspace Neon` (`--font-mono`) at `24/16/12 px` dashboard defaults (`400, 500, 600, 700`) plus `11 px` `.eyebrow` (`0.06em`).
+- **Icons, spacing, breakpoints, motion:** Vendored `16x16 px` Lucide SVGs matching paired text `line-height` (`ICN102`), `4 px` scale (`32 px` rows, `6 px` radius), `68em/60em/30em` width + `24em` landscape max-height, and `var(--ease)` (`cubic-bezier(0.22, 1, 0.36, 1)`).
 
-- Inbox: filters, list, inspector.
-- Settings: preferences and the theme control.
-- Default, loading, disabled, and permission coverage: <test methods and results for default, loading, disabled, and permission states>.
-- Inbox empty: says no request matches, and offers Clear filters.
-- Inbox failed: names the failed load and offers Retry.
-- Offline: a banner above the list, and the write keeps its draft.
+## 4. Global Components (`Boards 5 & 7`: `design-visuals/components-5.png`, `anatomy-7.png`)
 
-## Design system and tokens
+| Component | Holistic variants | In-current-use variants | States and anatomy |
+| --- | --- | --- | --- |
+| `.button` | `default`, `accent`, `danger`, `ghost` | `default`, `accent`, `danger` | All `6` Clause 9 states, `8px 16px` pad (`var(--space-2) var(--space-4)`), equal group widths (`HRC102`) |
+| `.row` | `default`, `selected`, `loading` | `default`, `selected`, `loading` | `32 px` height (`44 px` coarse pointer), `live-dot` fixed `16x16 px` loading slot |
+| `dialog.modal` | `detail`, `confirm-danger` | `confirm-danger` | `modal-manager` top-right `32x32 px` `.close-button` (`-8 px` margin) |
 
-### Colour
-- Roles: bg, surface, surface-2, field, line, text, muted, accent, accent-fill, on-accent, danger, warn, ok.
-- Light and dark resolve the same names. Body-text target: 4.5:1 in both. Contrast checks: <contrast test method, results, and evidence links>.
+## 5. Major Areas (`Boards 2, 3, 4, 8`: `inbox-2.png`, `inbox-3.png`, `inbox-4.png`, `responsive-8.png`)
 
-### Type
-- Inter at 400, 600, 800. Sizes 11, 12, 13, 14, 15, 20, 28 px.
-- IDs use the mono face with tabular figures.
+- **Inbox (`inbox-2.png`, `inbox-3.png`, `inbox-4.png`):** Filter bar, request table (`table-to-cards` below `60em`), and detail inspector. Covers `Default`, `Empty` (`Clear filters`), `Error` (`Retry`), and `Offline` (draft preserved).
+- **Optimistic writes and memory (`page-memory`):** `POST /api/requests` renders the pending row immediately under slow network (`ACC207`) and persists `?status=` + draft text in URL/`localStorage`.
+- **Responsive reflow (`responsive-8.png`):** Verified across `1920x957`, `1080x2437`, `958x958`, `855x325`, and `411x799` with `0 px` horizontal overflow (`SPC206`).
 
-### Icons
-- Lucide, vendored one glyph at a time, ISC licence beside each file.
-- 18 px on every surface.
+## 6. Evidence, Deviations, and Decisions (`Boards 9 & 0`: `a11y-9.png`, `diff-0.png`)
 
-### Layout
-- One 1280 px column with 32 px gutters.
-- 1200 px: inspector takes 320 px. 900 px: the opened item fills the page. 640 px: tables stack.
-
-### Theme and motion
-- Theme control: System, Light, Dark.
-- One curve `cubic-bezier(0.22, 1, 0.36, 1)`, 160 to 220 ms. Reduced motion stops it.
-
-- Authoritative token sources: <project token file paths or design-system URLs>.
-
-## Components and contracts
-
-- `row`: height 40 px, padding 0 16 px, border-bottom 1 px line. States: default, hover, selected.
-- `pill`: dot and word, 24 px high, radius 10 px.
-- Component sources, inputs, contracts, and exceptions: <component sources; inputs; interaction contracts; local exceptions>.
-
-## Accessibility and inclusion
-
-- Accessibility target, applicable criteria, methods, results, and exceptions: <target; applicable criteria; methods; results; exceptions>.
-- Coverage: <verified coverage and remaining gaps>.
-
-## Content and assets
-
-- Interface copy, locale rules, user-content constraints, asset paths, and credits: <interface copy; locale rules; user-content constraints; asset paths; credits>.
-- Proposed icon source and license: see Design system and tokens.
-
-## Behavior and data
-
-- Theme: System by default; Light and Dark are explicit choices.
-- Page size: 20 rows.
-- Persistence, validation, mutations, retries, and data-dependent behavior: <persistence; validation; mutations; retry rules; data-dependent behavior>.
-
-## Evidence and handoff
-
-- Visual references: [Inbox workflow](design-visuals/inbox.md), [Shared components](design-visuals/components.md), and [Style reference](design-visuals/styles.md).
-- Screenshots, measurements, task-flow checks, and participant research: <dated screenshots; measurements; task-flow results; participant research links>.
-- Implementation readiness: <readiness status and unresolved blockers>.
-- This example is not verification evidence.
-
-## Decisions and history
-
-- Decision status: proposed example. Context, evidence, tradeoffs, and implementation links: <decision context; supporting evidence; tradeoffs; implementation links>.
-- Historical example entry:
-- 2026-03-04: inspector width at 75em set to 320 px.
+- **Audit status:** Not run (template example). Run `nuu audit -c nuu.toml -u http://127.0.0.1:8000` before landing.
+- **Recipes (`nuurecipe:`):** `offline-fonts`, `live-dot`, `loading-bar`, `page-memory`, `modal-manager`, `relative-timestamps`, `scrollbars`, `table-to-cards`.
+- **Approved deviations (`nuu-deviation:`):** None.
+- **Decisions:** `2026-11-07` (`Accepted`) — collapse `Inspector` below `60em` so the request list keeps full reading measure.
 ```
 
-## Rules for an entry
+## Rules for an Entry
 
-- Mark decisions as proposed, accepted, or retired, and keep unresolved questions distinct from settled implementation facts.
-- Mark missing research, measurements, approvals, and test coverage as unknown or not run instead of inventing evidence.
-- Keep composite image boards — overview wireframe flow boards with navigation arrows, detail wireframes, side-by-side workflow views, multi-state component boards, shared component family sheets, and foundation style boards — in separate local visual-reference documents, and link them from the authoritative design record.
-- Delete an entry only with the code it describes.
+- Mark decisions as `Proposed`, `Accepted`, or `Retired`, keeping open questions separate from settled facts.
+- Mark uncaptured screenshots or unrun audits explicitly as `not captured` or `not run` instead of inventing evidence.
+- Never add `nuu-deviation:` entries without explicit human approval.
+- Delete an entry only together with the code it describes.

@@ -8,7 +8,7 @@ Extend the scroll container past a floating overlay composer or bottom action ba
 
 - Extend the scroll region (`margin-bottom: -84px` on the scroll wrapper, `padding-bottom: 88px` on the scroll container) past the bottom composer or floating action bar so the scroll container reaches the bottom of the viewport.
 - Set `--edge-fade-end: 96px` and `--edge-stop-end: 0px` on the scroll container so the bottom fade begins `~28px` above the top edge of the composer and continues smoothly behind the composer all the way to `transparent 100%` at the container end.
-- Keep the floating composer surface solid (`background-color: hsl(var(--surface-secondary))`, `position: relative`, `z-index: 3`) with bottom breathing room (`margin-bottom: 18px`) so scrolled content never bleeds through the text input while remaining softly visible in the bottom gap when overflowing.
+- Keep the composer solid (`background: var(--surface-2)`, `position: relative`, `z-index: 3`) with `margin-bottom: var(--space-4)` (`16px`) so text never bleeds through.
 - Match the scroll container's `padding-bottom` (`88px`) to the overlap depth plus breathing room so the final item scrolls completely above the floating bar when scrolled to `100%`.
 
 ## Reference CSS
@@ -35,7 +35,7 @@ Extend the scroll container past a floating overlay composer or bottom action ba
 .card.compose {
   position: relative;
   z-index: 3;
-  margin-bottom: 18px;
-  background-color: hsl(var(--surface-secondary));
+  margin-bottom: var(--space-4);
+  background: var(--surface-2);
 }
 ```

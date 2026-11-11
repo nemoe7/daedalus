@@ -1,23 +1,24 @@
 # Recipe: Scrollbars
 
-Style scrollbars with a `6px` rounded thumb (`var(--scrollbar-thumb)`) inset in a `10px` track (`var(--bg)`), `9999px` pill radius, and no arrow buttons (`::-webkit-scrollbar-button { display: none; }`). Omit hover highlights unless keyboard navigation is active (`:root[data-keyboard-nav="true"]`). Scope `scrollbar-width: thin` and `scrollbar-color` inside `@supports not selector(::-webkit-scrollbar)` so Chromium keeps the rounded WebKit thumb and hidden buttons while Firefox receives a matching thin track and thumb.
+Style scrollbars with a pill thumb (`var(--scrollbar-thumb)`) inset in a `15px` track (`transparent`) with `margin: 8px 0`, `9999px` pill radius, no arrow buttons (`::-webkit-scrollbar-button { display: none; }`), and keyboard-nav hover highlights (`:root[data-keyboard-nav="true"]`). Global `*` rule sets `scrollbar-width: thin` and `scrollbar-color: var(--scrollbar-thumb) transparent` for Firefox.
 
 ![Scrollbars Dark-Mode Example](../examples/scrollbars.png)
 
 ```css
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 15px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
-  background: var(--bg);
+  background: transparent;
+  margin: 8px 0;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border: 2px solid var(--bg);
+  border: 1px solid transparent;
   background-clip: padding-box;
   border-radius: 9999px;
 }
@@ -33,10 +34,8 @@ Style scrollbars with a `6px` rounded thumb (`var(--scrollbar-thumb)`) inset in 
   height: 0;
 }
 
-@supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--bg);
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 ```

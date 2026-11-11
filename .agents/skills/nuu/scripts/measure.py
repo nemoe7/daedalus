@@ -1,34 +1,30 @@
-"""Measure a rendered page against the Nemo UI/UX sheet.
-
-Two commands:
-
-- `check REPORT`: read a JSON report of computed values and name every value that
-  leaves the sheet. A value passes when it sits on the scale, when it is a size
-  from the type ramp on a type property, or when the sheet names it as a layout
-  size, such as the 10 px radius.
-- `ruler --from X,Y --to X,Y`: read the gap between two guides on the page, the
-  way a screen ruler does, and say whether each axis sits on the scale.
-
-The report shape is one object per width:
-
-    {"width": 1280,
-     "elements": [{"selector": ".row", "values": {"height": "40px", "gap": "16px"}}]}
-
-`references/measure.md` holds the browser snippet that writes it.
-"""
+"""Measure live pages and PNG captures against the Nuu stylesheet and spacing scale."""
 
 from __future__ import annotations
 
 import argparse
-import json
 import math
 import re
-import sys
-import tomllib
+from collections.abc import Sequence
 from pathlib import Path
 
 DEFAULT_SHEET = Path(__file__).resolve().parent.parent / "references" / "style.css"
 DEFAULT_SCALE = 4
+DEFAULT_TOLERANCE = 30
+DEFAULT_REDLINE_HEX = "#ff3366"
+MIN_REDLINE_CONTRAST = 3.0
+FALLBACK_CYAN_RGBA = (0, 229, 255, 255)
+FALLBACK_INK_RGBA = (17, 24, 39, 255)
+HALO_LIGHT_RGBA = (255, 255, 255, 255)
+HALO_DARK_RGBA = (17, 24, 39, 255)
+
+DEVTOOLS_TINTS = {
+  "content": (111, 168, 220, 115),
+  "padding": (147, 196, 125, 115),
+  "border": (255, 217, 102, 140),
+  "margin": (246, 178, 107, 115),
+}
+
 MIN_INK_RATIO = 0.75
 MAIN_MIN_INK_RATIO = 0.40
 MAX_SIBLING_GAP = 320.0
@@ -49,6 +45,7 @@ STRETCH_EXEMPT_INPUTS = {
   "image",
 }
 PX = re.compile(r"^(-?\d+(?:\.\d+)?)px$")
+POINT_RE = re.compile(r"^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$")
 CUSTOM_PROPERTY = re.compile(r"--([a-z0-9-]+)\s*:\s*([^;]+);")
 TYPE_PROPERTIES = ("font-size",)
 SPACING_PROPERTIES = ("padding", "margin", "gap", "row-gap", "column-gap")
@@ -57,51 +54,45 @@ RADIUS_SIZES = {4.0, 6.0, 10.0, 9999.0}
 LIST_INDENT = "2ch"
 LIST_INDENT_PX_TOLERANCE = 1.0
 LIST_WRAP_PX_TOLERANCE = 1.0
+RULE_PREFIX_RE = re.compile(r"^([A-Z]{3}\d{3})\s+(.+)$")
 
 
 def parse_sheet(text: str) -> dict[str, str]:
-  """Return every custom property in a stylesheet, keyed by its name without the dashes."""
-  return {name: value.strip() for name, value in CUSTOM_PROPERTY.findall(text)}
+  """Return every custom property in a stylesheet, keyed without leading dashes."""
+  return {prop: value.strip() for prop, value in CUSTOM_PROPERTY.findall(text)}
 
 
 def named_sizes(tokens: dict[str, str], *, ramp: bool) -> set[float]:
-  """Return the px sizes the sheet names, from its type ramp or from its layout tokens.
-
-  A type size names a font size, and never excuses a padding. A layout token, such
-  as `--radius: 10px`, names a size that a component may take.
-  """
+  """Return pixel sizes declared by the stylesheet type ramp or layout tokens."""
   sizes = set()
-  for name, value in tokens.items():
+  for prop, value in tokens.items():
     match = PX.match(value)
     if not match:
       continue
-    is_type = name.startswith("size-") or name == "eyebrow"
+    is_type = prop.startswith("size-") or prop == "eyebrow"
     if is_type is ramp:
       sizes.add(float(match.group(1)))
   return sizes
 
 
 def on_scale(value: float, scale: float) -> bool:
-  """True when a value is a whole multiple of the scale."""
+  """Return True when value is an integer multiple of scale."""
   return math.isclose(value / scale, round(value / scale), abs_tol=1e-9)
 
 
-def off_scale(name: str, value: str, tokens: dict[str, str], scale: float) -> bool:
-  """Check spacing against the scale, font sizes against the ramp, and radii against the allowed set.
-
-  Fluid box dimensions (width, height, line-height, outline-width) are not scale tokens.
-  """
+def off_scale(prop: str, value: str, tokens: dict[str, str], scale: float) -> bool:
+  """Check spacing against scale, font sizes against the ramp, and radii against tokens."""
   match = PX.match(value.strip())
   if not match:
     return False
   number = float(match.group(1))
-  if name in TYPE_PROPERTIES:
+  if prop in TYPE_PROPERTIES:
     return number not in named_sizes(tokens, ramp=True)
-  if name.startswith(LAYOUT_PROPERTIES):
+  if prop.startswith(LAYOUT_PROPERTIES):
     return number not in (RADIUS_SIZES | {0.0})
   if number == 0 or on_scale(number, scale):
     return False
-  return name.startswith(SPACING_PROPERTIES)
+  return prop.startswith(SPACING_PROPERTIES)
 
 
 def _numeric_value(value):
@@ -122,17 +113,15 @@ def _numeric_value(value):
 
 
 def _list_indent_status(element: dict):
-  data = element.get("list_indent", element.get("listIndent"))
+  data = element.get("list_indent")
   if data is None:
     return None
   if not isinstance(data, dict):
     return {}, ["list indentation metrics are malformed"], False
   errors = []
   indent = str(data.get("indent") or "").strip().lower()
-  ch_px = _numeric_value(data.get("ch_px", data.get("chPx")))
-  padding = _numeric_value(
-    data.get("padding_inline_start", data.get("paddingInlineStart"))
-  )
+  ch_px = _numeric_value(data.get("ch_px"))
+  padding = _numeric_value(data.get("padding_inline_start"))
   slot_verified = (
     indent == LIST_INDENT and ch_px is not None and ch_px > 0 and padding is not None
   )
@@ -153,7 +142,7 @@ def _list_indent_status(element: dict):
     for item in items:
       if not isinstance(item, dict):
         continue
-      raw_starts = item.get("line_starts", item.get("lineStarts"))
+      raw_starts = item.get("line_starts")
       if not isinstance(raw_starts, list) or len(raw_starts) < 2:
         continue
       starts = [_numeric_value(value) for value in raw_starts]
@@ -171,8 +160,8 @@ def _list_indent_status(element: dict):
   return data, errors, slot_verified
 
 
-def _verified_list_padding(element: dict, name: str, value: str, status) -> bool:
-  if status is None or name not in {
+def _verified_list_padding(element: dict, prop: str, value: str, status) -> bool:
+  if status is None or prop not in {
     "padding-inline-start",
     "padding-left",
     "padding-right",
@@ -183,12 +172,10 @@ def _verified_list_padding(element: dict, name: str, value: str, status) -> bool
     return False
   direction = str(data.get("direction") or "ltr").strip().lower()
   physical_start = "padding-right" if direction == "rtl" else "padding-left"
-  if name not in {"padding-inline-start", physical_start}:
+  if prop not in {"padding-inline-start", physical_start}:
     return False
   observed = _numeric_value(value)
-  expected = _numeric_value(
-    data.get("padding_inline_start", data.get("paddingInlineStart"))
-  )
+  expected = _numeric_value(data.get("padding_inline_start"))
   return (
     observed is not None
     and expected is not None
@@ -236,9 +223,7 @@ def _line_height_finding(element: dict) -> str | None:
   if not raw_lh or raw_lh == "normal" or not raw_fs:
     return None
   tag = str(element.get("tag") or "").strip().lower()
-  if tag in COMPACT_LINE_HEIGHT_TAGS or bool(
-    element.get("icon_only", element.get("iconOnly"))
-  ):
+  if tag in COMPACT_LINE_HEIGHT_TAGS or bool(element.get("icon_only")):
     return None
   text = element.get("text")
   if isinstance(text, str) and not text.strip():
@@ -317,7 +302,7 @@ def _letter_spacing_finding(element: dict) -> str | None:
 
 
 def _element_line_count(element: dict) -> int | None:
-  explicit = element.get("line_count", element.get("lineCount"))
+  explicit = element.get("line_count")
   if isinstance(explicit, (int, float)) and explicit > 0:
     return round(explicit)
   values = element.get("values") or {}
@@ -352,14 +337,10 @@ def _text_alignment_finding(element: dict) -> str | None:
   values = element.get("values") or {}
   align = str(values.get("text-align") or "").strip().lower()
   selector = str(element.get("selector") or "?")
-  mismatch = element.get("heading_body_alignment", element.get("headingBodyAlignment"))
+  mismatch = element.get("heading_body_alignment")
   if isinstance(mismatch, dict):
-    h_align = _normalize_text_align(
-      str(mismatch.get("heading_align", mismatch.get("headingAlign")) or align)
-    )
-    b_align = _normalize_text_align(
-      str(mismatch.get("body_align", mismatch.get("bodyAlign")) or "")
-    )
+    h_align = _normalize_text_align(str(mismatch.get("heading_align") or align))
+    b_align = _normalize_text_align(str(mismatch.get("body_align") or ""))
     if h_align and b_align and h_align != b_align:
       return (
         f"TYP103 {selector}: heading text-align ({h_align}) "
@@ -401,8 +382,7 @@ def _body_width_finding(element: dict, report_width: float) -> str | None:
     return None
   values = element.get("values") or {}
   standalone = not (
-    _is_card_or_dialog(element)
-    or bool(element.get("in_card_or_dialog", element.get("inCardOrDialog")))
+    _is_card_or_dialog(element) or bool(element.get("in_card_or_dialog"))
   )
   raw_max = str(values.get("max-width") or "").strip().lower()
   if raw_max.endswith("ch"):
@@ -450,14 +430,12 @@ def _is_card_or_dialog(element: dict) -> bool:
 
 def _card_font_hierarchy_finding(element: dict, all_elements: list[dict]) -> str | None:
   selector = str(element.get("selector") or "?")
-  hier = element.get("heading_hierarchy", element.get("headingHierarchy"))
+  hier = element.get("heading_hierarchy")
   if isinstance(hier, dict):
-    h_fs = _numeric_value(hier.get("heading_size", hier.get("headingSize")))
-    s_fs = _numeric_value(hier.get("sub_size", hier.get("subSize")))
-    h_wt = (
-      _numeric_value(hier.get("heading_weight", hier.get("headingWeight"))) or 400.0
-    )
-    s_wt = _numeric_value(hier.get("sub_weight", hier.get("subWeight"))) or 400.0
+    h_fs = _numeric_value(hier.get("heading_size"))
+    s_fs = _numeric_value(hier.get("sub_size"))
+    h_wt = _numeric_value(hier.get("heading_weight")) or 400.0
+    s_wt = _numeric_value(hier.get("sub_weight")) or 400.0
     if (
       h_fs is not None
       and s_fs is not None
@@ -467,7 +445,7 @@ def _card_font_hierarchy_finding(element: dict, all_elements: list[dict]) -> str
         f"HRC101 {selector}: heading ({h_fs:g}px/{h_wt:g}) lacks visual "
         f"hierarchy over subordinate text ({s_fs:g}px/{s_wt:g})"
       )
-  explicit = element.get("card_font_sizes", element.get("cardFontSizes"))
+  explicit = element.get("card_font_sizes")
   if explicit is None and not _is_card_or_dialog(element):
     return None
   sizes: set[float] = set()
@@ -497,17 +475,17 @@ def _card_font_hierarchy_finding(element: dict, all_elements: list[dict]) -> str
 
 
 def _proximity_spacing_finding(element: dict) -> str | None:
-  prox = element.get("group_proximity", element.get("groupProximity"))
+  prox = element.get("group_proximity")
   inter_px: float | None = None
   intra_px: float | None = None
   if isinstance(prox, dict):
-    raw_inter = prox.get("inter_px", prox.get("interPx"))
-    raw_intra = prox.get("intra_px", prox.get("intraPx"))
+    raw_inter = prox.get("inter_px")
+    raw_intra = prox.get("intra_px")
     if isinstance(raw_inter, (int, float)) and isinstance(raw_intra, (int, float)):
       inter_px, intra_px = float(raw_inter), float(raw_intra)
   else:
-    raw_inter = element.get("inter_group_gap", element.get("interGroupGap"))
-    raw_intra = element.get("intra_group_gap", element.get("intraGroupGap"))
+    raw_inter = element.get("inter_group_gap")
+    raw_intra = element.get("intra_group_gap")
     if raw_inter is not None and raw_intra is not None:
       inter_px = (
         float(raw_inter)
@@ -567,13 +545,30 @@ def _approved_font_families(tokens: dict[str, str]) -> set[str]:
   return allowed
 
 
+def _paired_icon_finding(element: dict) -> str | None:
+  icon_h = _numeric_value(element.get("paired_icon_height"))
+  if icon_h is None or icon_h <= 0:
+    return None
+  values = element.get("values") or {}
+  lh_px = _numeric_value(str(values.get("line-height") or ""))
+  if lh_px is None or lh_px <= 0:
+    return None
+  if abs(icon_h - lh_px) > 1.0:
+    selector = str(element.get("selector") or "?")
+    return (
+      f"ICN102 {selector}: paired icon height {icon_h:g}px differs from "
+      f"text line-height {lh_px:g}px"
+    )
+  return None
+
+
 def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str]:
   out: list[str] = []
   selector = str(element.get("selector") or "?")
   tag = str(element.get("tag") or "").strip().lower()
   classes = element.get("classes") or []
   values = element.get("values") or {}
-  insets = element.get("card_inline_insets", element.get("cardInlineInsets"))
+  insets = element.get("card_inline_insets")
   if isinstance(insets, list):
     nums = [float(x) for x in insets if isinstance(x, (int, float))]
     if len(nums) >= 2 and max(nums) - min(nums) > 2.0:
@@ -612,7 +607,7 @@ def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str
     "eyebrow" in classes or bool(re.search(r"\beyebrow\b", selector, re.IGNORECASE))
   ):
     out.append(f"TYP003 {selector}: text-transform uppercase is reserved for .eyebrow")
-  fills = element.get("button_fill_colors", element.get("buttonFillColors"))
+  fills = element.get("button_fill_colors")
   if (
     isinstance(fills, list)
     and len({str(x).strip().lower() for x in fills if str(x).strip()}) >= 2
@@ -627,16 +622,19 @@ def _core_principles_findings(element: dict, tokens: dict[str, str]) -> list[str
 def check(
   report: dict, tokens: dict[str, str], scale: float = DEFAULT_SCALE
 ) -> list[str]:
-  """Return off-scale values and measured list-indent and typography findings."""
+  """Return off-scale values and measured list-indent, icon, and typography findings."""
   findings = []
   report_width = float(report.get("width") or 0)
   elements = report.get("elements", [])
   for element in elements:
     selector = element.get("selector", "?")
+    if selector.startswith("::-webkit-scrollbar"):
+      continue
     list_status = _list_indent_status(element)
     if list_status and list_status[1]:
       findings.append(f"TYP203 {selector}: {'; '.join(list_status[1])}")
     for extra in (
+      _paired_icon_finding(element),
       _line_height_finding(element),
       _letter_spacing_finding(element),
       _text_alignment_finding(element),
@@ -647,20 +645,20 @@ def check(
     ):
       if extra:
         findings.append(extra)
-    for name, value in element.get("values", {}).items():
-      if _verified_list_padding(element, name, str(value), list_status):
+    for prop, value in element.get("values", {}).items():
+      if _verified_list_padding(element, prop, str(value), list_status):
         continue
-      if off_scale(name, str(value), tokens, scale):
-        if name in TYPE_PROPERTIES:
+      if off_scale(prop, str(value), tokens, scale):
+        if prop in TYPE_PROPERTIES:
           findings.append(
-            f"TYP001 {selector}: {name} is {value}, outside the type ramp"
+            f"TYP001 {selector}: {prop} is {value}, outside the type ramp"
           )
-        elif name.startswith(LAYOUT_PROPERTIES):
+        elif prop.startswith(LAYOUT_PROPERTIES):
           findings.append(
-            f"SPC002 {selector}: {name} is {value}, outside the allowed radii"
+            f"SPC002 {selector}: {prop} is {value}, outside the allowed radii"
           )
         else:
-          findings.append(f"{selector}: {name} is {value}, off the {scale:g} px scale")
+          findings.append(f"{selector}: {prop} is {value}, off the {scale:g} px scale")
   return findings
 
 
@@ -678,7 +676,7 @@ def is_main_landmark(element: dict) -> bool:
 
 def is_toolbar_or_header_bar(element: dict, height: float) -> bool:
   """Return whether an element is a header or toolbar bar exempt from SPC201."""
-  if bool(element.get("toolbar_exempt", element.get("toolbarExempt"))):
+  if bool(element.get("toolbar_exempt")):
     return True
   tag = str(element.get("tag") or "").lower()
   if tag in TOOLBAR_TAGS:
@@ -706,7 +704,7 @@ def _clean_bounds(bounds: dict) -> dict | None:
 
 
 def check_density(report: dict) -> list[dict]:
-  """Return whitespace and layout-density findings (SPC201, SPC202, SPC203, HRC102)."""
+  """Return density, slack, clipping, button-group, and overlap findings."""
   findings: list[dict] = []
   viewport_width = float(report.get("width", 1280) or 1280)
   for element in report.get("elements", []):
@@ -721,13 +719,13 @@ def check_density(report: dict) -> list[dict]:
       and width >= 320
       and not is_toolbar_or_header_bar(element, height)
     ):
-      raw_ratio = element.get("ink_ratio", element.get("inkRatio"))
+      raw_ratio = element.get("ink_ratio")
       if raw_ratio is None:
-        raw_ink = element.get("ink_width", element.get("inkWidth"))
+        raw_ink = element.get("ink_width")
         if raw_ink is not None and width > 0:
           raw_ratio = float(raw_ink) / width
-      if raw_ratio is None:
-        raw_ratio = None
+      if raw_ratio is None and element.get("children_area") is not None and height > 0:
+        raw_ratio = float(element["children_area"]) / (width * height)
       min_ratio = MAIN_MIN_INK_RATIO if is_main_landmark(element) else MIN_INK_RATIO
       if raw_ratio is not None and float(raw_ratio) < min_ratio:
         ratio = float(raw_ratio)
@@ -742,12 +740,7 @@ def check_density(report: dict) -> list[dict]:
             **b_extra,
           }
         )
-    gap = float(
-      element.get(
-        "max_sibling_gap", element.get("maxSiblingGap", element.get("sibling_gap", 0))
-      )
-      or 0
-    )
+    gap = float(element.get("max_sibling_gap", element.get("sibling_gap", 0)) or 0)
     if gap > MAX_SIBLING_GAP and (width <= 0 or gap > 0.4 * width):
       findings.append(
         {
@@ -758,10 +751,8 @@ def check_density(report: dict) -> list[dict]:
         }
       )
     tag = str(element.get("tag") or "").lower()
-    input_type = str(
-      element.get("input_type") or element.get("inputType") or "text"
-    ).lower()
-    slack = float(element.get("row_slack", element.get("rowSlack", 0)) or 0)
+    input_type = str(element.get("input_type") or "text").lower()
+    slack = float(element.get("row_slack", 0) or 0)
     if (
       tag == "select" or (tag == "input" and input_type not in STRETCH_EXEMPT_INPUTS)
     ) and slack > MAX_ROW_SLACK:
@@ -769,11 +760,11 @@ def check_density(report: dict) -> list[dict]:
         {
           "rule": "SPC203",
           "selector": selector,
-          "evidence": (f"{selector}: input ends {slack:g} px before its row edge"),
+          "evidence": f"{selector}: input ends {slack:g} px before its row edge",
           **b_extra,
         }
       )
-    icon_only = bool(element.get("icon_only", element.get("iconOnly")))
+    icon_only = bool(element.get("icon_only"))
     if icon_only and width > 0 and height > 0 and abs(width - height) > 1.0:
       findings.append(
         {
@@ -785,7 +776,7 @@ def check_density(report: dict) -> list[dict]:
           **b_extra,
         }
       )
-    group_sizes = element.get("button_group_sizes", element.get("buttonGroupSizes"))
+    group_sizes = element.get("button_group_sizes")
     if isinstance(group_sizes, list) and len(group_sizes) >= 2:
       widths: list[float] = []
       heights: list[float] = []
@@ -815,12 +806,12 @@ def check_density(report: dict) -> list[dict]:
     values = element.get("values") or {}
     overflow_x = str(values.get("overflow-x") or values.get("overflow") or "").lower()
     overflow_y = str(values.get("overflow-y") or values.get("overflow") or "").lower()
-    scroll_w = float(element.get("scroll_width", element.get("scrollWidth", 0)) or 0)
-    client_w = float(element.get("client_width", element.get("clientWidth", 0)) or 0)
-    scroll_h = float(element.get("scroll_height", element.get("scrollHeight", 0)) or 0)
-    client_h = float(element.get("client_height", element.get("clientHeight", 0)) or 0)
+    scroll_w = float(element.get("scroll_width", 0) or 0)
+    client_w = float(element.get("client_width", 0) or 0)
+    scroll_h = float(element.get("scroll_height", 0) or 0)
+    client_h = float(element.get("client_height", 0) or 0)
     is_ellipsis = str(values.get("text-overflow") or "").lower() == "ellipsis"
-    clipped = bool(element.get("clipped_content", element.get("clippedContent")))
+    clipped = bool(element.get("clipped_content"))
     if not clipped and not is_ellipsis:
       if (
         overflow_x in {"hidden", "clip"} and client_w > 0 and scroll_w > client_w + 1.0
@@ -839,7 +830,7 @@ def check_density(report: dict) -> list[dict]:
           **b_extra,
         }
       )
-    overlap_target = element.get("sibling_overlap", element.get("siblingOverlap"))
+    overlap_target = element.get("sibling_overlap")
     if overlap_target:
       findings.append(
         {
@@ -869,7 +860,7 @@ def check_density(report: dict) -> list[dict]:
 def ruler(
   start: tuple[float, float], end: tuple[float, float], scale: float = DEFAULT_SCALE
 ) -> dict:
-  """Return the gap between two guides and whether each axis sits on the scale."""
+  """Return axis spans, Euclidean distance, and scale conformance between two points."""
   dx = end[0] - start[0]
   dy = end[1] - start[1]
   return {
@@ -882,129 +873,933 @@ def ruler(
 
 
 def point(text: str) -> tuple[float, float]:
-  """Read one guide as `x,y`."""
+  """Parse one `x,y` coordinate pair."""
   try:
-    x, y = (float(part) for part in text.split(","))
+    x_raw, y_raw = text.split(",")
+    x, y = float(x_raw), float(y_raw)
   except ValueError as error:
     raise argparse.ArgumentTypeError(f"a guide reads as x,y, not {text!r}") from error
+  if not (math.isfinite(x) and math.isfinite(y)):
+    raise argparse.ArgumentTypeError(f"guide coordinates must be finite: {text!r}")
   return x, y
 
 
-def check_severities(project: Path) -> dict[str, str]:
-  from annotate import find_nuu_config
-
-  config_path = find_nuu_config(project)
-  config = tomllib.loads(config_path.read_text(encoding="utf-8")) if config_path else {}
-  checks = config.get("checks", {})
-  if not isinstance(checks, dict):
-    raise TypeError("checks must be a table")
-  settings = checks.get("severity", {})
-  if not isinstance(settings, dict):
-    raise TypeError("checks.severity must be a table")
-  defaults = {"TYP101": "review", "TYP201": "review"}
-  for rule, severity in settings.items():
-    if rule not in defaults or severity not in ("review", "error"):
-      raise ValueError(f"invalid checks.severity setting: {rule} = {severity!r}")
-    defaults[rule] = severity
-  return defaults
-
-
-def main(argv: list[str] | None = None) -> int:
-  parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-  parser.add_argument("-s", "--sheet", type=Path, default=DEFAULT_SHEET)
-  parser.add_argument("-k", "--scale", type=float, default=DEFAULT_SCALE)
-  commands = parser.add_subparsers(dest="command", required=True)
-
-  check_command = commands.add_parser(
-    "check", help="Check a JSON report against the sheet"
-  )
-  check_command.add_argument("report", type=Path)
-  check_command.add_argument("-s", "--sheet", dest="sub_sheet", type=Path, default=None)
-  check_command.add_argument(
-    "-k", "--scale", dest="sub_scale", type=float, default=None
-  )
-  check_command.add_argument(
-    "-d", "--density", action="store_true", help="Include whitespace and density checks"
-  )
-  check_command.add_argument(
-    "-C", "--clipping", action="store_true", help="Include container clipping checks"
-  )
-  check_command.add_argument(
-    "-O", "--overlaps", action="store_true", help="Include sibling overlap checks"
-  )
-
-  density_command = commands.add_parser(
-    "density",
-    help="Check row/card ink ratio, sibling gaps, and form inputs that leave row space unused",
-  )
-  density_command.add_argument("report", type=Path)
-  density_command.add_argument(
-    "-C", "--clipping", action="store_true", help="Include container clipping checks"
-  )
-  density_command.add_argument(
-    "-O", "--overlaps", action="store_true", help="Include sibling overlap checks"
-  )
-
-  ruler_command = commands.add_parser(
-    "ruler", help="Measure the gap between two guides"
-  )
-  ruler_command.add_argument("-f", "--from", dest="start", type=point, required=True)
-  ruler_command.add_argument("-t", "--to", dest="end", type=point, required=True)
-  ruler_command.add_argument("-s", "--sheet", dest="sub_sheet", type=Path, default=None)
-  ruler_command.add_argument(
-    "-k", "--scale", dest="sub_scale", type=float, default=None
-  )
-
-  arguments = parser.parse_args(argv)
-  if arguments.command == "density":
-    report = json.loads(arguments.report.read_text(encoding="utf-8"))
-    density_rows = check_density(report)
-    for row in density_rows:
-      print(f"{report.get('width')} px {row['rule']} {row['evidence']}")
-    if density_rows:
-      return 1
-    print(f"{report.get('width')} px: density checks passed")
-    return 0
-
-  sheet_path = arguments.sub_sheet or arguments.sheet
-  scale_val = (
-    arguments.sub_scale if arguments.sub_scale is not None else arguments.scale
-  )
-  tokens = parse_sheet(sheet_path.read_text(encoding="utf-8"))
-
-  if arguments.command == "ruler":
-    gap = ruler(arguments.start, arguments.end, scale_val)
-    print(f"gap {gap['dx']:g} x {gap['dy']:g} px, distance {gap['distance']:g} px")
-    for axis, fits in gap["axes"].items():
-      print(f"{axis}: {'on' if fits else 'off'} the {scale_val:g} px scale")
-    return 0 if gap["on_scale"] else 1
-
+def parse_drop_spec(raw: str) -> tuple[int, int, str]:
+  """Parse `-d, --drop <x,y[,xy|x|y]>` into `(x, y, axis)`."""
+  parts = [part.strip() for part in str(raw or "").split(",")]
+  if len(parts) not in {2, 3}:
+    raise ValueError(f"invalid --drop {raw!r}: expected x,y[,xy|x|y]")
   try:
-    severities = check_severities(Path.cwd())
-  except (OSError, ValueError, TypeError) as error:
-    print(f"configuration error: {error}", file=sys.stderr)
-    return 2
-  report = json.loads(arguments.report.read_text(encoding="utf-8"))
-  findings = check(report, tokens, scale_val)
-  if (
-    getattr(arguments, "density", False)
-    or getattr(arguments, "clipping", False)
-    or getattr(arguments, "overlaps", False)
-  ):
-    findings.extend(f"{row['rule']} {row['evidence']}" for row in check_density(report))
-  for finding in findings:
-    rule = finding.split()[0]
-    severity = severities.get(rule, "error")
-    prefix = f"[{severity}] " if rule in severities else ""
-    print(f"{report.get('width')} px {prefix}{finding}")
-  if any(
-    severities.get(finding.split()[0], "error") == "error" for finding in findings
-  ):
-    return 1
-  if not findings:
-    print(f"{report.get('width')} px: every value sits on the sheet")
-  return 0
+    x = int(parts[0])
+    y = int(parts[1])
+  except ValueError as exc:
+    raise ValueError(f"invalid --drop {raw!r}: x and y must be integers") from exc
+  if x < 0 or y < 0:
+    raise ValueError(f"invalid --drop {raw!r}: x and y must be non-negative")
+  axis = parts[2].lower() if len(parts) == 3 else "xy"
+  if axis not in {"xy", "x", "y"}:
+    raise ValueError(f"invalid --drop axis {axis!r}: expected xy, x, or y")
+  return x, y, axis
 
 
-if __name__ == "__main__":
-  sys.exit(main())
+def relative_luminance(rgb: Sequence[int]) -> float:
+  """Return WCAG 2.x relative luminance for an sRGB triple."""
+  channels = []
+  for comp in rgb[:3]:
+    srgb = max(0.0, min(1.0, float(comp) / 255.0))
+    if srgb <= 0.04045:
+      channels.append(srgb / 12.92)
+    else:
+      channels.append(((srgb + 0.055) / 1.055) ** 2.4)
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
+
+
+def contrast_ratio(fg: Sequence[int], bg: Sequence[int]) -> float:
+  """Return WCAG 2.x contrast ratio between two sRGB triples."""
+  l1 = relative_luminance(fg)
+  l2 = relative_luminance(bg)
+  bright, dark = (l1, l2) if l1 >= l2 else (l2, l1)
+  return (bright + 0.05) / (dark + 0.05)
+
+
+def sample_segment_rgb(
+  rgba: bytes | bytearray,
+  width: int,
+  height: int,
+  x1: int,
+  y1: int,
+  x2: int,
+  y2: int,
+) -> list[tuple[int, int, int]]:
+  """Sample RGB pixels along `(x1, y1) -> (x2, y2)` inside image bounds."""
+  samples: list[tuple[int, int, int]] = []
+  if width <= 0 or height <= 0:
+    return samples
+  steps = max(abs(x2 - x1), abs(y2 - y1), 1)
+  seen: set[tuple[int, int]] = set()
+  for step in range(steps + 1):
+    t = step / steps
+    px = round(x1 + (x2 - x1) * t)
+    py = round(y1 + (y2 - y1) * t)
+    if 0 <= px < width and 0 <= py < height and (px, py) not in seen:
+      seen.add((px, py))
+      idx = (py * width + px) * 4
+      samples.append((rgba[idx], rgba[idx + 1], rgba[idx + 2]))
+  return samples
+
+
+def select_redline_ink(
+  bg_samples: Sequence[tuple[int, int, int]],
+  redline: str = "",
+) -> dict:
+  """Choose redline ink via `([measure].redline or #ff3366) -> #00e5ff -> #111827`."""
+  from annotate import css_hex, parse_color
+
+  primary = parse_color((redline or "").strip() or DEFAULT_REDLINE_HEX)
+  if not bg_samples:
+    return {
+      "ink": primary,
+      "halo": None,
+      "hex": css_hex(primary),
+      "min_contrast": 21.0,
+      "fallback": False,
+    }
+
+  def _min_c(candidate: tuple[int, int, int, int]) -> float:
+    return min(contrast_ratio(candidate[:3], sample) for sample in bg_samples)
+
+  primary_c = _min_c(primary)
+  if primary_c >= MIN_REDLINE_CONTRAST:
+    return {
+      "ink": primary,
+      "halo": None,
+      "hex": css_hex(primary),
+      "min_contrast": primary_c,
+      "fallback": False,
+    }
+
+  cyan_c = _min_c(FALLBACK_CYAN_RGBA)
+  if cyan_c >= MIN_REDLINE_CONTRAST:
+    chosen = FALLBACK_CYAN_RGBA
+    chosen_c = cyan_c
+  else:
+    chosen = FALLBACK_INK_RGBA
+    chosen_c = _min_c(FALLBACK_INK_RGBA)
+
+  halo = HALO_DARK_RGBA if relative_luminance(chosen[:3]) >= 0.35 else HALO_LIGHT_RGBA
+  return {
+    "ink": chosen,
+    "halo": halo,
+    "hex": css_hex(chosen),
+    "min_contrast": chosen_c,
+    "fallback": True,
+  }
+
+
+def cast_drop_rays(
+  rgba: bytes | bytearray,
+  width: int,
+  height: int,
+  x: int,
+  y: int,
+  axis: str = "xy",
+  tolerance: int = DEFAULT_TOLERANCE,
+) -> dict:
+  """Sample seed `RGBA(x, y)` and march `1 px` outward within `tolerance`."""
+  if not (0 <= x < width and 0 <= y < height):
+    raise RuntimeError(
+      f"drop point ({x},{y}) is outside {width}x{height}px image bounds"
+    )
+  seed_idx = (y * width + x) * 4
+  sr, sg, sb, sa = rgba[seed_idx : seed_idx + 4]
+
+  def _within(px: int, py: int) -> bool:
+    idx = (py * width + px) * 4
+    return (
+      max(
+        abs(rgba[idx] - sr),
+        abs(rgba[idx + 1] - sg),
+        abs(rgba[idx + 2] - sb),
+        abs(rgba[idx + 3] - sa),
+      )
+      <= tolerance
+    )
+
+  left = x
+  while left > 0 and _within(left - 1, y):
+    left -= 1
+  right = x
+  while right + 1 < width and _within(right + 1, y):
+    right += 1
+  top = y
+  while top > 0 and _within(x, top - 1):
+    top -= 1
+  bottom = y
+  while bottom + 1 < height and _within(x, bottom + 1):
+    bottom += 1
+
+  return {
+    "x": x,
+    "y": y,
+    "axis": axis,
+    "seed": (sr, sg, sb, sa),
+    "left": left,
+    "right": right,
+    "top": top,
+    "bottom": bottom,
+    "width": right - left + 1,
+    "height": bottom - top + 1,
+  }
+
+
+def _draw_1px_segment(
+  rgba: bytearray,
+  width: int,
+  height: int,
+  x1: int,
+  y1: int,
+  x2: int,
+  y2: int,
+  color: tuple[int, int, int, int],
+  expand: int = 0,
+) -> None:
+  from annotate import blend_pixel
+
+  steps = max(abs(x2 - x1), abs(y2 - y1), 1)
+  for step in range(steps + 1):
+    t = step / steps
+    cx = round(x1 + (x2 - x1) * t)
+    cy = round(y1 + (y2 - y1) * t)
+    for dy in range(-expand, expand + 1):
+      for dx in range(-expand, expand + 1):
+        blend_pixel(rgba, width, height, cx + dx, cy + dy, color)
+
+
+def _draw_endcap(
+  rgba: bytearray,
+  width: int,
+  height: int,
+  cx: int,
+  cy: int,
+  *,
+  horizontal_ray: bool,
+  inward_step: int,
+  color: tuple[int, int, int, int],
+  halo: tuple[int, int, int, int] | None = None,
+) -> None:
+  from annotate import blend_pixel
+
+  # 7 px perpendicular cap with 2 px stroke thickness along the ray axis.
+  if horizontal_ray:
+    xs = [cx, cx + inward_step]
+    ys = list(range(cy - 3, cy + 4))
+  else:
+    xs = list(range(cx - 3, cx + 4))
+    ys = [cy, cy + inward_step]
+  if halo is not None:
+    for py in range(min(ys) - 1, max(ys) + 2):
+      for px in range(min(xs) - 1, max(xs) + 2):
+        blend_pixel(rgba, width, height, px, py, halo)
+  for py in ys:
+    for px in xs:
+      blend_pixel(rgba, width, height, px, py, color)
+
+
+def _draw_clamped_pill(
+  rgba: bytearray,
+  width: int,
+  height: int,
+  anchor_x: int,
+  anchor_y: int,
+  label: str,
+  border_color: tuple[int, int, int, int],
+  font_path: str | None = None,
+) -> None:
+  from annotate import COLORS, _rasterize_text, blit_rgba, draw_box, fill_rect
+
+  tw, th, t_rgba = _rasterize_text(label, COLORS["white"], scale=2, font_path=font_path)
+  pad_x, pad_y = 6, 4
+  box_w = min(width, tw + pad_x * 2)
+  box_h = min(height, th + pad_y * 2)
+  px = max(2, min(max(2, width - box_w - 2), anchor_x - box_w // 2))
+  py = max(2, min(max(2, height - box_h - 2), anchor_y - box_h // 2))
+  fill_rect(rgba, width, height, px, py, box_w, box_h, (17, 24, 39, 238))
+  draw_box(rgba, width, height, px, py, box_w, box_h, border_color, thickness=1)
+  blit_rgba(rgba, width, height, t_rgba, tw, th, px + pad_x, py + pad_y)
+
+
+def draw_redline_span(
+  base_rgba: bytes | bytearray,
+  out_rgba: bytearray,
+  width: int,
+  height: int,
+  x1: int,
+  y1: int,
+  x2: int,
+  y2: int,
+  *,
+  label_text: str | None = None,
+  redline: str = "",
+  font_path: str | None = None,
+) -> dict:
+  """Draw a contrast-checked `1 px` redline ray with `7 px` (`2 px` stroke) end-caps."""
+  samples = sample_segment_rgb(base_rgba, width, height, x1, y1, x2, y2)
+  ink_info = select_redline_ink(samples, redline)
+  ink = ink_info["ink"]
+  halo = ink_info["halo"]
+  horizontal_ray = abs(x2 - x1) >= abs(y2 - y1)
+
+  if halo is not None:
+    _draw_1px_segment(out_rgba, width, height, x1, y1, x2, y2, halo, expand=1)
+  _draw_1px_segment(out_rgba, width, height, x1, y1, x2, y2, ink, expand=0)
+
+  if horizontal_ray:
+    step_start = 1 if x2 >= x1 else -1
+    step_end = -step_start if x2 != x1 else 0
+  else:
+    step_start = 1 if y2 >= y1 else -1
+    step_end = -step_start if y2 != y1 else 0
+
+  _draw_endcap(
+    out_rgba,
+    width,
+    height,
+    x1,
+    y1,
+    horizontal_ray=horizontal_ray,
+    inward_step=step_start,
+    color=ink,
+    halo=halo,
+  )
+  _draw_endcap(
+    out_rgba,
+    width,
+    height,
+    x2,
+    y2,
+    horizontal_ray=horizontal_ray,
+    inward_step=step_end,
+    color=ink,
+    halo=halo,
+  )
+
+  if label_text:
+    mid_x = round((x1 + x2) / 2)
+    mid_y = round((y1 + y2) / 2)
+    offset_x = 0 if horizontal_ray else 28
+    offset_y = -16 if horizontal_ray else 0
+    _draw_clamped_pill(
+      out_rgba,
+      width,
+      height,
+      mid_x + offset_x,
+      mid_y + offset_y,
+      label_text,
+      ink,
+      font_path=font_path,
+    )
+  return ink_info
+
+
+def tint_box_ring(
+  rgba: bytearray,
+  width: int,
+  height: int,
+  outer_box: tuple[float, float, float, float],
+  inner_box: tuple[float, float, float, float] | None,
+  color: tuple[int, int, int, int],
+) -> None:
+  """Tint pixels inside `outer_box` (`x0, y0, x1, y1`) and outside `inner_box`."""
+  from annotate import blend_pixel
+
+  ox0 = max(0, min(width, round(outer_box[0])))
+  oy0 = max(0, min(height, round(outer_box[1])))
+  ox1 = max(ox0, min(width, round(outer_box[2])))
+  oy1 = max(oy0, min(height, round(outer_box[3])))
+  if inner_box is None:
+    ix0 = iy0 = ix1 = iy1 = -1
+  else:
+    ix0 = round(inner_box[0])
+    iy0 = round(inner_box[1])
+    ix1 = round(inner_box[2])
+    iy1 = round(inner_box[3])
+  for py in range(oy0, oy1):
+    in_inner_y = iy0 <= py < iy1
+    for px in range(ox0, ox1):
+      if in_inner_y and ix0 <= px < ix1:
+        continue
+      blend_pixel(rgba, width, height, px, py, color)
+
+
+_LIVE_MEASURE_PROBE_JS = """
+({ selector, toSelector }) => {
+  const el = document.querySelector(selector);
+  if (!el) return { error: `Selector not found: ${selector}` };
+  const rect = el.getBoundingClientRect();
+  const cs = getComputedStyle(el);
+  if ((rect.width <= 0 && rect.height <= 0) || cs.display === 'none' || cs.visibility === 'hidden') {
+    return { error: `Selector is hidden or zero-sized: ${selector}` };
+  }
+  const num = (v) => {
+    const parsed = parseFloat(v);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+  const margin = {
+    top: num(cs.marginTop),
+    right: num(cs.marginRight),
+    bottom: num(cs.marginBottom),
+    left: num(cs.marginLeft),
+  };
+  const border = {
+    top: num(cs.borderTopWidth),
+    right: num(cs.borderRightWidth),
+    bottom: num(cs.borderBottomWidth),
+    left: num(cs.borderLeftWidth),
+  };
+  const padding = {
+    top: num(cs.paddingTop),
+    right: num(cs.paddingRight),
+    bottom: num(cs.paddingBottom),
+    left: num(cs.paddingLeft),
+  };
+  const borderBox = [rect.left, rect.top, rect.right, rect.bottom];
+  const marginBox = [
+    rect.left - margin.left,
+    rect.top - margin.top,
+    rect.right + margin.right,
+    rect.bottom + margin.bottom,
+  ];
+  const paddingBox = [
+    rect.left + border.left,
+    rect.top + border.top,
+    rect.right - border.right,
+    rect.bottom - border.bottom,
+  ];
+  const contentBox = [
+    paddingBox[0] + padding.left,
+    paddingBox[1] + padding.top,
+    paddingBox[2] - padding.right,
+    paddingBox[3] - padding.bottom,
+  ];
+
+  let parentInner = [0, 0, window.innerWidth, window.innerHeight];
+  const parent = el.parentElement;
+  if (parent && parent !== document.body && parent !== document.documentElement) {
+    const pr = parent.getBoundingClientRect();
+    const pcs = getComputedStyle(parent);
+    parentInner = [
+      pr.left + num(pcs.borderLeftWidth) + num(pcs.paddingLeft),
+      pr.top + num(pcs.borderTopWidth) + num(pcs.paddingTop),
+      pr.right - num(pcs.borderRightWidth) - num(pcs.paddingRight),
+      pr.bottom - num(pcs.borderBottomWidth) - num(pcs.paddingBottom),
+    ];
+  }
+
+  let toBox = null;
+  if (toSelector) {
+    const target = document.querySelector(toSelector);
+    if (!target) return { error: `--to selector not found: ${toSelector}` };
+    const tr = target.getBoundingClientRect();
+    toBox = [tr.left, tr.top, tr.right, tr.bottom];
+  }
+
+  let pairedIconHeight = null;
+  const directText = Array.from(el.childNodes)
+    .filter((n) => n.nodeType === 3)
+    .map((n) => (n.nodeValue || '').trim())
+    .join(' ')
+    .trim();
+  const childSvg = el.querySelector(':scope > svg');
+  if (childSvg && (directText || (el.innerText || '').trim())) {
+    pairedIconHeight = childSvg.getBoundingClientRect().height;
+  }
+
+  const svgs = el.querySelectorAll(':scope > svg');
+  const isInteractive = el.matches('a[href], button, input, select, textarea, summary, [role="button"]');
+  const iconOnly = isInteractive && svgs.length > 0 && !(el.innerText || '').trim();
+
+  return {
+    viewport: { width: window.innerWidth, height: window.innerHeight },
+    boxes: { margin: marginBox, border: borderBox, padding: paddingBox, content: contentBox },
+    parent_inner: parentInner,
+    to_box: toBox,
+    element: {
+      selector,
+      tag: el.tagName.toLowerCase(),
+      role: (el.getAttribute('role') || '').toLowerCase(),
+      classes: Array.from(el.classList || []),
+      text: directText,
+      icon_only: iconOnly,
+      paired_icon_height: pairedIconHeight,
+      in_card_or_dialog: Boolean(el.closest('.card, dialog, [role="dialog"], [role="alertdialog"]')),
+      bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      scroll_width: el.scrollWidth,
+      client_width: el.clientWidth,
+      scroll_height: el.scrollHeight,
+      client_height: el.clientHeight,
+      values: {
+        'font-size': cs.fontSize,
+        'font-weight': cs.fontWeight,
+        'font-family': cs.fontFamily,
+        'font-style': cs.fontStyle,
+        'line-height': cs.lineHeight,
+        'letter-spacing': cs.letterSpacing,
+        'text-transform': cs.textTransform,
+        'text-align': cs.textAlign,
+        'padding-top': cs.paddingTop,
+        'padding-right': cs.paddingRight,
+        'padding-bottom': cs.paddingBottom,
+        'padding-left': cs.paddingLeft,
+        'padding-inline-start': cs.paddingInlineStart,
+        'margin-top': cs.marginTop,
+        'margin-right': cs.marginRight,
+        'margin-bottom': cs.marginBottom,
+        'margin-left': cs.marginLeft,
+        'gap': cs.gap,
+        'row-gap': cs.rowGap,
+        'column-gap': cs.columnGap,
+        'border-radius': cs.borderTopLeftRadius,
+        'overflow-x': cs.overflowX,
+        'overflow-y': cs.overflowY,
+        'text-overflow': cs.textOverflow,
+      },
+    },
+  };
+}
+"""
+
+
+def check_severities(
+  project: Path | None = None,
+  config_path: Path | None = None,
+) -> dict[str, str]:
+  from nuu import check_severities as nuu_check_severities
+
+  return nuu_check_severities(project, config_path)
+
+
+def _classify_check_finding(item: str) -> tuple[str, str]:
+  match = RULE_PREFIX_RE.match(item.strip())
+  if match:
+    return match.group(1), match.group(2)
+  return "SPC001", item.strip()
+
+
+def _guide_segments_for_boxes(
+  border_box: Sequence[float],
+  parent_inner: Sequence[float],
+  to_target: str | None,
+  to_box: Sequence[float] | None,
+) -> list[tuple[str, float, int, int, int, int]]:
+  bx0, by0, bx1, by1 = [float(v) for v in border_box]
+  mid_x = round((bx0 + bx1) / 2.0)
+  mid_y = round((by0 + by1) / 2.0)
+  segments: list[tuple[str, float, int, int, int, int]] = []
+
+  if to_target and POINT_RE.match(to_target.strip()):
+    tx, ty = point(to_target.strip())
+    anchor_x = bx1 if tx >= bx1 else max(bx0, tx)
+    anchor_y = by1 if ty >= by1 else max(by0, ty)
+    dx = abs(tx - anchor_x)
+    dy = abs(ty - anchor_y)
+    if dx >= 0.5:
+      segments.append(
+        ("to-x", round(dx, 2), round(anchor_x), round(ty), round(tx), round(ty))
+      )
+    if dy >= 0.5:
+      segments.append(
+        ("to-y", round(dy, 2), round(tx), round(anchor_y), round(tx), round(ty))
+      )
+    return segments
+
+  if to_box is not None:
+    tx0, ty0, tx1, ty1 = [float(v) for v in to_box]
+    if tx0 >= bx1:
+      gap_x = tx0 - bx1
+      if gap_x >= 0.5:
+        gy = (
+          round((max(by0, ty0) + min(by1, ty1)) / 2.0)
+          if min(by1, ty1) > max(by0, ty0)
+          else mid_y
+        )
+        segments.append(("pair-x", round(gap_x, 2), round(bx1), gy, round(tx0), gy))
+    elif bx0 >= tx1:
+      gap_x = bx0 - tx1
+      if gap_x >= 0.5:
+        gy = (
+          round((max(by0, ty0) + min(by1, ty1)) / 2.0)
+          if min(by1, ty1) > max(by0, ty0)
+          else mid_y
+        )
+        segments.append(("pair-x", round(gap_x, 2), round(tx1), gy, round(bx0), gy))
+
+    if ty0 >= by1:
+      gap_y = ty0 - by1
+      if gap_y >= 0.5:
+        gx = (
+          round((max(bx0, tx0) + min(bx1, tx1)) / 2.0)
+          if min(bx1, tx1) > max(bx0, tx0)
+          else mid_x
+        )
+        segments.append(("pair-y", round(gap_y, 2), gx, round(by1), gx, round(ty0)))
+    elif by0 >= ty1:
+      gap_y = by0 - ty1
+      if gap_y >= 0.5:
+        gx = (
+          round((max(bx0, tx0) + min(bx1, tx1)) / 2.0)
+          if min(bx1, tx1) > max(bx0, tx0)
+          else mid_x
+        )
+        segments.append(("pair-y", round(gap_y, 2), gx, round(ty1), gx, round(by0)))
+    return segments
+
+  px0, py0, px1, py1 = [float(v) for v in parent_inner]
+  if by0 - py0 >= 0.5:
+    segments.append(
+      ("parent-top", round(by0 - py0, 2), mid_x, round(py0), mid_x, round(by0))
+    )
+  if px1 - bx1 >= 0.5:
+    segments.append(
+      ("parent-right", round(px1 - bx1, 2), round(bx1), mid_y, round(px1), mid_y)
+    )
+  if py1 - by1 >= 0.5:
+    segments.append(
+      ("parent-bottom", round(py1 - by1, 2), mid_x, round(by1), mid_x, round(py1))
+    )
+  if bx0 - px0 >= 0.5:
+    segments.append(
+      ("parent-left", round(bx0 - px0, 2), round(px0), mid_y, round(bx0), mid_y)
+    )
+  return segments
+
+
+def run_measure_cli(args) -> int:
+  """Execute `nuu measure` across `--from/--to`, live `-u`, and PNG `-i` modes."""
+  from annotate import decode_png, encode_png, resolve_project_typography
+  from nuu import (
+    chromium_launch_kwargs,
+    enrich_finding_rule,
+    load_nuu_config,
+    parse_viewport_spec,
+    settle_page,
+    validated_url,
+  )
+
+  cfg_info = load_nuu_config(None, args.config)
+  measure_cfg = cfg_info["config"]["measure"]
+  severities = cfg_info["severities"]
+  scale_val = int(
+    args.scale if args.scale is not None else measure_cfg.get("scale", DEFAULT_SCALE)
+  )
+  tolerance = int(
+    args.tolerance
+    if args.tolerance is not None
+    else measure_cfg.get("tolerance", DEFAULT_TOLERANCE)
+  )
+  if not (0 <= tolerance <= 255):
+    raise ValueError("--tolerance must be between 0 and 255")
+  redline_cfg = str(measure_cfg.get("redline", "") or "")
+
+  if args.url and args.input:
+    raise ValueError("measure accepts either -u/--url or -i/--input, not both")
+
+  # Pure coordinate ruler mode (`--from x,y --to x,y` without `-u` or `-i`).
+  if not args.url and not args.input:
+    if not (args.from_point and args.to_target):
+      raise ValueError(
+        "measure requires (-u/--url | -i/--input) or both --from <x,y> and --to <x,y>"
+      )
+    try:
+      start_pt = point(args.from_point)
+      end_pt = point(args.to_target)
+    except argparse.ArgumentTypeError as exc:
+      raise ValueError(str(exc)) from exc
+    gap = ruler(start_pt, end_pt, scale_val)
+    status = "pass" if gap["on_scale"] else "findings"
+    code = 0 if gap["on_scale"] else 1
+    print(
+      f"# Measurement\n\n"
+      f"- Status: `{status}` (exit {code})\n"
+      f"- Span: `{gap['dx']:g} x {gap['dy']:g} px` (distance `{gap['distance']:g} px`)\n"
+      f"- X on `{scale_val}px` scale: `{gap['axes']['x']}`\n"
+      f"- Y on `{scale_val}px` scale: `{gap['axes']['y']}`\n",
+      end="",
+    )
+    return code
+
+  if args.output is None:
+    raise ValueError("measure with -u/--url or -i/--input requires -o/--output <png>")
+  if not args.selector and not args.drop:
+    raise ValueError("measure requires -s/--selector or -d/--drop")
+  if args.input and args.selector:
+    raise ValueError("measure -s/--selector requires -u/--url")
+  if args.from_point:
+    raise ValueError("--from cannot be combined with -u/--url or -i/--input")
+
+  drop_specs = [parse_drop_spec(spec) for spec in (args.drop or [])]
+  typo = resolve_project_typography(cfg_info["dir"], args.config)
+  raster_font = typo.get("raster_font_path")
+  sheet_tokens = parse_sheet(cfg_info["stylesheet_path"].read_text(encoding="utf-8"))
+
+  spans_rows: list[str] = []
+  structured_findings: list[dict] = []
+
+  if args.input:
+    in_path = Path(args.input)
+    if not in_path.is_file():
+      raise FileNotFoundError(f"Input PNG not found: {in_path}")
+    if in_path.resolve() == Path(args.output).resolve():
+      raise RuntimeError("measure refuses to overwrite the input PNG (-o must differ)")
+    width, height, base_rgba = decode_png(in_path.read_bytes())
+    out_rgba = bytearray(base_rgba)
+    source_label = str(in_path)
+  else:
+    validated_url(args.url)
+    vp = parse_viewport_spec(args.viewport, cfg_info["config"]["audit"]["viewports"])
+    vw, vh = int(vp["width"]), int(vp["height"])
+    try:
+      from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+      raise RuntimeError(f"RUN102: playwright is not installed: {exc}") from exc
+
+    launch_kwargs = chromium_launch_kwargs(args.executable)
+    to_selector = None
+    if args.to_target and not POINT_RE.match(args.to_target.strip()):
+      to_selector = args.to_target.strip()
+
+    with sync_playwright() as pw:
+      try:
+        browser = pw.chromium.launch(**launch_kwargs)
+      except Exception as exc:
+        raise RuntimeError(f"RUN102: Failed to launch Chromium: {exc}") from exc
+      try:
+        ctx = browser.new_context(
+          viewport={"width": vw, "height": vh},
+          color_scheme="dark",
+          is_mobile=bool(vp.get("mobile")),
+          has_touch=bool(vp.get("touch")),
+        )
+        page = ctx.new_page()
+        page.goto(args.url, wait_until="domcontentloaded", timeout=20000)
+        settle_page(page, 20)
+        probe = (
+          page.evaluate(
+            _LIVE_MEASURE_PROBE_JS,
+            {"selector": args.selector, "toSelector": to_selector},
+          )
+          if args.selector
+          else None
+        )
+        png_bytes = page.screenshot(type="png")
+        ctx.close()
+      finally:
+        browser.close()
+
+    if probe and probe.get("error"):
+      raise RuntimeError(str(probe["error"]))
+
+    width, height, base_rgba = decode_png(png_bytes)
+    out_rgba = bytearray(base_rgba)
+    source_label = f"{args.url} ({vw}x{vh} dark)"
+
+    if probe:
+      boxes = probe["boxes"]
+      tint_box_ring(
+        out_rgba,
+        width,
+        height,
+        tuple(boxes["margin"]),
+        tuple(boxes["border"]),
+        DEVTOOLS_TINTS["margin"],
+      )
+      tint_box_ring(
+        out_rgba,
+        width,
+        height,
+        tuple(boxes["border"]),
+        tuple(boxes["padding"]),
+        DEVTOOLS_TINTS["border"],
+      )
+      tint_box_ring(
+        out_rgba,
+        width,
+        height,
+        tuple(boxes["padding"]),
+        tuple(boxes["content"]),
+        DEVTOOLS_TINTS["padding"],
+      )
+      tint_box_ring(
+        out_rgba,
+        width,
+        height,
+        tuple(boxes["content"]),
+        None,
+        DEVTOOLS_TINTS["content"],
+      )
+
+      elem = probe["element"]
+      bx0, by0, bx1, by1 = boxes["border"]
+      bw = round(bx1 - bx0, 2)
+      bh = round(by1 - by0, 2)
+      spans_rows.append(
+        f"| `selector` | `{args.selector}` | `{bw:g} x {bh:g} px` | "
+        f"`{on_scale(bw, scale_val) and on_scale(bh, scale_val)}` | `devtools-tint` |"
+      )
+
+      for raw_f in check(
+        {"width": vw, "elements": [elem]}, sheet_tokens, scale=scale_val
+      ):
+        rule_id, msg = _classify_check_finding(raw_f)
+        structured_findings.append(
+          enrich_finding_rule(
+            {"rule": rule_id, "location": source_label, "evidence": msg},
+            severities,
+          )
+        )
+
+      guides = _guide_segments_for_boxes(
+        boxes["border"], probe["parent_inner"], args.to_target, probe.get("to_box")
+      )
+      for guide_kind, dist_px, gx1, gy1, gx2, gy2 in guides:
+        ink_info = draw_redline_span(
+          base_rgba,
+          out_rgba,
+          width,
+          height,
+          gx1,
+          gy1,
+          gx2,
+          gy2,
+          label_text=f"{dist_px:g}px",
+          redline=redline_cfg,
+          font_path=raster_font,
+        )
+        axis_ok = on_scale(dist_px, scale_val)
+        spans_rows.append(
+          f"| `{guide_kind}` | `{args.selector}` | `{dist_px:g} px` | "
+          f"`{axis_ok}` | `{ink_info['hex']}` |"
+        )
+        if args.to_target and not axis_ok:
+          structured_findings.append(
+            enrich_finding_rule(
+              {
+                "rule": "SPC001",
+                "location": source_label,
+                "evidence": (
+                  f"{args.selector} -> {args.to_target} ({guide_kind}): "
+                  f"{dist_px:g}px is off the {scale_val}px scale"
+                ),
+              },
+              severities,
+            )
+          )
+
+  for dx, dy, axis in drop_specs:
+    ray = cast_drop_rays(
+      base_rgba, width, height, dx, dy, axis=axis, tolerance=tolerance
+    )
+    ink_used = DEFAULT_REDLINE_HEX
+    if "x" in axis:
+      lbl_x = (
+        f"{ray['width']} x {ray['height']} px" if axis == "xy" else f"{ray['width']} px"
+      )
+      ink_x = draw_redline_span(
+        base_rgba,
+        out_rgba,
+        width,
+        height,
+        ray["left"],
+        dy,
+        ray["right"],
+        dy,
+        label_text=lbl_x,
+        redline=redline_cfg,
+        font_path=raster_font,
+      )
+      ink_used = ink_x["hex"]
+      if not on_scale(ray["width"], scale_val):
+        structured_findings.append(
+          enrich_finding_rule(
+            {
+              "rule": "SPC001",
+              "location": source_label,
+              "evidence": (
+                f"drop({dx},{dy},{axis}): width {ray['width']}px is off the {scale_val}px scale"
+              ),
+            },
+            severities,
+          )
+        )
+    if "y" in axis:
+      lbl_y = None if axis == "xy" else f"{ray['height']} px"
+      ink_y = draw_redline_span(
+        base_rgba,
+        out_rgba,
+        width,
+        height,
+        dx,
+        ray["top"],
+        dx,
+        ray["bottom"],
+        label_text=lbl_y,
+        redline=redline_cfg,
+        font_path=raster_font,
+      )
+      ink_used = ink_y["hex"]
+      if not on_scale(ray["height"], scale_val):
+        structured_findings.append(
+          enrich_finding_rule(
+            {
+              "rule": "SPC001",
+              "location": source_label,
+              "evidence": (
+                f"drop({dx},{dy},{axis}): height {ray['height']}px is off the {scale_val}px scale"
+              ),
+            },
+            severities,
+          )
+        )
+    span_desc = (
+      f"{ray['width']} x {ray['height']} px"
+      if axis == "xy"
+      else (f"{ray['width']} px" if axis == "x" else f"{ray['height']} px")
+    )
+    ok_flag = (on_scale(ray["width"], scale_val) if "x" in axis else True) and (
+      on_scale(ray["height"], scale_val) if "y" in axis else True
+    )
+    spans_rows.append(
+      f"| `drop` | `{dx},{dy},{axis}` | `{span_desc}` | `{ok_flag}` | `{ink_used}` |"
+    )
+
+  out_path = Path(args.output)
+  out_path.parent.mkdir(parents=True, exist_ok=True)
+  out_path.write_bytes(encode_png(width, height, out_rgba))
+
+  has_blocking = any(f.get("severity") == "error" for f in structured_findings)
+  exit_code = 1 if has_blocking else 0
+  status_str = "findings" if exit_code else "pass"
+
+  md_lines = [
+    "# Measurement",
+    "",
+    f"- Status: `{status_str}` (exit {exit_code})",
+    f"- Source: `{source_label}`",
+    f"- Scale: `{scale_val}px`",
+    f"- Output: `{out_path}`",
+    "",
+    "## Spans",
+    "| Kind | Target | Span | On Scale | Ink |",
+    "| --- | --- | --- | --- | --- |",
+    *(spans_rows or ["| `none` | `-` | `-` | `True` | `-` |"]),
+    "",
+    "## Findings",
+  ]
+  if structured_findings:
+    for idx, f_item in enumerate(structured_findings, 1):
+      md_lines.append(
+        f"{idx}. `{f_item['rule']}` ({f_item['severity']}) `{f_item['location']}`: {f_item['evidence']}"
+      )
+  else:
+    md_lines.append("- None")
+  print("\n".join(md_lines) + "\n", end="")
+  return exit_code

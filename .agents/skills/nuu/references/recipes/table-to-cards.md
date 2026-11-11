@@ -1,6 +1,8 @@
 # Recipe: Table to cards
 
-The markup stays one real `table` at every width. Wide screens show it as a table. Narrow screens (`<= 75em`) hide `thead` and turn `tbody` into a grid. Each `td` hands its content to the `tr` with `display: contents`, so the row lays out by grid area.
+The markup stays one real `table` at every width. Wide screens show it as a table. Narrow screens (`<= 60em`) hide `thead` and turn `tbody` into a grid. Each `td` hands its content to the `tr` with `display: contents`, so the row lays out by grid area.
+
+![Table to Cards Dark-Mode Example](../examples/table-to-cards.png)
 
 A `width: 100%` column takes the free width. The compact columns need `white-space: nowrap` on their longest text, since a table column shrinks to its longest word. A test reads `tr` cells and `th scope` on the wide side and the grid areas on the narrow side.
 
@@ -12,12 +14,12 @@ A `width: 100%` column takes the free width. The compact columns need `white-spa
 ```
 
 ```css
-.grid { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: 12px; }
+.grid { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid var(--line); border-radius: var(--radius-md); }
 .grid th { padding: 12px; text-align: left; white-space: nowrap; }
 .grid td { padding: 0; border-top: 1px solid var(--line); vertical-align: middle; }
 .grid .wide { width: 100%; }
 .grid td .repo-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 75em) {
+@media (max-width: 60em) {
   .grid { display: block; border: 0; }
   .grid thead { display: none; }
   .grid tbody { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; }

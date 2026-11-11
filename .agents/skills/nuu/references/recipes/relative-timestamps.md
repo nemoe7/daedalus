@@ -1,8 +1,8 @@
 # Recipe: Relative timestamps
 
-Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested. Keep the surrounding text face. Raw ISO or UTC timestamps trigger `HRC201` and `HRC202` unless marked `nonuu` on intentional log surfaces.
+Format relative timestamps with the singular, plural, and abbreviated forms below. Omit seconds (`< 1` minute -> `just now` / `now`) unless second-level resolution is explicitly requested. Raw ISO or UTC timestamps trigger `HRC201` and `HRC202` unless marked `nonuu` on intentional log surfaces.
 
-Keep stored, synced, and DOM timestamps in UTC or with numeric offsets. Sort by epoch milliseconds, and localize only display text and hover titles. Update DOM text only when changed, and schedule the next timer for the next unit boundary so minute-or-older stamps stop ticking every second.
+Keep stored, synced, and DOM timestamps in UTC or numeric offsets. Sort by epoch milliseconds; localize display text only. Update DOM text only on change; schedule timers at the next unit boundary so minute-or-older stamps stop ticking every second.
 
 ![Relative Timestamps Dark-Mode Example](../examples/relative-timestamps.png)
 
@@ -17,7 +17,7 @@ Keep stored, synced, and DOM timestamps in UTC or with numeric offsets. Sort by 
 | month | last month | X months ago | Xmo ago |
 | year | last year | X years ago | Xyr ago |
 
-Use the abbreviated column on a phone, or wherever the stamp shares a line with a name. Use the full form where the line has room. A `title` carries the full form when the visible text is abbreviated.
+Use abbreviated forms on phones or beside names; full forms where space permits.
 
 ## Reference implementation
 
@@ -90,10 +90,7 @@ function mountRelativeTimers(root = document) {
       if (node.textContent !== nextText) {
         node.textContent = nextText;
       }
-      const nextTitle = stamp.toLocaleString();
-      if (node.title !== nextTitle) {
-        node.title = nextTitle;
-      }
+
       const delay = nextRelativeDelay(stampMs, { includeSeconds, now });
       if (delay < minDelay) {
         minDelay = delay;

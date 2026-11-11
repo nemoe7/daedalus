@@ -6,7 +6,7 @@ Show optimistic write rows immediately, key in-memory page caches on content ver
 
 ## Rules
 
-- Every write shows its pending row or state immediately with a client-generated request ID, reconciles in place when the server replies, and reuses the same ID on retry so duplicate rows never appear.
+- Show each write row immediately under one client ID, reconcile on reply, and reuse that ID on retry (`ACC207`).
 - Key list, report, and detail caches in a `Map` on the content version (`repo/ref/tip/cursor` or `updated_at`) so unchanged views paint immediately and stale keys miss automatically; pass `fresh: true` only on explicit Reload.
 - Persist view state (selected tab, search/filter query, sort order, and unsent form drafts) in URL query parameters (`?tab=...`) or `localStorage`, and restore it before first paint on reload.
 

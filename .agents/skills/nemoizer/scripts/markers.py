@@ -113,6 +113,9 @@ def audit_lines(marks, findings, advisory_rule_ids):
 
 
 def main(argv=None):
+  for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+      stream.reconfigure(encoding="utf-8", errors="replace")
   from nemoize import main as nemoize_main
 
   arguments = list(sys.argv[1:] if argv is None else argv)

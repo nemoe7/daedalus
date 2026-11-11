@@ -1,0 +1,9 @@
+{
+  "name": "Arena Steering",
+  "short_name": "Steering",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1d1c1b",
+  "theme_color": "#1d1c1b"
+}

@@ -1,28 +1,38 @@
-# Default nuu configuration (nuu.toml).
+[paths]
+doc = "docs/design.md"
+stylesheet = "references/style.css"
 
 [fonts]
-sans = '"Inter", system-ui, -apple-system, "Segoe UI", sans-serif'
-mono = '"Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace'
+prefer_project_css = true
+sans = ""
+mono = ""
 files = []
 
 [annotate]
 scale = 2
-renderer = "auto"
+crop = "none"
+
+[measure]
+scale = 4
+tolerance = 30
+redline = ""
 
 [board]
-stylesheet = "references/style.css"
+type = "panels"
 columns = 2
 scale = 2
 wireframe = false
 
 [audit]
-named_breakpoints = ["68em", "60em", "30em", "24em"]
-viewports = ["1920x957", "1080x2437", "958x958", "855x325", "411x799"]
-widths = [1920, 1080, 958, 855, 411]
-report_widths = [1920, 411]
-wireframe = false
+breakpoints = ["68em", "60em", "30em", "24em"]
+viewports = [
+  { width = 1920, height = 957, mobile = false, touch = false, report = true },
+  { width = 1080, height = 2437, mobile = false, touch = false, report = false },
+  { width = 958, height = 958, mobile = false, touch = false, report = false },
+  { width = 855, height = 325, mobile = true, touch = true, report = false },
+  { width = 411, height = 799, mobile = true, touch = true, report = true },
+]
 
-# TYP101 and TYP201 default to review. Set either to "error" to block.
 [checks.severity]
 TYP101 = "review"
 TYP201 = "review"

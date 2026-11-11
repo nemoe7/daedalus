@@ -2,6 +2,8 @@
 
 Eliminate Flash of Unstyled Text (FOUT) and layout shift on reload by matching the delivery pattern to how the page is served.
 
+![Offline Fonts Dark-Mode Example](../examples/offline-fonts.png)
+
 ## 1. Served local or bundled `.woff2` (`http://` or `https://`)
 
 - Bundle one subset variable `.woff2` file per family (`font-weight: 100 900`) instead of separate static files per weight.

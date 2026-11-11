@@ -1,18 +1,18 @@
 # Examples
 
-One dark-mode UI pair per visual clause, recipe, and audit rule. The left card (`PASS`) follows the house sheet and recipes. The right card (`FAIL`) shows the anti-pattern.
+One dark-mode UI pair per clause, recipe, and audit rule. The left card (`Pass`) follows the house sheet and recipes. The right card (`Fail`) shows the anti-pattern.
 
 The image files sit in `examples/` beside this page.
 
 ## 1. One glyph ladder, one grid
 
-Pass: Lucide chevron on its `24x24` grid (`stroke-width="2"`) and a plain text label when no glyph exists. Fail: a filled non-provider wedge and a missing-glyph box (`ICN001`).
+Pass: Lucide chevron on its `24x24` grid (`stroke-width="2"`) and a plain text label when no glyph exists. Fail: a filled non-provider wedge and a missing-glyph box (`ICN001`, `ICN002`).
 
 ![Clause 1](examples/one-glyph-one-path.png)
 
-## 2. One icon size per surface
+## 2. One icon size per surface and paired text line-height match
 
-Pass: match toolbar glyphs to the text line height and use a consistent size on that surface. Standalone icons may use a different size. Fail: mixed `14`, `18`, and `24 px` icons on one row (`ICN101`).
+Pass: keep comparable surface icons one size (`16x16 px` default, `20x20 px` standalone hero) (`ICN101`), and match text-paired icons to the paired text `line-height` (`ICN102`). Fail: mixed `14`, `18`, and `24 px` icons on one row or an oversized glyph beside compact text.
 
 ![Clause 2](examples/one-icon-size-per-surface.png)
 
@@ -64,15 +64,15 @@ Pass: default, hover, `:focus-visible` (`2 px` solid `var(--focus)` with `2 px` 
 
 ## 10. Optimistic writes and page memory (`recipes/page-memory.md`)
 
-Pass: immediate pending row reconciled under the same ID, with tab/filter/draft state persisted in URL query parameters or `localStorage`. Fail: frozen form, duplicate row on retry, and lost view state on reload.
+Pass: immediate pending row rendered under a held slow-network route and mocked clock (`ACC207`), reconciled under the same ID, with tab/filter/draft state persisted in URL query parameters or `localStorage`. Fail: frozen form, duplicate row on retry, and lost view state on reload.
 
 ![Clause 10](examples/write-shows-its-row.png)
 
 ## 11. Record the design system
 
-Pass: record reusable patterns in the design document. Fail: leave a new component undocumented.
+Pass: update `[paths].doc` (`docs/design.md`) in the same change with its component table and linked boards (`DOC001`). Fail: leave a new component undocumented.
 
-![Clause 11](examples/new-pattern-entry-and-shot.png)
+![Clause 11](examples/design-doc-record.png)
 
 ## 12. Measure across house viewports before landing
 
@@ -85,6 +85,12 @@ Pass: computed padding, gap, font size, and contrast verified at `1920x957`, `10
 Pass: `docs/design.md` entry, recipe, and all five house viewport screenshots in one PR. Fail: one-off page widget missing from `docs/design.md`.
 
 ![Clause 13](examples/new-pattern-entry-and-shot.png)
+
+## 14. Inline suppression, deviation, and recipe markers
+
+Pass: canonical `nonuu: SPC002` false-positive suppression, human-approved `nuu-deviation: <reason>` note, and `nuurecipe: modal-manager` tag surfaced by `nuu collect`. Fail: agent-invented `nuu-deviation:` without user approval or unknown `nuurecipe:` slug (`RCP001`).
+
+![Clause 14](examples/inline-markers.png)
 
 ## 15. Outside list markers
 
@@ -128,23 +134,29 @@ Pass: start inter-group gaps at `2x` intra-group gaps, with a `1.5x` minimum. Sn
 
 ![Clause 21](examples/proximity-spacing.png)
 
-## 22 and 23: Inline card alignment, fonts, and primary actions
+## 22. Inline card alignment, fonts, and uppercase
 
-Pass: align stacked card items on one inline edge. Use house fonts, uppercase only for `.eyebrow`, and one explicit primary action (`Delete repo`). Fail: ragged inline insets, decorative fonts, uppercase prose, or competing `Yes`/`No` primary buttons (`SPC102`, `HRC001`).
+Pass: align stacked card items on one inline edge with symmetric inline padding, house fonts, non-italic body blocks, and uppercase only on `.eyebrow` (`SPC102`, `TYP002`, `TYP003`). Fail: ragged inline insets, decorative fonts, italic body blocks, or uppercase prose.
 
-![Clauses 22 and 23](examples/core-principles.png)
+![Clause 22](examples/core-principles.png)
+
+## 23. One explicit primary action per card or dialog
+
+Pass: at most one primary button per card or dialog, naming the concrete action (`Delete repo`) (`HRC001`). Fail: competing primary buttons or vague `Yes`/`No` labels.
+
+![Clause 23](examples/core-principles.png)
 
 ## 24. Store unambiguous timestamps
 
-Pass: store UTC or an explicit numeric offset and localize the display. Fail: store a timestamp without a timezone.
+Pass: store UTC or an explicit numeric offset and localize the display (`HRC201`, `HRC202`). Fail: expose raw ISO-8601 or unlocalized `UTC` timestamps in UI text.
 
 ![Clause 24](examples/utc-display.png)
 
 ## 25. Plan around the user goal
 
-Pass: identify the goal, main flow, and states before refining the visual treatment. Fail: add competing actions before the task is clear.
+Pass: identify the goal, main flow, and states before visual polish, using realistic domain copy with zero `Lorem ipsum` (`HRC203`). Fail: unrouted chrome stuffed with placeholder copy.
 
-![Clause 25](examples/balance-and-focus.png)
+![Clause 25](examples/user-flow-to-ui.png)
 
 ## 26. Dark surfaces
 
@@ -188,8 +200,22 @@ Pass: inspect the real content in the selected typeface and loosen tracking when
 
 ![Clause 32](examples/real-heading-tracking.png)
 
+## 33. Inspect live overlay edges and surfaces
+
+Pass: at all five house viewports, open the dialog and tooltip, verify visible headings, prose, and controls stay inside their clipping and viewport bounds, and paint a readable tooltip surface. Fail: inspect only the closed page, hide a heading under the top edge, or leave a transparent tooltip over mixed content. Reachable text in a scrollable modal body is not clipped.
+
+![Clause 33: Dialog Overlay Clipping](examples/dialog-overlay-clipping.png)
+
 ## Recipe and Audit-Rule Examples
 
+- **Offline bundled fonts (`recipes/offline-fonts.md`):**
+  ![Offline Fonts](examples/offline-fonts.png)
+- **Live dot (`recipes/live-dot.md`):**
+  ![Live Dot](examples/live-dot.png)
+- **Fixed-slot loading (`recipes/loading-bar.md`):**
+  ![Loading Bar](examples/loading-bar.png)
+- **Optimistic writes and page memory (`recipes/page-memory.md`):**
+  ![Page Memory](examples/write-shows-its-row.png)
 - **Modal `.close-button` and confirmation (`recipes/modal-manager.md`):**
   ![Modal Close Button](examples/modal-close-button.png)
   ![Modal Autofocus](examples/modal-autofocus.png)
@@ -198,14 +224,16 @@ Pass: inspect the real content in the selected typeface and loosen tracking when
   ![Range Sliders](examples/range-sliders.png)
 - **Relative timestamps (`recipes/relative-timestamps.md`):**
   ![Relative Timestamps](examples/relative-timestamps.png)
-- **Fixed-slot loading (`recipes/loading-bar.md`):**
-  ![Loading Bar](examples/loading-bar.png)
+- **Scroll edge fade (`recipes/scroll-edge-fade.md`):**
+  ![Scroll Edge Fade](examples/scroll-edge-fade.png)
+- **Floating overlay scroll fade (`recipes/floating-overlay-scroll-fade.md`):**
+  ![Floating Overlay Scroll Fade](examples/floating-overlay-scroll-fade.png)
 - **Scrollbars (`recipes/scrollbars.md`):**
   ![Scrollbars](examples/scrollbars.png)
 - **Overflow and anti-clipping (`recipes/overflow-and-clipping.md`):**
   ![Overflow and Clipping](examples/overflow-and-clipping.png)
-- **Live dot (`recipes/live-dot.md`):**
-  ![Live Dot](examples/live-dot.png)
+- **Table to cards (`recipes/table-to-cards.md`):**
+  ![Table to Cards](examples/table-to-cards.png)
 - **Measure and density rules (`SPC001`–`HRC102`):**
-  ![SPC001-SPC002](examples/rule-num201-204.png)
-  ![SPC201-HRC102](examples/rule-num205-208.png)
+  ![SPC001-SPC002-TYP001](examples/rule-spc001-typ001.png)
+  ![SPC201-SPC203-HRC102](examples/rule-spc201-hrc102.png)

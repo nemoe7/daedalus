@@ -23,6 +23,7 @@
 
   /* Type: one family, four weights, a nine-step ramp */
   --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font);
   --font-mono: "Monaspace Neon", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --size-11: 11px;
   --size-12: 12px;
@@ -52,6 +53,10 @@
   --space-7: 48px;
   --row: 32px;
   --radius: 6px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-pill: 9999px;
   --shadow: none;
   --column: 1280px;
   --gutter: var(--space-4);
@@ -107,7 +112,7 @@ ul {
     --warn: #f0bb4a;
     --ok: #6fd08c;
     --focus: #8fa8ff;
-    --scrollbar-thumb: #62626e;
+    --scrollbar-thumb: #767686;
   }
 }
 
@@ -147,7 +152,7 @@ ul {
   --warn: #f0bb4a;
   --ok: #6fd08c;
   --focus: #8fa8ff;
-  --scrollbar-thumb: #62626e;
+  --scrollbar-thumb: #767686;
 }
 
 *,
@@ -294,7 +299,7 @@ h6,
 .button {
   min-height: var(--row);
   min-width: var(--row);
-  padding: 0 var(--space-2);
+  padding: var(--space-2) var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--field);
@@ -361,6 +366,12 @@ h6,
   border-color: var(--accent-fill);
   background: var(--accent-fill);
   color: var(--on-accent);
+}
+
+.button--danger {
+  border-color: transparent;
+  background: var(--danger);
+  color: var(--bg);
 }
 
 .button:disabled {
@@ -443,7 +454,7 @@ h6,
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  min-height: var(--space-3);
+  min-height: var(--space-5);
   padding: 0 var(--space-1);
   border-radius: var(--radius);
   background: var(--surface-2);
@@ -508,9 +519,15 @@ h6,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .button,
+  .icon-button,
+  .close-button,
+  .loading-bar,
+  .btn-spinner,
+  .dot,
+  .skeleton,
+  dialog,
+  [data-panel] {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
     transition-duration: 0.01ms;
@@ -518,20 +535,21 @@ h6,
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 15px;
   height: 10px;
 }
 
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-corner {
-  background: var(--bg);
+  background: transparent;
+  margin: 8px 0;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border: 2px solid var(--bg);
+  border: 1px solid transparent;
   background-clip: padding-box;
-  border-radius: var(--space-2);
+  border-radius: 9999px;
 }
 
 :root[data-keyboard-nav="true"] ::-webkit-scrollbar-thumb:hover,
@@ -545,10 +563,7 @@ h6,
   height: 0;
 }
 
-@supports not selector(::-webkit-scrollbar) {
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--scrollbar-thumb) var(--bg);
-  }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
-

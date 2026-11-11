@@ -3,14 +3,15 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nuu"
-version = "0.1.69"
+name = "nuu"  # nonemo: NMO100
+version = "0.2.2"
 description = "Design sheet and UI/UX inspection CLI."
 requires-python = ">=3.11"
+dependencies = ["playwright>=1.49"]
 
 [project.scripts]
 nuu = "nuu:main"
 
 [tool.setuptools]
 package-dir = {"" = "scripts"}
-py-modules = ["nuu", "uiux", "measure", "annotate", "walk"]
+py-modules = ["nuu", "measure", "annotate", "walk"]

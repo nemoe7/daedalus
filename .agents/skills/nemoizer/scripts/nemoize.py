@@ -8,12 +8,18 @@ import configparser
 import contextlib
 import fnmatch
 import json
+import os
+import queue
 import re
 import shutil
 import subprocess
 import sys
+import threading
+import time
 import tokenize
 import tomllib
+from concurrent.futures import FIRST_COMPLETED, Future, wait
+from itertools import pairwise
 from pathlib import Path
 
 try:
@@ -139,18 +145,26 @@ from prose import (
   workflow_name_spans,
 )
 
-# (name, avoided pattern, plain word).
-# A stem word that takes its own plain word.
-EXCEPTIONS = {
-  "picker": "selector",
-  "pickers": "selectors",
+# Exact inflections and their replacements.
+ROTATION_FORMS = {
+  "transmit": "send",
+  "transmits": "sends",
+  "transmitted": "sent",
+  "transmitting": "sending",
+  "transmitter": "sender",
+  "transmitters": "senders",
+  "kind": "type",
+  "kinds": "types",
+  "repository": "repo",
   "repositories": "repos",
   "pull request": "PR",
   "pull requests": "PRs",
+  "name": "specify",
   "names": "specifies",
   "named": "specified",
   "naming": "specifying",
 }
+
 NEMOIZER_MODIFIED_NOUNS = (
   r"rules?|lists?|linters?|prose|skills?|configs?|checks?|scripts?|"
   r"parsers?|suites?|tests?|plugins?|domains?|targets?|markers?"
@@ -159,37 +173,43 @@ KEEP_LOWER = {"nemoizer"}
 NAME_VERB_PATTERN = (
   r"(?:"
   r"(?:(?<=^)|(?<=\n)|(?<=^- )|(?<=\* )|(?<=\. )|(?<=, and )"
-  r"|(?<=, or )|(?<=\bto )|(?<=\bmust )|(?<=\bcan )|(?<=\bmay )|(?<=\bwill ))"
-  r"name(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+(?!few\b)[A-Za-z]+)"
+  r"|(?<=, or )|(?<=\bto )|(?<=\bmust )|(?<=\bcan )|(?<=\bmay )|(?<=\bwill )"
+  r"|(?<=\bshould )|(?<=\bnever )|(?<=\balways )|(?<=\bnot )|(?<=\bplease )|(?<=\balso ))"
+  r"name(?=\s+(?:(?:the|a|an|each|every|all|any|this|that|its|their)\s+(?!few\b)[A-Za-z]+|[A-Za-z]+s\b))"
   r"|"
   r"(?:(?<=\bit )|(?<=\bthat )|(?<=\bwhich )|(?<=\bwho )|(?<=\bsheet )"
   r"|(?<=\bcontrol )|(?<=\btable )|(?<=\brule )|(?<=\bclause )|(?<=\breport )"
   r"|(?<=\bconfig )|(?<=\bscript )|(?<=\bcheck )|(?<=\btool )|(?<=\bpage )|(?<=, and ))"
   r"names(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their|[A-Z])[A-Za-z]*)"
+  r"|(?<![A-Za-z0-9_$.\/-])names(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+[A-Za-z]+)"
+  r"|(?<![A-Za-z0-9_$.\/-])naming(?=\s+(?:the|a|an|each|every|all|any|this|that|its|their)\s+[A-Za-z]+)"
+  r"|(?<![A-Za-z0-9_$.\/-])named(?=\s+(?:in|under|by)\s+the\s+[A-Za-z]+)"
   r")"
 )
+
+
+def rotation_pattern(prefix):
+  """Match only the listed inflections, outside identifiers and paths."""
+  forms = (form for form in ROTATION_FORMS if form.startswith(prefix))
+  choices = "|".join(re.escape(form) for form in sorted(forms, key=len, reverse=True))
+  return rf"(?<![A-Za-z0-9_$.\/-])(?:{choices})(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])"
+
+
 ROTATIONS = (
+  ("transmit", rotation_pattern("transmit"), "send"),
+  ("kind", r"(?<!\bbe )(?<!\bin )" + rotation_pattern("kind"), "type"),
+  ("repository", rotation_pattern("repositor"), "repo"),
   (
-    "pick",
-    r"(?<![A-Za-z0-9_$.\/-])pick\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "select",
+    "pull request",
+    r"(?<![A-Za-z0-9])(?:"
+    + "|".join(
+      re.escape(form).replace(r"\ ", r"[ \t]+")
+      for form in sorted(ROTATION_FORMS, key=len, reverse=True)
+      if form.startswith("pull request")
+    )
+    + r")(?![A-Za-z0-9])",
+    "PR",
   ),
-  (
-    "transmit",
-    r"(?<![A-Za-z0-9_$.\/-])transmit\w*(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "send",
-  ),
-  (
-    "kind",
-    r"(?<![A-Za-z0-9_$.\/-])kinds?(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "type",
-  ),
-  (
-    "repository",
-    r"(?<![A-Za-z0-9_$.\/-])repositor(?:y|ies)(?![A-Za-z0-9_\/-]|\.[A-Za-z0-9_])",
-    "repo",
-  ),
-  ("pull request", r"(?<![A-Za-z0-9])pull[ \t]+requests?(?![A-Za-z0-9])", "PR"),
   ("name", NAME_VERB_PATTERN, "specify"),
   (
     "nemoizer",
@@ -202,7 +222,6 @@ ROTATIONS = (
 )
 RULE_IDS = {
   "transmit": "NMO100",
-  "pick": "NMO901",
   "kind": "NMO100",
   "repository": "NMO901",
   "pull request": "NMO901",
@@ -231,6 +250,8 @@ ADVISORY_RULE_IDS = {
   "HMN908",
   "HMN909",
   "HMN910",
+  "NMT300",
+  "NMT400",
 }
 SENTENCE_CAPS = {"instruction": 20, "description": 25}
 PARAGRAPH_CAP = 4
@@ -416,6 +437,7 @@ RULE_DESCRIPTIONS = {
   "NMP101": "comment block has {count} lines (cap {cap})",
   "NMU100": 'label "{text}" carries "{word}" ({count} words, cap {cap})',
   "NMU200": "byte-unit divisor and label mismatch",
+  "NMT300": "unconditional real-time test wait",
   "NMO003": "missing Oxford comma",
   "NMO902": (
     '"the" density is {count}% (cap {cap}%); '
@@ -453,7 +475,12 @@ def describe_finding(row):
   return template
 
 
-TEST_RULE_IDS = {"output_text": "NMT100", "measurement": "NMT200"}
+TEST_RULE_IDS = {
+  "output_text": "NMT100",
+  "measurement": "NMT200",
+  "timing_wait": "NMT300",
+  "numeric_setting": "NMT400",
+}
 RESERVED_RULE_IDS = {"HMN000"}
 KNOWN_RULE_IDS = {
   *RULE_IDS.values(),
@@ -478,7 +505,7 @@ SKIP_DIRS = {
   "out",
 }
 SKIP_PATHS = (
-  ".agents/skills",
+  ".agents",
   "arena-state",
   "AGENTS.md",
   "**/AGENTS.md",
@@ -890,9 +917,11 @@ def git_ignored(root, candidates):
       input="\0".join(rel_map),
       capture_output=True,
       text=True,
+      encoding="utf-8",
+      errors="replace",
       check=False,
     )
-  except OSError:
+  except (OSError, UnicodeError):
     return set()
   if proc.returncode not in (0, 1):
     return set()
@@ -903,15 +932,20 @@ def walk(targets, ignores):
   """Yield every text file under the targets that survives the skip rules."""
   for target in targets:
     path = Path(target)
+    if not path.exists():
+      raise ValueError(f"target does not exist: {target}")
     if path.is_file():
       if path.suffix.lower() not in SKIP_SUFFIXES and not is_license_file(path):
         yield path
       continue
-    root = path if path.is_dir() else Path(".")
+    root = path
+    # Exclusion patterns are rooted at the config's project root, never at the walk target.
+    # A subdirectory target keeps the same relative paths.
+    skip_root = ACTIVE_CONFIG.get("root") or root
     candidates = [
       candidate
       for candidate in sorted(root.rglob("*"))
-      if candidate.is_file() and not skipped(candidate, root, ignores)
+      if candidate.is_file() and not skipped(candidate, skip_root, ignores)
     ]
     ignored_set = git_ignored(root, candidates)
     for candidate in candidates:
@@ -942,9 +976,7 @@ def plain(word, name, use):
   if name in KEEP_LOWER:
     return use
   normalized = " ".join(word.lower().split())
-  form = EXCEPTIONS.get(normalized) or re.sub(
-    re.escape(name), use, word, flags=re.IGNORECASE
-  )
+  form = ROTATION_FORMS[normalized]
   if word.isupper():
     return form.upper()
   if word[:1].isupper():
@@ -974,6 +1006,8 @@ def collapse_list_articles(line):
 
 PROTECTED_ROTATE_SPAN = re.compile(
   r"(`+)(?:(?!\1).)+?\1"
+  r"|(?<=\()https?://[^\s)]+(?=\))"
+  r"|https?://[^\s<>]+"
   r"|\$\{\{.*?\}\}"
   r"|:(?:param|type|ivar|vartype|keyword)\s+[A-Za-z0-9_]+\s*:"
   r"|^\s*(?:-\s+)?[A-Za-z0-9_.-]+\s*:(?=\s|$)"
@@ -1066,10 +1100,38 @@ def format_summary(findings):
   )
 
 
-def scan(targets, ignores, audit=False):
+def fenced_lines(lines):
+  """Return physical line numbers inside Markdown fences, including delimiters."""
+  result = set()
+  fence = None
+  for number, line in enumerate(lines, 1):
+    marker = re.match(r"^\s*(`{3,}|~{3,})", line)
+    if fence is not None or marker:
+      result.add(number)
+    if marker:
+      if fence is None:
+        fence = marker[1]
+      elif (
+        marker[1][0] == fence[0]
+        and len(marker[1]) >= len(fence)
+        and not line[marker.end() :].strip()
+      ):
+        fence = None
+  return result
+
+
+def rotation_legend(line):
+  return bool(
+    re.match(r"^\|\s*`?avoid`?\s*\|\s*`?use`?\s*\|", line.strip(), re.IGNORECASE)
+  )
+
+
+def scan(targets, ignores, audit=False, verbose=False):
   """Return findings and all exclusion markers with locations and rule IDs."""
   findings, marks = [], []
   for path in walk(targets, ignores):
+    if verbose:
+      print(f"scan {path}", file=sys.stderr, flush=True)
     text = text_file(path)
     if text is None:
       continue
@@ -1094,8 +1156,11 @@ def scan(targets, ignores, audit=False):
       line_pairs = sorted(prose_map.items())
     else:
       line_pairs = list(enumerate(lines, 1))
+    fenced = (
+      fenced_lines(lines) if path.suffix.lower() in {".md", ".markdown"} else set()
+    )
     for number, line in line_pairs:
-      if TABLE_ROW.match(line.strip()):
+      if number in fenced or rotation_legend(line):
         continue
       excluded = file_ids | line_ids[number - 1]
       visible = mask_protected_spans(
@@ -1112,13 +1177,34 @@ def scan(targets, ignores, audit=False):
         code = RULE_IDS[name]
         if suppressed(code, excluded, name):
           continue
-        target_line = prose_visible if (is_code and code == "NMO901") else visible
+        target_line = prose_visible if is_code else visible
         if not target_line:
           continue
         for word in sorted(set(re.findall(pattern, target_line, flags=re.IGNORECASE))):
           if name in KEEP_LOWER and word == use:
             continue
           findings.append(format_finding(path, number, code, f"{word} -> {use}", line))
+    if not is_code:
+      for _, _, _, numbers in prose_blocks(text):
+        for previous, current in pairwise(numbers):
+          if current != previous + 1:
+            continue
+          if "NMO901" in file_ids | line_ids[previous - 1] | line_ids[current - 1]:
+            continue
+          left = mask_protected_spans(lines[previous - 1])
+          right = mask_protected_spans(lines[current - 1])
+          match = re.search(
+            r"(?<![A-Za-z0-9])pull[ \t]*\n[ \t]*requests?(?![A-Za-z0-9])",
+            left + "\n" + right,
+            flags=re.IGNORECASE,
+          )
+          if match:
+            word = " ".join(match.group(0).split())
+            findings.append(
+              format_finding(
+                path, previous, "NMO901", f"{word} -> PR", lines[previous - 1]
+              )
+            )
   return findings, marks
 
 
@@ -1150,13 +1236,30 @@ def format_paths(targets, ignores, out=None):
       if not any("NMO902" in (file_ids | line_ids[ln - 1]) for ln in group):
         dense_lines.update(group)
     rewritten, touched = [], False
+    fenced = (
+      fenced_lines(lines) if path.suffix.lower() in {".md", ".markdown"} else set()
+    )
     for number, line in enumerate(lines, 1):
-      if TABLE_ROW.match(line.strip()):
+      if number in fenced or rotation_legend(line):
         rewritten.append(line)
         continue
       suppressed = set(file_ids | line_ids[number - 1])
-      if is_code and prose_map is not None and number not in prose_map:
-        suppressed.add("NMO901")
+      if is_code:
+        prose = prose_map.get(number, "") if prose_map is not None else ""
+        changed_line = line
+        for fragment in prose.splitlines():
+          if fragment and changed_line.count(fragment) == 1:
+            rotated_fragment = rotate(fragment, suppressed)
+            if number in dense_lines and "NMO902" not in suppressed:
+              rotated_fragment = collapse_list_articles(rotated_fragment)
+            changed_line = changed_line.replace(fragment, rotated_fragment, 1)
+        if changed_line != line:
+          print(f"{path}:{number}: -{line}", file=out)
+          print(f"{path}:{number}: +{changed_line}", file=out)
+          changed += 1
+          touched = True
+        rewritten.append(changed_line)
+        continue
       collapse_the = number in dense_lines and "NMO902" not in suppressed
       parts, start = [], 0
       for marker in MARKER.finditer(line):
@@ -2555,6 +2658,7 @@ MEASUREMENTS = {
   "poll_wait_seconds",
   "timeout_seconds",
 }
+REAL_WAIT_CALLS = {"sleep", "time.sleep", "asyncio.sleep"}
 CHANNELS = {"stdout", "stderr", "output", "out", "err"}
 WEB_CHANNELS = {
   "stdout",
@@ -2593,9 +2697,15 @@ try {
   console.log(JSON.stringify({error:'SyntaxError', line:error.loc.line, column:error.loc.column + 1}));
   process.exit(0);
 }
+const MEASUREMENTS = new Set(__MEASUREMENTS__);
 function shape(node) {
   if (node?.type === 'Identifier') return node.name;
-  if (node?.type === 'MemberExpression' && !node.computed) return `${shape(node.object)}.${node.property.name}`;
+  if (node?.type === 'MemberExpression') {
+    if (!node.computed) return `${shape(node.object)}.${node.property.name}`;
+    if (node.property.type === 'Literal' && typeof node.property.value === 'string' &&
+      MEASUREMENTS.has(node.property.value.toLowerCase()))
+      return `${shape(node.object)}.${node.property.value}`;
+  }
   if (node?.type === 'CallExpression') return `${shape(node.callee)}(${node.arguments.map(shape).join(',')})`;
   return '<expression>';
 }
@@ -2651,55 +2761,234 @@ function taintPass(node) {
 }
 for (let i = 0; i < 3; i++) taintPass(tree);
 const pairs = [];
+const waits = [];
 let testScope = false;
 const lines = text.split("\n");
-function pair(left, right, node, operator) {
-  for (const [actual, expected] of [[left,right],[right,left]]) {
+function containsNode(node, predicate) {
+  if (!node || typeof node !== 'object') return false;
+  if (predicate(node)) return true;
+  return Object.values(node).some(value => Array.isArray(value)
+    ? value.some(child => containsNode(child, predicate))
+    : value && typeof value === 'object' && containsNode(value, predicate));
+}
+function rootCallName(node) {
+  return node.type === 'CallExpression' ? shape(node.callee).split('.')[0] : '';
+}
+const fakeTimerMethods = new Set([
+  'useFakeTimers',
+  'advanceTimersByTime',
+  'advanceTimersToNextTimer',
+  'runAllTimers',
+  'runOnlyPendingTimers',
+  'clearAllTimers',
+]);
+function fakeTimerControl(node) {
+  if (node.type !== 'CallExpression') return false;
+  const name = shape(node.callee);
+  return fakeTimerMethods.has(name.split('.').pop()) ||
+    /^(?:sinon|clock)\.(?:install|tick)$/.test(name);
+}
+function hasTestDeclaration(node) {
+  return containsNode(node, child => ['test','it','specify'].includes(rootCallName(child)));
+}
+function hasSuiteFakeTimerControl(node) {
+  if (!node || typeof node !== 'object') return false;
+  if (node.type === 'CallExpression' &&
+    ['test','it','specify','describe','suite'].includes(rootCallName(node))) return false;
+  if (fakeTimerControl(node)) return true;
+  return Object.values(node).some(value => Array.isArray(value)
+    ? value.some(child => hasSuiteFakeTimerControl(child))
+    : value && typeof value === 'object' && hasSuiteFakeTimerControl(value));
+}
+const fakeTimerScopes = [];
+function collectFakeTimerScopes(node) {
+  if (!node || typeof node !== 'object') return;
+  if (node.type === 'CallExpression') {
+    const root = rootCallName(node);
+    const callbacks = node.arguments.filter(arg =>
+      ['FunctionExpression','ArrowFunctionExpression'].includes(arg.type));
+    if (['test','it','specify'].includes(root)) {
+      callbacks.forEach(callback => {
+        if (containsNode(callback.body, fakeTimerControl)) {
+          fakeTimerScopes.push({start:callback.start, end:callback.end});
+        }
+      });
+    } else if (['describe','suite'].includes(root)) {
+      callbacks.forEach(callback => {
+        if (hasSuiteFakeTimerControl(callback.body)) {
+          fakeTimerScopes.push({start:callback.start, end:callback.end});
+        }
+      });
+    }
+  }
+  for (const value of Object.values(node)) {
+    if (Array.isArray(value)) value.forEach(child => collectFakeTimerScopes(child));
+    else if (value && typeof value === 'object') collectFakeTimerScopes(value);
+  }
+}
+collectFakeTimerScopes(tree);
+const moduleFakeTimers = tree.body.some(statement =>
+  !hasTestDeclaration(statement) && containsNode(statement, fakeTimerControl));
+function fakeTimerControlled(node) {
+  return moduleFakeTimers || fakeTimerScopes.some(scope =>
+    scope.start <= node.start && node.end <= scope.end);
+}
+function timerCall(node) {
+  if (node?.type !== 'CallExpression') return false;
+  return ['sleep','timersPromises.setTimeout','timersPromises.sleep'].includes(shape(node.callee));
+}
+function promiseTimer(node) {
+  if (node?.type !== 'NewExpression' || shape(node.callee) !== 'Promise') return null;
+  let found = null;
+  containsNode(node, child => {
+    if (!found && child.type === 'CallExpression' && shape(child.callee) === 'setTimeout') {
+      found = child;
+    }
+    return Boolean(found);
+  });
+  return found;
+}
+function awaitedTimer(node) {
+  if (node.type !== 'AwaitExpression') return null;
+  if (timerCall(node.argument)) return node.argument;
+  return promiseTimer(node.argument);
+}
+function boundedPoll(node) {
+  if (node.type !== 'WhileStatement') return false;
+  const condition = text.slice(node.test.start, node.test.end);
+  return /(?:Date\.now|performance\.now|(?:time\.)?(?:monotonic|perf_counter))\s*\(/.test(condition) &&
+    /\b(?:deadline|timeout|timeout_at|end_time|expires_at)\b/i.test(condition);
+}
+const LOCAL_SCOPE = Symbol('local test scope');
+const testCallbacks = new WeakSet();
+function pair(left, right, node, operator, explicit) {
+  for (let [actual, expected] of [[left,right],[right,left]]) {
+    if (expected?.type === 'Identifier' && explicit.get(LOCAL_SCOPE) &&
+        typeof explicit.get(expected.name) === 'string')
+      expected = {type:'Literal', value:explicit.get(expected.name)};
     if (expected?.type === 'Literal' && ['string','number'].includes(typeof expected.value)) {
       const column = Array.from(lines[node.loc.start.line - 1].slice(0, node.loc.start.column)).length + 1;
       const actShape = shape(actual);
       pairs.push({actual:actShape, value:expected.value, operator, lang:'js',
+        explicit_input:explicit.has(actShape) && explicit.get(actShape) === expected.value,
         web_taint:isTaintRhs(actShape), tainted:[...tainted],
         line:node.loc.start.line, column});
     }
   }
 }
-function checkIncludes(expr, node) {
+function checkIncludes(expr, node, explicit) {
   if (expr?.type === 'CallExpression' && expr.callee?.type === 'MemberExpression' &&
     expr.callee.property?.name === 'includes') {
-    pair(expr.callee.object, expr.arguments[0], node, 'membership');
+    pair(expr.callee.object, expr.arguments[0], node, 'membership', explicit);
   }
 }
-function visit(node) {
+function recordInput(name, value, explicit) {
+  if (value?.type === 'Identifier' && explicit.get(LOCAL_SCOPE) &&
+      typeof explicit.get(value.name) === 'string')
+    value = {type:'Literal', value:explicit.get(value.name)};
+  for (const key of explicit.keys()) {
+    if (typeof key === 'string' && (key === name || key.startsWith(name + '.'))) explicit.delete(key);
+  }
+  if (value?.type === 'Literal' && ['string','number'].includes(typeof value.value))
+    explicit.set(name, value.value);
+}
+function visit(node, isBoundedPoll=false, explicit=new Map()) {
   if (!node || typeof node !== 'object') return;
+  if (['FunctionDeclaration','FunctionExpression','ArrowFunctionExpression'].includes(node.type))
+    explicit = new Map([[LOCAL_SCOPE, testCallbacks.has(node) || /^test_/.test(node.id?.name || '')]]);
+  if (node.type === 'IfStatement') {
+    visit(node.test, isBoundedPoll, new Map(explicit));
+    visit(node.consequent, isBoundedPoll, new Map(explicit));
+    visit(node.alternate, isBoundedPoll, new Map(explicit));
+    explicit.clear();
+    return;
+  }
+  if (['ForStatement','ForOfStatement','ForInStatement','WhileStatement','DoWhileStatement',
+    'TryStatement','SwitchStatement','SwitchCase'].includes(node.type)) {
+    explicit.clear();
+    explicit = new Map();
+  }
+  if (node.type === 'VariableDeclarator') recordInput(shape(node.id), node.init, explicit);
+  if (node.type === 'AssignmentExpression')
+    recordInput(shape(node.left), node.operator === '=' ? node.right : null, explicit);
+  if (node.type === 'UpdateExpression') recordInput(shape(node.argument), null, explicit);
+  if (node.type === 'ExpressionStatement' &&
+      (node.expression?.type === 'CallExpression' ||
+       (node.expression?.type === 'AwaitExpression' && node.expression.argument?.type === 'CallExpression'))) {
+    const call = node.expression.type === 'AwaitExpression' ? node.expression.argument : node.expression;
+    const callName = shape(call.callee);
+    if (!callName.startsWith('assert') && !callName.startsWith('expect')) {
+      const used = new Set();
+      function inputNames(item) {
+        if (!item || typeof item !== 'object') return;
+        if (item.type === 'Identifier' && typeof explicit.get(item.name) === 'string')
+          used.add(explicit.get(item.name));
+        for (const value of Object.values(item)) {
+          if (Array.isArray(value)) value.forEach(inputNames);
+          else if (value && typeof value === 'object') inputNames(value);
+        }
+      }
+      call.arguments.forEach(inputNames);
+      for (const [key, value] of explicit) if (typeof key === 'string' && used.has(value)) explicit.delete(key);
+    }
+    const setter = /^(.*\.)?set_([A-Za-z_][A-Za-z_0-9]*)$/.exec(shape(call.callee));
+    if (setter && call.arguments.length === 1)
+      recordInput((setter[1] || '') + setter[2], call.arguments[0], explicit);
+  }
+  if (boundedPoll(node)) isBoundedPoll = true;
+  if (node.type === 'AwaitExpression') {
+    const delay = awaitedTimer(node);
+    if (delay && !isBoundedPoll && !fakeTimerControlled(delay)) {
+      const column = Array.from(lines[delay.loc.start.line - 1].slice(0, delay.loc.start.column)).length + 1;
+      waits.push({actual:shape(delay.callee), line:delay.loc.start.line, column});
+    }
+  }
   if (node.type === 'ImportDeclaration' && node.source.value === 'node:test') testScope = true;
   if (node.type === 'CallExpression') {
     const name = shape(node.callee);
     if (name === 'require' && node.arguments[0]?.value === 'node:test') testScope = true;
-    if (['test','it','describe','suite'].includes(name) && node.arguments.some(arg =>
-      ['FunctionExpression','ArrowFunctionExpression'].includes(arg.type))) testScope = true;
+    if (['test','it','describe','suite'].includes(name)) {
+      for (const arg of node.arguments) {
+        if (['FunctionExpression','ArrowFunctionExpression'].includes(arg.type)) {
+          testScope = true;
+          testCallbacks.add(arg);
+        }
+      }
+    }
     if (['assert.equal','assert.strictEqual','assert.deepEqual',
       'assert.deepStrictEqual','assert.notEqual','assert.notStrictEqual'].includes(name)) {
-      pair(node.arguments[0], node.arguments[1], node, 'equality');
-      checkIncludes(node.arguments[0], node);
-      checkIncludes(node.arguments[1], node);
+      pair(node.arguments[0], node.arguments[1], node, 'equality', explicit);
+      checkIncludes(node.arguments[0], node, explicit);
+      checkIncludes(node.arguments[1], node, explicit);
+    } else if (node.callee?.type === 'MemberExpression' &&
+      node.callee.object?.type === 'CallExpression' &&
+      shape(node.callee.object.callee) === 'expect') {
+      const actual = node.callee.object.arguments[0];
+      if (node.callee.property.name === 'toBe') {
+        pair(actual, node.arguments[0], node, 'equality', explicit);
+      } else if (node.callee.property.name === 'toHaveCSS' &&
+        typeof node.arguments[0]?.value === 'string') {
+        pair({type:'MemberExpression', object:actual,
+          property:{type:'Identifier', name:node.arguments[0].value}, computed:false},
+          node.arguments[1], node, 'equality', explicit);
+      }
     } else if (name === 'assert' || name === 'assert.ok') {
       const expression = node.arguments[0];
       if (expression?.type === 'BinaryExpression' && ['==','===','!=','!=='].includes(expression.operator)) {
-        pair(expression.left, expression.right, node, 'equality');
+        pair(expression.left, expression.right, node, 'equality', explicit);
       } else {
-        checkIncludes(expression, node);
+        checkIncludes(expression, node, explicit);
       }
     }
   }
   for (const value of Object.values(node)) {
-    if (Array.isArray(value)) value.forEach(visit);
-    else if (value && typeof value === 'object') visit(value);
+    if (Array.isArray(value)) value.forEach(child => visit(child, isBoundedPoll, explicit));
+    else if (value && typeof value === 'object') visit(value, isBoundedPoll, explicit);
   }
 }
 visit(tree);
-console.log(JSON.stringify({pairs, test_scope:testScope}));
-"""
+console.log(JSON.stringify({pairs, waits, test_scope:testScope}));
+""".replace("__MEASUREMENTS__", json.dumps(sorted(MEASUREMENTS)))
 
 
 def shape(node):
@@ -2707,6 +2996,13 @@ def shape(node):
     return node.id
   if isinstance(node, ast.Attribute):
     return f"{shape(node.value)}.{node.attr}"
+  if (
+    isinstance(node, ast.Subscript)
+    and isinstance(node.slice, ast.Constant)
+    and isinstance(node.slice.value, str)
+    and node.slice.value.lower() in MEASUREMENTS
+  ):
+    return f"{shape(node.value)}.{node.slice.value}"
   if isinstance(node, ast.Call):
     return f"{shape(node.func)}({','.join(map(shape, node.args))})"
   return "<expression>"
@@ -2785,6 +3081,95 @@ def extract_prose_candidate(raw):
   return None
 
 
+def _has_bounded_poll_limit(condition):
+  names = {
+    node.id.lower() for node in ast.walk(condition) if isinstance(node, ast.Name)
+  }
+  clocks = {
+    shape(node.func).lower()
+    for node in ast.walk(condition)
+    if isinstance(node, ast.Call)
+  }
+  return bool(
+    clocks
+    & {"time.monotonic", "time.perf_counter", "time.time", "monotonic", "perf_counter"}
+  ) and bool(names & {"deadline", "timeout", "timeout_at", "end_time", "expires_at"})
+
+
+def _patches_real_wait(node):
+  if not isinstance(node, ast.Call):
+    return False
+  name = shape(node.func)
+  if not name.endswith(("patch", "patch.object", "setattr")):
+    return False
+  targets = {
+    child.value
+    for child in ast.walk(node)
+    if isinstance(child, ast.Constant) and isinstance(child.value, str)
+  }
+  if any(target in REAL_WAIT_CALLS or target.endswith(".sleep") for target in targets):
+    return True
+  return (
+    name.endswith(("patch.object", "setattr"))
+    and len(node.args) >= 2
+    and shape(node.args[0]) in {"time", "asyncio"}
+    and isinstance(node.args[1], ast.Constant)
+    and node.args[1].value == "sleep"
+  )
+
+
+def _python_waits(tree, lines):
+  parents = {
+    child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)
+  }
+
+  def enclosing(node, types):
+    parent = parents.get(node)
+    while parent:
+      if isinstance(parent, types):
+        return parent
+      parent = parents.get(parent)
+    return None
+
+  waits = []
+  for node in ast.walk(tree):
+    if not isinstance(node, ast.Call):
+      continue
+    actual = shape(node.func)
+    if actual not in REAL_WAIT_CALLS:
+      continue
+    if actual == "asyncio.sleep" and not enclosing(node, ast.Await):
+      continue
+    ancestor = parents.get(node)
+    bounded = False
+    fake_timed = False
+    while ancestor:
+      if isinstance(ancestor, ast.While) and _has_bounded_poll_limit(ancestor.test):
+        bounded = True
+      if isinstance(ancestor, (ast.With, ast.AsyncWith)) and any(
+        _patches_real_wait(item.context_expr) for item in ancestor.items
+      ):
+        fake_timed = True
+      if isinstance(
+        ancestor, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+      ) and any(_patches_real_wait(candidate) for candidate in ast.walk(ancestor)):
+        fake_timed = True
+      ancestor = parents.get(ancestor)
+    if bounded or fake_timed:
+      continue
+    waits.append(
+      {
+        "actual": actual,
+        "line": node.lineno,
+        "column": len(
+          lines[node.lineno - 1].encode("utf-8")[: node.col_offset].decode("utf-8")
+        )
+        + 1,
+      }
+    )
+  return waits
+
+
 def python_pairs(text):
   pairs = []
   lines = text.splitlines()
@@ -2796,8 +3181,14 @@ def python_pairs(text):
     if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
   }
 
-  def pair(left, right, node, operator, tainted):
+  local_scope = object()
+
+  def pair(left, right, node, operator, tainted, explicit):
     for actual, expected in ((left, right), (right, left)):
+      if isinstance(expected, ast.Name) and explicit.get(local_scope):
+        value = explicit.get(expected.id)
+        if isinstance(value, (str, bytes)):
+          expected = ast.Constant(value=value)
       if isinstance(expected, ast.Constant) and type(expected.value) in (
         str,
         bytes,
@@ -2812,6 +3203,7 @@ def python_pairs(text):
         pairs.append(
           {
             "actual": act_shape,
+            "explicit_input": act_shape in explicit and explicit[act_shape] == raw_val,
             "value": val,
             "raw_value": raw_val,
             "tainted": sorted(tainted),
@@ -2826,11 +3218,91 @@ def python_pairs(text):
           }
         )
 
-  def walk_scope(scope_node, active_taint):
+  def record_input(node, explicit):
+    targets, value = [], None
+    if isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+      targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+      value = None if isinstance(node, ast.AugAssign) else node.value
+    elif isinstance(node, ast.Expr) and isinstance(node.value, ast.Call):
+      call = node.value
+      setter = shape(call.func).rsplit(".", 1)
+      if setter[-1].startswith("set_") and len(call.args) == 1:
+        target = setter[-1][4:]
+        if len(setter) > 1:
+          target = setter[0] + "." + target
+        targets = [target]
+        value = call.args[0]
+    if isinstance(value, ast.Name) and explicit.get(local_scope):
+      resolved = explicit.get(value.id)
+      value = (
+        ast.Constant(value=resolved) if isinstance(resolved, (str, bytes)) else value
+      )
+    for target in targets:
+      name = target if isinstance(target, str) else shape(target)
+      for key in list(explicit):
+        if isinstance(key, str) and (key == name or key.startswith(name + ".")):
+          explicit.pop(key)
+      if isinstance(value, ast.Constant) and type(value.value) is not bool:
+        explicit[name] = value.value
+
+  def walk_scope(scope_node, active_taint, explicit=None):
+    if explicit is None:
+      explicit = {}
     for child in ast.iter_child_nodes(scope_node):
       if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)):
-        walk_scope(child, active_taint | func_taint.get(id(child), set()))
+        walk_scope(
+          child,
+          active_taint | func_taint.get(id(child), set()),
+          {local_scope: child.name.startswith("test_")},
+        )
         continue
+      if isinstance(
+        child,
+        (
+          ast.If,
+          ast.For,
+          ast.AsyncFor,
+          ast.While,
+          ast.Try,
+          ast.With,
+          ast.AsyncWith,
+          ast.Match,
+        ),
+      ):
+        incoming = dict(explicit) if isinstance(child, ast.If) else {}
+        for _, branch in ast.iter_fields(child):
+          if isinstance(branch, list):
+            statements = [item for item in branch if isinstance(item, ast.stmt)]
+            if statements:
+              walk_scope(
+                ast.Module(body=statements, type_ignores=[]),
+                active_taint,
+                dict(incoming),
+              )
+            for handler in branch:
+              if isinstance(handler, (ast.ExceptHandler, ast.match_case)):
+                walk_scope(handler, active_taint, {})
+        explicit.clear()
+        continue
+      expression = getattr(child, "value", None)
+      if isinstance(expression, ast.Await):
+        expression = expression.value
+      if isinstance(child, (ast.Expr, ast.Assign, ast.AnnAssign)) and isinstance(
+        expression, ast.Call
+      ):
+        call = expression
+        if not shape(call.func).rsplit(".", 1)[-1].startswith("assert"):
+          used = {
+            explicit[name.id]
+            for arg in [*call.args, *(kw.value for kw in call.keywords)]
+            for name in ast.walk(arg)
+            if isinstance(name, ast.Name)
+            and isinstance(explicit.get(name.id), (str, bytes))
+          }
+          for key in list(explicit):
+            if isinstance(key, str) and explicit[key] in used:
+              explicit.pop(key)
+      record_input(child, explicit)
       if isinstance(child, ast.Assert):
         for expression in ast.walk(child.test):
           if isinstance(expression, ast.Compare):
@@ -2845,6 +3317,7 @@ def python_pairs(text):
                   if isinstance(operator, (ast.Eq, ast.NotEq))
                   else "membership",
                   active_taint,
+                  explicit,
                 )
               left = right
       if (
@@ -2862,11 +3335,12 @@ def python_pairs(text):
           if child.func.attr in {"assertIn", "assertNotIn"}
           else "equality",
           active_taint,
+          explicit,
         )
-      walk_scope(child, active_taint)
+      walk_scope(child, active_taint, explicit)
 
   walk_scope(tree, module_tainted)
-  return {"pairs": pairs}
+  return {"pairs": pairs, "waits": _python_waits(tree, lines)}
 
 
 def output_channel(name, tainted=(), lang="py", web_taint=False):
@@ -2899,12 +3373,18 @@ def category(pair):
       words = re.findall(r"(?<![A-Za-z0-9_-])[A-Za-z']+(?![A-Za-z0-9_-])", candidate)
       if web_taint or len(words) >= 3:
         return "output_text"
+  measurement_value = value
+  if isinstance(value, str):
+    pixels = re.fullmatch(r"([+]?(?:\d+(?:\.\d*)?|\.\d+))px", value)
+    measurement_value = float(pixels[1]) if pixels else None
   if (
-    type(value) in (int, float)
-    and value > 0
+    type(measurement_value) in (int, float)
+    and measurement_value > 0
     and pair["operator"] == "equality"
+    and not pair.get("explicit_input")
     and (
       actual.split("(")[0].split(".")[-1].lower() in MEASUREMENTS
+      or actual.rsplit(".", 1)[-1].split("(")[0].lower() in MEASUREMENTS
       or actual.startswith("px(")
       or actual.startswith("len(")
       and any(word in CHANNELS for word in re.findall(r"\w+", actual))
@@ -2923,12 +3403,213 @@ def javascript_pairs(text):
     input=text,
     capture_output=True,
     text=True,
+    encoding="utf-8",
+    errors="replace",
     timeout=NODE_TIMEOUT,
     check=False,
   )
   if result.returncode:
     raise RuntimeError("parser_process_failed")
   return json.loads(result.stdout)
+
+
+def numeric_setting_findings(path, text):
+  """Review direct numeric copies of statically resolved production settings."""
+  tree = ast.parse(text)
+  root = next(
+    (
+      parent
+      for parent in path.resolve().parents
+      if (parent / ".git").exists() or (parent / "pyproject.toml").exists()
+    ),
+    path.resolve().parent,
+  )
+  bindings = {}
+  sources = {}
+
+  def source(module, level=0):
+    parts = module.split(".") if module else []
+    base = path.resolve().parent
+    if level:
+      for _ in range(level - 1):
+        base = base.parent
+      candidates = [base.joinpath(*parts).with_suffix(".py")]
+    else:
+      candidates = [
+        parent.joinpath(*parts).with_suffix(".py")
+        for parent in path.resolve().parents
+        if parent.is_relative_to(root)
+      ]
+    found = {
+      candidate.resolve()
+      for candidate in candidates
+      if candidate.is_file()
+      and candidate.resolve().is_relative_to(root)
+      and not any(
+        part in {"tests", "test", ".venv"} for part in candidate.relative_to(root).parts
+      )
+    }
+    return next(iter(found)) if len(found) == 1 else None
+
+  for node in tree.body:
+    if isinstance(node, ast.Import):
+      for alias in node.names:
+        if resolved := source(alias.name):
+          bindings[alias.asname or alias.name] = (resolved, None)
+    elif isinstance(node, ast.ImportFrom) and (
+      resolved := source(node.module, node.level)
+    ):
+      for alias in node.names:
+        bindings[alias.asname or alias.name] = (resolved, alias.name)
+  for node in tree.body:
+    if isinstance(
+      node,
+      (ast.Import, ast.ImportFrom, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef),
+    ):
+      continue
+    for child in ast.walk(node):
+      if isinstance(child, ast.Name) and child.id in bindings:
+        bindings.pop(child.id)
+  for resolved, _ in bindings.values():
+    if resolved in sources:
+      continue
+    try:
+      parsed = ast.parse(resolved.read_text(encoding="utf-8"))
+    except (OSError, SyntaxError, UnicodeError):
+      sources[resolved] = {}
+      continue
+    settings = {}
+    writes = {}
+    for node in ast.walk(parsed):
+      if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        writes[node.id] = writes.get(node.id, 0) + 1
+    for node in parsed.body:
+      targets = (
+        node.targets
+        if isinstance(node, ast.Assign)
+        else ([node.target] if isinstance(node, ast.AnnAssign) else [])
+      )
+      for target in targets:
+        if not isinstance(target, ast.Name) or not target.id.isupper():
+          continue
+        if re.search(
+          r"(?:SCHEMA|STATUS|EXIT|PERMISSION|FRAME|DIGEST|MODE|INDEX|VERSION)",
+          target.id,
+        ):
+          continue
+        value = getattr(node, "value", None)
+        if isinstance(value, ast.UnaryOp) and isinstance(
+          value.op, (ast.USub, ast.UAdd)
+        ):
+          value = value.operand
+        if (
+          isinstance(value, ast.Constant)
+          and type(value.value) in (int, float)
+          and writes[target.id] == 1
+        ):
+          settings[target.id] = node.lineno
+    sources[resolved] = settings
+  findings = []
+  for function in ast.walk(tree):
+    if not isinstance(
+      function, (ast.FunctionDef, ast.AsyncFunctionDef)
+    ) or not function.name.startswith("test_"):
+      continue
+    if (
+      function.args.args
+      or function.args.posonlyargs
+      or function.args.kwonlyargs
+      or function.args.vararg
+      or function.args.kwarg
+      or function.decorator_list
+    ):
+      continue
+    nodes = list(_iter_scope_nodes(function))
+    shadowed = {
+      node.id
+      for node in nodes
+      if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del))
+    }
+    shadowed.update(
+      arg.arg for arg in ast.walk(function.args) if isinstance(arg, ast.arg)
+    )
+    for node in nodes:
+      if isinstance(node, (ast.Import, ast.ImportFrom)):
+        shadowed.update(
+          alias.asname or alias.name.split(".")[0] for alias in node.names
+        )
+      if isinstance(node, ast.Call):
+        for argument in [*node.args, *(kw.value for kw in node.keywords)]:
+          shadowed.update(
+            child.id for child in ast.walk(argument) if isinstance(child, ast.Name)
+          )
+        if isinstance(node.func, ast.Attribute):
+          shadowed.update(
+            child.id
+            for child in ast.walk(node.func.value)
+            if isinstance(child, ast.Name)
+          )
+      if isinstance(node, ast.Attribute) and isinstance(node.ctx, (ast.Store, ast.Del)):
+        shadowed.update(
+          child.id for child in ast.walk(node.value) if isinstance(child, ast.Name)
+        )
+    for node in nodes:
+      if not isinstance(node, ast.Assert) or not isinstance(node.test, ast.Compare):
+        continue
+      comparison = node.test
+      if len(comparison.ops) != 1 or not isinstance(comparison.ops[0], ast.Eq):
+        continue
+      for actual, expected in (
+        (comparison.left, comparison.comparators[0]),
+        (comparison.comparators[0], comparison.left),
+      ):
+        literal = (
+          expected.operand
+          if isinstance(expected, ast.UnaryOp)
+          and isinstance(expected.op, (ast.USub, ast.UAdd))
+          else expected
+        )
+        if not isinstance(literal, ast.Constant) or type(literal.value) not in (
+          int,
+          float,
+        ):
+          continue
+        name = (
+          actual.id
+          if isinstance(actual, ast.Name)
+          else (
+            actual.value.id
+            if isinstance(actual, ast.Attribute) and isinstance(actual.value, ast.Name)
+            else None
+          )
+        )
+        if name not in bindings or name in shadowed:
+          continue
+        resolved, imported = bindings[name]
+        setting = (
+          imported
+          if isinstance(actual, ast.Name)
+          else actual.attr
+          if imported is None
+          else None
+        )
+        line = sources[resolved].get(setting)
+        if line is None:
+          continue
+        findings.append(
+          {
+            "rule": TEST_RULE_IDS["numeric_setting"],
+            "category": "numeric_setting",
+            "path": str(path),
+            "line": node.lineno,
+            "column": node.col_offset + 1,
+            "source_path": str(resolved),
+            "source_line": line,
+            "evidence": f"copied numeric setting {setting} from {resolved}:{line}",
+            "status": "manual_review",
+          }
+        )
+  return findings
 
 
 def review_tests(targets):
@@ -2980,6 +3661,10 @@ def review_tests(targets):
     row["status"] = "checked"
     with file_scope(path, text):
       file_ids, line_ids, _ = exclusions(path, text.splitlines())
+    if path.suffix.lower() == ".py":
+      for finding in numeric_setting_findings(path, text):
+        if not suppressed(finding["rule"], file_ids | line_ids[finding["line"] - 1]):
+          findings.append(finding)
     for pair in parsed["pairs"]:
       role = category(pair)
       if role is None:
@@ -2998,12 +3683,27 @@ def review_tests(targets):
           "status": "review",
         }
       )
+    for wait_finding in parsed.get("waits", ()):
+      code = TEST_RULE_IDS["timing_wait"]
+      if suppressed(code, file_ids | line_ids[wait_finding["line"] - 1]):
+        continue
+      findings.append(
+        {
+          "rule": code,
+          "category": "timing_wait",
+          "path": str(path),
+          "line": wait_finding["line"],
+          "column": wait_finding["column"],
+          "evidence": f"unconditional wait via {wait_finding['actual']}",
+          "status": "review",
+        }
+      )
   return {"findings": findings, "coverage": coverage, "errors": errors}
 
 
 def review_tests_main(argv=None):
   parser = argparse.ArgumentParser(
-    description="Review explicitly scoped test assertions."
+    description="Review explicitly scoped test assertions and waits."
   )
   parser.add_argument("targets", nargs="+")
   args = parser.parse_args(argv)
@@ -3015,7 +3715,11 @@ def review_tests_main(argv=None):
   except ValueError as error:
     parser.error(str(error))
   print(json.dumps(result))
-  return 2 if result["errors"] else int(bool(result["findings"]))
+  return (
+    2
+    if result["errors"]
+    else int(any(row.get("status") != "manual_review" for row in result["findings"]))
+  )
 
 
 def is_test_file(path, text, helpers):
@@ -3079,6 +3783,11 @@ def is_test_file(path, text, helpers):
 
 def main(argv=None):
   global ACTIVE_CONFIG, BASE_CONFIG
+  # Windows consoles default to cp1252. Force UTF-8 output so findings with any
+  # decoded character print instead of crashing the report.
+  for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+      stream.reconfigure(encoding="utf-8", errors="replace")
   argv = list(sys.argv[1:] if argv is None else argv)
   if argv[:1] == ["prose"]:
     return prose_main(argv[1:])
@@ -3093,6 +3802,12 @@ def main(argv=None):
     action="append",
     default=[],
     help="skip a directory or file, relative to the target",
+  )
+  parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    help="print each file as it is scanned and processed",
   )
   parser.add_argument(
     "--ignores", action="store_true", help="list every nonemo marker instead"
@@ -3122,6 +3837,9 @@ def main(argv=None):
     assert any(row["rule"] == "STE100" for row in sample)
     return 0
   targets = arguments.targets or ["."]
+  for target in targets:
+    if not Path(target).exists():
+      parser.error(f"target does not exist: {target}")
   try:
     BASE_CONFIG = load_config(targets, arguments.config, arguments.no_config)
   except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
@@ -3154,7 +3872,9 @@ def main(argv=None):
     print(f"{changed} lines rotated", file=sys.stderr)
     return 0
   try:
-    findings, marks = scan(targets, arguments.ignore, audit=arguments.audit)
+    findings, marks = scan(
+      targets, arguments.ignore, audit=arguments.audit, verbose=arguments.verbose
+    )
   except ValueError as error:
     parser.error(str(error))
   if arguments.ignores:
@@ -3162,15 +3882,20 @@ def main(argv=None):
     return 0
   errors, tests = [], []
   helpers = {Path(path).resolve() for path in test_helpers}
-  for path in walk([*targets, *test_helpers], arguments.ignore):
+  files = list(walk([*targets, *test_helpers], arguments.ignore))
+  total = len(files)
+
+  def process_one(path):
+    result = {"test": None, "error": None, "rows": [], "text": None}
     text = text_file(path)
+    result["text"] = text
     try:
       if is_test_file(path, text or "", helpers):
-        tests.append(str(path))
+        result["test"] = str(path)
       if text is None:
-        continue
+        return result
       file_cfg = file_config(path, text)
-      rows = source_prose(
+      result["rows"] = source_prose(
         path,
         text,
         context
@@ -3190,7 +3915,114 @@ def main(argv=None):
       RuntimeError,
       RecursionError,
     ) as error:
-      errors.append(f"{path}: {type(error).__name__}: {error}")
+      result["error"] = f"{path}: {type(error).__name__}: {error}"
+    return result
+
+  results = {}
+  skipped = []
+  workers = min(8, (os.cpu_count() or 4))
+  file_timeout = 10.0
+  pending = {}
+  next_index = 0
+  jobs = queue.Queue(maxsize=workers)
+
+  def worker():
+    while True:
+      job = jobs.get()
+      if job is None:
+        return
+      future, path = job
+      if not future.set_running_or_notify_cancel():
+        continue
+      try:
+        future.set_result(process_one(path))
+      except BaseException as error:
+        future.set_exception(error)
+
+  for _ in range(workers):
+    threading.Thread(target=worker, daemon=True).start()
+
+  def submit_more(count):
+    nonlocal next_index
+    for _ in range(count):
+      if next_index >= len(files):
+        return
+      path = files[next_index]
+      if arguments.verbose:
+        print(f"start {path}", file=sys.stderr, flush=True)
+      future = Future()
+      jobs.put_nowait((future, path))
+      pending[future] = (path, time.monotonic() + file_timeout)
+      next_index += 1
+
+  submit_more(workers)
+  done_count = 0
+  while pending:
+    timeout = max(
+      min(deadline for _, deadline in pending.values()) - time.monotonic(), 0
+    )
+    done, _ = wait(list(pending), timeout=timeout, return_when=FIRST_COMPLETED)
+    now = time.monotonic()
+    expired = [
+      future
+      for future, (_, deadline) in pending.items()
+      if future not in done and deadline <= now
+    ]
+    for future in done | set(expired):
+      path = pending[future][0]
+      if arguments.verbose:
+        outcome = "timeout" if future in expired else "done"
+        print(f"{outcome} {path}", file=sys.stderr, flush=True)
+      del pending[future]
+      if future in expired:
+        future.cancel()
+        skipped.append(path)
+      else:
+        try:
+          results[path] = future.result()
+        except Exception as error:
+          results[path] = {
+            "test": None,
+            "error": f"{path}: {type(error).__name__}: {error}",
+            "rows": [],
+            "text": None,
+          }
+      done_count += 1
+      print(".", end="", file=sys.stderr, flush=True)
+      if done_count % 25 == 0 or done_count == total:
+        print(f" [{done_count * 100 // total:>3}%]", file=sys.stderr, flush=True)
+    retained = []
+    while True:
+      try:
+        job = jobs.get_nowait()
+      except queue.Empty:
+        break
+      if not job[0].cancelled():
+        retained.append(job)
+    for job in retained:
+      jobs.put_nowait(job)
+    submit_more(len(done) + len(expired))
+  if skipped:
+    print(
+      "\nSkipped (no result within 10s):\n" + "\n".join(str(path) for path in skipped),
+      file=sys.stderr,
+    )
+  for _ in range(workers):
+    jobs.put_nowait(None)
+  for path in files:
+    result = results.get(path) or {
+      "test": None,
+      "error": None,
+      "rows": [],
+      "text": None,
+    }
+    if result["test"]:
+      tests.append(result["test"])
+    if result["error"]:
+      errors.append(result["error"])
+      continue
+    text = result["text"]
+    if text is None:
       continue
     lines = text.splitlines()
     findings.extend(
@@ -3202,7 +4034,7 @@ def main(argv=None):
         lines[row["line"] - 1] if 0 < row["line"] <= len(lines) else None,
         status=row.get("status"),
       )
-      for row in rows
+      for row in result["rows"]
     )
     if arguments.audit:
       findings.extend(docs_drift_findings(path, text, ACTIVE_CONFIG.get("root")))
@@ -3219,6 +4051,7 @@ def main(argv=None):
         row["rule"],
         row["evidence"],
         test_lines[row["line"] - 1] if 0 < row["line"] <= len(test_lines) else None,
+        status=row.get("status"),
       )
     )
   for row in result["coverage"]:
