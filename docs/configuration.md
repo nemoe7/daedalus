@@ -287,7 +287,7 @@ Catalog next-page links can be relative. They must keep the discovery URL's sche
 A known key with a wrong shape is a 422 on the Providers page. A hand-edited file drops that key
 with a line in the log, so a bad `tier` or `models` never breaks a request. See [A wrong shape](#a-wrong-shape).
 
-`rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. See [Pacing](architecture.md#pacing).
+`rpm` and `tpm` limit the requests and the input tokens of a model in 60 s. At a limit, the model leaves the chains. The `tpm` count subtracts provider-reported `cached_tokens` after each answer. See [Pacing](architecture.md#pacing).
 
 Other keys of a `models` entry:
 

@@ -230,7 +230,7 @@ A model with `rpm` or `tpm` in its provider file leaves the chains and the media
 | --- | --- |
 | Window | The last 60 s |
 | Requests | Each request that daedalus sent to the model, fallbacks included |
-| Tokens | The input estimate of the context check: characters / 4. Media requests count 0 tokens. |
+| Tokens | The input estimate of the context check: characters / 4, minus the provider `cached_tokens` count after the answer. Media requests count 0 tokens. |
 | Skip | Silent. The weight does not change, and the log has no line. |
 | Provider hour | The last-hour requests to all provider models, per client. A 429 resets the hour window. |
 | Each model skipped | HTTP 429 `rate_limit_exceeded`. `Retry-After`: the time until the first model takes requests again. |
