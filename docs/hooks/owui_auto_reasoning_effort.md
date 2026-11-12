@@ -69,7 +69,7 @@ The [Auto reasoning effort Filter](../../integrations/openwebui/functions/auto_r
 
 The hook removes `_daedalus_auto_effort` from the body during `on-request`, even when the prompt is empty or the model has no reasoning. It keeps the controls in the request value dict through the second call on a retry. No control changes the global routing threshold or its cache.
 
-The floor selects the first supported effort at or above the requested minimum, or the highest supported effort when none reaches it. The existing ladder cap still applies. Explicit client effort, continuing turns and retries with a recorded level keep their existing priority rules.
+The floor selects the first supported effort at or above the requested minimum, or the highest supported effort when none reaches it. The existing ladder cap still applies. The floor also applies to continuing turns and retries. Explicit client effort keeps priority over the floor.
 
 Without valid sensitivity controls, the hook uses the existing routing threshold. The hook ignores invalid control values. The Filter changes only its private control field, not messages or explicit effort.
 

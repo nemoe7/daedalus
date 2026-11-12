@@ -89,6 +89,7 @@ def test_controls_are_request_local_and_preserve_effort_priority(monkeypatch):
     (0.9, "none", ["none", "low", "medium", "high"], "high"),
     (0.2, "medium", ["none", "low", "high"], "high"),
     (0.2, "high", ["none", "low"], "low"),
+    (0.2, "low", ["none", "max"], "max"),
   ):
     request_values = {
       "body": {
@@ -107,7 +108,7 @@ def test_controls_are_request_local_and_preserve_effort_priority(monkeypatch):
     value = {}
     hook.on_prompt(value, prompt="same prompt", **context)
     assert value["reasoning_effort"] == expected
-  assert thresholds == [0.2, 0.9, 0.2, 0.2]
+  assert thresholds == [0.2, 0.9, 0.2, 0.2, 0.2]
   assert (router.THRESHOLD, dict(router._TIER_OF)) == before
   context["config"]["p"]["supported_reasoning_efforts"] = [
     "none",
@@ -115,6 +116,7 @@ def test_controls_are_request_local_and_preserve_effort_priority(monkeypatch):
     "medium",
     "high",
   ]
+  context["request_values"] = {}
   for extra, expected in (
     ({"effort": "low"}, {}),
     (
@@ -126,6 +128,37 @@ def test_controls_are_request_local_and_preserve_effort_priority(monkeypatch):
     value = {}
     hook.on_prompt(value, prompt="same prompt", **context, **extra)
     assert value == expected
+
+  monkeypatch.setattr(router, "required_tier", lambda text: 1)
+  context["config"]["p"]["supported_reasoning_efforts"] = list(router.EFFORT_RANKS)
+  context["request_values"] = {"_daedalus_auto_effort": {"minimum_effort": "low"}}
+  tool = [{"role": "tool", "content": "ok"}]
+  for extra in (
+    {"messages": tool, "level": "none"},
+    {"messages": tool, "level": "minimal"},
+    {"messages": tool, "level": "low"},
+    {"retry": 1, "level": "none"},
+    {"retry": 1, "level": "minimal"},
+  ):
+    value = {}
+    hook.on_prompt(value, prompt="same prompt", **context, **extra)
+    efforts = router.EFFORT_RANKS
+    assert efforts.index(value["reasoning_effort"]) >= efforts.index("low"), extra
+  context["config"]["p"]["supported_reasoning_efforts"] = ["none", "max"]
+  for extra in (
+    {"messages": tool, "level": "max"},
+    {"messages": tool, "level": "none"},
+    {"retry": 1, "level": "max"},
+  ):
+    value = {}
+    hook.on_prompt(value, prompt="same prompt", **context, **extra)
+    assert value == {"reasoning_effort": "max"}, extra
+  context["config"]["p"]["supported_reasoning_efforts"] = [
+    "none",
+    "low",
+    "medium",
+    "high",
+  ]
 
   monkeypatch.setattr(router, "required_tier", lambda text: 2)
   for sensitivity in (True, "0.4", -1, 2, float("nan")):

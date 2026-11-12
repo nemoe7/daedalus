@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.10
+# version: 1.0.11
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -162,7 +162,8 @@ def on_prompt(
 
   A last answer with no recorded level took no reasoning step, so that request takes the read
   and no step, while the tier still steps 1 up. The cap of the ladder is `high`. A model that
-  requires reasoning floors the read to `low`, so it never takes `none`.
+  requires reasoning floors the read to `low`, so it never takes `none`. The `minimum_effort` control
+  floors every level above, including a kept or stepped level.
 
   :param value: the request values, holding `reasoning_effort`
   :param prompt: the user turns joined, the fallback when the messages do not come
@@ -191,7 +192,7 @@ def on_prompt(
       # A step of an agentic turn carries no new user text: its read would drop the level of
       # the thread, so the step keeps the level of the last answer instead.
       kept = max(TIER_OF.get(level, read), _floor(context))
-      kept_level = _level(context, kept)
+      kept_level = _level(context, kept, minimum)
       value["reasoning_effort"] = kept_level
       logger.info("a continuing turn keeps %s for %s", kept_level, model)
       return
@@ -206,7 +207,7 @@ def on_prompt(
     return
   before = max(TIER_OF.get(level, read), TIER_OF.get(effort or "", 0))
   tier = min(before + 1, TOP)
-  stepped = _level(context, tier)
+  stepped = _level(context, tier, minimum)
   value["reasoning_effort"] = stepped
   logger.info("a try again for %s: %s +1 step -> %s", model, level, stepped)
 
