@@ -13,5 +13,4 @@ rules:
       - docker.yml
       - pr-check.yml
       - pr-contract.yml
-      - secret-scan.yml
       - workflow-security.yml

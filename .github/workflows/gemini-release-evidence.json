@@ -6,7 +6,6 @@
     ".dockerignore",
     ".gitattributes",
     ".gitignore",
-    ".gitleaksignore",
     ".hadolint.yaml",
     ".markdownlint-cli2.jsonc",
     "AGENTS.md",

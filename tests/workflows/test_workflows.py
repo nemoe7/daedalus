@@ -1,11 +1,9 @@
 """Every workflow file: its name, its triggers, its permissions, and its tools."""
 
-import re
 import shlex
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -22,7 +20,6 @@ NAMES = {
   "dependency-review.yml": "Dependency review",
   "container-scan.yml": "Container scan",
   "container-trivy.yml": "Container scan (Trivy)",
-  "secret-scan.yml": "Secret scan",
   "workflow-security.yml": "Workflow security",
   "pr-check.yml": "PR title check",
   "pages.yml": "Pages demo",
@@ -35,7 +32,6 @@ ON_PULL_REQUEST = (
   "dependency-review.yml",
   "container-scan.yml",
   "container-trivy.yml",
-  "secret-scan.yml",
   "workflow-security.yml",
   "pr-check.yml",
 )
@@ -46,7 +42,6 @@ ON_MAIN = (
   "dependency-review.yml",
   "container-scan.yml",
   "container-trivy.yml",
-  "secret-scan.yml",
   "workflow-security.yml",
 )
 ON_DISPATCH = (
@@ -55,7 +50,6 @@ ON_DISPATCH = (
   "dependency-review.yml",
   "container-scan.yml",
   "container-trivy.yml",
-  "secret-scan.yml",
   "workflow-security.yml",
 )
 
@@ -199,39 +193,6 @@ def test_docker_jobs_and_absent_image_workflow_files() -> None:
   ]
 
 
-def test_the_secret_scan_reads_the_whole_history() -> None:
-  """The secret-scan workflow uses full checkout history."""
-  content = (WORKFLOWS / "secret-scan.yml").read_text()
-  assert "gitleaks" in content
-  assert "fetch-depth: 0" in content
-
-
-def test_the_ignore_file_holds_only_global_fingerprints() -> None:
-  """Ignore entries use global three-field fingerprints rather than commit-specific fingerprints."""
-  entries = [
-    line.strip()
-    for line in Path(".gitleaksignore").read_text().splitlines()
-    if line.strip() and not line.startswith("#")
-  ]
-  assert [e for e in entries if len(e.split(":")) != 3] == []
-  fixture = "tests/dashboard/test_env_values.py:generic-api-key:25"
-  assert fixture in entries, (
-    "the replaced dashboard fixture stays ignored in every copy"
-  )
-
-
-def test_a_pull_request_ignore_file_decides_its_own_scan() -> None:
-  """Scan reads base tree, so job takes ignore file of PR head."""
-  steps = load("secret-scan.yml")["jobs"]["gitleaks"]["steps"]
-  taken = next(step for step in steps if "gitleaksignore" in step.get("run", ""))
-  assert taken["if"] == "github.event_name == 'pull_request_target'"
-  assert 'git show "$PR_HEAD:.gitleaksignore" > .gitleaksignore' in taken["run"]
-  assert "rm -f .gitleaksignore" in taken["run"], "a deleted ignore file stays deleted"
-  assert steps[0]["with"]["ref"] == "${{ github.sha }}", (
-    "the base tree keeps the tools trusted"
-  )
-
-
 def test_the_container_scan_uses_hadolint() -> None:
   """Hadolint lints the Dockerfile, and the PR check blocks."""
   content = (WORKFLOWS / "container-scan.yml").read_text()
@@ -352,7 +313,6 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
   for name in (
     "container-scan.yml",
     "dependency-review.yml",
-    "secret-scan.yml",
     "workflow-security.yml",
     "pr-check.yml",
   ):
@@ -373,10 +333,6 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
     == "-config-file .github/actionlint.yaml"
   )
   assert steps["zizmor"]["steps"][-1]["with"]["config"] == ".github/zizmor.yml"
-  gitleaks = (WORKFLOWS / "secret-scan.yml").read_text()
-  assert "--log-opts=--all" in gitleaks
-  assert "sha256sum --check" in gitleaks
-  assert "gitleaks/gitleaks-action" not in gitleaks
   for name in ("ci.yml", "container-trivy.yml"):
     assert "pull_request_target" not in load(name)["on"]
 
@@ -409,10 +365,4 @@ def test_the_ci_workflow_runs_the_prose_linter() -> None:
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer ." in runs
 
 
-def test_the_scanner_skips_the_skills_folder() -> None:
-  """The scanner config excludes copied skill code from the secret scan."""
-  config = tomllib.loads(Path(".gitleaks.toml").read_text(encoding="utf-8"))
-  assert config["extend"]["useDefault"] is True
-  pattern = next(item for item in config["allowlists"][0]["paths"] if ".agents" in item)
-  assert re.search(pattern, ".agents/skills/arena-skill/assets/mermaid.min.js")
-  assert not re.search(pattern, "daedalus/server/api.py")
+
