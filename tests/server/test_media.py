@@ -408,10 +408,13 @@ def test_images_reject_unconvertible_dimensions(
     assert response.status_code == 400, response.text
     assert response.json() == control.json()
   assert len(fake.sent) == count
-  response = client.post("/v1/images/generations", json={**body, "size": "100000x1"})
+  size = "100000x1"
+  response = client.post("/v1/images/generations", json={**body, "size": size})
   assert response.status_code == 200, response.text
   sent = json.loads(fake.sent[-1].content)
-  assert sent["width"] == 100000 and sent["height"] == 1
+  width, height = (int(part) for part in size.split("x"))
+  assert sent["width"] == width and sent["height"] == height
+  assert sent["width"] > 4096 and sent["height"] > 0
 
 
 def test_valid_size() -> None:

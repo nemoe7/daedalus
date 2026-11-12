@@ -36,6 +36,7 @@ PROBE_SECONDS = 0.3
 ASK_SECONDS = 2.0
 EXPORT_SECONDS = 300.0
 DAEDALUS_URL = "DAEDALUS_URL"
+HOOK_UPDATE_COMMAND = "daedalus hooks update"
 # The server hosts that a client reaches at the loopback address.
 ANY_HOST = ("0.0.0.0", "::")
 
@@ -238,7 +239,7 @@ def hooks_verify() -> int:
       else:
         notes.append(f"lock ok: {lock_note(record)}")
     if here is not None and name not in lock:
-      notes.append("no record; run `daedalus hooks update`")
+      notes.append(f"no record; run `{HOOK_UPDATE_COMMAND}`")
       unpinned = True
     if here is not None:
       problem = import_problem(folder / name)

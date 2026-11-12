@@ -138,6 +138,7 @@ def test_failed_git_reads_fail_the_gate(version_repository, monkeypatch, capsys,
   version_git(repo, "commit", "--quiet", "-m", "increase")
   head = version_git(repo, "rev-parse", "HEAD")
   original = subprocess.run
+  expected_error = "version-read-failure"
 
   def fail_read(command, **kwargs):
     selected = command[0] == "git" and (
@@ -149,15 +150,15 @@ def test_failed_git_reads_fail_the_gate(version_repository, monkeypatch, capsys,
       )
     )
     if selected:
-      error = "test Git read failure"
       if kwargs.get("check"):
-        raise subprocess.CalledProcessError(1, command, output="", stderr=error)
-      return subprocess.CompletedProcess(command, 1, stdout="", stderr=error)
+        raise subprocess.CalledProcessError(
+          1, command, output="", stderr=expected_error
+        )
+      return subprocess.CompletedProcess(command, 1, stdout="", stderr=expected_error)
     return original(command, **kwargs)
 
   monkeypatch.chdir(repo)
   monkeypatch.setattr(check_versions.subprocess, "run", fail_read)
-  expected_error = "test Git read failure"
   assert check_versions.main(["--base", base, "--head", head]) != 0
   assert expected_error in capsys.readouterr().err
 

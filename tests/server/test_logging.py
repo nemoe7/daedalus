@@ -60,7 +60,10 @@ def test_lines() -> None:
     original = api.get_config, api.chain
     api.get_config = lambda: config
     groups = [["keyless/c"], ["first/a"], ["second/b"]]
-    api.chain = lambda model, body, config, key="", headers=None: (groups, "daedalus/auto:TIER-B")
+    api.chain = lambda model, body, config, key="", headers=None: (
+      groups,
+      "daedalus/auto:TIER-B",
+    )
     upstream.set_client(httpx.AsyncClient(transport=httpx.MockTransport(answer)))
     try:
       body = {"model": "daedalus/auto", "messages": [{"role": "user", "content": "hi"}]}

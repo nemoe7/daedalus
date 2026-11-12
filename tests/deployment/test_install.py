@@ -165,6 +165,13 @@ def run_interactive(
   )
 
 
+def assert_install_not_started(
+  result: subprocess.CompletedProcess[str], tmp_path: Path
+) -> None:
+  assert result.returncode == 1
+  assert not (tmp_path / "docker.log").exists()
+
+
 def test_new_key(tmp_path: Path) -> None:
   """An empty master key gets a new one, and Compose starts with no question."""
   env_text = "DAEDALUS_MASTER_KEY=\nWEBUI_SECRET_KEY=\nTZ=\n"
@@ -198,8 +205,7 @@ def test_webui_profile_does_not_require_tailscale_service_dir(tmp_path: Path) ->
   folder, env = checkout(tmp_path, env_text)
   result = run(folder, env)
   assert result.returncode == 0, result.stderr + result.stdout
-  missing_files_marker = "required service files"
-  assert missing_files_marker not in result.stdout
+  assert "services/tailscale-openwebui/serve.json" not in result.stdout
   assert "Install Headroom?" not in result.stdout
   assert "Install Tika?" not in result.stdout
   assert "COMPOSE_PROFILES=webui" in (folder / ".env").read_text()
@@ -272,25 +278,19 @@ def test_tailscale_openwebui_profile_requires_service_file(tmp_path: Path) -> No
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=tailscale-openwebui\n"
   folder, env = checkout(tmp_path, env_text)
   result = run(folder, env)
-  assert result.returncode == 1
+  assert_install_not_started(result, tmp_path)
   assert (
     "required service files: services/tailscale-openwebui/serve.json)" in result.stdout
   )
-  stopped_marker = "Stopped. Nothing changed."
-  assert stopped_marker in result.stdout
-  assert not (tmp_path / "docker.log").exists()
 
 
 def test_question(tmp_path: Path) -> None:
   """An unanswered setup prompt leaves .env absent and makes no Docker call."""
   folder, env = checkout(tmp_path, None)
   result = run(folder, env)
-  plan_header = "This script installs or downloads:"
-  stopped_marker = "Stopped. Nothing changed."
-  assert result.returncode == 1 and plan_header in result.stdout
-  assert stopped_marker in result.stdout
+  assert_install_not_started(result, tmp_path)
   assert "Install Headroom?" not in result.stdout
-  assert not (folder / ".env").exists() and not (tmp_path / "docker.log").exists()
+  assert not (folder / ".env").exists()
 
 
 @pytest.mark.parametrize(

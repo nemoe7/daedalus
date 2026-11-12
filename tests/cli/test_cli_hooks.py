@@ -193,9 +193,8 @@ def test_verify_leaves_an_unpinned_file_alone(
   (folder / "one.py").write_bytes(PLAIN)
   group_of(monkeypatch)
   assert cli.hooks_verify() == 0
-  unpinned_cmd = "daedalus hooks update"
   out = capsys.readouterr().out
-  assert "unpinned" in out and "one.py" in out and unpinned_cmd in out
+  assert "unpinned" in out and "one.py" in out and cli.HOOK_UPDATE_COMMAND in out
 
 
 def test_verify_warns_on_a_file_that_does_not_load(
