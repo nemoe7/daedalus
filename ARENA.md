@@ -51,6 +51,7 @@
 
 ## Inbox
 
+- Before starting or resuming queued work, MUST run `steer read` and acknowledge each pending blocking message before continuing.
 - Give one short receipt for a corrected routine no-impact slip.
 - Corrected routine command-input/process slips (e.g. late read) alone are not rule violations.
 - Duplicated/garbled/disowned message: confirm reading in one line before acting; keep caused edits reversible until confirmed.
@@ -60,6 +61,7 @@
 - Continue after a tool call succeeds, with no result narration.
 - Batch independent tool calls where the surface permits.
 - Work while tasks remain; end when verified and stopped.
+- MUST run `steer poll` only to wait for gates when one task remains, or for new work when no tasks remain.
 - NEVER sleep during a background gate.
 - NEVER call `get_process_output` to wait for a run.
 - Read the verdict line before any push.

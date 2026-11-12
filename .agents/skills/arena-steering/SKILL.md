@@ -4,7 +4,7 @@ description: Steer an Arena.ai agent mid-turn through a local preview inbox, dep
 license: MIT
 compatibility: Arena.ai Agent Mode, Python 3.11+, persisted workspace and long-lived process tools.
 metadata:
-  version: "2.3.8"
+  version: "2.3.9"
 ---
 
 # Arena Steering
@@ -72,7 +72,7 @@ steer task rm <id>
 
 - Estimate each task's Fibonacci size against a known reference task, combining effort, complexity, and uncertainty, not time or cost.
 - Create ordered task phases by repeating `-T` with `report`, `code`, `docs`, `ops`, or `misc`.
-- MUST order a `report` phase first when the code waits on an approved report.
+- For approved report work that changes a feature or documentation, MUST order a `report` phase first, followed by each required `code` or `docs` phase.
 - Finish phases on a clean tree using `steer task finish ID [-c FULL_COMMIT]`. Reports need a linked published report or answer, and code/docs need a unique pushed full commit.
 - Tasks sit in a mutable queue where dependents automatically follow their task links (`links.task_ids[]`).
 - Follow the task order returned by Steering.
