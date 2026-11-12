@@ -143,7 +143,7 @@ class ReportRepository(Protocol):
     """Append an answer acknowledgement to its message."""
 
   def rename_report_answers(self, old_id: str, new_id: str, now: str) -> None:
-    """Update answer references when a report is renamed."""
+    """Update answer references after a report rename."""
 
 
 class MetaRepository(Protocol):

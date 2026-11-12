@@ -2925,7 +2925,7 @@ article#report.report img,
     padding-bottom: calc(var(--reports-submit-bottom) + var(--space-4));
   }
 
-  /* Keep the Submit gradient within the report content, not over the picker or TOC. */
+  /* Keep the Submit gradient within report content, not over the picker or TOC. */
   #view-reports[data-scrollable="true"]:has(#report-submit-float) .report-main::after {
     content: "";
     position: sticky;

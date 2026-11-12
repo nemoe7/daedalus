@@ -1381,7 +1381,7 @@ def _skill_description(skill_md: Path) -> str:
 
 
 def _run_skills(out: TextIO) -> int:
-  """List repository and installed skills, preferring the installed copy of a name."""
+  """List repo and installed skills, preferring the installed copy of a name."""
   root = _repo_root()
   found: dict[str, dict[str, str]] = {}
   for source, base in (

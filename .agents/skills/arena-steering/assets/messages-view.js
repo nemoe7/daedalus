@@ -241,8 +241,8 @@ function highlightSearchMatches(root, rawQuery) {
   }
 }
 
-// Keep the scroll container and unchanged message cards connected while pages are
-// added. Replacing them interrupts a scrollbar drag or an ongoing touch gesture.
+// Keep the scroll container and unchanged message cards connected while new pages
+// arrive. Replacing them interrupts a scrollbar drag or an ongoing touch gesture.
 function updateHistory(history, nextHistory, signatures, confirmation) {
   const existing = new Map(
     Array.from(history.querySelectorAll(":scope > .message"), (node) => [node.dataset.msgId, node])

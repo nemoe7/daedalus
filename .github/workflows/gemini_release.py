@@ -18,7 +18,7 @@ from fnmatch import fnmatchcase
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 # Each prompt follows rules/refs/GUIDELINES.md section 4: one rule per line, imperative,
 # testable, no rationale. The shared boundary lines come first.
@@ -644,7 +644,7 @@ def short_error(detail):
 
 
 def run_summary():
-  """One closing line per run: the request count, the failures and the models that answered."""
+  """One closing line per run: the request count, failures, and models that answered."""
   used = ", ".join(
     f"{model} x{count}" for model, count in sorted(RUN_STATS["models"].items())
   )
@@ -934,7 +934,7 @@ def release_body(
   final_phase = context.get("phase", "release")
   attempts = len(model) if isinstance(model, (list, tuple)) else 1
   group = prepared(units, context, model, generate_fn, final_phase)
-  # The last request writes the release body or the classification, whichever phase the caller named.
+  # The last request writes the release body or classification, whichever phase the caller named.
   # An answer the accept check refuses retries on the next rung. One bad word does not stop the run.
   final = {**context, "phase": final_phase}
   for attempt in range(attempts):

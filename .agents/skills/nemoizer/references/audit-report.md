@@ -1,7 +1,7 @@
 # nemoizer Audit: <target>
 
 - **Status:** `<pass | action-needed>`
-- **Counts:** `<N>` blocking, `<N>` manual review, `<N>` docs drift, `<N>` `nonemo` markers (`<N>` files)
+- **Counts:** `<N>` violations, `<N>` review findings, `<N>` docs drift, `<N>` `nonemo` markers (`<N>` files)
 
 ## `<path>`
 

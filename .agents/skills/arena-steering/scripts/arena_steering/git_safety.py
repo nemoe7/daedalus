@@ -1,4 +1,4 @@
-"""Repository checks for pre-command Git safeguards."""
+"""Repo checks for pre-command Git safeguards."""
 
 from __future__ import annotations
 

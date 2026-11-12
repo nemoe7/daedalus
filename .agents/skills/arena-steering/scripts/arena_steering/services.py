@@ -1743,7 +1743,7 @@ class TaskService:
     return updated
 
   def mod_types(self, task_id: str, types: list[str]) -> Task:
-    """Set the ordered phase types before the first phase is finished."""
+    """Set the ordered phase types before the first phase finishes."""
     return self.patch_task(task_id, {"types": types})
 
   @_transactional_task_write

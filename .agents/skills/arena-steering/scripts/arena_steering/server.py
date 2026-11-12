@@ -351,7 +351,7 @@ class SteeringApp:
 
   @staticmethod
   def _maybe_reseed_demo(store: SqliteStore) -> None:
-    """Re-seed a repository demo SQLite store when its script changes on disk."""
+    """Re-seed a repo demo SQLite store when its script changes on disk."""
     db_path_str = str(getattr(store, "db_path", ""))
     demo_script = (
       Path(__file__).resolve().parents[4] / "maintenance" / "demo-arena-steer.py"
@@ -491,7 +491,7 @@ class SteeringApp:
               status, payload = handler(params, query, request_body)
             except DirtyTreeError as exc:
               # The browser-write savepoint rolls a failed action back, so the
-              # flag is recorded after that rollback, never inside the action.
+              # handler records the flag afterwards, never inside the action.
               deferred_flag = True
               status, payload = int(HTTPStatus.BAD_REQUEST), {"error": str(exc)}
             if not 200 <= status < 300:

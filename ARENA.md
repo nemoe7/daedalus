@@ -132,7 +132,11 @@
 - Test: red first where fitting → smallest green change → behavior-preserving refactor → recheck. Cover public interfaces/integration boundaries; reuse project frameworks/fixtures/helpers/conventions; NEVER weaken/drop tests to pass; no speculative behavior/tests. Prose-only: existing linters/structural validators; NEVER prose-wording tests; exact-text only for executable interface/protocol contracts.
 - Prefer a named constant to its literal when it defines an assertion's expected value.
 - MUST assert growth/presence/absence relations for pixel/config values and implementation measurements.
-- MUST add each non-trivial runnable check (branch/loop/parser/money/security) to its mirrored module test; create only if absent, keep assets in fixtures/, NEVER per-fix files, frameworks, or per-function suites. Mechanical changes get proportional checks.
+- MUST place non-trivial runnable checks (branch/loop/parser/money/security) in single-concern test files under directories mirroring their source directories.
+- When touching a mixed-concern test file, MUST split it into focused files under the mirrored test directory.
+- Keep test assets in fixtures/.
+- NEVER add per-fix files, frameworks, or per-function suites.
+- Mechanical changes get proportional checks.
 - Grep-verify each file edit landed before building on it.
 - Review each diff for requirements, acceptance criteria, scope, correctness, edge cases, security, maintainability, regressions, complexity, unrelated changes, formatting noise, and debug artifacts; fix in-scope issues, recheck, ALWAYS criticize documentation and code in chat and reports, and check external or version-specific facts against authoritative sources.
 - Before finishing, run repo validation entrypoints; parse every touched generated config.

@@ -51,7 +51,7 @@ def command_words(words: list[str], *, unwrap_timeout: bool = False) -> list[str
         or re.fullmatch(r"\d+(?:\.\d+)?", words[index])
       ):
         if head == "command" and words[index] in {"-v", "-V"}:
-          return []  # A lookup must not become the command being looked up.
+          return []  # A lookup must not become the command it looks up.
         index += 1
     elif head == "timeout" and unwrap_timeout:
       index += 1
@@ -1507,7 +1507,7 @@ class AckQuoteReminder:
 
 
 def unpushed_message(count: int, *, private: bool = False) -> str:
-  """Name the push rule that applies to the repository's visibility."""
+  """Name the push rule that applies to the repo's visibility."""
   if private:
     return f"{count} commit/s unpushed. Private repo: push small batches (<=3)."
   return f"{count} commit/s unpushed. ALWAYS push. NEVER delay for batch."

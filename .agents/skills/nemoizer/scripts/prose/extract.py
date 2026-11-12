@@ -124,24 +124,30 @@ def python_sections(source: str) -> list[str]:
   ]
 
 
+def run_node(arguments, source, timeout=10, check=True):
+  """Run Node on source and return its exit code and output."""
+  # Bytes stdin: Windows text mode turns CRLF into CR CR LF and shifts line numbers.
+  result = subprocess.run(
+    ["node", *arguments],
+    input=source.encode("utf-8"),
+    capture_output=True,
+    timeout=timeout,
+    check=check,
+  )
+  return result.returncode, result.stdout.decode("utf-8", errors="replace")
+
+
 @lru_cache(maxsize=128)
 def javascript_comments(
   source: str, skip_metadata: bool = False
 ) -> tuple[tuple[str, int, int], ...]:
   """Collect JavaScript comments and their source lines with the parser."""
-  result = subprocess.run(
-    ["node", str(Path(__file__).with_name("javascript-comments.cjs"))],
-    input=source,
-    capture_output=True,
-    text=True,
-    encoding="utf-8",
-    errors="replace",
-    timeout=10,
-    check=True,
+  _, stdout = run_node(
+    [str(Path(__file__).with_name("javascript-comments.cjs"))], source
   )
   comments = []
   in_metadata = False
-  for text, first, last in json.loads(result.stdout):
+  for text, first, last in json.loads(stdout):
     clean = "\n".join(
       line.strip().lstrip("*").strip() for line in text.splitlines()
     ).strip()
@@ -159,19 +165,12 @@ def javascript_comment_spans(
   source: str,
 ) -> tuple[tuple[tuple[int, int], tuple[int, int]], ...]:
   """Collect exact JavaScript comment spans with the parser."""
-  result = subprocess.run(
-    ["node", str(Path(__file__).with_name("javascript-comments.cjs")), "--spans"],
-    input=source,
-    capture_output=True,
-    text=True,
-    encoding="utf-8",
-    errors="replace",
-    timeout=10,
-    check=True,
+  _, stdout = run_node(
+    [str(Path(__file__).with_name("javascript-comments.cjs")), "--spans"], source
   )
   return tuple(
     ((first_line, first_column), (last_line, last_column))
-    for first_line, first_column, last_line, last_column in json.loads(result.stdout)
+    for first_line, first_column, last_line, last_column in json.loads(stdout)
   )
 
 

@@ -8,7 +8,7 @@ This document describes the rules enforced by `nemoizer`. Each rule also has a s
 - Use `nonemo: <id>` to suppress only the named rule on that line.
 - Place `nonemo: <id>` in the first three lines with no avoided word before the marker for file scope.
 - Use any comment syntax for `nonemo: <id>`.
-- Run `nemoizer --ignores` to list `nonemo` markers, or `nemoizer audit` (`nemoizer collect` / `--audit`) to list both `nonemo` markers and `(manual review)` findings.
+- Run `nemoizer --ignores` to list `nonemo` markers, or `nemoizer audit` (`nemoizer collect` / `--audit`) to list both `nonemo` markers and `(review)` findings.
 
 ## `NMO100` - Hard word rotations
 
@@ -54,7 +54,7 @@ To fix this issue, rewrite the text as follows:
 Select a file from the repo, specify each field, and open a PR.
 ```
 
-Note: Default checks report `NMO901` as `(manual review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Verb forms include `naming` before a determiner and `named` before `in the`, `under the`, or `by the`; noun and identifier uses stay.
+Note: Default checks report `NMO901` as `(review)` with exit code `0`; `nemoizer format` rewrites unsuppressed matches in place. Verb forms include `naming` before a determiner and `named` before `in the`, `under the`, or `by the`; noun and identifier uses stay.
 
 Rationale: Consistent terms reduce variation while keeping manual review for false friends such as `pickle`.
 
@@ -78,7 +78,7 @@ To fix this issue, remove unnecessary `"the"` articles where meaning stays uncha
 Check status, logs, and metrics for worker.
 ```
 
-Note: Default checks report `NMO902` as `(manual review)` (`advisory`) with exit code `0`. Retain `"the"` when removing it changes specificity or meaning. Write `nemoizer` in lowercase without a leading `"the"`.
+Note: Default checks report `NMO902` as `(review)` with exit code `0`. Retain `"the"` when removing it changes specificity or meaning. Write `nemoizer` in lowercase without a leading `"the"`.
 
 Rationale: Excessive definite articles pad technical instructions and descriptions without adding information.
 

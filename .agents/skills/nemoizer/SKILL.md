@@ -27,7 +27,7 @@ python3 skills/nemoizer/scripts/nemoize.py --ignores .
 python skills/nemoizer/scripts/nemoizer collect .
 ```
 
-Print each finding as `path:line: [ID] (advisory-free|advisory) description` with its indented source line and `Summary` footer; exit 1 only for mandatory findings, and mark advisory findings for manual review by agent or user. Skip vendored and generated
+Print each finding as `path:line: [ID] (violation|review) description` with its indented source line and `Summary` footer; exit 1 only for violations, and have the agent or user inspect review findings. Skip vendored and generated
 trees; repo-root `nemoizer.toml` or `[tool.nemoizer]` in `pyproject.toml` ([references/nemoizer.toml](references/nemoizer.toml)) sets `[[files]]` glob rules, exclusions, rules, and caps.
 
 `--format` rewrites the tree and prints each changed line as it was and as it

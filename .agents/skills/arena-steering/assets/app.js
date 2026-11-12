@@ -485,7 +485,7 @@ async function fetchMessagePage({ before = "", reset = false, preserve = false }
     if (cached && passRevision !== undefined && cached.revision === passRevision) {
       loadedMessageKey = key;
       loadedMessageRevision = cached.revision;
-      // Merge so a message written after the cache was stored still shows.
+      // Merge so a message written after the cache write still shows.
       const live = state.messages || [];
       const merged = [
         ...cached.messages,
@@ -782,7 +782,7 @@ const handlers = {
       store.setState({ messages, optimisticMessage: null, optimisticConfirmation: message ? { pendingId: optimisticMessage.id, serverId: message.id } : null, sending: false, composerError: response.reconciliation_error ? "Message sent, but its current state could not be loaded." : null });
     } catch (error) {
       const restoreRefs = clearRefs && replySelectionRevision === selectedRevision;
-      // Retries are exhausted, so the recovery record would replay a send the
+      // No retries remain, so the recovery record would replay a send the
       // page already reports as failed.
       sessionStorage.removeItem(PENDING_MESSAGE_RETRY_KEY);
       pendingMessageRetry = null;
@@ -944,7 +944,7 @@ const handlers = {
         revision: loadedMessageRevision,
         dirty: Boolean(state.messagesLoading || messageRequests) || loadedMessageRevision == null,
       };
-      // Visibility is gated on the visible revision, not the hidden one.
+      // The visible revision gates visibility, not the hidden one.
       if (visibleQueryRevision !== undefined && !state.messagesLoading && !messageRequests) {
         const visibleRevision = healthSeenVisibleRevision !== undefined
           ? healthSeenVisibleRevision
