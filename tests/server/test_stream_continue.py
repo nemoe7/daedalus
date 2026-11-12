@@ -243,6 +243,66 @@ async def test_stream_continue(monkeypatch: pytest.MonkeyPatch) -> None:
         lines = await send(client)
         assert lines[-1] == "[DONE]", lines
         assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
-  store.MODELS_DB = saved
-  set_client(None)
-  config.set_config(None)
+    store.MODELS_DB = saved
+    set_client(None)
+    config.set_config(None)
+
+
+async def test_stream_cached_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+  """A usage chunk with cached_tokens credits the served lane at [DONE]."""
+  setup = {
+    name: {"api_base": f"https://{name}.test/v1", "api_key": "k", "tier": TIER}
+    for name in ("a", "b")
+  }
+  monkeypatch.setattr(api, "get_config", lambda: setup)
+  saved = store.MODELS_DB
+  with tempfile.TemporaryDirectory() as folder:
+    store.MODELS_DB = Path(folder) / "models.sqlite3"
+    store.write_store([{"id": "a/x", "tpm": 100}, {"id": "b/x"}])
+    api.PACING.clear()
+    api.COOLDOWNS.clear()
+    SEEN.clear()
+    PLAN.clear()
+    usage = {
+      "id": "a1",
+      "choices": [{"index": 0, "finish_reason": "stop"}],
+      "usage": {
+        "prompt_tokens": 80,
+        "completion_tokens": 10,
+        "prompt_tokens_details": {"cached_tokens": 50},
+      },
+    }
+    PLAN.update(
+      a=(
+        "ok",
+        [
+          text("a1", "Hel"),
+          text("a1", "lo"),
+          b"data: " + json.dumps(usage).encode() + b"\n\n",
+          b"data: [DONE]\n\n",
+        ],
+      ),
+    )
+    try:
+      async with httpx.AsyncClient(
+        transport=httpx.MockTransport(upstream)
+      ) as upstream_client:
+        set_client(upstream_client)
+        app = httpx.ASGITransport(app=api.app)
+        async with httpx.AsyncClient(
+          transport=app, base_url="http://t", headers=AUTH
+        ) as client:
+          lines = await send(client)
+        assert lines[-1] == "[DONE]", lines
+        assert [host for host, _ in SEEN] == ["a.test"], SEEN
+        # The recorded entry for a/x was credited by the cached count.
+        tokens = sum(count for _, count in api.PACING.recent("a/x"))
+        assert tokens == 0, tokens
+    finally:
+      set_client(None)
+      api.PACING.clear()
+      api.COOLDOWNS.clear()
+      SEEN.clear()
+      PLAN.clear()
+      config.set_config(None)
+      store.MODELS_DB = saved

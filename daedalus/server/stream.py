@@ -85,6 +85,25 @@ def provider_count(usage: object) -> dict[str, Any] | None:
   return found
 
 
+def cached_tokens(usage: object) -> int:
+  """Return the cached prompt tokens reported by the provider, or 0 when none exist."""
+  if isinstance(usage, dict):
+    # OpenAI format: usage.prompt_tokens_details.cached_tokens
+    details = usage.get("prompt_tokens_details")
+    if isinstance(details, dict):
+      val = details.get("cached_tokens")
+      if isinstance(val, int) and val > 0:
+        return val
+    # Gemini format: usage.usageMetadata.promptTokenCount.cached_tokens
+    counts = usage.get("usageMetadata") or {}
+    ptc = counts.get("promptTokenCount")
+    if isinstance(ptc, dict):
+      val = ptc.get("cached_tokens")
+      if isinstance(val, int) and val > 0:
+        return val
+  return 0
+
+
 def has_content(data: str) -> bool:
   """True for `[DONE]`, and for a chunk with text, a tool call, or a finish reason."""
   if data == "[DONE]":
@@ -242,6 +261,8 @@ async def relay(
           hooks.run(
             "on-answer", config, model, answer_note(chunk, "".join(sent), model)
           )
+          if PACING:
+            PACING.credit(pin.lane(model), cached_tokens(chunk.get("usage")))
           yield b"data: [DONE]\n\n"
           return
         chunk = json.loads(data)

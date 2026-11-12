@@ -1490,6 +1490,10 @@ async def run_chat(plan: Plan) -> Response:
         request.state.tokens.update(
           stream.provider_count(completion.get("usage")) or {}
         )
+        if PACING:
+          PACING.credit(
+            pin.lane(candidate), stream.cached_tokens(completion.get("usage"))
+          )
         ttft = time.perf_counter() - started
         attempts.append(
           upstream.note(candidate, "answered", started, ended=content["at"]) | sent

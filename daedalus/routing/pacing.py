@@ -175,3 +175,12 @@ class Pacing:
     self.sent.clear()
     self.hour.clear()
     self.spent.clear()
+
+  def credit(self, model: str, tokens: int = 0) -> None:
+    """Subtract `tokens` from the newest recorded input-token count for `model`."""
+    if not self.enabled or tokens <= 0:
+      return
+    sent = self.sent.get(model)
+    if sent:
+      last_clock, last_count = sent[-1]
+      sent[-1] = (last_clock, max(0, last_count - tokens))
