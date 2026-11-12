@@ -363,6 +363,3 @@ def test_the_ci_workflow_runs_the_prose_linter() -> None:
   ]
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer --selftest" in runs
   assert "python3 .agents/skills/nemoizer/scripts/nemoizer ." in runs
-
-
-
