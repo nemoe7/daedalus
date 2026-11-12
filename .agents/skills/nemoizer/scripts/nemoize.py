@@ -3795,7 +3795,7 @@ def main(argv=None):
     return review_tests_main(argv[1:])
   if argv[:1] in (["audit"], ["collect"]):
     argv = ["--audit", *argv[1:]]
-  parser = argparse.ArgumentParser(description="Check Nemoizer prose and test domains.")
+  parser = argparse.ArgumentParser(description="Check prose and test candidates.")
   parser.add_argument("targets", nargs="*", default=["."])
   parser.add_argument(
     "--ignore",
