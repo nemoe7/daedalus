@@ -340,7 +340,7 @@ A loop counts against the model that made it. See [ADR 4](adr/0004-penalties.md#
 | Loop | Found by | Next step |
 | --- | --- | --- |
 | Tool | 3 same-tool-and-arguments calls since a user message, the last 1 in the last assistant message | Model that made the call is the last fallback |
-| Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: next model continues. No stream: next model gets the request. |
+| Thinking | A passage of 20 to 2,000 characters, 4 times in a row | Stream: next model continues after the first copy of the passage, with the reasoning so far. No stream: next model gets the request. |
 | Answer | Same, in the answer text | As thinking. Next model continues after the first copy of the passage. |
 | Log | Tool: `loop=N` on the Requests page. Thinking and answer: the result `loop`. | - |
 

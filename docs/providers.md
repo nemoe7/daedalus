@@ -6,7 +6,7 @@ Each provider except Pollinations has a tested free tier.
 | --- | --- | --- | --- |
 | `cloudflare` | Cloudflare Workers AI | OpenAI-compatible, plus the native run API for audio and images | daedalus sends a text-only message as 1 string. Paid models stay out. Order 2. The Clef and Clairic models carry the `decisions` mode, not `chat`. |
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. [`free.yml`](../config/providers/free.yml) sets `reasoning_effort: high`. |
-| `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts. |
+| `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts, and drops an assistant message that is empty after this filter. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only models whose discovery row has `isFree: true`. |
 | `mistral` | Mistral | OpenAI-compatible | daedalus sends only the message fields that Mistral accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm when the request asks for it. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
