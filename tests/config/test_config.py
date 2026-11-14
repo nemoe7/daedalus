@@ -124,6 +124,7 @@ def test_repo_file() -> None:
 def test_provider_files_parse() -> None:
   """All shipped provider files parse without error (smoke test for config changes)."""
   import glob
+
   for path_str in glob.glob("config/providers/*.yml"):
     config.load_config(Path(path_str))
 

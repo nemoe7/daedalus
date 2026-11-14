@@ -676,7 +676,7 @@ def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None
   assert names == ["free.yml", "openrouter.yml", "pollinations.yml"], names
   main, *singles = fixtures["files"]
   assert main["text"] == "", "the local main file starts empty"
-  
+
   # Validate main file has expected provider keys
   assert "cloudflare" in main["blocks"], "cloudflare provider missing"
   assert "gemini" in main["blocks"], "gemini provider missing"
@@ -685,16 +685,26 @@ def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None
   assert "mistral" in main["blocks"], "mistral provider missing"
   assert "openrouter" in main["blocks"], "openrouter provider missing"
   assert "z-ai" in main["blocks"], "z-ai provider missing"
-  
+
   # Validate each provider has required fields
-  for provider in ["cloudflare", "gemini", "groq", "kilo", "mistral", "openrouter", "z-ai"]:
+  for provider in [
+    "cloudflare",
+    "gemini",
+    "groq",
+    "kilo",
+    "mistral",
+    "openrouter",
+    "z-ai",
+  ]:
     p = main["blocks"][provider]
     assert "api_key" in p, f"{provider} missing api_key"
-  
+
   for row in singles:
     expected_path = Path(row["path"])
-    assert row["text"] == (shipped / expected_path.name).read_text(encoding="utf-8"), row["path"]
-  
+    assert row["text"] == (shipped / expected_path.name).read_text(encoding="utf-8"), (
+      row["path"]
+    )
+
   captured = json.loads(pages_demo.MODELS_FILE.read_text(encoding="utf-8"))
   assert {row["id"] for row in fixtures["models"]} == {row["id"] for row in captured}
 
@@ -1421,38 +1431,38 @@ def test_demo_template_timing(source) -> None:
 
 
 def test_pages_fixtures_structure() -> None:
-    """Validate pages_fixtures.json parses and contains expected structure."""
-    fixtures_path = pages_demo.ROOT / "scripts" / "pages_fixtures.json"
-    fixtures = json.loads(fixtures_path.read_text(encoding="utf-8"))
-    
-    # Validate required top-level structure
-    assert "files" in fixtures, "missing 'files' section"
-    assert "models" in fixtures, "missing 'models' section"
-    assert "hooks" in fixtures, "missing 'hooks' section"
-    assert "settings" in fixtures, "missing 'settings' section"
-    
-    # Validate files section structure
-    files = fixtures["files"]
-    assert isinstance(files, list), "'files' must be a list"
-    for file_entry in files:
-        assert "path" in file_entry, "file entry missing 'path'"
-        assert "blocks" in file_entry, "file entry missing 'blocks'"
-        assert "text" in file_entry, "file entry missing 'text'"
-        
-        # Validate blocks structure
-        blocks = file_entry["blocks"]
-        assert isinstance(blocks, dict), "blocks must be a dict"
-        for block_key, block_data in blocks.items():
-            assert "api_key" in block_data, f"{block_key} missing api_key"
-            
-    # Validate models structure
-    models = fixtures["models"]
-    assert isinstance(models, list), "models must be a list"
-    
-    # Validate hooks structure
-    hooks = fixtures["hooks"]
-    assert isinstance(hooks, dict), "hooks must be a dict"
-    
-    # Validate settings structure
-    settings = fixtures["settings"]
-    assert isinstance(settings, dict), "settings must be a dict"
+  """Validate pages_fixtures.json parses and contains expected structure."""
+  fixtures_path = pages_demo.ROOT / "scripts" / "pages_fixtures.json"
+  fixtures = json.loads(fixtures_path.read_text(encoding="utf-8"))
+
+  # Validate required top-level structure
+  assert "files" in fixtures, "missing 'files' section"
+  assert "models" in fixtures, "missing 'models' section"
+  assert "hooks" in fixtures, "missing 'hooks' section"
+  assert "settings" in fixtures, "missing 'settings' section"
+
+  # Validate files section structure
+  files = fixtures["files"]
+  assert isinstance(files, list), "'files' must be a list"
+  for file_entry in files:
+    assert "path" in file_entry, "file entry missing 'path'"
+    assert "blocks" in file_entry, "file entry missing 'blocks'"
+    assert "text" in file_entry, "file entry missing 'text'"
+
+    # Validate blocks structure
+    blocks = file_entry["blocks"]
+    assert isinstance(blocks, dict), "blocks must be a dict"
+    for block_key, block_data in blocks.items():
+      assert "api_key" in block_data, f"{block_key} missing api_key"
+
+  # Validate models structure
+  models = fixtures["models"]
+  assert isinstance(models, list), "models must be a list"
+
+  # Validate hooks structure
+  hooks = fixtures["hooks"]
+  assert isinstance(hooks, dict), "hooks must be a dict"
+
+  # Validate settings structure
+  settings = fixtures["settings"]
+  assert isinstance(settings, dict), "settings must be a dict"
