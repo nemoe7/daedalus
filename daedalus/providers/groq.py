@@ -27,6 +27,18 @@ class GroqProvider(OpenAIProvider):
     "tool": frozenset({"role", "content", "tool_call_id"}),
   }
 
+  def body(self, slug: str, payload: dict) -> dict:
+    """The request body with only the fields Groq accepts, and empty assistant messages dropped."""
+    body = super().body(slug, payload)
+    messages = [
+      message
+      for message in body["messages"]
+      if message.get("role") != "assistant"
+      or message.get("content")
+      or message.get("tool_calls")
+    ]
+    return {**body, "messages": messages}
+
   @staticmethod
   def columns(row: dict) -> dict[str, Any]:
     """Store columns from one Groq row."""
