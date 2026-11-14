@@ -22,6 +22,9 @@ A stream can fail after the client received text. daedalus then sends the receiv
 the next fallback as an assistant prefix, and streams only the continuation. The client
 receives one stream with one status.
 
+The prefix also holds received reasoning in `reasoning_content`. After a thinking loop, it
+holds reasoning up to the end of the first copy of the passage.
+
 A partial tool call cannot continue. When a stream fails inside a tool call, daedalus sends
 one error chunk and ends the stream.
 
