@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 from daedalus import config, dashboard, store
+from daedalus.routing import loops
 from daedalus.server import api
 from daedalus.server.upstream import set_client
 
@@ -34,6 +35,15 @@ def data(chunk: dict) -> bytes:
 def text(identifier: str, content: str) -> bytes:
   return data(
     {"id": identifier, "choices": [{"index": 0, "delta": {"content": content}}]}
+  )
+
+
+def reasoning(identifier: str, content: str) -> bytes:
+  return data(
+    {
+      "id": identifier,
+      "choices": [{"index": 0, "delta": {"reasoning_content": content}}],
+    }
   )
 
 
@@ -243,6 +253,64 @@ async def test_stream_continue(monkeypatch: pytest.MonkeyPatch) -> None:
         lines = await send(client)
         assert lines[-1] == "[DONE]", lines
         assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
+
+        SEEN.clear()
+        PLAN.update(
+          a=("drop", [reasoning("a1", "think"), text("a1", "Hel")]),
+          b=("ok", [text("b1", "lo"), b"data: [DONE]\n\n"]),
+        )
+        lines = await send(client)
+        assert lines[-1] == "[DONE]", lines
+        assert [host for host, _ in SEEN] == ["a.test", "b.test"], SEEN
+        assert SEEN[1][1]["messages"][-1] == {
+          "role": "assistant",
+          "content": "Hel",
+          "reasoning_content": "think",
+        }, SEEN[1]
+
+        SEEN.clear()
+        PLAN.update(
+          a=("drop", [reasoning("a1", "think")]),
+          b=("ok", [text("b1", "lo"), b"data: [DONE]\n\n"]),
+        )
+        lines = await send(client)
+        assert lines[-1] == "[DONE]", lines
+        assert SEEN[1][1]["messages"][-1] == {
+          "role": "assistant",
+          "content": "",
+          "reasoning_content": "think",
+        }, SEEN[1]
+
+        SEEN.clear()
+        PLAN.update(
+          a=("drop", [reasoning("a1", "think")]),
+          b=("status", 429),
+          c=("ok", [text("c1", "lo"), b"data: [DONE]\n\n"]),
+        )
+        lines = await send(client)
+        assert lines[-1] == "[DONE]", lines
+        assert [host for host, _ in SEEN] == [
+          "a.test",
+          "b.test",
+          "c.test",
+        ], SEEN
+        assert SEEN[2][1]["messages"][-1]["reasoning_content"] == "think", SEEN[2]
+
+        SEEN.clear()
+        api.COOLDOWNS.clear()
+        unit = "0123456789ABCDEFGHIJ"
+        passage = unit * 4
+        PLAN.update(
+          a=("drop", [reasoning("a1", passage)]),
+          b=("ok", [text("b1", "done"), b"data: [DONE]\n\n"]),
+        )
+        lines = await send(client)
+        assert lines[-1] == "[DONE]", lines
+        assert SEEN[1][1]["messages"][-1] == {
+          "role": "assistant",
+          "content": "",
+          "reasoning_content": loops.kept(passage, 20),
+        }, SEEN[1]
     store.MODELS_DB = saved
     set_client(None)
     config.set_config(None)

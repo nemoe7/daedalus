@@ -244,7 +244,7 @@ async def relay(
   last_resort: frozenset[str] = frozenset(),
 ) -> AsyncIterator[bytes]:
   """Stream one answer, continue from the sent text on a failure, and keep the provider input count in `counts`."""
-  identifier, sent, tool = None, [], False
+  identifier, sent, tool, thought = None, [], False, []
   # Last chunk holds the id, finish reason, and count of a finished stream.
   chunk: dict[str, Any] = {}
   attempts = [] if attempts is None else attempts
@@ -291,8 +291,12 @@ async def relay(
             model,
           )
           reasoning = delta.get("reasoning_content") or delta.get("reasoning")
-          if isinstance(reasoning, str) and thinking.feed(reasoning) is not None:
-            raise loops.LoopError("thinking")
+          if isinstance(reasoning, str):
+            if (period := thinking.feed(reasoning)) is not None:
+              raise loops.LoopError(
+                "thinking", loops.kept("".join(thought) + reasoning, period)
+              )
+            thought.append(reasoning)
           if isinstance(delta.get("content"), str):
             if (period := answer.feed(delta["content"])) is not None:
               text = "".join(sent) + delta["content"]
@@ -317,7 +321,10 @@ async def relay(
       logger.warning("upstream %s stopped: %s", model, exc)
       attempts.append(upstream.note(model, "loop", None, str(exc)))
       if exc.kept is not None:
-        sent = [exc.kept]
+        if exc.channel == "thinking":
+          thought = [exc.kept]
+        else:
+          sent = [exc.kept]
     except StopAsyncIteration:
       logger.warning("upstream stream ended without [DONE]")
       attempts.append(
@@ -335,7 +342,11 @@ async def relay(
       return
     rest = router.prefer_same_model(model, rest, buckets, last_resort)
     prefix = {"role": "assistant", "content": "".join(sent)}
-    continued = {**body, "messages": [*body["messages"], prefix]} if sent else body
+    if thought:
+      prefix["reasoning_content"] = "".join(thought)
+    continued = (
+      {**body, "messages": [*body["messages"], prefix]} if sent or thought else body
+    )
     tokens, limits = context.input_tokens(continued), store.input_limits()
     paces = store.pace_limits()
     transition_from, transition_reason = model, "err"

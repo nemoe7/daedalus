@@ -200,5 +200,8 @@ async def test_thinking_loop_in_stream(client: httpx.AsyncClient) -> None:
   response = await client.post("/v1/chat/completions", json=body)
   thinking, text = output(response.text)
   assert thinking == LINE * 3 and text == "Answer.", (thinking, text)
-  assert SEEN[1][1]["messages"] == messages, "no answer text, so no prefix"
+  assert SEEN[1][1]["messages"] == [
+    *messages,
+    {"role": "assistant", "content": "", "reasoning_content": LINE},
+  ], SEEN[1][1]["messages"]
   assert weight("a/x") == pytest.approx(0.5, abs=1e-3)
