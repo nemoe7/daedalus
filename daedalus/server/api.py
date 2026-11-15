@@ -943,7 +943,7 @@ class Plan:
   first_transition: dict[str, Any] | None
   include_usage: bool
   deadline: float
-  direct_wait: bool
+  direct: bool
   racing: bool
   runners: list[str]
   attempts: list[dict[str, Any]]
@@ -965,7 +965,9 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
     asked = {**plan.body, "stream": True} if buffered else plan.body
     try:
       provider, response = await upstream.in_time(
-        upstream.attempt(model, asked, plan.config, sent, plan.pin.client),
+        upstream.attempt(
+          model, asked, plan.config, sent, plan.pin.client, direct=plan.direct
+        ),
         plan.deadline,
       )
     except upstream.UpstreamStatus as exc:
@@ -978,10 +980,16 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
       logger.info("upstream %s refused the stream, retrying without one", model)
       buffered, response = False, None
       provider, response = await upstream.in_time(
-        upstream.attempt(model, plan.body, plan.config, sent, plan.pin.client),
+        upstream.attempt(
+          model, plan.body, plan.config, sent, plan.pin.client, direct=plan.direct
+        ),
         plan.deadline,
       )
-    wait = router.model_wait(plan.config, model, upstream.WAIT_SECONDS)
+    wait = (
+      None
+      if plan.direct
+      else router.model_wait(plan.config, model, upstream.WAIT_SECONDS)
+    )
     if not buffered and not plan.body.get("stream"):
       raw = await upstream.in_time(upstream.read_body(response, wait), plan.deadline)
       return {
@@ -1369,11 +1377,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
       request.state.saved = str(saved)
   include_usage = bool((body.get("stream_options") or {}).get("include_usage"))
   deadline = time.perf_counter() + upstream.TIMEOUT_SECONDS
-  direct_wait = (
-    model not in router.POOLS
-    and model != router.RESERVED_MODEL
-    and (router.model_setting(config, model, "timeout") is not None)
-  )
+  direct = model not in router.POOLS and model != router.RESERVED_MODEL
   # Pool and auto requests can race chain candidates that permit streaming.
   raceable = bool(body.get("stream")) or any(
     router.streams_allowed(config, name) for name in models[: 1 + PARALLEL_COUNT]
@@ -1416,7 +1420,7 @@ async def plan_chat(request: Request, body: Any) -> Plan | Response:
     first_transition=first_transition,
     include_usage=include_usage,
     deadline=deadline,
-    direct_wait=direct_wait,
+    direct=direct,
     racing=racing,
     runners=runners,
     attempts=attempts,
@@ -1517,17 +1521,11 @@ async def run_chat(plan: Plan) -> Response:
       )
       break
     except httpx.ReadTimeout as exc:
-      if plan.direct_wait and time.perf_counter() < deadline:
-        attempts.append(upstream.failure_note(candidate, started, exc) | sent)
-        await asyncio.sleep(min(0.1, max(0, deadline - time.perf_counter())))
-        continue
       attempts.append(upstream.failure_note(candidate, started, exc) | sent)
       pin.failed(candidate, attempt=attempts[-1])
       failure = upstream.error_response(
-        504 if plan.direct_wait else 502,
-        f"Upstream provider ({candidate}) timed out"
-        if plan.direct_wait
-        else f"Upstream provider ({candidate}) attempt failed",
+        502,
+        f"Upstream provider ({candidate}) attempt failed",
         "upstream_error",
       )
       previous_attempt = (candidate, candidate_pool)

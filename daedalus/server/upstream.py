@@ -558,6 +558,7 @@ async def attempt(
   config: dict[str, Any],
   sent: dict[str, Any] | None = None,
   client: str | None = None,
+  direct: bool = False,
 ) -> tuple[providers.OpenAIProvider, httpx.Response]:
   """Send a request with its selected client key, optionally record effort, and raise on an upstream error status."""
   asked = "reasoning_effort" in body
@@ -576,7 +577,7 @@ async def attempt(
   effort = provider.effort(payload)
   if sent is not None and (asked or effort is not None):
     sent["effort"] = effort
-  wait = router.model_wait(config, candidate, WAIT_SECONDS)
+  wait = None if direct else router.model_wait(config, candidate, WAIT_SECONDS)
   timeout = httpx.Timeout(TIMEOUT_SECONDS, read=wait)
   upstream = get_client().build_request(
     "POST", url, json=payload, headers=headers, timeout=timeout
