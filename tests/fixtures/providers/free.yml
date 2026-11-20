@@ -1,0 +1,20 @@
+# Test fixture - stable minimal provider config for tests
+groq:
+  api_key: env:GROQ_API_KEY
+  exclude:
+    - "*guard*"
+    - "compound*"
+  tier:
+    TIER-A:
+      - openai/gpt-oss-120b
+    TIER-D:
+      - allam-2-7b
+  models:
+    "whisper-*": { mode: audio_transcription }
+  pool: false
+
+openrouter:
+  api_key: env:OPENROUTER_API_KEY
+  models:
+    "qwen/qwq-32b": {}
+    "nvidia/nemotron-3-ultra-550b-a55b:free": {}

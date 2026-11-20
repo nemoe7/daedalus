@@ -5369,7 +5369,9 @@ def client(folder: Path):
       settings, "DEFAULT_PATH", Path(shutil.copy("config/daedalus.yml", folder))
     )
     patch.setattr(
-      config, "DEFAULT_PATH", Path(shutil.copy("config/providers/free.yml", folder))
+      config,
+      "DEFAULT_PATH",
+      Path(shutil.copy("tests/fixtures/providers/free.yml", folder)),
     )
     patch.setattr(dashboard, "FILES", (config.DEFAULT_PATH,))
     patch.setattr(api, "get_config", lambda: CONFIG)

@@ -1,7 +1,6 @@
 """Tests of the saved values of the provider keys: env:NAME and db:NAME."""
 
 import os
-import shutil
 import time
 from pathlib import Path
 
@@ -235,7 +234,7 @@ def test_save_name_shapes(
 def client(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES
   folder = tmp_path_factory.mktemp("config")
-  config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
+  config.DEFAULT_PATH = folder / "free.yml"
   config.DEFAULT_PATH.write_text(MAIN)
   dashboard.FILES = (config.DEFAULT_PATH,)
   session = dashboard.cookie(dashboard.secret(), time.time())

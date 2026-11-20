@@ -1,6 +1,5 @@
 """Tests of the Providers form save."""
 
-import shutil
 import time
 from pathlib import Path
 
@@ -239,7 +238,7 @@ def test_saving_an_inherited_block_writes_only_that_whole_block(
 def folder(tmp_path_factory: pytest.TempPathFactory):
   original = config.DEFAULT_PATH, dashboard.FILES
   folder = tmp_path_factory.mktemp("config")
-  config.DEFAULT_PATH = Path(shutil.copy("config/providers/free.yml", folder))
+  config.DEFAULT_PATH = folder / "free.yml"
   config.DEFAULT_PATH.write_text(MAIN)
   dashboard.FILES = (config.DEFAULT_PATH,)
   yield folder
