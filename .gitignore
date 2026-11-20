@@ -27,3 +27,5 @@ tests/e2e/node_modules/
 tests/e2e/.site/
 tests/e2e/test-results/
 tests/e2e/playwright-report/
+
+config/legacy-compose.sha256
