@@ -324,8 +324,8 @@ repeat is a new request with no hook.
 | Needs | A request hook that writes the key of the turn, such as the shipped [`owui_auto_reasoning_effort`](hooks/owui_auto_reasoning_effort.md) file. |
 | Found by | The same chat id and messages as an earlier answered request, system messages excluded. |
 | Tier | On `daedalus/auto`, 1 above the pool that answered the last attempt |
-| At tier A | A tier A model that did not answer this message. Then the list starts again at the top. |
-| Named pool | The pool keeps its models, without the models that answered |
+| At tier A | A tier A model that did not answer this message, and no copy of an answered model on another provider. Then the list starts again at the top. |
+| Named pool | The pool keeps its models, without the models that answered and without their copies on other providers |
 | Next new message | The classifier and the session tier |
 | Session model | The model that answers becomes the session model of its tier slot |
 | Weights | No change for the earlier answer |

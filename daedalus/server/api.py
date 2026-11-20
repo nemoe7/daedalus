@@ -529,8 +529,7 @@ def retry_chain(
       f"{router.RESERVED_MODEL}:{router.TIER_NAMES[tier]}",
     )
   groups = router.chain_groups(config, lines, order)
-  groups[0] = retries.fresh_models(turn, groups[0])
-  return groups, slot
+  return retries.fresh_groups(turn, groups), slot
 
 
 def remember(request: Request, turn: retries.Turn | None, candidate: str) -> None:

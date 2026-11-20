@@ -731,6 +731,34 @@ def client(fake: Upstream):
     yield TestClient(api.app, headers={"Authorization": f"Bearer {MASTER}"})
 
 
+def test_pool_retry_skips_same_slug_on_other_provider(
+  fake: Upstream, client: TestClient, own_store, monkeypatch
+) -> None:
+  """A media try again skips the copy of an answered model on another provider."""
+  config = {
+    "mistral": {"api_key": "k", "api_base": "https://mistral.test/v1"},
+    "groq": {"api_key": "q", "api_base": "https://groq.test/openai/v1"},
+  }
+  store.write_store(
+    [
+      {"id": "mistral/voxtral", "mode": "audio_transcription"},
+      {"id": "groq/voxtral", "mode": "audio_transcription"},
+      {"id": "groq/whisper", "mode": "audio_transcription"},
+    ]
+  )
+  with monkeypatch.context() as patch:
+    patch.setattr(media, "get_config", lambda: config)
+    patch.setattr(api, "get_config", lambda: config)
+    selection, api.PENALTIES.select = api.PENALTIES.select, lambda: 0.0
+    try:
+      row = transcribe(client, b"RIFF-slug")
+      assert row["via"] == "mistral/voxtral", row
+      row = transcribe(client, b"RIFF-slug")
+      assert (row["via"], row["retry"]) == ("groq/whisper", "1"), row
+    finally:
+      api.PENALTIES.select = selection
+
+
 def test_a_request_hook_rewrites_a_media_body(
   fake: Upstream, client: TestClient, state_folder
 ) -> None:

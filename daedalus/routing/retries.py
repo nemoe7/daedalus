@@ -5,6 +5,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from daedalus.routing.router import model_key
 from daedalus.store import keys
 
 TOP_TIER = 4
@@ -66,13 +67,26 @@ def next_tier(turn: Turn) -> int:
 
 
 def fresh_models(turn: Turn, group: list[str]) -> list[str]:
-  """The models of the first tier that did not answer this message. After all of them, the list starts again."""
-  left = [m for m in group if m not in turn.answered]
+  """The models of the first tier that did not answer, without their copies on other providers; a full list restarts."""
+  banned = {model_key(m) for m in turn.answered}
+  left = [m for m in group if m not in turn.answered and model_key(m) not in banned]
   if left:
     return left
   turn.answered.clear()
   others = [m for m in group if m != turn.model]
   return others or group
+
+
+def fresh_groups(turn: Turn, groups: list[list[str]]) -> list[list[str]]:
+  """Drop answered models and their copies on other providers from every tier."""
+  if not groups:
+    return groups
+  groups[0] = fresh_models(turn, groups[0])
+  banned = {model_key(m) for m in turn.answered}
+  if banned:
+    for index in range(1, len(groups)):
+      groups[index] = [m for m in groups[index] if model_key(m) not in banned]
+  return groups
 
 
 def record(turn: Turn, tier: int | None, model: str) -> None:

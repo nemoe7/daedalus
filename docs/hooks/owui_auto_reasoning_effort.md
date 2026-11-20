@@ -90,7 +90,7 @@ deployment sets it to `{{CHAT_ID}}` without forwarding the user's personal field
 
 The `on_request` surface names the turn from that header and the digest of the messages. A repeat of a
 message that a model answered is a try again. daedalus steps 1 tier up for `daedalus/auto`, keeps a named
-pool, and drops the models that answered. Then it calls the surface again with `count` filled in, and this
+pool, and drops the models that answered, their copies on other providers included. Then it calls the surface again with `count` filled in, and this
 file writes the code of the request, `rt1`, `rt2`.
 
 The same count reaches `on_prompt` as `retry`, so the level of a try again follows the same rule.
