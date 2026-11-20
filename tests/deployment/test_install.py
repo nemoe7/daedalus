@@ -1,6 +1,5 @@
 """Installer tests use stub Docker and curl commands, plus Windows source and optional syntax checks."""
 
-import hashlib
 import os
 import shutil
 import subprocess
@@ -477,7 +476,6 @@ def test_windows_installer_has_managed_override_contract() -> None:
   assert ".daedalus-state/managed-files.sha256" in script
   assert ".daedalus-state/updates" in script
   assert "compose.override.yml" in script
-  assert "legacy-compose.sha256" in script
 
 
 def test_new_installer_can_install_release_before_managed_defaults(
@@ -530,27 +528,6 @@ def test_standalone_install_downloads_all_service_defaults(tmp_path: Path) -> No
   assert local.read_text() == "AIOHTTP_CLIENT_TIMEOUT=900\n"
   assert (folder / ".daedalus-state/managed-files.sha256").is_file()
   assert "compose up -d" in (tmp_path / "docker.log").read_text()
-
-
-def test_standalone_install_migrates_known_shipped_compose(tmp_path: Path) -> None:
-  """The installer replaces an unedited historical Compose file without a per-key merge."""
-  env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
-  folder, env = checkout(tmp_path, env_text)
-  shutil.rmtree(folder / ".git")
-  historical = "services:\n  api:\n    image: ghcr.io/nemoe7/daedalus:known\n"
-  (folder / "compose.yml").write_text(historical)
-  release = tmp_path / "known-release"
-  copy_release_tree(release)
-  historical_hash = hashlib.sha256(historical.encode()).hexdigest()
-  legacy = release / "config/legacy-compose.sha256"
-  legacy.write_text(legacy.read_text() + f"{historical_hash}  compose.yml\n")
-  release_env = {**env, "DAEDALUS_TEST_SOURCE": str(release)}
-
-  done = run(folder, release_env)
-
-  assert done.returncode == 0, done.stderr + done.stdout
-  assert (folder / "compose.yml").read_text() == (ROOT / "compose.yml").read_text()
-  assert (folder / ".daedalus-state/managed-files.sha256").is_file()
 
 
 def test_standalone_install_stops_on_edited_managed_compose(tmp_path: Path) -> None:

@@ -253,7 +253,6 @@ if [ $missing_files -eq 1 ] || [ "$checkout" = 0 ]; then
 
     state_file="$dir/.daedalus-state/managed-files.sha256"
     update_dir="$dir/.daedalus-state/updates"
-    legacy_file="$tmp/config/legacy-compose.sha256"
     conflicts=()
     for name in "${managed_files[@]}"; do
       source_file="$tmp/$name"
@@ -268,7 +267,6 @@ if [ $missing_files -eq 1 ] || [ "$checkout" = 0 ]; then
         recorded_hash=$(awk -v path="$name" '$2 == path { print $1; exit }' "$state_file")
       fi
       if [ -n "$recorded_hash" ] && [ "$current_hash" = "$recorded_hash" ]; then continue; fi
-      if [ -f "$legacy_file" ] && grep -Fqx "$current_hash  $name" "$legacy_file"; then continue; fi
       conflicts+=("$name")
     done
 

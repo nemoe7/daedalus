@@ -219,17 +219,10 @@ if ($needFiles -or -not $checkout) {
 
       $stateFile = Join-Path $dir '.daedalus-state/managed-files.sha256'
       $updateDir = Join-Path $dir '.daedalus-state/updates'
-      $legacyFile = Join-Path $source 'config/legacy-compose.sha256'
       $recorded = @{}
       if (Test-Path -LiteralPath $stateFile) {
         foreach ($line in [IO.File]::ReadAllLines($stateFile)) {
           if ($line -match '^([0-9a-f]{64})  (.+)$') { $recorded[$Matches[2]] = $Matches[1] }
-        }
-      }
-      $legacy = @{}
-      if (Test-Path -LiteralPath $legacyFile) {
-        foreach ($line in [IO.File]::ReadAllLines($legacyFile)) {
-          if ($line -match '^([0-9a-f]{64})  (.+)$') { $legacy["$($Matches[1])  $($Matches[2])"] = $true }
         }
       }
 
@@ -243,7 +236,6 @@ if ($needFiles -or -not $checkout) {
         $sourceHash = Get-NormalizedHash $sourceFile
         if ($currentHash -eq $sourceHash) { continue }
         if ($recorded.ContainsKey($name) -and $recorded[$name] -eq $currentHash) { continue }
-        if ($legacy.ContainsKey("$currentHash  $name")) { continue }
         $conflicts += $name
       }
 
