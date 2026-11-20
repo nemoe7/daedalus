@@ -14,6 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from daedalus import dashboard, providers, store
+from daedalus.routing import router
 from daedalus.server import api, media, upstream
 
 MASTER = "test-master-key-0001"
@@ -503,12 +504,18 @@ def test_model_list(client: TestClient) -> None:
     "max_output_tokens": 32768,
     "supports_function_calling": True,
     "supports_reasoning": True,
+    "supported_efforts": list(router.EFFORT_RANKS),
   }
   assert found["daedalus/sophos"] == sophos, found["daedalus/sophos"]
   assert found["daedalus/auto"] == {**sophos, "id": "daedalus/auto"}, (
     "auto copies sophos"
   )
-  assert set(found["daedalus/moros"]) == {"id", "object", "owned_by"}, "no members"
+  assert set(found["daedalus/moros"]) == {
+    "id",
+    "object",
+    "owned_by",
+    "supported_efforts",
+  }, "no members"
   assert found["groq/llama"]["supports_reasoning"] is False, found["groq/llama"]
   assert "max_input_tokens" not in found["mistral/mistral-embed-2312"], (
     "chat models only"

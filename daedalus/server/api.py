@@ -394,6 +394,7 @@ async def models(request: Request) -> Response:
   for name, tier in router.POOLS.items():
     members = router.candidates(config, router.TIER_NAMES[tier], chat)
     fields[name] = pool_info([fields[m] for m in members])
+    fields[name]["supported_efforts"] = list(router.EFFORT_RANKS)
   fields[router.RESERVED_MODEL] = fields["daedalus/sophos"]
   media_pools = [
     name
