@@ -105,7 +105,7 @@ def test_hook_folders_keep_access_checks(tmp_path, monkeypatch, folder):
   assert not marker.exists()
 
 
-def test_hook_http_answers_with_the_dict() -> None:
+def test_hook_http_answers_with_dict() -> None:
   """Route loads named file, calls its `on_http`, and answers with dict."""
   name = written("probe.py", GOOD)
   response = TestClient(api.app, headers={**AUTH, "x-probe": "1"}).post(
@@ -121,7 +121,7 @@ def test_hook_http_answers_with_the_dict() -> None:
   )
 
 
-def test_hook_http_hands_the_pin_of_the_session() -> None:
+def test_hook_http_hands_pin_of_session() -> None:
   """Route passes last pin of session key to a file that names `pin`."""
   name = written("probe_pin.py", GOOD_PIN)
   api.PENALTIES.pin(api.session_key(MASTER, CHAT), "daedalus/deinos", "kilo/x")
@@ -132,7 +132,7 @@ def test_hook_http_hands_the_pin_of_the_session() -> None:
   assert response.json()["pin"] == ["daedalus/deinos", "kilo/x"]
 
 
-def test_hook_http_hands_the_level_of_the_session() -> None:
+def test_hook_http_hands_level_of_session() -> None:
   """Route passes reasoning level of last answer to a file that names `level`."""
   name = written("probe_level.py", GOOD_LEVEL)
   api.PENALTIES.record_level(api.session_key(MASTER, CHAT), "medium")
@@ -143,7 +143,7 @@ def test_hook_http_hands_the_level_of_the_session() -> None:
   assert response.json()["level"] == "medium"
 
 
-def test_hook_http_takes_a_nested_path() -> None:
+def test_hook_http_takes_nested_path() -> None:
   """The route accepts the nested path `nested/probe.py`."""
   root = hooks.ROOT / "hooks" / "nested"
   root.mkdir(parents=True, exist_ok=True)
@@ -154,7 +154,7 @@ def test_hook_http_takes_a_nested_path() -> None:
   assert response.status_code == 200, response.text
 
 
-def test_hook_http_takes_the_short_name() -> None:
+def test_hook_http_takes_short_name() -> None:
   """The route accepts a hook filename without the .py suffix."""
   name = written("probe_short.py", GOOD)
   response = TestClient(api.app, headers=AUTH).post(
@@ -164,7 +164,7 @@ def test_hook_http_takes_the_short_name() -> None:
   assert response.json()["prompt"] == "why is this slow"
 
 
-def test_hook_http_refuses_a_missing_file() -> None:
+def test_hook_http_refuses_missing_file() -> None:
   """A name with no file under `hooks` is a 404."""
   response = TestClient(api.app, headers=AUTH).post(
     "/v1/hook/gone.py", json={"messages": CHAT}
@@ -172,7 +172,7 @@ def test_hook_http_refuses_a_missing_file() -> None:
   assert response.status_code == 404, response.text
 
 
-def test_hook_http_asks_for_the_key_before_the_file() -> None:
+def test_hook_http_asks_for_key_before_file() -> None:
   """A caller with no key cannot tell a missing hook file from a real one."""
   name = written("order.py", GOOD)
   client = TestClient(api.app)
@@ -182,7 +182,7 @@ def test_hook_http_asks_for_the_key_before_the_file() -> None:
   assert real.status_code == 401, real.text
 
 
-def test_hook_http_reports_a_failure() -> None:
+def test_hook_http_reports_failure() -> None:
   """A hook failure returns 500 with the filename but without the exception text."""
   name = written("broken.py", BROKEN)
   response = TestClient(api.app, headers=AUTH).post(f"/v1/hook/{name}", json={})
@@ -191,21 +191,21 @@ def test_hook_http_reports_a_failure() -> None:
   assert "boom" not in response.text, "the exception text is not for the caller"
 
 
-def test_hook_http_refuses_a_non_dict_answer() -> None:
+def test_hook_http_refuses_non_dict_answer() -> None:
   """A hook that answers with no dict is a 500."""
   name = written("text.py", TEXT)
   response = TestClient(api.app, headers=AUTH).post(f"/v1/hook/{name}", json={})
   assert response.status_code == 500, response.text
 
 
-def test_hook_http_asks_for_the_key() -> None:
+def test_hook_http_asks_for_key() -> None:
   """Route carries same key check as rest of `/v1`."""
   name = written("probe2.py", GOOD)
   response = TestClient(api.app).post(f"/v1/hook/{name}", json={})
   assert response.status_code == 401, response.text
 
 
-def test_hook_http_refuses_a_bad_body() -> None:
+def test_hook_http_refuses_bad_body() -> None:
   """A body that is not a JSON object is a 400."""
   name = written("probe3.py", GOOD)
   client = TestClient(api.app, headers=AUTH)

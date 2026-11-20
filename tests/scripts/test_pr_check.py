@@ -32,19 +32,19 @@ def test_valid_body_passes():
   assert body_failures(VALID_BODY) == []
 
 
-def test_the_two_optional_sections_may_stay_out():
+def test_two_optional_sections_may_stay_out():
   assert body_failures(VALID_BODY) == []
   text = VALID_BODY + "## Related\n\n- One bullet.\n"
   assert body_failures(text) == []
 
 
-def test_a_none_section_fails():
+def test_none_section_fails():
   text = VALID_BODY + "## Breaking Changes\n\nNone\n"
   failures = body_failures(text)
   assert any("omit the heading" in failure for failure in failures)
 
 
-def test_a_missing_required_section_fails():
+def test_missing_required_section_fails():
   failures = body_failures(
     VALID_BODY.replace(
       "## Validation\n\n- [x] Run the gate locally.\n- [ ] Run the gate in CI.\n", ""
@@ -67,7 +67,7 @@ def test_extra_section_fails():
   assert failures and "expected the headings" in failures[0]
 
 
-def test_a_bang_commit_needs_a_filled_breaking_section():
+def test_bang_commit_needs_filled_breaking_section():
   banged = ["feat(preview)!: drop the gate"]
   assert check_pr.validate_breaking_crosscheck(banged, VALID_BODY)
   assert (
@@ -79,7 +79,7 @@ def test_a_bang_commit_needs_a_filled_breaking_section():
   assert check_pr.validate_breaking_crosscheck(banged, VALID_BODY)
 
 
-def test_angle_brackets_pass_inside_a_fenced_block():
+def test_angle_brackets_pass_inside_fenced_block():
   text = VALID_BODY.replace(
     "Add a gate that validates every pull request commit and the pull request body.\n",
     "Add a gate that validates every pull request commit and the pull request body.\n"
@@ -90,7 +90,7 @@ def test_angle_brackets_pass_inside_a_fenced_block():
   assert body_failures(text) == []
 
 
-def test_angle_brackets_outside_a_fenced_block_fail():
+def test_angle_brackets_outside_fenced_block_fail():
   text = VALID_BODY.replace(
     "Add a gate that validates",
     "Run gh pr checks <PR> --watch, then add a gate that validates",
@@ -98,12 +98,12 @@ def test_angle_brackets_outside_a_fenced_block_fail():
   assert any("placeholder" in failure for failure in body_failures(text))
 
 
-def test_content_before_the_first_section_fails():
+def test_content_before_first_section_fails():
   failures = body_failures("A heading-free sentence.\n\n" + VALID_BODY)
   assert any("content before ## Summary" in failure for failure in failures)
 
 
-def test_content_after_the_final_section_fails():
+def test_content_after_final_section_fails():
   failures = body_failures(VALID_BODY + "\nTrailing content.\n")
   assert failures and "Validation" in failures[0]
 
@@ -181,7 +181,7 @@ def test_html_comment_fails():
   assert any("HTML comments" in failure for failure in failures)
 
 
-def test_html_comment_with_the_bang_end_tag_fails():
+def test_html_comment_with_bang_end_tag_fails():
   failures = body_failures(VALID_BODY + "<!-- hidden --!>\n")
   assert any("HTML comments" in failure for failure in failures)
 
@@ -247,22 +247,22 @@ def test_malformed_subject_fails():
   assert any("subject must match" in failure.message for failure in failures)
 
 
-def test_the_subject_carries_no_wording_rule():
+def test_subject_carries_no_wording_rule():
   assert check_pr.validate_commit("feat(preview): polling for notes") == []
   assert check_pr.validate_commit("ci(workflows): add the security set") == []
   assert not hasattr(check_pr, "IMPERATIVE_EXCEPTIONS")
 
 
-def test_a_scope_binds_no_path_area():
+def test_scope_binds_no_path_area():
   assert check_pr.validate_commit("docs(preview): note the release") == []
   assert not hasattr(check_pr, "SCOPE_AREAS")
 
 
-def test_the_gate_holds_no_scope_list():
+def test_gate_holds_no_scope_list():
   assert not hasattr(check_pr, "ALLOWED_SCOPES")
 
 
-def test_pr_title_uses_the_commit_rules():
+def test_pr_title_uses_commit_rules():
   assert check_pr.validate_subject("feat(ci): run the gate", "PR title") == []
   failures = check_pr.validate_subject("feat(ci): Run the gate", "PR title")
   assert any("lowercase" in failure.message for failure in failures)
@@ -324,7 +324,7 @@ def test_nemoizer_fails_closed_on_process_or_json_errors(monkeypatch):
   assert not passed and "synthetic missing linter" in detail
 
 
-def test_check_propagates_the_prose_failure(tmp_path: Path):
+def test_check_propagates_prose_failure(tmp_path: Path):
   body = tmp_path / "body.md"
   body.write_text(
     VALID_BODY.replace("pull request body.", "pull request body. One line; two rules."),

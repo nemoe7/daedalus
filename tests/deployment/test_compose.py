@@ -107,7 +107,7 @@ def test_host_ports_use_root_env_defaults() -> None:
   assert "# OPENWEBUI_PORT=3000" in example
 
 
-def test_tailscale_openwebui_has_its_own_profile() -> None:
+def test_tailscale_openwebui_has_own_profile() -> None:
   """The Open WebUI Tailscale sidecar starts only under its own profile."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   services = compose["services"]
@@ -115,14 +115,14 @@ def test_tailscale_openwebui_has_its_own_profile() -> None:
   assert services["tailscale-openwebui"]["profiles"] == ["tailscale-openwebui"]
 
 
-def test_openwebui_embeds_through_a_listed_model() -> None:
+def test_openwebui_embeds_through_listed_model() -> None:
   """The embedding line names a catalog row, not the short alias."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = _service_env(compose, "open-webui")
   assert env["RAG_EMBEDDING_MODEL"] == "mistral/mistral-embed-2312"
 
 
-def test_headroom_pin_allows_its_internal_bind() -> None:
+def test_headroom_pin_allows_internal_bind() -> None:
   """Headroom 0.41 acknowledges its token-less bind inside the Compose network."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   headroom = compose["services"]["headroom"]
@@ -131,7 +131,7 @@ def test_headroom_pin_allows_its_internal_bind() -> None:
   assert "ports" not in headroom, "the unauthenticated bind must remain internal"
 
 
-def test_openwebui_forwards_only_the_chat_id() -> None:
+def test_openwebui_forwards_only_chat_id() -> None:
   """A new bundled Open WebUI sends the chat ID without the user's personal fields."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = _service_env(compose, "open-webui")
@@ -140,7 +140,7 @@ def test_openwebui_forwards_only_the_chat_id() -> None:
   assert configs == {"0": {"headers": {"X-OpenWebUI-Chat-Id": "{{CHAT_ID}}"}}}
 
 
-def test_openwebui_keeps_the_memory_review_and_the_async_cap() -> None:
+def test_openwebui_keeps_memory_review_and_async_cap() -> None:
   """The Open WebUI memory review and its async embedding, with the cap of the free Mistral key."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = _service_env(compose, "open-webui")

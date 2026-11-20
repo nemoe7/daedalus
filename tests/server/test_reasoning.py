@@ -48,7 +48,7 @@ def test_reasoning() -> None:
       upstream.set_client(None)
 
 
-def test_the_effort_lands_on_a_name_of_the_model_list() -> None:
+def test_effort_lands_on_name_of_model_list() -> None:
   """A model that lists its efforts takes the nearest name of the list, and never a stray one."""
   sent: list[httpx.Request] = []
 
@@ -112,7 +112,7 @@ def test_the_effort_lands_on_a_name_of_the_model_list() -> None:
       upstream.set_client(None)
 
 
-def test_the_none_rung_answers_only_a_none_request() -> None:
+def test_none_rung_answers_only_none_request() -> None:
   """A model that lists `none` and a real rung maps a real level to the real rung."""
   sent: list[httpx.Request] = []
 

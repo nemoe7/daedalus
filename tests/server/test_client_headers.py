@@ -136,7 +136,7 @@ async def test_chat_id_separates_identical_first_messages(
   assert len(sessions) == 2, sessions
 
 
-async def test_chat_id_forwarding_is_an_opt_in(
+async def test_chat_id_forwarding_is_opt_in(
   client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Privacy switch can send OWUI chat ID to provider."""
@@ -162,9 +162,7 @@ def test_app_name() -> None:
   assert found == ["OWUI", "Kilo", "Kilo", "Some App With A Very Lon", None], found
 
 
-async def test_the_hook_writes_the_repeat_code(
-  client: httpx.AsyncClient, state_folder
-) -> None:
+async def test_hook_writes_repeat_code(client: httpx.AsyncClient, state_folder) -> None:
   """A repeat runs the hook again with the count, and row shows code of the hook."""
   api.RETRIES.clear()
   path = state_folder / "hooks" / "retry.py"
@@ -194,7 +192,7 @@ async def test_the_hook_writes_the_repeat_code(
   assert row["retry"] == "1", row
 
 
-async def test_a_named_pool_repeat_selects_another_model(
+async def test_named_pool_repeat_selects_another_model(
   client: httpx.AsyncClient, state_folder
 ) -> None:
   """A repeat of a named pool keeps the pool, drops the model that answered, and shows its code."""
@@ -233,7 +231,7 @@ async def test_a_named_pool_repeat_selects_another_model(
   assert change["reason"] == "rt1", change
 
 
-async def test_the_upstream_hook_reaches_images(
+async def test_upstream_hook_reaches_images(
   client: httpx.AsyncClient, state_folder
 ) -> None:
   """The on-upstream hook runs for an image request, and can change its headers and body."""
@@ -264,7 +262,7 @@ async def test_the_upstream_hook_reaches_images(
   assert json.loads(BODIES[-1])["quality"] == "low", BODIES[-1]
 
 
-async def test_the_answer_hook_runs_at_the_end_of_a_stream(
+async def test_answer_hook_runs_at_end_of_stream(
   client: httpx.AsyncClient, state_folder
 ) -> None:
   """A finished stream runs the answer hook once, with the whole text."""

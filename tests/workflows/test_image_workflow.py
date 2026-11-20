@@ -10,7 +10,7 @@ from ruamel.yaml import YAML
 WORKFLOW = Path(".github/workflows/docker.yml")
 
 
-def test_docker_workflow_keeps_the_release_triggers_and_tag_flow() -> None:
+def test_docker_workflow_keeps_release_triggers_and_tag_flow() -> None:
   """A tag push, a Gemini run, or a release dispatch starts the release job."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
 
@@ -33,7 +33,7 @@ def test_docker_workflow_keeps_the_release_triggers_and_tag_flow() -> None:
   assert "build-args: VERSION=${{ needs.release.outputs.tag }}" in content
 
 
-def test_docker_workflow_release_job_validates_the_tag_and_the_sha() -> None:
+def test_docker_workflow_release_job_validates_tag_and_sha() -> None:
   """The release job refuses a tag it cannot read and a commit it did not expect."""
   content = WORKFLOW.read_text()
   release = content[content.index("  release:") :]
@@ -45,7 +45,7 @@ def test_docker_workflow_release_job_validates_the_tag_and_the_sha() -> None:
   assert "type=raw,value=latest" in release
 
 
-def test_docker_workflow_release_job_keeps_its_own_queue() -> None:
+def test_docker_workflow_release_job_keeps_own_queue() -> None:
   """Release merges share a queue without cancellation and have a 10-minute timeout."""
   jobs = YAML(typ="safe").load(WORKFLOW.read_text())["jobs"]
   assert jobs["release-merge"]["concurrency"] == {
@@ -55,7 +55,7 @@ def test_docker_workflow_release_job_keeps_its_own_queue() -> None:
   assert jobs["release-merge"]["timeout-minutes"] == 10
 
 
-def test_docker_workflow_keeps_least_privilege_at_the_top() -> None:
+def test_docker_workflow_keeps_least_privilege_at_top() -> None:
   """The workflow defaults to read-only access, and publishing jobs request package-write access."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
 
@@ -99,7 +99,7 @@ def test_docker_workflow_dev_job_publishes_dev_tags() -> None:
   assert "orgs/$OWNER" in content
 
 
-def test_docker_workflow_dev_job_prunes_the_old_dev_versions() -> None:
+def test_docker_workflow_dev_job_prunes_old_dev_versions() -> None:
   """The rolling dev tag moves, so each build drops the dev versions past the newest 10."""
   content = WORKFLOW.read_text()
   assert "Prune Old Dev Versions" in content
@@ -119,7 +119,7 @@ def test_docker_workflow_dispatch_chooses_dev_or_release() -> None:
   assert inputs["tag"]["required"] is False
 
 
-def test_docker_workflow_splits_the_two_jobs() -> None:
+def test_docker_workflow_splits_two_jobs() -> None:
   """The test checks development and release modes and the Gemini Release Draft workflow name."""
   content = WORKFLOW.read_text()
   assert "inputs.mode == 'dev'" in content
@@ -127,7 +127,7 @@ def test_docker_workflow_splits_the_two_jobs() -> None:
   assert "github.event.workflow_run.name == 'Gemini Release Draft'" in content
 
 
-def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
+def test_docker_workflow_builds_each_platform_on_native_runner() -> None:
   """Each platform uses a native runner without emulation."""
   data = YAML(typ="safe").load(WORKFLOW.read_text())
   content = WORKFLOW.read_text()
@@ -155,7 +155,7 @@ def test_docker_workflow_builds_each_platform_on_a_native_runner() -> None:
   assert '"-t " + .' not in content
 
 
-def test_docker_workflow_replaces_the_two_known_image_workflow_files() -> None:
+def test_docker_workflow_replaces_two_known_image_workflow_files() -> None:
   """`docker.yml` exists, while `dev-image.yml` and `image.yml` do not."""
   assert not Path(".github/workflows/dev-image.yml").exists()
   assert not Path(".github/workflows/image.yml").exists()
@@ -174,7 +174,7 @@ def test_docker_workflow_dev_job_waits_for_ci_on_main() -> None:
 DOCKERFILE = Path("Dockerfile")
 
 
-def test_dockerfile_removes_pip_from_the_image() -> None:
+def test_dockerfile_removes_pip_from_image() -> None:
   """The runtime image removes system pip and setuptools."""
   content = DOCKERFILE.read_text()
 

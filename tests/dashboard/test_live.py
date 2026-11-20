@@ -102,7 +102,7 @@ async def test_events() -> None:
   assert not live.queues, "a closed stream leaves no queue"
 
 
-def test_the_live_clocks_count_in_whole_milliseconds(monkeypatch) -> None:
+def test_live_clocks_count_in_whole_milliseconds(monkeypatch) -> None:
   """Live ages, first-token time and recorded duration round to whole milliseconds."""
   now = 0.0
   recorded = []

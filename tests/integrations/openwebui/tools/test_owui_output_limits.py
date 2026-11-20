@@ -189,7 +189,7 @@ def test_all_guards_count_serialized_bytes_and_keep_complete_identifiers():
     assert json.loads(tool._output("x" * 1025, as_text=True))["truncated"] is True
 
 
-def test_text_pages_round_trip_and_stop_at_the_end():
+def test_text_pages_round_trip_and_stop_at_end():
   tool = github.client()
   tool.valves.max_output_bytes = 1024
   text = "🦉\n\x01" * 200
@@ -234,7 +234,7 @@ def test_google_document_ranges_and_denied_message_reads():
   assert denied["result"]["denied"] is True and len(calls) == 2
 
 
-def test_google_and_manager_generic_results_obey_the_guard():
+def test_google_and_manager_generic_results_obey_guard():
   tool = google.reader()
 
   async def request(*args, **kwargs):

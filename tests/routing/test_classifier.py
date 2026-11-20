@@ -45,7 +45,7 @@ def test_tier_names_cover_every_tier() -> None:
     (GENERAL, classifier.RequestType.GENERAL),
   ],
 )
-def test_classify_prompt_names_what_the_prompt_asks_for(
+def test_classify_prompt_names_what_prompt_asks_for(
   prompt: str, kind: classifier.RequestType
 ) -> None:
   """One prompt per request type, and a greeting falls through to general."""
@@ -53,12 +53,12 @@ def test_classify_prompt_names_what_the_prompt_asks_for(
 
 
 @pytest.mark.parametrize("prompt", ["", "   ", "\n\t"])
-def test_classify_prompt_calls_a_blank_prompt_general(prompt: str) -> None:
+def test_classify_prompt_calls_blank_prompt_general(prompt: str) -> None:
   """No words means nothing to classify."""
   assert classifier.classify_prompt(prompt) is classifier.RequestType.GENERAL
 
 
-def test_classify_prompt_reads_only_the_first_2000_characters() -> None:
+def test_classify_prompt_reads_only_first_2000_characters() -> None:
   """A rule that starts past the cut does not fire."""
   hidden = "x" * 1999 + " Who is the president of France?"
   assert classifier.classify_prompt(hidden) is not classifier.RequestType.FACTUAL_LOOKUP
@@ -78,7 +78,7 @@ def test_classify_prompt_reads_only_the_first_2000_characters() -> None:
     (2000, "very_long"),
   ],
 )
-def test_similarity_cohort_buckets_the_length(length: int, bucket: str) -> None:
+def test_similarity_cohort_buckets_length(length: int, bucket: str) -> None:
   """The bucket changes at 200, 800, and 2000 characters."""
   prompt = "a" * length
   assert classifier.similarity_cohort(prompt, classifier.RequestType.GENERAL) == (
@@ -86,7 +86,7 @@ def test_similarity_cohort_buckets_the_length(length: int, bucket: str) -> None:
   )
 
 
-def test_similarity_cohort_flags_a_prompt_that_holds_code() -> None:
+def test_similarity_cohort_flags_prompt_that_holds_code() -> None:
   """A fenced block or the word `def` sets the code flag."""
   for prompt in ("def foo():", "```\nprint(1)\n```"):
     assert "|code=1|" in classifier.similarity_cohort(
@@ -94,7 +94,7 @@ def test_similarity_cohort_flags_a_prompt_that_holds_code() -> None:
     )
 
 
-def test_similarity_cohort_flags_a_prompt_that_holds_math() -> None:
+def test_similarity_cohort_flags_prompt_that_holds_math() -> None:
   """A math word or an `=` sign sets the math flag."""
   for prompt in ("What is the probability of rain?", "What is 2 = 2?"):
     assert "|math=1|" in classifier.similarity_cohort(
@@ -102,7 +102,7 @@ def test_similarity_cohort_flags_a_prompt_that_holds_math() -> None:
     )
 
 
-def test_similarity_cohort_flags_a_multiple_choice_prompt() -> None:
+def test_similarity_cohort_flags_multiple_choice_prompt() -> None:
   """An option marker such as `A.` sets the choice flag."""
   assert "|mc=1|" in classifier.similarity_cohort(
     "A. Paris", classifier.RequestType.GENERAL
@@ -119,12 +119,12 @@ def test_similarity_cohort_checks_non_ascii_content() -> None:
   ).endswith("intl=0")
 
 
-def test_the_vendored_artifact_loads() -> None:
+def test_vendored_artifact_loads() -> None:
   """The artifact beside the module holds all four tiers."""
   assert sorted(classifier.load_artifact().global_stats) == list(classifier.TIERS)
 
 
-def test_load_artifact_uses_the_documented_defaults(tmp_path: Path) -> None:
+def test_load_artifact_uses_documented_defaults(tmp_path: Path) -> None:
   """A payload that specifies no priors gets documented ones."""
   found = artifact(tmp_path / "tiers.json", global_statistics=rows())
   assert found.domain_prior_mass == 200.0
@@ -140,21 +140,21 @@ def test_load_artifact_needs_statistics_for_all_four_tiers(tmp_path: Path) -> No
   assert str(path) in str(error.value)
 
 
-def test_load_artifact_tolerates_a_payload_with_no_domain_rows(tmp_path: Path) -> None:
+def test_load_artifact_tolerates_payload_with_no_domain_rows(tmp_path: Path) -> None:
   """No domain or cohort rows means no pull, not an error."""
   found = artifact(tmp_path / "tiers.json", global_statistics=rows())
   assert found.domain_stats == {}
   assert found.cohort_stats == {}
 
 
-def test_posterior_mean_blends_a_row_with_its_prior() -> None:
+def test_posterior_mean_blends_row_with_prior() -> None:
   """An absent row returns the prior, and an observed row uses the prior mass."""
   assert classifier._posterior_mean(None, 200.0, 0.5) == 0.5
   stat = classifier.TierStatistic(1, successes=1.0, observations=1.0)
   assert classifier._posterior_mean(stat, 200.0, 0.5) == pytest.approx(101.0 / 201.0)
 
 
-def test_the_composed_read_of_one_prompt() -> None:
+def test_composed_read_of_one_prompt() -> None:
   """The helpers name the tier, odds per tier, type, and cohort."""
   kind = classifier.classify_prompt(CODE)
   found = classifier.predict(CODE, classifier.load_artifact(), kind)
@@ -173,20 +173,20 @@ def test_predict_gives_odds_that_never_fall() -> None:
   assert odds == sorted(odds)
 
 
-def test_predict_names_a_tier_in_the_config_map() -> None:
+def test_predict_names_tier_in_config_map() -> None:
   """The tier it selects is one the config names."""
   found = classifier.predict(LOOKUP, classifier.load_artifact())
   assert found.required_tier in classifier.TIERS
   assert found.tier_name == classifier.TIER_NAMES[found.required_tier]
 
 
-def test_predict_falls_back_to_the_top_tier_when_nothing_clears() -> None:
+def test_predict_falls_back_to_top_tier_when_nothing_clears() -> None:
   """A threshold no tier reaches gives the strongest tier."""
   hard = replace(classifier.load_artifact(), routing_threshold=1.01)
   assert classifier.predict(GENERAL, hard).required_tier == classifier.TIERS[-1]
 
 
-def test_predict_takes_a_given_threshold() -> None:
+def test_predict_takes_given_threshold() -> None:
   """A given bar replaces one of artifact, and it moves tier."""
   artifact = classifier.load_artifact()
   cheap = classifier.predict(GENERAL, artifact)
@@ -198,7 +198,7 @@ def test_predict_takes_a_given_threshold() -> None:
   assert classifier.predict(GENERAL, artifact).required_tier == 1, "no given bar"
 
 
-def test_predict_uses_the_request_type_it_is_given(tmp_path: Path) -> None:
+def test_predict_uses_request_type_it_is_given(tmp_path: Path) -> None:
   """A given request type controls which domain statistics the prediction uses."""
   found = artifact(
     tmp_path / "tiers.json",

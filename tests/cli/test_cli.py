@@ -239,7 +239,7 @@ def test_dump_modes(tmp_path: Path, monkeypatch) -> None:
     ]
 
 
-def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> None:
+def test_dump_models_names_tier_of_each_row(tmp_path: Path, monkeypatch) -> None:
   """Dumps use stored tiers, with null in JSON and an empty CSV cell for missing tiers."""
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
@@ -256,9 +256,7 @@ def test_dump_models_names_the_tier_of_each_row(tmp_path: Path, monkeypatch) -> 
   assert found == {"p/one": "TIER-A", "q/two": ""}, found
 
 
-def test_dump_models_carries_the_ladder_of_the_store(
-  tmp_path: Path, monkeypatch
-) -> None:
+def test_dump_models_carries_ladder_of_store(tmp_path: Path, monkeypatch) -> None:
   """Model dumps keep nonempty stored effort strings and leave missing ladders absent."""
   monkeypatch.setattr(
     config,
@@ -340,7 +338,7 @@ def assert_key_command(calls: list[str]) -> None:
   ("stored", "force", "initial"),
   [(False, False, True), (True, False, False), (True, True, True)],
 )
-def test_serve_defers_the_initial_build(monkeypatch, tmp_path, stored, force, initial):
+def test_serve_defers_initial_build(monkeypatch, tmp_path, stored, force, initial):
   """CLI starts listener and marks required catalog work for server."""
   calls = []
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")

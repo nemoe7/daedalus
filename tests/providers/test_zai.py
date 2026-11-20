@@ -13,7 +13,7 @@ def sent(slug: str, effort: object) -> dict:
   return PROVIDER.request(slug, payload)[1]
 
 
-def test_flash_rows_map_the_effort_to_thinking() -> None:
+def test_flash_rows_map_effort_to_thinking() -> None:
   """A flash slug sends thinking on or off, and never the effort parameter."""
   assert sent("glm-4.5-flash", "max")["thinking"] == {"type": "enabled"}
   assert sent("glm-4.6v-flash", "none")["thinking"] == {"type": "disabled"}
@@ -22,14 +22,14 @@ def test_flash_rows_map_the_effort_to_thinking() -> None:
     assert "reasoning_effort" not in sent(slug, "max"), slug
 
 
-def test_non_flash_rows_pass_the_effort_through() -> None:
+def test_non_flash_rows_pass_effort_through() -> None:
   """A slug outside the 4.x flash keeps the reasoning_effort pass-through."""
   body = sent("glm-5.2", "high")
   assert body["reasoning_effort"] == "high"
   assert "thinking" not in body
 
 
-def test_flash_columns_name_the_thinking_ladder() -> None:
+def test_flash_columns_name_thinking_ladder() -> None:
   """The discovery columns of a flash row claim reasoning with the on/off ladder."""
   for slug in ("glm-4.5-flash", "glm-4.6v-flash", "glm-4.7-flash"):
     assert ZAiProvider.columns({"id": slug}) == {

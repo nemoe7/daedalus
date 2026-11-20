@@ -34,13 +34,13 @@ def by_id(data: list[dict], model: str) -> dict:
   return next(entry for entry in data if entry["id"] == model)
 
 
-def test_pools_advertise_the_canonical_ladder(client: TestClient) -> None:
+def test_pools_advertise_canonical_ladder(client: TestClient) -> None:
   data = client.get("/v1/models").json()["data"]
   for pool in (*router.POOLS, router.RESERVED_MODEL):
     assert by_id(data, pool)["supported_efforts"] == list(router.EFFORT_RANKS), pool
 
 
-def test_concrete_models_keep_the_served_fields(client: TestClient) -> None:
+def test_concrete_models_keep_served_fields(client: TestClient) -> None:
   data = client.get("/v1/models").json()["data"]
   assert "supported_efforts" not in by_id(data, "b/1"), "a stored list stays out"
   assert "supported_efforts" not in by_id(data, "b/2"), "no stored list, no field"

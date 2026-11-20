@@ -3,7 +3,7 @@
 from daedalus import store
 
 
-def test_rows_by_id_carries_the_values() -> None:
+def test_rows_by_id_carries_values() -> None:
   store.migrate()
   store.write_store([{"id": "p/one", "mode": "chat", "tier": "TIER-A", "rpm": 10}])
   first = store.rows_by_id()

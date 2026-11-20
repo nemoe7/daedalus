@@ -122,7 +122,7 @@ def fresh() -> None:
   LINES.lines.clear()
 
 
-def test_slow_first_token_starts_the_second_model(client: TestClient) -> None:
+def test_slow_first_token_starts_second_model(client: TestClient) -> None:
   """A first model with no content at `affinity.slow` loses the race to the model that answers."""
   PLAN.update({"b/1": 0.5, "b/2": 0.0})
   assert stream(client, "daedalus/deinos") == "b/2", "the first content wins"
@@ -143,7 +143,7 @@ def test_slow_first_token_starts_the_second_model(client: TestClient) -> None:
   assert CALLS == ["b/1", "b/2", "b/2"], "the fast pin answers alone"
 
 
-def test_chance_starts_the_second_model(client: TestClient) -> None:
+def test_chance_starts_second_model(client: TestClient) -> None:
   """A draw below `affinity.chance` starts the second model with the first one."""
   api.PARALLEL_CHANCE = 1.0
   try:
@@ -158,7 +158,7 @@ def test_chance_starts_the_second_model(client: TestClient) -> None:
     api.PARALLEL_CHANCE = 0.0
 
 
-def test_a_lost_racer_reads_slower_than_the_winner(client: TestClient) -> None:
+def test_lost_racer_reads_slower_than_winner(client: TestClient) -> None:
   """Check that a losing racer's elapsed time is not less than the winner's first-content time."""
   api.PARALLEL_CHANCE = 1.0
   try:
@@ -196,7 +196,7 @@ def test_count_races_that_many_models(client: TestClient) -> None:
     api.PARALLEL_COUNT = 1
 
 
-def test_off_keeps_the_session_model(client: TestClient) -> None:
+def test_off_keeps_session_model(client: TestClient) -> None:
   """`affinity.mode` session keeps the session model, and no second model starts."""
   api.PARALLEL_ENABLED = False
   api.PENALTIES.race = False
@@ -272,7 +272,7 @@ def test_no_stream_reads_our_stream_and_races(client: TestClient) -> None:
   assert dashboard.HISTORY.latest(1)[0]["stream"] is False
 
 
-def test_tie_keeps_the_first_model() -> None:
+def test_tie_keeps_first_model() -> None:
   """A content tie returns the first model in the supplied attempt order."""
 
   async def work() -> None:
@@ -287,7 +287,7 @@ def test_tie_keeps_the_first_model() -> None:
   asyncio.run(work())
 
 
-def test_race_starts_the_session_model() -> None:
+def test_race_starts_session_model() -> None:
   """Race mode starts the pinned model, and disabling it restores the fixed draw."""
   store_penalties = api.PENALTIES
   store_penalties.clear()
@@ -308,7 +308,7 @@ def test_race_starts_the_session_model() -> None:
   "chance, wait, raced", [(0.1, 30.0, "drawn"), (0.0, 0.01, "slow")]
 )
 @pytest.mark.parametrize("winner", ["b/1", "b/2"])
-def test_race_transition_matches_the_winner(
+def test_race_transition_matches_winner(
   client: TestClient,
   monkeypatch: pytest.MonkeyPatch,
   streamed,

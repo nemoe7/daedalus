@@ -157,9 +157,7 @@ def test_repo_name() -> None:
   )
 
 
-def test_a_source_writes_its_files(
-  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_source_writes_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
   """Archive lands under owner/name, and only `.py` files under path."""
   pages = {
     API: json.dumps({"sha": COMMIT}).encode(),
@@ -184,9 +182,7 @@ def test_a_source_writes_its_files(
   assert list(tmp_path.glob(".*")) == [], "no half file stays"
 
 
-def test_the_lock_records_the_source(
-  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_lock_records_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
   """The lock keys an identity owner/repo/file.py, and holds its sha256, version, repo, and commit."""
   body = block()
   pages = {
@@ -206,7 +202,7 @@ def test_the_lock_records_the_source(
   }
 
 
-def test_a_bad_block_stays_out(
+def test_bad_block_stays_out(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
   """Invalid hook metadata prevents installation and appears in warnings."""
@@ -249,7 +245,7 @@ def test_no_block_still_installs(
   assert "frontmatter" in caplog.text
 
 
-def test_a_failed_ref_keeps_the_files(
+def test_failed_ref_keeps_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A ref that does not answer writes nothing, and the file and the record stay."""
@@ -271,7 +267,7 @@ def test_a_failed_ref_keeps_the_files(
   assert remote.read_records(lock)["owner/name/one.py"] == kept
 
 
-def test_a_bad_archive_keeps_the_files(
+def test_bad_archive_keeps_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """An archive that does not read writes nothing, and the file and the record stay."""
@@ -297,7 +293,7 @@ def test_a_bad_archive_keeps_the_files(
   assert lock.read_text(encoding="utf-8") == before
 
 
-def test_a_moved_install_leaves_no_flat_copy(
+def test_moved_install_leaves_no_flat_copy(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A legacy flat install moves under owner/name when the source writes again."""
@@ -323,7 +319,7 @@ def test_a_moved_install_leaves_no_flat_copy(
   assert list(found) == ["owner/name/one.py"]
 
 
-def test_only_missing_skips_a_complete_source(
+def test_only_missing_skips_complete_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A start fetches a source only when 1 of its recorded files is missing from the folder."""
@@ -339,7 +335,7 @@ def test_only_missing_skips_a_complete_source(
   assert calls == []
 
 
-def test_only_missing_fetches_a_missing_file(
+def test_only_missing_fetches_missing_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A start fetches when a recorded file is gone from the folder."""
@@ -358,7 +354,7 @@ def test_only_missing_fetches_a_missing_file(
   assert calls == [API, ARCHIVE]
 
 
-def test_auto_update_follows_the_ref(
+def test_auto_update_follows_ref(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A source with auto_update reads the ref at a start, even when every file is in place."""
@@ -376,7 +372,7 @@ def test_auto_update_follows_the_ref(
   assert calls == [API, ARCHIVE]
 
 
-def test_a_file_that_leaves_the_repo_stays_pinned(
+def test_file_that_leaves_repo_stays_pinned(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A file that the archive no longer holds stays on disk, with its record."""
@@ -404,7 +400,7 @@ def test_a_file_that_leaves_the_repo_stays_pinned(
   assert found["owner/name/one.py"]["commit"] == second
 
 
-def test_other_sources_stay_in_the_lock(
+def test_other_sources_stay_in_lock(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The records of another repo stay after 1 source updates."""
@@ -463,7 +459,7 @@ def test_failed_lock_write_keeps_previous_records(
   assert list(tmp_path.iterdir()) == [lock]
 
 
-def test_lock_replaces_a_complete_sibling(
+def test_lock_replaces_complete_sibling(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The live lock keeps its bytes until a complete sibling replaces it."""
@@ -502,7 +498,7 @@ def test_records_round_trip(tmp_path: Path) -> None:
   assert remote.read_records(tmp_path / "gone.json") == {}
 
 
-def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
+def test_on_disk_skips_temporary_name(tmp_path: Path) -> None:
   """`on_disk` keys a flat file by name and a nested one by identity, and skips dot names."""
   (tmp_path / "one.py").write_bytes(b"body\n")
   (tmp_path / ".one.py.part").write_bytes(b"half")
@@ -522,7 +518,7 @@ def test_on_disk_skips_a_temporary_name(tmp_path: Path) -> None:
   assert remote.on_disk(tmp_path / "gone") == {}
 
 
-def test_update_takes_the_named_files(
+def test_update_takes_named_files(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A take list writes those identities alone, and the other files of the archive stay out."""
@@ -539,7 +535,7 @@ def test_update_takes_the_named_files(
   assert list(remote.read_records(lock)) == ["owner/name/one.py"]
 
 
-def test_scan_names_the_files_of_a_source(
+def test_scan_names_files_of_source(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The scan returns frontmatter by identity and leaves the configured hook root empty."""
@@ -580,14 +576,14 @@ def test_scan_names_the_files_of_a_source(
   assert not list(tmp_path.iterdir()), "a scan writes nothing"
 
 
-def test_scan_of_a_bad_source_gives_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_scan_of_bad_source_gives_none(monkeypatch: pytest.MonkeyPatch) -> None:
   """A source that GitHub does not answer gives None."""
   answers(monkeypatch, {})
   assert remote.scan(source(repo="owner/none")) is None
   assert remote.scan({"repo": "nope"}) is None
 
 
-def test_a_report_names_a_source_that_did_not_read(
+def test_report_names_source_that_did_not_read(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The update names, in a report it fills, the source that read nothing."""
@@ -600,7 +596,7 @@ def test_a_report_names_a_source_that_did_not_read(
   assert any(line.startswith("source owner/name at main") for line in report)
 
 
-def test_a_report_names_an_archive_without_the_folder(
+def test_report_names_archive_without_folder(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """An archive with no .py file under path names folder in report."""
@@ -617,7 +613,7 @@ def test_a_report_names_an_archive_without_the_folder(
   assert any("held no .py file under 'hooks'" in line for line in report)
 
 
-def test_a_report_names_a_refused_file(
+def test_report_names_refused_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A file whose block the reader refuses names its identity and its problem in the report."""
@@ -636,7 +632,7 @@ def test_a_report_names_a_refused_file(
   )
 
 
-def test_a_report_names_a_source_that_is_not_a_map(
+def test_report_names_source_that_is_not_map(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A source entry that is not a map names itself in the report."""
@@ -649,7 +645,7 @@ def test_a_report_names_a_source_that_is_not_a_map(
   assert report == ["source 'owner/name' is not an owner/name or a GitHub URL"]
 
 
-def test_the_base_example_never_installs(
+def test_base_example_never_installs(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """example.py of nemoe7/daedalus stays out, and the same name of another repo lands."""
@@ -675,7 +671,7 @@ def test_the_base_example_never_installs(
   assert remote.update([source()], tmp_path, lock) == ["owner/name/example.py"]
 
 
-def test_the_lock_lives_in_the_hooks_folder(
+def test_lock_lives_in_hooks_folder(
   monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
   """The default lock path is the hooks folder, beside installed hook files."""
@@ -696,7 +692,7 @@ def test_the_lock_lives_in_the_hooks_folder(
   assert remote.read_records()["owner/name/one.py"]["repo"] == "owner/name"
 
 
-def test_the_report_never_carries_exception_text(
+def test_report_never_carries_exception_text(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Report specifies step that failed, never text of exception."""

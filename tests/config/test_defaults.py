@@ -11,7 +11,7 @@ from daedalus import config
 from daedalus.config import defaults
 
 
-def test_fill_keeps_the_local_block() -> None:
+def test_fill_keeps_local_block() -> None:
   """A local name wins whole, and an absent name lands."""
   loaded = {"cloudflare": {"api_key": "mine", "tier": {"TIER-A": ["a"]}}}
   found = defaults.fill(
@@ -31,9 +31,7 @@ def test_parse_resolves_values() -> None:
   assert found["cloudflare"]["api_key"] != "env:FAKE_API_KEY", "the value resolves"
 
 
-def test_refresh_writes_the_cache(
-  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_refresh_writes_cache(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
   """A good fetch lands in the cache, and the cache carries it on a bad one."""
   monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
   monkeypatch.setenv("CLOUD_TEST_KEY", "secret")
@@ -59,7 +57,7 @@ def test_refresh_writes_the_cache(
   assert defaults.cached() == resolved
 
 
-def test_refresh_leaves_the_local_file(
+def test_refresh_leaves_local_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Fetch never writes local provider file of operator."""
@@ -84,7 +82,7 @@ def test_refresh_rejects_other_content(
   assert not (tmp_path / "free.defaults.yml").exists(), "nothing writes"
 
 
-def test_the_catalog_rebuild_refreshes_default_blocks(
+def test_catalog_rebuild_refreshes_default_blocks(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A rebuild replaces an old cloud block and keeps a local provider block."""
@@ -121,9 +119,7 @@ def test_the_catalog_rebuild_refreshes_default_blocks(
   }, seen
 
 
-def test_the_cache_file_holds_yaml(
-  tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_cache_file_holds_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
   """The cache is a plain YAML file, so an operator can read it."""
   monkeypatch.setattr(defaults, "PATH", tmp_path / "free.defaults.yml")
   monkeypatch.setattr(

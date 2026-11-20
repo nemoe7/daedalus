@@ -18,7 +18,7 @@ AUTH = {"Authorization": f"Bearer {MASTER}"}
 
 @pytest.mark.parametrize("kind", ["catalog", "models", "enrichments", "all"])
 @pytest.mark.parametrize("file_format", ["json", "csv"])
-def test_export_returns_the_completed_server_build(monkeypatch, kind, file_format):
+def test_export_returns_completed_server_build(monkeypatch, kind, file_format):
   """Response contains requested fresh files without using server dump folder."""
   from daedalus.catalog import enrichment
 
@@ -77,7 +77,7 @@ def test_export_returns_the_completed_server_build(monkeypatch, kind, file_forma
   assert existing.read_text() == "unchanged"
 
 
-def test_export_rejects_a_named_key_even_when_its_name_is_master(monkeypatch):
+def test_export_rejects_named_key_even_when_name_is_master(monkeypatch):
   """A named key cannot acquire raw-data access through its display name."""
   token = keys.add(store.MODELS_DB, "master")
   calls = []
@@ -89,7 +89,7 @@ def test_export_rejects_a_named_key_even_when_its_name_is_master(monkeypatch):
   assert calls == []
 
 
-def test_export_refuses_a_busy_or_failed_refresh(monkeypatch):
+def test_export_refuses_busy_or_failed_refresh(monkeypatch):
   """A refusal or a failed provider fetch cannot return a fresh export."""
   monkeypatch.setattr(api, "CATALOG_REFRESH", lambda: None)
   monkeypatch.setattr(schedule, "BUSY", True)
@@ -105,7 +105,7 @@ def test_export_refuses_a_busy_or_failed_refresh(monkeypatch):
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("cancel", [False, True])
-async def test_export_keeps_the_guard_until_capture_finishes(monkeypatch, cancel):
+async def test_export_keeps_guard_until_capture_finishes(monkeypatch, cancel):
   """Output capture stays off-loop and holds the guard even when its requester leaves."""
   import asyncio
   import threading
@@ -159,7 +159,7 @@ async def test_export_keeps_the_guard_until_capture_finishes(monkeypatch, cancel
   assert threads and threads[0] != threading.get_ident()
 
 
-def test_export_refuses_a_snapshot_not_updated_by_the_refresh(monkeypatch):
+def test_export_refuses_snapshot_not_updated_by_refresh(monkeypatch):
   """Export rejects an old snapshot from a provider without credentials."""
   import sqlite3
   from contextlib import closing
@@ -178,7 +178,7 @@ def test_export_refuses_a_snapshot_not_updated_by_the_refresh(monkeypatch):
 
 
 @pytest.mark.parametrize("query", ["dump=wrong", "dump=all&format=wrong", "dump="])
-def test_invalid_export_options_do_not_start_a_rebuild(monkeypatch, query):
+def test_invalid_export_options_do_not_start_rebuild(monkeypatch, query):
   """Reject invalid output options before a catalog can change."""
   calls = []
   monkeypatch.setattr(api, "CATALOG_REFRESH", lambda: calls.append("refresh"))
@@ -187,7 +187,7 @@ def test_invalid_export_options_do_not_start_a_rebuild(monkeypatch, query):
   assert calls == []
 
 
-def test_export_rejects_a_provider_path_before_writing(tmp_path, monkeypatch):
+def test_export_rejects_provider_path_before_writing(tmp_path, monkeypatch):
   """A configured provider name cannot send a fresh export outside its staging folder."""
   url = "https://path.test/models"
   name = str(tmp_path / "escape")

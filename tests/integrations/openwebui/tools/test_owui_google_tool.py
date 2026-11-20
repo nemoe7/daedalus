@@ -100,7 +100,7 @@ def reader() -> object:
   return instance
 
 
-def test_the_surface_holds_the_functions():
+def test_surface_holds_functions():
   tree = ast.parse(TOOL.read_text())
   cls = next(
     node
@@ -116,7 +116,7 @@ def test_the_surface_holds_the_functions():
   assert sorted(found) == sorted(FUNCS)
 
 
-def test_the_gate_defaults_to_ask_with_sixty_seconds():
+def test_gate_defaults_to_ask_with_sixty_seconds():
   instance = tool.Tools()
   default_timeout = 60
   assert instance.valves.permissions == "Always ask"
@@ -126,7 +126,7 @@ def test_the_gate_defaults_to_ask_with_sixty_seconds():
   assert tool.Tools.UserValves().timeout_seconds == 0
 
 
-def test_every_write_goes_through_the_gate():
+def test_every_write_goes_through_gate():
   tree = ast.parse(TOOL.read_text())
   cls = next(
     node
@@ -143,7 +143,7 @@ def test_every_write_goes_through_the_gate():
       assert "self._write(" in body, f"{node.name} mutates without the gate"
 
 
-def test_the_shipped_permission_asks_on_a_read(monkeypatch):
+def test_shipped_permission_asks_on_read(monkeypatch):
   calls = []
   opener(monkeypatch, [token_body()], calls)
   out = asyncio.run(client().search_mail("from:ana"))
@@ -151,7 +151,7 @@ def test_the_shipped_permission_asks_on_a_read(monkeypatch):
   assert calls == []
 
 
-def test_allow_reads_runs_without_a_dialog(monkeypatch):
+def test_allow_reads_runs_without_dialog(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -183,7 +183,7 @@ def test_allow_reads_runs_without_a_dialog(monkeypatch):
   assert calls[2]["headers"]["Authorization"] == "Bearer at1"
 
 
-def test_the_token_is_cached(monkeypatch):
+def test_token_is_cached(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -203,7 +203,7 @@ def test_the_token_is_cached(monkeypatch):
   assert len(tokens) == 1
 
 
-def test_send_mail_is_denied_without_a_dialog(monkeypatch):
+def test_send_mail_is_denied_without_dialog(monkeypatch):
   calls = []
   opener(monkeypatch, token_body(), calls)
   out = asyncio.run(
@@ -227,7 +227,7 @@ def test_send_mail_sends_one_message(monkeypatch):
   assert "the body" in decoded
 
 
-def test_agenda_reads_the_window(monkeypatch):
+def test_agenda_reads_window(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -255,7 +255,7 @@ def test_agenda_reads_the_window(monkeypatch):
   assert "singleEvents=true" in calls[1]["url"]
 
 
-def test_create_event_is_gated_and_posts_the_window(monkeypatch):
+def test_create_event_is_gated_and_posts_window(monkeypatch):
   calls = []
   opener(monkeypatch, [token_body(), json.dumps({"id": "e2", "htmlLink": "l"})], calls)
   denied = asyncio.run(
@@ -293,7 +293,7 @@ def test_search_files_wraps_plain_words(monkeypatch):
   assert "fullText+contains" in calls[1]["url"]
 
 
-def test_read_document_exports_a_google_doc(monkeypatch):
+def test_read_document_exports_google_doc(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -313,7 +313,7 @@ def test_read_document_exports_a_google_doc(monkeypatch):
   assert "/export?mimeType=text%2Fplain" in calls[2]["url"]
 
 
-def test_append_to_document_posts_the_batch(monkeypatch):
+def test_append_to_document_posts_batch(monkeypatch):
   calls = []
   opener(monkeypatch, [token_body(), json.dumps({"replies": []})], calls)
   out = asyncio.run(
@@ -327,7 +327,7 @@ def test_append_to_document_posts_the_batch(monkeypatch):
   assert calls[1]["url"].endswith("/documents/d1:batchUpdate")
 
 
-def test_a_google_error_propagates(monkeypatch):
+def test_google_error_propagates(monkeypatch):
   calls = []
   opener(
     monkeypatch,

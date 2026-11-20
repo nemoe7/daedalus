@@ -438,7 +438,7 @@ def test_routing_threshold() -> None:
   assert "routing.bar" in str(error.value)
 
 
-def test_apply_takes_the_threshold(folder: Path) -> None:
+def test_apply_takes_threshold(folder: Path) -> None:
   """Apply saved threshold and restore current default when file is missing."""
   path = folder / "threshold.yml"
   path.write_text("routing:\n  threshold: 0.91\n", encoding="utf-8")
@@ -480,7 +480,7 @@ def test_pool_names() -> None:
   assert settings.parse(text)["personalization"]["tier-a"] == "123", text
 
 
-def test_update_text_drops_an_empty_group() -> None:
+def test_update_text_drops_empty_group() -> None:
   """Removing a group's last key removes the group."""
   text = settings.update_text(
     "limits:\n  slow: 30\ncatalog:\n  every: 6\n", {"limits": {"slow": None}}
@@ -488,13 +488,13 @@ def test_update_text_drops_an_empty_group() -> None:
   assert text == "catalog:\n  every: 6\n", text
 
 
-def test_update_text_writes_into_a_file_of_comments_only() -> None:
+def test_update_text_writes_into_file_of_comments_only() -> None:
   """Updates add settings after a comment-only prefix."""
   text = settings.update_text("# Router settings.\n", {"limits": {"slow": 12}})
   assert text == "# Router settings.\nlimits:\n  slow: 12\n", text
 
 
-def test_update_text_keeps_a_comment_of_a_written_file() -> None:
+def test_update_text_keeps_comment_of_written_file() -> None:
   """Settings updates preserve existing comments."""
   text = settings.update_text(
     "# Router settings.\nlimits:\n  slow: 30\n", {"limits": {"slow": 12}}
@@ -502,7 +502,7 @@ def test_update_text_keeps_a_comment_of_a_written_file() -> None:
   assert "# Router settings." in text and "  slow: 12" in text, text
 
 
-def test_hooks_dir_names_the_folder() -> None:
+def test_hooks_dir_names_folder() -> None:
   """`hooks.dir` accepts one plain folder name and rejects other values."""
   assert settings.parse("")["hooks"]["dir"] == settings.DEFAULTS["hooks"]["dir"]
   assert (
@@ -514,7 +514,7 @@ def test_hooks_dir_names_the_folder() -> None:
     assert "hooks.dir" in str(error.value)
 
 
-def test_hooks_values_stay_out_of_the_base_config() -> None:
+def test_hooks_values_stay_out_of_base_config() -> None:
   """The base config rejects `hooks.values`, since each hook owns its settings file."""
   assert "values" not in settings.DEFAULTS["hooks"]
   text = "hooks:\n  values:\n    note.py:\n      target: kilo\n"
@@ -523,7 +523,7 @@ def test_hooks_values_stay_out_of_the_base_config() -> None:
   assert "hooks.values" in str(error.value), error.value
 
 
-def test_hooks_sources_take_a_repo_path_ref_and_flag() -> None:
+def test_hooks_sources_take_repo_path_ref_and_flag() -> None:
   """Hook sources validate repo, path, ref, and update fields."""
   assert settings.parse("")["hooks"]["sources"] == settings.DEFAULTS["hooks"]["sources"]
   text = (
@@ -632,7 +632,7 @@ def test_hooks_remote_is_gone() -> None:
   assert "hooks.sources" in str(error.value)
 
 
-def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_apply_wires_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   """Applying settings configures the hook folder, disabled names, order, and sources."""
   seen: list[tuple[list[dict[str, object]], bool, Path | None]] = []
 
@@ -676,7 +676,7 @@ def test_apply_wires_the_hook_settings(monkeypatch: pytest.MonkeyPatch) -> None:
   assert hooks.ORDER == settings.DEFAULTS["hooks"]["order"]
 
 
-def test_updates_repo_names_the_repository() -> None:
+def test_updates_repo_names_repository() -> None:
   """`updates.repo` accepts owner/name pairs and rejects invalid repo names."""
   assert settings.parse("")["updates"]["repo"] == settings.DEFAULTS["updates"]["repo"]
   assert (

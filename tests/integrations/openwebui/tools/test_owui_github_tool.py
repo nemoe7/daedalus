@@ -123,7 +123,7 @@ def client(token: str = "t0ken") -> "tool.Tools":
   return instance
 
 
-def test_the_surface_holds_the_tool_list():
+def test_surface_holds_tool_list():
   tree = ast.parse(TOOL.read_text(encoding="utf-8"))
   cls = next(
     node
@@ -140,7 +140,7 @@ def test_the_surface_holds_the_tool_list():
   assert len(found) == EXPECTED_TOOL_COUNT
 
 
-def test_the_gate_defaults_to_confirmation_and_user_inheritance():
+def test_gate_defaults_to_confirmation_and_user_inheritance():
   instance = tool.Tools()
   assert instance.valves.permissions == "Always ask"
   assert instance._wait_seconds() > 0
@@ -148,14 +148,14 @@ def test_the_gate_defaults_to_confirmation_and_user_inheritance():
   assert tool.Tools.UserValves().timeout_seconds == 0
 
 
-def test_always_ask_holds_a_read_without_a_dialog():
+def test_always_ask_holds_read_without_dialog():
   instance = tool.Tools()
   instance.valves.github_token = "t0ken"
   out = asyncio.run(instance.list_commits("owner/repo"))
   assert out["result"]["denied"] is True
 
 
-def test_every_write_goes_through_the_gate():
+def test_every_write_goes_through_gate():
   tree = ast.parse(TOOL.read_text(encoding="utf-8"))
   cls = next(
     node
@@ -179,7 +179,7 @@ def test_every_write_goes_through_the_gate():
     assert mutates <= gated, f"{node.name} sends a write without the gate"
 
 
-def test_an_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
+def test_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
   calls = []
   opener(monkeypatch, "{}", calls)
   out = asyncio.run(client().edit_labels("o/r", 1, "bug", __event_call__=None))
@@ -198,9 +198,7 @@ def test_an_unanswered_write_is_denied_and_sends_nothing(monkeypatch):
     ("update_pull_request", ("o/r", 1), {"draft": False}),
   ],
 )
-def test_graphql_writes_without_a_dialog_send_nothing(
-  monkeypatch, method, args, kwargs
-):
+def test_graphql_writes_without_dialog_send_nothing(monkeypatch, method, args, kwargs):
   calls = []
   opener(monkeypatch, '{"node_id": "PR_test"}', calls)
   out = asyncio.run(getattr(client(), method)(*args, **kwargs, __event_call__=None))
@@ -209,7 +207,7 @@ def test_graphql_writes_without_a_dialog_send_nothing(
   assert isinstance(out["result"]["reason"], str) and out["result"]["reason"].strip()
 
 
-def test_a_confirmed_write_sends_one_request(monkeypatch):
+def test_confirmed_write_sends_one_request(monkeypatch):
   calls = []
   opener(monkeypatch, '[{"name": "bug"}]', calls)
 
@@ -224,7 +222,7 @@ def test_a_confirmed_write_sends_one_request(monkeypatch):
   assert calls[0]["headers"]["Authorization"] == "Bearer t0ken"
 
 
-def test_a_slow_answer_denies_at_the_timeout(monkeypatch):
+def test_slow_answer_denies_at_timeout(monkeypatch):
   calls = []
   opener(monkeypatch, "{}", calls)
   instance = client()
@@ -243,7 +241,7 @@ def test_a_slow_answer_denies_at_the_timeout(monkeypatch):
   assert calls == []
 
 
-def test_a_user_timeout_wins_over_the_tool_valve(monkeypatch):
+def test_user_timeout_wins_over_tool_valve(monkeypatch):
   calls = []
   opener(monkeypatch, "{}", calls)
   instance = client()
@@ -396,7 +394,7 @@ def test_pr_reads_diffs_reviews_and_draft_toggle(monkeypatch):
   assert drafted["result"]["isDraft"] is True
 
 
-def test_file_reads_decode_and_search_hits_the_global_route(monkeypatch):
+def test_file_reads_decode_and_search_hits_global_route(monkeypatch):
   calls = []
   body = json.dumps(
     {
@@ -522,7 +520,7 @@ def test_list_tree_is_recursive_and_filtered(monkeypatch):
   )
 
 
-def test_create_pr_with_files_moves_a_branch_in_one_gate(monkeypatch):
+def test_create_pr_with_files_moves_branch_in_one_gate(monkeypatch):
   calls = []
   opener(
     monkeypatch,
@@ -575,7 +573,7 @@ def test_create_pr_with_files_moves_a_branch_in_one_gate(monkeypatch):
   }
 
 
-def test_create_pr_with_files_without_a_dialog_sends_nothing(monkeypatch):
+def test_create_pr_with_files_without_dialog_sends_nothing(monkeypatch):
   calls = []
   opener(monkeypatch, "{}", calls)
   out = asyncio.run(
@@ -874,7 +872,7 @@ def test_alert_writes_patch_and_deny(monkeypatch):
   }
 
 
-def test_a_github_error_propagates(monkeypatch):
+def test_github_error_propagates(monkeypatch):
   error = HTTPError(
     "https://api.github.com/x",
     404,
@@ -889,7 +887,7 @@ def test_a_github_error_propagates(monkeypatch):
   assert "Not Found" in str(info.value)
 
 
-def test_the_url_reader_carries_a_github_name():
+def test_url_reader_carries_github_name():
   """Verify GitHub URL reader keeps `fetch_github_url` and names `fetch_url` on 422."""
   assert hasattr(tool.Tools, "fetch_github_url")
   assert not hasattr(tool.Tools, "fetch")

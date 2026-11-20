@@ -76,7 +76,7 @@ def test_disabled_hook_stays_out_of_explicit_calls(
     ("shared", []),
   ],
 )
-def test_disabled_hook_identity_selects_its_source(
+def test_disabled_hook_identity_selects_source(
   tmp_path, monkeypatch, disabled, expected
 ):
   """A relative identity selects one source, while a bare name covers both."""
@@ -357,7 +357,7 @@ def test_broken_hook_retry() -> None:
   assert loaded.on_answer({}, "m") == {"ok": True}
 
 
-def test_chunk_hook_changes_the_copy() -> None:
+def test_chunk_hook_changes_copy() -> None:
   """An on-chunk hook receives its context and changes a copy."""
   path = write(
     "mark.py",
@@ -371,7 +371,7 @@ def test_chunk_hook_changes_the_copy() -> None:
   assert chunk == {"choices": []}, "the value that came in stays the same"
 
 
-def test_a_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
+def test_run_writes_1_log_line(caplog: pytest.LogCaptureFixture) -> None:
   """Answer hooks log at INFO, while chunk hooks log only at DEBUG."""
   path = write(
     "told.py",
@@ -515,7 +515,7 @@ def test_hook_folder() -> None:
     hooks.set_installed()
 
 
-def test_a_nested_install_lists_and_loads() -> None:
+def test_nested_install_lists_and_loads() -> None:
   """Nested and flat hook fixtures list by identity and run in file-name order."""
   try:
     hooks.set_installed("nested")
@@ -575,7 +575,7 @@ def test_scoped_hooks() -> None:
     hooks.set_installed()
 
 
-def test_yaml_scope_follows_the_provider_file() -> None:
+def test_yaml_scope_follows_provider_file() -> None:
   """YAML-scoped hooks match only models listed in the provider-file fixture."""
   try:
     hooks.set_installed("yamlscope", [])
@@ -677,7 +677,7 @@ def test_bad_block_stays_out() -> None:
     hooks.set_installed()
 
 
-def test_rows_add_the_request_points_that_name_a_file() -> None:
+def test_rows_add_request_points_that_name_file() -> None:
   """Row surfaces follow frontmatter declarations or explicit request settings."""
   try:
     hooks.set_installed("rows2")
@@ -700,7 +700,7 @@ def test_rows_add_the_request_points_that_name_a_file() -> None:
     hooks.set_installed()
 
 
-def test_rows_carry_the_title() -> None:
+def test_rows_carry_title() -> None:
   """Rows expose frontmatter titles or empty strings when absent."""
   try:
     hooks.set_installed("rows3")
@@ -717,7 +717,7 @@ def test_rows_carry_the_title() -> None:
     hooks.set_installed()
 
 
-def test_rows_report_the_folder() -> None:
+def test_rows_report_folder() -> None:
   """Rows expose hook paths, metadata, enabled states, and validation problems."""
   try:
     hooks.set_installed("rows", ["off.py"])
@@ -803,7 +803,7 @@ def test_meta_settings_problems() -> None:
     assert hooks.fields(path) == []
 
 
-def test_values_use_the_stored_1_or_the_default() -> None:
+def test_values_use_stored_1_or_default() -> None:
   """A stored value wins, and a wrong or missing 1 takes the declared default."""
   path = hooks.ROOT / "hooks" / "valued.py"
   path.parent.mkdir(parents=True, exist_ok=True)
@@ -832,7 +832,7 @@ def test_values_use_the_stored_1_or_the_default() -> None:
   assert hooks.values(hooks.ROOT / "hooks" / "absent.py") == {}
 
 
-def test_rows_carry_the_declared_settings_and_their_values() -> None:
+def test_rows_carry_declared_settings_and_values() -> None:
   """A row gives the fields of its file and the value of each, so the page can draw them."""
   try:
     hooks.set_installed("rows4")

@@ -38,7 +38,7 @@ def raised(call) -> upstream.UpstreamStatus:
   raise AssertionError("no upstream error")
 
 
-def test_a_rejected_body_reaches_limit_tracking(monkeypatch) -> None:
+def test_rejected_body_reaches_limit_tracking(monkeypatch) -> None:
   """A streamed and a plain 429 give their body to limit tracking."""
   seen: list[tuple[str, bytes]] = []
 
@@ -351,7 +351,7 @@ def test_failure_notes_hide_bodies_only_for_mapped_behaviors() -> None:
   )
 
 
-def test_stream_refusal_notes_use_the_same_safe_line() -> None:
+def test_stream_refusal_notes_use_same_safe_line() -> None:
   """Stream-refused attempt note rides shared status line, not body."""
   api_source = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/server/api.py"
@@ -361,7 +361,7 @@ def test_stream_refusal_notes_use_the_same_safe_line() -> None:
   ), "the refusal note shares the behavior line"
 
 
-def test_overloaded_stream_chunks_raise_the_overload_behavior() -> None:
+def test_overloaded_stream_chunks_raise_overload_behavior() -> None:
   """A Nvidia-style overload chunk stops reading the stream as its own class."""
   from daedalus.server import stream
 

@@ -61,7 +61,7 @@ class Time:
     return self.zone
 
 
-def test_the_block_goes_in_as_one_system_message_at_the_top(
+def test_block_goes_in_as_one_system_message_at_top(
   monkeypatch: Any,
 ) -> None:
   """One system message with the block draws above the messages, and other keys stay."""
@@ -88,7 +88,7 @@ def test_the_block_goes_in_as_one_system_message_at_the_top(
   assert body["messages"][0]["role"] == "user", "the body itself stays untouched"
 
 
-def test_the_date_and_the_clock_are_drawn_again_on_each_turn(
+def test_date_and_clock_are_drawn_again_on_each_turn(
   monkeypatch: Any,
 ) -> None:
   """Two turns of one chat carry their own date and clock."""
@@ -106,7 +106,7 @@ def test_the_date_and_the_clock_are_drawn_again_on_each_turn(
   assert "2026-10-06T09:31:00+08:00" in second
 
 
-def test_the_place_line_wears_the_approximate_label(monkeypatch: Any) -> None:
+def test_place_line_wears_approximate_label(monkeypatch: Any) -> None:
   """An IP lookup says `Approximate location`, and a precise one says `Location`."""
   monkeypatch.setattr(module, "datetime", Clock)
   Clock.value = Time("2026-10-06T09:30:00+08:00", "PST")
@@ -118,7 +118,7 @@ def test_the_place_line_wears_the_approximate_label(monkeypatch: Any) -> None:
     assert f"{label}: Antipolo, Calabarzon, Philippines" in content
 
 
-def test_the_language_reads_the_valve_then_the_header(monkeypatch: Any) -> None:
+def test_language_reads_valve_then_header(monkeypatch: Any) -> None:
   """A set language valve wins, and an empty one reads the first `Accept-Language` value."""
   monkeypatch.setattr(module, "datetime", Clock)
   Clock.value = Time("2026-10-06T09:30:00+08:00", "PST")
@@ -137,7 +137,7 @@ def test_the_language_reads_the_valve_then_the_header(monkeypatch: Any) -> None:
   assert "Language: en-PH" in content
 
 
-def test_a_repeat_replaces_the_block(monkeypatch: Any) -> None:
+def test_repeat_replaces_block(monkeypatch: Any) -> None:
   """A body that already carries the block keeps 1 of them, at the top."""
   monkeypatch.setattr(module, "datetime", Clock)
   Clock.value = Time("2026-10-06T09:30:00+08:00", "PST")
@@ -154,7 +154,7 @@ def test_a_repeat_replaces_the_block(monkeypatch: Any) -> None:
   assert contents[1] == "hi"
 
 
-def test_a_disabled_valve_leaves_the_body_alone(monkeypatch: Any) -> None:
+def test_disabled_valve_leaves_body_alone(monkeypatch: Any) -> None:
   """The enabled valve off returns the body as it came in."""
   monkeypatch.setattr(module, "datetime", Clock)
   Clock.value = Time("2026-10-06T09:30:00+08:00", "PST")
@@ -164,7 +164,7 @@ def test_a_disabled_valve_leaves_the_body_alone(monkeypatch: Any) -> None:
   assert run(filt.inlet(body)) is body
 
 
-def test_the_valves_draw_a_schema() -> None:
+def test_valves_draw_schema() -> None:
   """Open WebUI builds the Valves panel from the schema of Valves class."""
   schema = module.Filter.Valves.model_json_schema()
   assert set(schema["properties"]) == {

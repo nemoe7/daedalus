@@ -91,7 +91,7 @@ def test_missing_main_uses_cached_defaults(
   assert config.get_config() is loaded
 
 
-def test_missing_main_keeps_defaults_beside_a_provider_file(
+def test_missing_main_keeps_defaults_beside_provider_file(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A provider file stays separate from cached and refreshed main defaults."""
@@ -187,7 +187,7 @@ def test_provider_file() -> None:
     assert config.file_shadows(main) == {}
 
 
-def test_file_shadows_names_only_a_shared_block() -> None:
+def test_file_shadows_names_only_shared_block() -> None:
   """A provider file with its own block avoids shadowing, and load logs shadowed files."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
@@ -228,7 +228,7 @@ def _log_capture():
   return records, handler
 
 
-def test_a_wrong_shape_in_the_main_file_drops_out() -> None:
+def test_wrong_shape_in_main_file_drops_out() -> None:
   """The loader omits invalid provider values, and router uses the remaining block."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
@@ -250,7 +250,7 @@ def test_a_wrong_shape_in_the_main_file_drops_out() -> None:
   assert router.pooled(loaded, "p/a"), "the router reads the rest of the block"
 
 
-def test_a_wrong_shape_in_a_tier_drops_out() -> None:
+def test_wrong_shape_in_tier_drops_out() -> None:
   """A tier value that is not a list leaves the tier map, and the other tiers stay."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"
@@ -267,7 +267,7 @@ def test_a_wrong_shape_in_a_tier_drops_out() -> None:
   assert any("TIER-A" in record.getMessage() for record in records), records
 
 
-def test_a_wrong_shape_in_a_provider_file_drops_out() -> None:
+def test_wrong_shape_in_provider_file_drops_out() -> None:
   """The file block of a `{provider}.yml` file keeps its good keys."""
   with tempfile.TemporaryDirectory() as folder:
     main = Path(folder) / "free.yml"

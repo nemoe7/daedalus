@@ -28,7 +28,7 @@ def git(directory: Path, *args: str, data: bytes | None = None) -> bytes:
   ).stdout
 
 
-def test_the_snapshot_reads_blobs_and_rejects_unsafe_input():
+def test_snapshot_reads_blobs_and_rejects_unsafe_input():
   with TemporaryDirectory() as directory:
     root = Path(directory)
     remote = root / "remote"

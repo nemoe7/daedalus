@@ -19,7 +19,7 @@ from daedalus.routing import loops
 from daedalus.server import api, headroom
 
 
-def test_ui_path_sends_the_reader_to_the_page(client: TestClient) -> None:
+def test_ui_path_sends_reader_to_page(client: TestClient) -> None:
   """`/ui` and `/ui/` redirect to `/`."""
   for path in ("/ui", "/ui/"):
     answer = client.get(path, follow_redirects=False)
@@ -48,7 +48,7 @@ def test_nested_ui_assets_serve_from_manifest(client: TestClient) -> None:
   assert client.get("/ui/vendor/SORTABLE.MIN.JS").status_code == 404
 
 
-def test_status_card_sits_in_the_card_grid() -> None:
+def test_status_card_sits_in_card_grid() -> None:
   """Overview markup places the status card before requests in the card column."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -59,7 +59,7 @@ def test_status_card_sits_in_the_card_grid() -> None:
   assert column.index("status-card") < column.index("ov-limits")
 
 
-def test_overview_columns_share_the_card_load() -> None:
+def test_overview_columns_share_card_load() -> None:
   """Overview markup balances the 2 columns: status and limits beside models and requests."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -266,7 +266,7 @@ def test_defaults(client: TestClient) -> None:
   assert TestClient(api.app).get("/ui/api/provider-defaults").status_code == 401
 
 
-def test_models_answer_304_until_the_cooling_moves(client: TestClient) -> None:
+def test_models_answer_304_until_cooling_moves(client: TestClient) -> None:
   """Model requests return 304 for matching ETags until a cooldown changes."""
   first = client.get("/ui/api/models")
   tag = first.headers["etag"]
@@ -657,7 +657,7 @@ def test_hook_file_delete(
   assert state["records"] == {}
 
 
-def test_hook_file_delete_with_a_relative_folder(
+def test_hook_file_delete_with_relative_folder(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Hook deletion resolves a relative configured folder."""
@@ -682,7 +682,7 @@ def test_hook_file_delete_with_a_relative_folder(
   assert not (root / "drop.py").exists()
 
 
-def test_hook_file_delete_clears_the_settings_entries(
+def test_hook_file_delete_clears_settings_entries(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Hook deletion clears disabled, order, and on-request references."""
@@ -710,7 +710,7 @@ def test_hook_file_delete_clears_the_settings_entries(
   assert "drop.py" not in (group.get("on-request") or []), group
 
 
-def test_a_hook_file_that_stays_answers_a_clear_message(
+def test_hook_file_that_stays_answers_clear_message(
   client: TestClient, state_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A simulated unlink failure returns 409 and retains the hook file."""
@@ -737,7 +737,7 @@ def test_a_hook_file_that_stays_answers_a_clear_message(
   real(target)
 
 
-def test_a_provider_file_that_stays_answers_a_clear_message(
+def test_provider_file_that_stays_answers_clear_message(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A simulated unlink failure returns 409 and retains the provider file."""
@@ -1040,7 +1040,7 @@ def test_files(
   assert "_file" not in config.get_config().get("openrouter", {}), "the reload drops it"
 
 
-def test_provider_file_save_loads_the_main_config(client: TestClient) -> None:
+def test_provider_file_save_loads_main_config(client: TestClient) -> None:
   """Saving a provider file preserves main blocks and nests that file under its provider."""
   login = {"username": "admin", "password": MASTER}
   assert client.post("/ui/api/login", json=login).status_code == 200
@@ -1249,7 +1249,7 @@ def test_mutations_require_json_before_actions(
   )
 
 
-def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
+def test_wrong_shape_is_refused_at_save(client: TestClient) -> None:
   """Invalid provider shapes return 422, and valid shapes save."""
   login = {"username": "admin", "password": MASTER}
   assert client.post("/ui/api/login", json=login).status_code == 200, "the session"
@@ -1276,7 +1276,7 @@ def test_a_wrong_shape_is_refused_at_save(client: TestClient) -> None:
     client.request("DELETE", "/ui/api/files", json={"path": path})
 
 
-def test_a_failed_login_waits_and_locks(client: TestClient) -> None:
+def test_failed_login_waits_and_locks(client: TestClient) -> None:
   """Login failures delay responses and enforce a lock until its expiry."""
   os.environ[dashboard.DAEDALUS_MASTER_KEY] = MASTER
   dashboard.LOGIN_FAILURES.clear()
@@ -1415,7 +1415,7 @@ def test_update_check_now(client: TestClient) -> None:
   client.cookies.clear()
 
 
-def test_a_failed_update_check_keeps_the_glyph_and_the_word() -> None:
+def test_failed_update_check_keeps_glyph_and_word() -> None:
   """A failed update check restores button availability, icon markup, and label text."""
   run_app_js(
     "icon",

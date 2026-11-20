@@ -24,7 +24,7 @@ def run(coro: Coroutine[Any, Any, Any]) -> Any:
   return asyncio.run(coro)
 
 
-def test_the_line_goes_out() -> None:
+def test_line_goes_out() -> None:
   """A chunk with the served model emits one status, and the chunk itself comes back unchanged."""
   seen: list[dict[str, Any]] = []
 
@@ -41,7 +41,7 @@ def test_the_line_goes_out() -> None:
   ]
 
 
-def test_a_chunk_without_the_key_draws_nothing() -> None:
+def test_chunk_without_key_draws_nothing() -> None:
   """A chunk without the served model key, and a turned-off Valve, draw nothing and still pass the chunk on."""
   seen: list[dict[str, Any]] = []
 
@@ -57,7 +57,7 @@ def test_a_chunk_without_the_key_draws_nothing() -> None:
   assert seen == []
 
 
-def test_an_empty_line_draws_nothing() -> None:
+def test_empty_line_draws_nothing() -> None:
   """A served model with an empty or a non-string line draws no row, so the list has no empty entry."""
   seen: list[dict[str, Any]] = []
 
@@ -71,7 +71,7 @@ def test_an_empty_line_draws_nothing() -> None:
   assert seen == []
 
 
-def test_the_on_change_valve_draws_only_a_move() -> None:
+def test_on_change_valve_draws_only_move() -> None:
   """With the `on change` Valve, the line goes out on a new served model, and a repeat stays quiet."""
   seen: list[dict[str, Any]] = []
 
@@ -99,7 +99,7 @@ def test_the_on_change_valve_draws_only_a_move() -> None:
   ], seen
 
 
-def test_a_repeat_of_the_message_line_draws_once() -> None:
+def test_repeat_of_message_line_draws_once() -> None:
   """In 1 message a repeat of the last line draws no row, a move draws, and another message draws."""
   seen: list[dict[str, Any]] = []
 
@@ -126,7 +126,7 @@ def test_a_repeat_of_the_message_line_draws_once() -> None:
   ], seen
 
 
-def test_the_always_valve_draws_every_line() -> None:
+def test_always_valve_draws_every_line() -> None:
   """The default `always` Valve draws each line, even a repeat of the same served model."""
   seen: list[dict[str, Any]] = []
 
@@ -140,7 +140,7 @@ def test_the_always_valve_draws_every_line() -> None:
   assert len(seen) == 2, seen
 
 
-def test_the_valves_draw_a_schema() -> None:
+def test_valves_draw_schema() -> None:
   """Open WebUI builds the Valves panel from the schema of Valves class."""
   schema = module.Filter.Valves.model_json_schema()
   assert set(schema["properties"]) == {
@@ -186,7 +186,7 @@ def test_append_provider_valve_appends_provider_when_enabled() -> None:
   ], seen
 
 
-def test_tracking_caches_keep_the_bound_without_evicting_on_updates() -> None:
+def test_tracking_caches_keep_bound_without_evicting_on_updates() -> None:
   for name in ("drawn", "lines"):
     plugin = module.Filter()
     book = getattr(plugin, name)

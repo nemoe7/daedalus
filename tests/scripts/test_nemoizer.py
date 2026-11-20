@@ -10,12 +10,12 @@ LINT = Path(".agents/skills/nemoizer/scripts/nemoizer")
 TEMPLATE = Path(".github/PULL_REQUEST_TEMPLATE.md")
 
 
-def test_the_vendored_linter_exists() -> None:
+def test_vendored_linter_exists() -> None:
   """The repo copy is the one CI uses. No skill install, no external package."""
   assert LINT.is_file()
 
 
-def test_the_template_uses_the_exact_canonical_format() -> None:
+def test_template_uses_exact_canonical_format() -> None:
   """The template carries the three required headings in order, and nothing else."""
   text = TEMPLATE.read_text(encoding="utf-8")
   found = [
@@ -24,7 +24,7 @@ def test_the_template_uses_the_exact_canonical_format() -> None:
   assert found == list(BODY_HEADINGS[:3])
 
 
-def test_an_unfilled_template_is_rejected() -> None:
+def test_unfilled_template_is_rejected() -> None:
   """A PR that ships the template untouched fails instead of passing."""
   problems = validate_pr_body(TEMPLATE.read_text(encoding="utf-8"))
   assert any("placeholder" in problem.message for problem in problems)

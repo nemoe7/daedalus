@@ -13,7 +13,7 @@ from daedalus.catalog import discovery
 from daedalus.server import api
 
 
-def test_fresh_dump_writes_server_files_without_a_local_rebuild(tmp_path, monkeypatch):
+def test_fresh_dump_writes_server_files_without_local_rebuild(tmp_path, monkeypatch):
   """A live export uses server bytes instead of the local model store."""
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path)
   monkeypatch.setenv(cli.DAEDALUS_URL, "https://remote.test")
@@ -67,7 +67,7 @@ def test_failed_remote_export_never_falls_back_or_overwrites(
   assert existing.read_text() == "old output"
 
 
-def test_absent_implicit_local_server_allows_an_offline_refresh(tmp_path, monkeypatch):
+def test_absent_implicit_local_server_allows_offline_refresh(tmp_path, monkeypatch):
   """Only a refused implicit local connection permits a local fresh export."""
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   monkeypatch.setattr(discovery, "DUMP_DIR", tmp_path / "dump")
@@ -193,7 +193,7 @@ def test_fresh_enrichments_dump_writes_server_files_and_keeps_models(
   assert (tmp_path / "p.json").read_text() == "catalog"
 
 
-def test_implicit_remote_host_refusal_does_not_trigger_a_local_build(monkeypatch):
+def test_implicit_remote_host_refusal_does_not_trigger_local_build(monkeypatch):
   """A host setting for another server is not proof that the local server is absent."""
   monkeypatch.delenv(cli.DAEDALUS_URL, raising=False)
   monkeypatch.setenv(api.DAEDALUS_HOST, "remote.test")

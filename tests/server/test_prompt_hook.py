@@ -141,7 +141,7 @@ def test_hook_file_wins(
   assert dump["effort"] is None, dump["effort"]
 
 
-def test_the_row_carries_the_hook_level(
+def test_row_carries_hook_level(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """History records the effort set by the prompt hook."""
@@ -178,7 +178,7 @@ def ladder_file(monkeypatch: pytest.MonkeyPatch) -> None:
   )
 
 
-def test_the_shipped_ladder_file_sets_the_effort(
+def test_shipped_ladder_file_sets_effort(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Shipped `owui_auto_reasoning_effort.py` sets level from heuristics read of prompt."""
@@ -194,7 +194,7 @@ def test_the_shipped_ladder_file_sets_the_effort(
   )
 
 
-def test_the_shipped_ladder_file_skips_another_client(
+def test_shipped_ladder_file_skips_another_client(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """The base runs the shipped ladder file for its client alone, so another client keeps its effort."""
@@ -230,7 +230,7 @@ def shipped_module():
   return module
 
 
-def test_the_shipped_hook_steps_a_try_again() -> None:
+def test_shipped_hook_steps_try_again() -> None:
   """A try again steps the level of the last answer 1 up, and never past `high`."""
   module = shipped_module()
   value: dict = {}
@@ -258,7 +258,7 @@ def test_the_shipped_hook_steps_a_try_again() -> None:
   )
 
 
-def test_the_shipped_hook_takes_the_read_after_no_reasoned_answer() -> None:
+def test_shipped_hook_takes_read_after_no_reasoned_answer() -> None:
   """A try again after an answer with no level takes the read of the message, and no step."""
   module = shipped_module()
   read = int(api.router.required_tier("why is this slow"))
@@ -272,7 +272,7 @@ def test_the_shipped_hook_takes_the_read_after_no_reasoned_answer() -> None:
   assert value["reasoning_effort"] == module.LEVELS[read], "no reasoned answer, no step"
 
 
-def test_the_shipped_hook_keeps_the_level_of_a_continuing_turn() -> None:
+def test_shipped_hook_keeps_level_of_continuing_turn() -> None:
   """An agentic step whose newest message is no user turn keeps the level of the last answer."""
   module = shipped_module()
   steps = [
@@ -308,7 +308,7 @@ def test_the_shipped_hook_keeps_the_level_of_a_continuing_turn() -> None:
   )
 
 
-def test_the_shipped_hook_keeps_the_client_value() -> None:
+def test_shipped_hook_keeps_client_value() -> None:
   """The shipped hook preserves a client effort and otherwise selects the classified level."""
   module = shipped_module()
   read = int(api.router.required_tier("why is this slow"))
@@ -320,7 +320,7 @@ def test_the_shipped_hook_keeps_the_client_value() -> None:
   assert value["reasoning_effort"] == module.LEVELS[read]
 
 
-def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
+def test_shipped_hook_floors_model_that_requires_reasoning() -> None:
   """Required reasoning selects `minimal` in this fixture, while the unrestricted model keeps `none`."""
   module = shipped_module()
   config = {
@@ -348,7 +348,7 @@ def test_the_shipped_hook_floors_a_model_that_requires_reasoning() -> None:
   assert value["reasoning_effort"] == "none", value
 
 
-def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
+def test_shipped_hook_writes_retry_key_and_code() -> None:
   """Try-again rule specifies turn from chat header, and writes `rtN` on a repeat."""
   module = shipped_module()
   value = {"digest": "d1"}
@@ -367,7 +367,7 @@ def test_the_shipped_hook_writes_the_retry_key_and_the_code() -> None:
   assert isinstance(rows[0][1], str) and rows[0][1]
 
 
-def test_a_hook_file_wins_over_the_client(
+def test_hook_file_wins_over_client(
   provider: Provider, hook_file: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """`reasoning_effort` of a hook file replaces value of client."""
@@ -378,7 +378,7 @@ def test_a_hook_file_wins_over_the_client(
   assert written["reasoning_effort"] == "max"
 
 
-def test_the_shipped_hook_reads_the_newest_turn() -> None:
+def test_shipped_hook_reads_newest_turn() -> None:
   """The level comes from the newest user turn, not from turns joined."""
   module = shipped_module()
   # Other tests may leave an applied threshold behind. The pair needs the fresh state.
@@ -403,7 +403,7 @@ def test_the_shipped_hook_reads_the_newest_turn() -> None:
   )
 
 
-def test_the_shipped_hook_reads_a_parted_content() -> None:
+def test_shipped_hook_reads_parted_content() -> None:
   """A newest turn that carries a list of parts reads as its text."""
   module = shipped_module()
   value: dict = {}
@@ -413,7 +413,7 @@ def test_the_shipped_hook_reads_a_parted_content() -> None:
   assert value["reasoning_effort"] == module.LEVELS[read]
 
 
-def test_the_shipped_hook_caps_the_model_turn() -> None:
+def test_shipped_hook_caps_model_turn() -> None:
   """Join the model and newest user turns, with a cap on the model portion."""
   module = shipped_module()
   answer, newest = "a" * 900, "thanks"
@@ -432,7 +432,7 @@ def test_the_shipped_hook_caps_the_model_turn() -> None:
   )
 
 
-def test_the_shipped_hook_reads_the_declared_cap() -> None:
+def test_shipped_hook_reads_declared_cap() -> None:
   """Model turn cap follows the value that Hooks page saves."""
   source = (
     Path(__file__).resolve().parents[2] / "hooks" / "owui_auto_reasoning_effort.py"
@@ -457,7 +457,7 @@ def test_the_shipped_hook_reads_the_declared_cap() -> None:
   assert len(text) < module.ANSWER_CHARS, "the saved cap is below the default"
 
 
-def test_the_shipped_hook_ladders_the_catalog_efforts(
+def test_shipped_hook_ladders_catalog_efforts(
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
   """A model with a catalog effort list ladders by that list, over the coded set."""
@@ -497,7 +497,7 @@ def test_the_shipped_hook_ladders_the_catalog_efforts(
   assert value["reasoning_effort"] == "high", "one step up on the list of the catalog"
 
 
-def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:
+def test_shipped_hook_ladders_efforts_of_model() -> None:
   """`supported_reasoning_efforts` key of a model re-indexes ladder of hook."""
   module = shipped_module()
   config = {
@@ -529,7 +529,7 @@ def test_the_shipped_hook_ladders_the_efforts_of_the_model() -> None:
   )
 
 
-def test_an_installed_file_runs_on_prompt_without_a_key(
+def test_installed_file_runs_on_prompt_without_key(
   provider: Provider, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """An installed file with a `surfaces` block sets the level with no `hooks` key in the settings."""

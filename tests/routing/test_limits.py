@@ -98,7 +98,7 @@ def test_number_keeps_finite_values(value, expected) -> None:
 
 @pytest.mark.parametrize("field", ["limit", "remaining"])
 @pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e309"])
-def test_headers_drop_an_invalid_count(field, value) -> None:
+def test_headers_drop_invalid_count(field, value) -> None:
   """An invalid count drops only its header group."""
   headers = {**GROQ, f"x-ratelimit-{field}-requests": value}
   rows = limits.header_rows("groq", headers, NOW)
@@ -120,7 +120,7 @@ def test_rows() -> None:
 
 
 @pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity", "1e309", 10**1000])
-def test_quota_drops_an_invalid_count(value) -> None:
+def test_quota_drops_invalid_count(value) -> None:
   """Invalid quota values do not become limit rows."""
   body = gemini_quota(
     "gemma-4-26b",
@@ -363,7 +363,7 @@ def test_bare_headers() -> None:
   )
 
 
-def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
+def test_advertised_resets_notify_at_boundary_once(tmp_path: Path) -> None:
   """TPM, RPM, RPH, and RPD wait for their advertised time, then notify once with the boundary time."""
   now = [NOW]
   boundary = NOW + 60
@@ -408,7 +408,7 @@ def test_advertised_resets_notify_at_the_boundary_once(tmp_path: Path) -> None:
   assert found.resets() == events, "reading the due boundary again adds no event"
 
 
-def test_a_limit_warning_is_kept_once_per_low_limit_crossing(tmp_path: Path) -> None:
+def test_limit_warning_is_kept_once_per_low_limit_crossing(tmp_path: Path) -> None:
   """A low limit becomes one persisted notification until its allowance resets."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
@@ -465,7 +465,7 @@ def test_a_limit_warning_is_kept_once_per_low_limit_crossing(tmp_path: Path) -> 
   assert restored.warnings() == repeated, "one advertised window cannot alert twice"
 
 
-def test_a_newer_advertised_boundary_replaces_the_pending_one(tmp_path: Path) -> None:
+def test_newer_advertised_boundary_replaces_pending_one(tmp_path: Path) -> None:
   """One scope keeps its newest provider boundary, even when another model reports it."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
@@ -491,7 +491,7 @@ def test_a_newer_advertised_boundary_replaces_the_pending_one(tmp_path: Path) ->
   assert len(events) == 1 and events[0]["at"] == second, events
 
 
-def test_reset_boundaries_and_deduplication_survive_a_restart(tmp_path: Path) -> None:
+def test_reset_boundaries_and_deduplication_survive_restart(tmp_path: Path) -> None:
   """New Limits instances restore pending boundaries and retain event deduplication."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
@@ -590,7 +590,7 @@ async def test_cloudflare_neurons_reset_at_utc_midnight(tmp_path: Path) -> None:
   ]
 
 
-def test_rows_survive_a_restart(tmp_path: Path) -> None:
+def test_rows_survive_restart(tmp_path: Path) -> None:
   """New Limits instances restore lane rows and balances until clear removes the saved state."""
   path = tmp_path / "models.sqlite3"
   found = limits.Limits(clock=lambda: NOW, path=lambda: path)
@@ -610,7 +610,7 @@ def test_rows_survive_a_restart(tmp_path: Path) -> None:
   assert empty.view() == {"checked": None, "providers": [], "lanes": []}
 
 
-def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
+def test_bad_saved_view_is_dropped(tmp_path: Path) -> None:
   """A saved view with a bad lane, card, or time keeps the parts that fit and drops the rest."""
   path = tmp_path / "models.sqlite3"
   found = limits.Limits(clock=lambda: NOW, path=lambda: path)
@@ -648,7 +648,7 @@ def test_a_bad_saved_view_is_dropped(tmp_path: Path) -> None:
   assert cut.view() == {"checked": None, "providers": [], "lanes": []}
 
 
-async def test_check_keeps_a_failed_card(cooldowns: Cooldowns) -> None:
+async def test_check_keeps_failed_card(cooldowns: Cooldowns) -> None:
   """A provider that refuses a read now keeps the card of the last good read."""
   config = {"kilo": {"api_key": "k"}}
   async with httpx.AsyncClient(transport=httpx.MockTransport(answer)) as client:
@@ -784,7 +784,7 @@ def test_balance_amounts_keep_decimal_precision_and_raw_shares() -> None:
   ]
 
 
-async def test_old_balance_cards_wait_for_a_successful_refresh(tmp_path: Path) -> None:
+async def test_old_balance_cards_wait_for_successful_refresh(tmp_path: Path) -> None:
   """An old card resets without changing rate rows, pending resets, or warning state."""
   now = [NOW]
   path = tmp_path / "models.sqlite3"
@@ -829,7 +829,7 @@ async def test_old_balance_cards_wait_for_a_successful_refresh(tmp_path: Path) -
   assert restored.warnings() == again.warnings()
 
 
-def test_neuron_sum_overflow_remains_a_failed_read() -> None:
+def test_neuron_sum_overflow_remains_failed_read() -> None:
   """An overflowing sum raises a value error instead of entering a JSON balance card."""
   data = {
     "data": {

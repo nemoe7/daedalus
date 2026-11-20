@@ -75,7 +75,7 @@ async def client():
 CHAT = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"}]}
 
 
-async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> None:
+async def test_race_runs_and_row_shows_it(client: httpx.AsyncClient) -> None:
   """A stream to a pool starts the next model, and the loser lands in the ladder."""
   await client.post("/v1/chat/completions", json=CHAT)
   assert dashboard.HISTORY.latest()[0]["race"] == "drawn", (
@@ -96,7 +96,7 @@ async def test_the_race_runs_and_the_row_shows_it(client: httpx.AsyncClient) -> 
   ] == ["won"]
 
 
-async def test_a_non_stream_request_races_and_reads_our_stream(
+async def test_non_stream_request_races_and_reads_our_stream(
   client: httpx.AsyncClient,
 ) -> None:
   """A request with no stream reads our own stream, so the race runs for it too."""
@@ -111,7 +111,7 @@ async def test_a_non_stream_request_races_and_reads_our_stream(
   assert results == ["answered", "lost race"], row["attempts"]
 
 
-async def test_a_flagged_pool_holds_the_race(client: httpx.AsyncClient) -> None:
+async def test_flagged_pool_holds_race(client: httpx.AsyncClient) -> None:
   """With each model flagged `streams: false`, one whole body answers and the gate holds."""
   config.set_config(
     {
@@ -130,7 +130,7 @@ async def test_a_flagged_pool_holds_the_race(client: httpx.AsyncClient) -> None:
   assert len(SEEN) == 1 and STREAMS == [False], (SEEN, STREAMS)
 
 
-async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> None:
+async def test_runner_that_wins_takes_pin(client: httpx.AsyncClient) -> None:
   """A racing model that answers first reads as rce, the new pin code."""
   api.PARALLEL_ENABLED = False
   await client.post("/v1/chat/completions", json=CHAT)
@@ -154,7 +154,7 @@ async def test_a_runner_that_wins_takes_the_pin(client: httpx.AsyncClient) -> No
   }, row
 
 
-async def test_a_first_model_that_wins_keeps_the_pin(client: httpx.AsyncClient) -> None:
+async def test_first_model_that_wins_keeps_pin(client: httpx.AsyncClient) -> None:
   """When the first model answers first, the row keeps its usual transition."""
   api.PARALLEL_ENABLED = False
   await client.post("/v1/chat/completions", json=CHAT)

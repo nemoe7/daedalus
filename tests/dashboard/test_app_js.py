@@ -241,7 +241,7 @@ assert.strictEqual(nav.style.props['--fade-right'], undefined, 'CSS scroll timel
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_boots_the_app_with_the_server_settings(
+def test_app_js_boots_app_with_server_settings(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A stored session sets app visibility, theme, and time format."""
@@ -333,7 +333,7 @@ assert(el("requests").innerHTML.includes(LOCALE["request.empty.none_text"]));
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_hides_the_empty_row_when_a_request_goes_live(
+def test_app_js_hides_empty_row_when_request_goes_live(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A live start event clears the empty-request markup."""
@@ -414,7 +414,7 @@ sandbox.call = async (path) => {
   client.cookies.clear()
 
 
-def test_app_js_settings_groups_ship_in_the_defaults() -> None:
+def test_app_js_settings_groups_ship_in_defaults() -> None:
   """Static app.js settings groups exist in `settings.DEFAULTS`."""
   source = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
@@ -444,7 +444,7 @@ assert.strictEqual(message.textContent, LOCALE["validation.characters_at_most_te
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_each_screen_starts_with_a_named_heading() -> None:
+def test_each_screen_starts_with_named_heading() -> None:
   """The header tabs name each screen, and document title tracks the active view."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -463,7 +463,7 @@ def test_each_screen_starts_with_a_named_heading() -> None:
   assert 'document.title = t("page.title", { page: PAGE_LABELS[page] });' in app
 
 
-def test_notification_warnings_open_the_limits_page() -> None:
+def test_notification_warnings_open_limits_page() -> None:
   """A limit warning links to Limits filtered by its model."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -476,7 +476,7 @@ def test_notification_warnings_open_the_limits_page() -> None:
   )
 
 
-def test_rebuild_counts_carry_their_label() -> None:
+def test_rebuild_counts_carry_label() -> None:
   """A rebuild row names each count instead of printing a bare sign."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -486,7 +486,7 @@ def test_rebuild_counts_carry_their_label() -> None:
     assert f'"notification.diff_{kind}_text"' in en
 
 
-def test_limit_bars_wait_for_a_limit_to_move() -> None:
+def test_limit_bars_wait_for_limit_to_move() -> None:
   """The Limits table draws a bar only when a row sits below its cap."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -526,7 +526,7 @@ def test_requests_reads_model_served_effort() -> None:
   )
 
 
-def test_the_requests_table_keeps_the_app_and_the_session() -> None:
+def test_requests_table_keeps_app_and_session() -> None:
   """Request markup and CSS contain no narrow-desktop hiding class."""
   root = Path(__file__).resolve().parent.parent.parent
   html = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -576,7 +576,7 @@ def test_narrow_desktop_header_keeps_one_row() -> None:
   assert "align-items: stretch;" in bar, "the tab underline reaches the header line"
 
 
-def test_app_js_type_chips_drop_the_redundant_media_flag() -> None:
+def test_app_js_type_chips_drop_redundant_media_flag() -> None:
   """Type chip markup omits media flags already implied by the mode."""
   code = _app_js_vm(
     """
@@ -619,7 +619,7 @@ assert(card.includes('class="line rebuild"'), 'the catalog line starts a rebuild
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_model_rows_keep_the_type_on_a_phone() -> None:
+def test_app_js_model_rows_keep_type_on_phone() -> None:
   """Model-row markup retains mode and capability chips for phone layouts."""
   code = """
 const fs = require('fs');
@@ -718,7 +718,7 @@ assert.strictEqual(el('modal-input2').value, 'v', 'the value keeps its value');
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_discovery_match_add_does_not_use_the_client_key_dialog() -> None:
+def test_discovery_match_add_does_not_use_client_key_dialog() -> None:
   """Discovery-match code uses its own title and property placeholder keys."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -729,7 +729,7 @@ def test_discovery_match_add_does_not_use_the_client_key_dialog() -> None:
   assert '"provider.discovery_property_placeholder":' in catalog
 
 
-def test_provider_values_add_opens_a_two_field_modal() -> None:
+def test_provider_values_add_opens_two_field_modal() -> None:
   """Provider-value code includes a modal select, an add handler, and a title key."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -822,7 +822,7 @@ assert.strictEqual(text({ cancelled: true }), LOCALE["request.state.cancelled_te
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_the_mark_files_match_the_icon_folder() -> None:
+def test_mark_files_match_icon_folder() -> None:
   """The app.js mark set matches shipped SVG filenames."""
   source = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = source.partition("const MARK_FILES = new Set([")[2].partition("]);")[0]
@@ -1033,7 +1033,7 @@ assert(!liveHtml.includes('data-chain-at'), 'live rows carry no chain button');
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_live_served_by_shows_the_trying_marks() -> None:
+def test_app_js_live_served_by_shows_trying_marks() -> None:
   """Live Served by markup uses provider and developer marks for the attempted model."""
   run_app_js(
     "state, renderLive",
@@ -1057,7 +1057,7 @@ assert(!servedBy.includes('trying cloudflare/@cf/zai-org/glm-4.7-flash'),
   )
 
 
-def test_app_js_live_clocks_wait_for_the_first_token() -> None:
+def test_app_js_live_clocks_wait_for_first_token() -> None:
   """Stream-time fields stay empty until the first token, with or without streaming."""
   code = """
 const fs = require('fs');
@@ -1114,7 +1114,7 @@ assert(stream.textContent.endsWith('s'),
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_the_header_lists_six_tabs_with_settings_last(client: TestClient) -> None:
+def test_header_lists_six_tabs_with_settings_last(client: TestClient) -> None:
   """Header markup and page routes list six tabs, and Providers lives inside Settings."""
   page = client.get("/")
   nav = page.text[
@@ -1138,7 +1138,7 @@ def test_the_header_lists_six_tabs_with_settings_last(client: TestClient) -> Non
   assert 'data-page="providers"' not in page.text
 
 
-def test_the_phone_limits_row_keeps_every_field() -> None:
+def test_phone_limits_row_keeps_every_field() -> None:
   """A phone limit row draws the reset and last-seen values that the desk columns hide."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1160,7 +1160,7 @@ def test_the_phone_limits_row_keeps_every_field() -> None:
   )
 
 
-def test_the_feed_and_the_log_name_their_own_state() -> None:
+def test_feed_and_log_name_own_state() -> None:
   """The notification feed opens on its first event, with no count strip over it."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1230,7 +1230,7 @@ assert(node('modal-title').textContent.startsWith('scheduled ·'),
   )
 
 
-def test_a_rebuild_row_opens_the_diff_modal() -> None:
+def test_rebuild_row_opens_diff_modal() -> None:
   """Rebuild-row code uses shared diff descriptors and opens a modal instead of an inline row."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1312,7 +1312,7 @@ assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
   assert "flex-wrap: wrap" in chips.group(1), "the chips wrap after moving as a group"
 
 
-def test_a_settings_rebuild_redraws_the_keys_rows() -> None:
+def test_settings_rebuild_redraws_keys_rows() -> None:
   """The keys table survives a settings rebuild, such as the YAML round trip."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   body = app.partition("function renderSettings() {")[2].partition("\n}\n")[0]
@@ -1321,7 +1321,7 @@ def test_a_settings_rebuild_redraws_the_keys_rows() -> None:
   )
 
 
-def test_select_section_scopes_its_queries_to_its_own_host() -> None:
+def test_select_section_scopes_queries_to_own_host() -> None:
   """A host selection leaves the nested providers rail and cards alone."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   body = app.partition("function selectSection(host, key,")[2].partition("\n}\n")[0]
@@ -1333,7 +1333,7 @@ def test_select_section_scopes_its_queries_to_its_own_host() -> None:
   )
 
 
-def test_provider_tiles_carry_the_vendored_marks() -> None:
+def test_provider_tiles_carry_vendored_marks() -> None:
   """Provider rows in section rail draw vendored mark in tile."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1348,7 +1348,7 @@ def test_provider_tiles_carry_the_vendored_marks() -> None:
   assert "width: 16px" in tile, "the tile sizes the mark like its glyph"
 
 
-def test_the_page_scroll_does_not_wait_on_has_support() -> None:
+def test_page_scroll_does_not_wait_on_has_support() -> None:
   """The page layout of main rides on a dataset page, so one scrollbar survives old browsers."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1363,7 +1363,7 @@ def test_the_page_scroll_does_not_wait_on_has_support() -> None:
   )
 
 
-def test_the_model_dialog_counts_use_rates_on_open() -> None:
+def test_model_dialog_counts_use_rates_on_open() -> None:
   """The model dialog derives use rates from the request rows when it opens."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1545,7 +1545,7 @@ assert.strictEqual(probe.state.files[0].text, 'unsaved desktop draft',
   )
 
 
-def test_the_provider_flow_keeps_one_scroll_owner() -> None:
+def test_provider_flow_keeps_one_scroll_owner() -> None:
   """The provider flow fills the pane without nesting a second card around its form."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1572,7 +1572,7 @@ def test_the_provider_flow_keeps_one_scroll_owner() -> None:
   assert 'pane.classList.toggle("fit-host"' in app, "the pane learns what it holds"
 
 
-def test_the_maintenance_actions_share_one_row() -> None:
+def test_maintenance_actions_share_one_row() -> None:
   """Reset and check buttons ride one row, with hint at right."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -1592,7 +1592,7 @@ def test_the_maintenance_actions_share_one_row() -> None:
   assert ".yaml-save {" not in css, "the yaml row rides the shared class too"
 
 
-def test_the_fallback_chain_opens_in_a_modal() -> None:
+def test_fallback_chain_opens_in_modal() -> None:
   """The chain cell opens a dialog instead of expanding a list in place."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1618,7 +1618,7 @@ def test_the_fallback_chain_opens_in_a_modal() -> None:
   ), "chain modal uses Clause 15 outside decimal markers without inline ordinals"
 
 
-def test_keys_page_holds_its_labels_on_one_line() -> None:
+def test_keys_page_holds_labels_on_one_line() -> None:
   """Keys and button CSS prevent key values and labels from wrapping."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -1633,7 +1633,7 @@ def test_keys_page_holds_its_labels_on_one_line() -> None:
   )
 
 
-def test_the_short_values_carry_their_full_text() -> None:
+def test_short_values_carry_full_text() -> None:
   """Request headers and short-value code include full-text titles."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -1709,7 +1709,7 @@ def test_the_short_values_carry_their_full_text() -> None:
   )
 
 
-def test_the_parallel_race_reads_on_the_page() -> None:
+def test_parallel_race_reads_on_page() -> None:
   """Race output includes the legend, winner, and chain labels."""
   app = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/app.js"
@@ -1853,7 +1853,7 @@ assert.strictEqual(kpis.dataset.wrapped, undefined, "unwraps back to 1 row at 70
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_provider_back_controls_have_room_and_a_touch_target() -> None:
+def test_provider_back_controls_have_room_and_touch_target() -> None:
   """Back controls have a measured gap, padded glyph, and phone touch target."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2158,7 +2158,7 @@ assert(!html.includes('>' + tokensPerMinute + '</td>'), 'the cell text stays sho
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
+def test_overview_pool_rows_draw_marks_of_top_model() -> None:
   """Overview pool-row code calls the shared model-name formatter."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2172,7 +2172,7 @@ def test_the_overview_pool_rows_draw_the_marks_of_the_top_model() -> None:
   assert "top ? esc(top.id)" not in app, "no pool row keeps the plain model id"
 
 
-def test_each_model_filter_selection_moves_the_rows_only() -> None:
+def test_each_model_filter_selection_moves_rows_only() -> None:
   """Model filter code routes input, sort, and mode changes through selectRows."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2191,7 +2191,7 @@ def test_each_model_filter_selection_moves_the_rows_only() -> None:
   assert "renderModels();" not in toolbar, "each selection goes through selectRows"
 
 
-def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
+def test_motion_reaches_modal_sections_and_switches() -> None:
   """Modal, section, file, and switch code includes shared motion hooks and CSS."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2230,7 +2230,7 @@ def test_the_motion_reaches_the_modal_the_sections_and_the_switches() -> None:
   ), "the phone slides the pane and rail with GSAP"
 
 
-def test_the_settings_sections_carry_a_rule() -> None:
+def test_settings_sections_carry_rule() -> None:
   """Settings CSS defines header separators, and section code uses localized titles."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -2255,7 +2255,7 @@ def test_the_settings_sections_carry_a_rule() -> None:
   )
 
 
-def test_the_settings_back_keeps_its_slide() -> None:
+def test_settings_back_keeps_slide() -> None:
   """Settings-page code renders the provider cards before selection and slide replay."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2314,7 +2314,7 @@ assert.strictEqual(sandbox.document.documentElement.dataset.keyboardNav, undefin
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_keeps_the_scroll_of_the_settings_pane() -> None:
+def test_app_js_keeps_scroll_of_settings_pane() -> None:
   """Settings helpers restore pane scroll, and render code saves it before replacing markup."""
   payload = json.dumps(
     {
@@ -2436,7 +2436,7 @@ assert.strictEqual(probe.listValue('routing', 'switch').length,
   )
 
 
-def test_app_js_provider_rows_draw_the_providers_glyph() -> None:
+def test_app_js_provider_rows_draw_providers_glyph() -> None:
   """The nested rail rows carry their mark or glyph, and every chip name exists."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
@@ -2604,7 +2604,7 @@ assert.deepStrictEqual(JSON.parse(JSON.stringify(probe.settingsChanges().hooks))
   )
 
 
-def test_app_js_a_one_provider_file_opens_its_provider_page() -> None:
+def test_app_js_one_provider_file_opens_provider_page() -> None:
   """A chip of a one-provider file drills straight into that provider page."""
   files = [
     {
@@ -2638,7 +2638,7 @@ assert.strictEqual(node('provider-form').dataset.detail, '0',
   )
 
 
-def test_app_js_settings_entry_shows_the_first_section_card() -> None:
+def test_app_js_settings_entry_shows_first_section_card() -> None:
   """A tab switch into Settings with no section in the hash shows one card."""
   payload = json.dumps(
     {
@@ -2688,7 +2688,7 @@ assert.strictEqual(shown[0].dataset.section, buttons[0].dataset.section,
   )
 
 
-def test_app_js_a_file_change_leaves_the_selection_of_the_other_file() -> None:
+def test_app_js_file_change_leaves_selection_of_other_file() -> None:
   """File changes select the new first section and reset the phone detail state."""
   files = [
     {
@@ -2729,7 +2729,7 @@ assert(html.includes(LOCALE["provider.yaml.file_hint"].replace("{{file}}", "free
   )
 
 
-def test_hook_chip_matches_the_keyword_chips() -> None:
+def test_hook_chip_matches_keyword_chips() -> None:
   """Hook markup uses shared pills, themed menu CSS, and listbox roles."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -2768,7 +2768,7 @@ def test_hook_chip_matches_the_keyword_chips() -> None:
   assert "data-hook-select" not in app, "no system menu on a chip"
 
 
-def test_app_js_affinity_modes_hide_their_rows() -> None:
+def test_app_js_affinity_modes_hide_rows() -> None:
   """Affinity mode selects its own row visibility without changing saved settings."""
   payload = json.dumps(
     {
@@ -3076,7 +3076,7 @@ assert.strictEqual(parts('https://github.com/owner/name'), '{"repo":"owner/name"
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_hook_page_rejects_a_value_out_of_range() -> None:
+def test_app_js_hook_page_rejects_value_out_of_range() -> None:
   """A page save checks each value against its field, so a wrong 1 names how to set it."""
   code = _app_js_vm(
     """
@@ -3099,7 +3099,7 @@ assert.strictEqual(sandbox.hookPageProblem({ settings: [] }, {}), null, 'no fiel
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_hook_page_validates_a_rule_list() -> None:
+def test_app_js_hook_page_validates_rule_list() -> None:
   """A rule list checks each column, keeps unique sources, and draws add and remove controls."""
   code = _app_js_vm(
     """
@@ -3159,7 +3159,7 @@ def test_app_js_redraw_needs_new_markup() -> None:
     assert f'$("{host}").innerHTML =' not in app, f"{host} still redraws every time"
 
 
-def test_app_js_draw_waits_for_a_live_selection() -> None:
+def test_app_js_draw_waits_for_live_selection() -> None:
   """An active selection delays markup replacement until the selection collapses."""
   code = _app_js_vm(
     """
@@ -3179,7 +3179,7 @@ assert(host.innerHTML === 'new', 'an unchanged table is not built again');
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_nav_marks_the_current_page_for_a_screen_reader() -> None:
+def test_app_js_nav_marks_current_page_for_screen_reader() -> None:
   """Route changes expose the active tab without changing focus or history."""
   run_app_js(
     "state, showPage, PAGES",
@@ -3222,7 +3222,7 @@ assert.strictEqual(sandbox.location.hash, `#/${last}`, 'the hash stays as routed
   )
 
 
-def test_app_js_requests_toolbar_narrows_the_table() -> None:
+def test_app_js_requests_toolbar_narrows_table() -> None:
   """Request filtering changes row markup and counts by text, status, and age."""
   code = """
 const fs = require('fs');
@@ -3404,7 +3404,7 @@ assert(node('ov-kpis').innerHTML.includes('<b>-</b>'), 'an unknown share reads a
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_the_tab_bar_fades_its_clipped_edges() -> None:
+def test_tab_bar_fades_clipped_edges() -> None:
   """The tab bar uses one shared edge mask. The header has no chevron controls."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -3503,7 +3503,7 @@ assert.strictEqual(fitHost, false, 'normal cards clear fit-host');
   )
 
 
-def test_app_js_fit_section_pane_spares_the_page_padding() -> None:
+def test_app_js_fit_section_pane_spares_page_padding() -> None:
   """Pane-height calculation subtracts page padding, pane offset, and the gap."""
   code = """
 const fs = require('fs');
@@ -3547,7 +3547,7 @@ assert.strictEqual(pane.style.maxHeight, '728px', 'the cap spares the page paddi
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_every_note_of_a_write_is_a_live_region() -> None:
+def test_every_note_of_write_is_live_region() -> None:
   """Write-message markup includes status or alert roles."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -3567,7 +3567,7 @@ def test_every_note_of_a_write_is_a_live_region() -> None:
   )
 
 
-def test_a_failed_read_shows_a_line_in_the_page() -> None:
+def test_failed_read_shows_line_in_page() -> None:
   """Failure-handling code preserves notices across reads and retries until explicit dismissal."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3593,7 +3593,7 @@ def test_a_failed_read_shows_a_line_in_the_page() -> None:
   assert "alert(" not in app, "no native dialog is left"
 
 
-def test_the_undo_never_moves_the_row() -> None:
+def test_undo_never_moves_row() -> None:
   """Undo CSS places the text button beside controls without adding left padding."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -3617,7 +3617,7 @@ def test_the_undo_never_moves_the_row() -> None:
   assert 'button.innerHTML = icon("undo_2");' not in app, "no icon-only Undo remains"
 
 
-def test_app_js_places_the_undo_beside_the_control() -> None:
+def test_app_js_places_undo_beside_control() -> None:
   """Provider and settings writes place Undo and save status in the changed row."""
   code = _app_js_vm(
     """
@@ -3670,7 +3670,7 @@ sandbox.clearInterval = () => {};
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_clears_the_undo_when_a_change_lands_back() -> None:
+def test_app_js_clears_undo_when_change_lands_back() -> None:
   """A clean settings state removes Undo without sending a request."""
   code = _app_js_vm(
     """
@@ -3699,7 +3699,7 @@ sandbox.document.querySelector = (sel) =>
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_hook_delete_keeps_the_title_out_of_the_request() -> None:
+def test_hook_delete_keeps_title_out_of_request() -> None:
   """Hook deletion uses file path and keeps title in dialog."""
   code = _app_js_vm(
     """
@@ -3740,7 +3740,7 @@ sandbox.fetch = async (url, options) => {
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_names_a_failure_with_no_message() -> None:
+def test_app_js_names_failure_with_no_message() -> None:
   """Request errors use server messages, HTTP status, or a localized network-failure message."""
   code = _app_js_vm(
     """
@@ -3767,7 +3767,7 @@ const answer = (status, body) => ({ ok: status < 400, status, json: () => Promis
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_the_requests_rows_show_a_relative_time() -> None:
+def test_requests_rows_show_relative_time() -> None:
   """Time-cell markup contains relative text and an exact timestamp title."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3800,7 +3800,7 @@ try {
   )
 
 
-def test_the_requests_table_has_a_live_switch() -> None:
+def test_requests_table_has_live_switch() -> None:
   """Live-switch code tracks waiting rows and guards paused rendering and clocks."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3819,7 +3819,7 @@ def test_the_requests_table_has_a_live_switch() -> None:
   )
 
 
-def test_the_limits_filter_rides_in_the_hash() -> None:
+def test_limits_filter_rides_in_hash() -> None:
   """Limit-filter source includes hash parsing, hash updates, and clear-button markup."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3859,7 +3859,7 @@ def test_the_limits_filter_rides_in_the_hash() -> None:
   )
 
 
-def test_the_requests_filters_ride_in_the_hash() -> None:
+def test_requests_filters_ride_in_hash() -> None:
   """Request-filter code reads queries and updates the hash."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3874,7 +3874,7 @@ def test_the_requests_filters_ride_in_the_hash() -> None:
   assert app.count("  requestHash();\n") == 4, app.count("  requestHash();\n")
 
 
-def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
+def test_phone_model_cards_carry_desktop_columns() -> None:
   """Phone model code includes context, reasoning, tier, and order chips without a Model label."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3898,7 +3898,7 @@ def test_the_phone_model_cards_carry_the_desktop_columns() -> None:
   assert "brain:" in app, "the reasoning chip is a brain"
 
 
-def test_the_page_carries_a_motion_base() -> None:
+def test_page_carries_motion_base() -> None:
   """Shared motion CSS defines duration tokens, easing, and reduced-motion rules."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -3935,7 +3935,7 @@ def test_the_page_carries_a_motion_base() -> None:
   )
 
 
-def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
+def test_live_row_arrives_and_stream_count_pulses() -> None:
   """Live-row source tracks arrivals and count changes with GSAP motion hooks."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3950,7 +3950,7 @@ def test_a_live_row_arrives_and_the_stream_count_pulses() -> None:
   )
 
 
-def test_the_first_data_of_a_card_arrives_once() -> None:
+def test_first_data_of_card_arrives_once() -> None:
   """First-draw source tracks marked hosts and triggers GSAP arrival motion."""
   root = Path(__file__).resolve().parents[2]
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -3963,7 +3963,7 @@ def test_the_first_data_of_a_card_arrives_once() -> None:
   assert 'firstDraw($("requests"));' in app, "the requests table marks itself too"
 
 
-def test_app_js_a_pool_selection_moves_the_models_table_only() -> None:
+def test_app_js_pool_selection_moves_models_table_only() -> None:
   """Model-filter hash changes add table animation without adding page-entry classes."""
   code = _app_js_vm(
     """
@@ -3995,7 +3995,7 @@ process.exit(0);
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_a_pending_call_spins_and_the_first_load_waits_on_skeletons() -> None:
+def test_pending_call_spins_and_first_load_waits_on_skeletons() -> None:
   """Loading source renders the nuu delayed header edge bar and fixed-slot button spin."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -4145,7 +4145,7 @@ assert(rendered.includes('<span class="back-label">Settings</span>'));
   )
 
 
-def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
+def test_phone_keeps_numbers_and_cards() -> None:
   """Phone CSS defines metric and card layouts, and tab code replaces history entries."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -4176,7 +4176,7 @@ def test_the_phone_keeps_the_numbers_and_the_cards() -> None:
   )
 
 
-def test_each_page_holds_a_section_list() -> None:
+def test_each_page_holds_section_list() -> None:
   """Settings and Provider source includes a section rail, detail pane, and back controls."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4202,7 +4202,7 @@ def test_each_page_holds_a_section_list() -> None:
     assert needle in style, needle
 
 
-def test_the_notice_leaves_on_its_own_keyframes() -> None:
+def test_notice_leaves_on_own_keyframes() -> None:
   """Notice-dismissal source uses GSAP exit tweening, a labeled button, and reduced-motion bypass."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -4219,7 +4219,7 @@ def test_the_notice_leaves_on_its_own_keyframes() -> None:
   assert "onComplete: () => {" in app
 
 
-def test_the_model_modal_reads_as_a_card() -> None:
+def test_model_modal_reads_as_card() -> None:
   """Model-modal source includes identity fields, labeled capability chips, and responsive stat CSS."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4282,7 +4282,7 @@ def test_the_model_modal_reads_as_a_card() -> None:
   )
 
 
-def test_the_providers_page_folds_the_long_groups() -> None:
+def test_providers_page_folds_long_groups() -> None:
   """Provider source uses closed detail groups with tooltip markup and handlers."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4309,7 +4309,7 @@ def test_the_providers_page_folds_the_long_groups() -> None:
   )
 
 
-def test_information_hovers_open_above_without_growing_the_settings_pane() -> None:
+def test_information_hovers_open_above_without_growing_settings_pane() -> None:
   """Information-tooltip CSS positions hints above their triggers outside normal layout."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4335,7 +4335,7 @@ def test_information_hovers_open_above_without_growing_the_settings_pane() -> No
   )
 
 
-def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
+def test_limits_poll_keeps_out_of_address_bar() -> None:
   """Limit hash updates require the Limits route, while clear-button state follows the filter."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4347,7 +4347,7 @@ def test_the_limits_poll_keeps_out_of_the_address_bar() -> None:
   )
 
 
-def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
+def test_yaml_editor_ends_each_list_and_saves_itself() -> None:
   """Section-list code ends with YAML and binds separate provider and settings save handlers."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4372,7 +4372,7 @@ def test_the_yaml_editor_ends_each_list_and_saves_itself() -> None:
   )
 
 
-def test_a_row_writes_itself_and_the_bar_is_gone() -> None:
+def test_row_writes_itself_and_bar_is_gone() -> None:
   """Value-row source replaces Save bars, and provider saves track errors and Undo data."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4450,7 +4450,7 @@ probe.showWrite('providers', failure, true);
   )
 
 
-def test_a_phone_opens_a_section_as_its_own_page() -> None:
+def test_phone_opens_section_as_own_page() -> None:
   """Section navigation code updates history and defines phone detail panes with named back controls."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4533,7 +4533,7 @@ def test_hook_table_columns() -> None:
   assert '<th>${t("hook.column.enabled_column")}</th>' in app
 
 
-def test_table_delete_buttons_use_the_trash_icon() -> None:
+def test_table_delete_buttons_use_trash_icon() -> None:
   """Key and hook deletion code uses trash icons instead of button text."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
@@ -4545,7 +4545,7 @@ def test_table_delete_buttons_use_the_trash_icon() -> None:
   assert 'data-hook-drop="${esc(row.path)}">Delete</button>' not in app, "the hook row"
 
 
-def test_hook_rows_wrap_the_title_and_show_the_sha() -> None:
+def test_hook_rows_wrap_title_and_show_sha() -> None:
   """Hook-row code includes title, author, and source-SHA spans with a shortened commit ID."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
@@ -4556,7 +4556,7 @@ def test_hook_rows_wrap_the_title_and_show_the_sha() -> None:
   assert "record.commit.slice(0, 7)" in app, "the SHA is cut to 7 characters"
 
 
-def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
+def test_hooks_card_orders_files_of_surface() -> None:
   """Hook-order code provides movement controls without changing explicit surface activation."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
@@ -4573,7 +4573,7 @@ def test_the_hooks_card_orders_the_files_of_a_surface() -> None:
   assert "grip_vertical" in app, "the drag handle draws a grip"
 
 
-def test_dashboard_form_rows_keep_their_contracts() -> None:
+def test_dashboard_form_rows_keep_contracts() -> None:
   """Form rows share one wrapper and keep each provider value state."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
@@ -4638,7 +4638,7 @@ assert.strictEqual((html.match(/<input class="text" type="(?:text|password)" rea
   )
 
 
-def test_dashboard_display_primitives_keep_their_contracts() -> None:
+def test_dashboard_display_primitives_keep_contracts() -> None:
   """Shared value renderers preserve trusted markup, escaped data, and exact wrappers."""
   app = (
     Path(__file__).resolve().parents[2] / "daedalus/dashboard/ui/app.js"
@@ -4702,7 +4702,7 @@ assert(!healthyMeter.includes('oklch, var(--accent)'), 'the healthy half keeps b
   )
 
 
-def test_dashboard_action_buttons_keep_their_contracts() -> None:
+def test_dashboard_action_buttons_keep_contracts() -> None:
   """One action renderer keeps native types, variants, states, and selectors."""
   root = Path(__file__).resolve().parents[2]
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -4805,7 +4805,7 @@ def test_dashboard_icons_and_feedback_keep_accessible_names() -> None:
   assert '<template id="modal-model-template" data-modal-template="model">' in page
 
 
-def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
+def test_dashboard_rows_keep_responsive_cell_order() -> None:
   """Model and request renderer source preserves the cell order used by phone CSS."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
 
@@ -4877,7 +4877,7 @@ def test_dashboard_rows_keep_their_responsive_cell_order() -> None:
   )
 
 
-def test_limits_rows_without_use_or_a_catalog_home_stay_hidden() -> None:
+def test_limits_rows_without_use_or_catalog_home_stay_hidden() -> None:
   """A row with no use and no catalog home hides, while an exhausted row stays."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -4904,7 +4904,7 @@ assert(!overview.includes('quiet') && !overview.includes('gone'),
   )
 
 
-def test_limit_check_time_is_relative_with_an_exact_hover() -> None:
+def test_limit_check_time_is_relative_with_exact_hover() -> None:
   """Check status uses shared time markup, stacks below Check now, and omits hourly text."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -4937,7 +4937,7 @@ assert.strictEqual(node('limits-checked').innerHTML, LOCALE['limits.not_checked_
   )
 
 
-def test_the_maintenance_card_lives_in_settings() -> None:
+def test_maintenance_card_lives_in_settings() -> None:
   """The update check, rebuild, and reset live in a Settings section."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")

@@ -14,7 +14,7 @@ MASTER = "test-master-key-0006"
 AUTH = {"Authorization": f"Bearer {MASTER}"}
 
 
-def test_catalog_route_starts_a_rebuild(monkeypatch) -> None:
+def test_catalog_route_starts_rebuild(monkeypatch) -> None:
   """A master-key POST starts the rebuild that the dashboard chip starts."""
   done = threading.Event()
   monkeypatch.setattr(api, "CATALOG_REFRESH", done.set)
@@ -24,13 +24,13 @@ def test_catalog_route_starts_a_rebuild(monkeypatch) -> None:
   assert done.wait(5.0), "the rebuild did not start"
 
 
-def test_catalog_route_needs_the_master_key() -> None:
+def test_catalog_route_needs_master_key() -> None:
   response = TestClient(api.app).post("/v1/catalog")
   assert response.status_code == 401
   assert response.json()["error"]["type"] == "authentication_error"
 
 
-def test_catalog_route_refuses_a_second_rebuild(monkeypatch) -> None:
+def test_catalog_route_refuses_second_rebuild(monkeypatch) -> None:
   monkeypatch.setattr(api, "CATALOG_REFRESH", lambda: None)
   monkeypatch.setattr(schedule, "BUSY", True)
   response = TestClient(api.app, headers=AUTH).post("/v1/catalog")
@@ -38,14 +38,14 @@ def test_catalog_route_refuses_a_second_rebuild(monkeypatch) -> None:
   assert response.json()["error"]["type"] == "invalid_request_error"
 
 
-def test_catalog_route_without_a_rebuild(monkeypatch) -> None:
+def test_catalog_route_without_rebuild(monkeypatch) -> None:
   monkeypatch.setattr(api, "CATALOG_REFRESH", None)
   response = TestClient(api.app, headers=AUTH).post("/v1/catalog")
   assert response.status_code == 503
   assert response.json()["error"]["type"] == "server_error"
 
 
-def test_the_control_calls_leave_no_request_row() -> None:
+def test_control_calls_leave_no_request_row() -> None:
   """The Requests page holds the model calls alone: a refused control call leaves no row."""
   client = TestClient(api.app)
   assert client.post("/v1/catalog").status_code == 401
@@ -53,7 +53,7 @@ def test_the_control_calls_leave_no_request_row() -> None:
   assert dashboard.HISTORY.latest() == [], "a control call is not a model request"
 
 
-async def test_startup_build_keeps_the_ui_and_api_available(monkeypatch) -> None:
+async def test_startup_build_keeps_ui_and_api_available(monkeypatch) -> None:
   """A blocked startup worker leaves the event loop and dashboard routes available."""
   store.write_store([])
   loop = asyncio.get_running_loop()

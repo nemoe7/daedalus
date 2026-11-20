@@ -169,7 +169,7 @@ def test_selection_on_every_answer(
   assert retry["usage"]["daedalus"]["line"] == "Model X"
 
 
-def test_a_request_point_runs_each_named_file() -> None:
+def test_request_point_runs_each_named_file() -> None:
   """The shipped file names no hook, and a request surface runs each file it names."""
   text = (FOLDER.parent / "config" / "daedalus.yml").read_text()
   assert "on-request:" not in text and "disabled:" not in text, (
@@ -188,7 +188,7 @@ def test_a_request_point_runs_each_named_file() -> None:
   assert hooks.request_files({"on-chunk": ""}, "on-chunk") == []
 
 
-def test_request_paths_add_the_installed_files_of_the_surface(
+def test_request_paths_add_installed_files_of_surface(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A request point also runs an installed file whose `surfaces` block names it, with no key."""
@@ -211,7 +211,7 @@ def test_request_paths_add_the_installed_files_of_the_surface(
   assert [path.name for path in named] == ["other.py", "probe.py"]
 
 
-def test_the_example_stays_out_of_the_folder_list(tmp_path: Path, monkeypatch) -> None:
+def test_example_stays_out_of_folder_list(tmp_path: Path, monkeypatch) -> None:
   """Example of base repo never lists as a hook file of folder."""
   root = tmp_path / "hooks"
   root.mkdir()
@@ -224,7 +224,7 @@ def test_the_example_stays_out_of_the_folder_list(tmp_path: Path, monkeypatch) -
   assert [path.name for path in hooks.installed_files()] == ["one.py"]
 
 
-def test_the_client_scope_gates_on_the_app_of_the_request(
+def test_client_scope_gates_on_app_of_request(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A file with the client scope runs only for a request of 1 of its target apps."""

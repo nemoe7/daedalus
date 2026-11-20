@@ -411,12 +411,12 @@ async def client():
     yield client
 
 
-def test_app_version_follows_the_build() -> None:
+def test_app_version_follows_build() -> None:
   """FastAPI reports the version of the build, not a fixed string."""
   assert api.app.version == __version__
 
 
-async def test_upstream_client_pool_covers_the_race() -> None:
+async def test_upstream_client_pool_covers_race() -> None:
   """Check that client pool limits match the configured capacity and exceed eleven connections."""
   client = upstream.new_client()
   try:

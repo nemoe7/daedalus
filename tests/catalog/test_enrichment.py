@@ -79,7 +79,7 @@ def broken(url: str, headers: dict[str, str]) -> dict:
   raise httpx.HTTPError("boom")
 
 
-def test_litellm_entries_keys_the_rows_by_slug() -> None:
+def test_litellm_entries_keys_rows_by_slug() -> None:
   """Provider prefix comes off id, and slug is key."""
   fetch, _ = sequenced(PAGE)
   assert enrichment.litellm_entries("openrouter", fetch) == {
@@ -87,7 +87,7 @@ def test_litellm_entries_keys_the_rows_by_slug() -> None:
   }
 
 
-def test_litellm_entries_reads_the_price_map() -> None:
+def test_litellm_entries_reads_price_map() -> None:
   """The price map filters by provider, skips sample_spec, and keys by slug."""
   from daedalus.catalog import discovery
 
@@ -130,7 +130,7 @@ def test_litellm_entries_reads_the_price_map() -> None:
   }
 
 
-def test_litellm_entries_reads_until_a_page_says_no_more() -> None:
+def test_litellm_entries_reads_until_page_says_no_more() -> None:
   """`has_more` true means one more read."""
   fetch, seen = sequenced(
     {"data": [{"id": "openrouter/a"}], "has_more": True},
@@ -140,7 +140,7 @@ def test_litellm_entries_reads_until_a_page_says_no_more() -> None:
   assert len(seen) == 2
 
 
-def test_litellm_entries_stops_at_the_page_limit() -> None:
+def test_litellm_entries_stops_at_page_limit() -> None:
   """A catalog that always says more still stops at the page limit."""
   fetch, seen = sequenced(
     *[{"data": [], "has_more": True} for _ in range(MAX_PAGES + 5)]
@@ -149,7 +149,7 @@ def test_litellm_entries_stops_at_the_page_limit() -> None:
   assert len(seen) == MAX_PAGES
 
 
-def test_litellm_entries_skips_a_row_with_no_id() -> None:
+def test_litellm_entries_skips_row_with_no_id() -> None:
   """A row with no string id never reaches the catalog."""
   fetch, _ = sequenced(
     {"data": [{"id": 5}, {"id": "openrouter/a"}, "nope"], "has_more": False}
@@ -157,7 +157,7 @@ def test_litellm_entries_skips_a_row_with_no_id() -> None:
   assert set(enrichment.litellm_entries("openrouter", fetch)) == {"a"}
 
 
-def test_litellm_entries_asks_for_the_catalog_name_of_the_provider() -> None:
+def test_litellm_entries_asks_for_catalog_name_of_provider() -> None:
   """`z-ai` reads as `zai`, and `kilo` reads as `openrouter`."""
   for provider, name in enrichment.LITELLM_PROVIDER.items():
     fetch, seen = sequenced({"data": [{"id": f"{name}/a"}], "has_more": False})
@@ -165,7 +165,7 @@ def test_litellm_entries_asks_for_the_catalog_name_of_the_provider() -> None:
     assert f"provider={name}" in seen[0]
 
 
-def test_modelschemas_entries_keys_the_rows_by_the_raw_id() -> None:
+def test_modelschemas_entries_keys_rows_by_raw_id() -> None:
   """The raw id is the slug key, and a row without one stays out."""
   fetch, _ = sequenced(MS_PAGE)
   assert set(enrichment.modelschemas_entries("openrouter", fetch)) == {
@@ -178,7 +178,7 @@ def test_modelschemas_entries_keys_the_rows_by_the_raw_id() -> None:
   }
 
 
-def test_modelschemas_entries_asks_for_the_service_name_of_the_provider() -> None:
+def test_modelschemas_entries_asks_for_service_name_of_provider() -> None:
   """`cloudflare` reads as `cloudflare-workers-ai`, and `z-ai` as `zai`."""
   for provider, name in enrichment.MODELSCHEMAS_PROVIDER.items():
     fetch, seen = sequenced({})
@@ -186,7 +186,7 @@ def test_modelschemas_entries_asks_for_the_service_name_of_the_provider() -> Non
     assert f"provider={name}" in seen[0]
 
 
-def test_modelschemas_columns_reads_the_flag_and_the_ladder() -> None:
+def test_modelschemas_columns_reads_flag_and_ladder() -> None:
   """The flag comes from capabilities, ladder from the reasoning fact, lowest first."""
   rows = {row["rawId"]: row for row in MS_PAGE["models"] if "rawId" in row}
   # a published name outside the vocabulary drops, and the list sorts lowest first
@@ -215,17 +215,17 @@ def test_modelschemas_columns_reads_the_flag_and_the_ladder() -> None:
   assert enrichment.modelschemas_columns(rows["f"]) == {"supports_reasoning": True}
 
 
-def test_column_values_keeps_only_the_stored_columns() -> None:
+def test_column_values_keeps_only_stored_columns() -> None:
   """A key that is not a stored column stays out of the row."""
   assert enrichment.column_values({"rpm": 5, "not_a_column": 1}) == {"rpm": 5}
 
 
-def test_column_values_drops_a_value_that_is_none() -> None:
+def test_column_values_drops_value_that_is_none() -> None:
   """A column the block does not set does not overwrite the catalog."""
   assert enrichment.column_values({"rpm": None}) == {}
 
 
-def test_column_values_turns_tools_into_the_function_calling_flag() -> None:
+def test_column_values_turns_tools_into_function_calling_flag() -> None:
   """The `tools` config value maps to the boolean function-calling column."""
   assert enrichment.column_values({"tools": True}) == {
     "supports_function_calling": True
@@ -235,7 +235,7 @@ def test_column_values_turns_tools_into_the_function_calling_flag() -> None:
   }
 
 
-def test_config_params_applies_a_pattern_that_matches() -> None:
+def test_config_params_applies_pattern_that_matches() -> None:
   """A matching `models` entry beats the provider value."""
   found = enrichment.config_params(
     {"rpm": 5, "models": {"*big*": {"rpm": 1}}}, "a-big-model"
@@ -243,7 +243,7 @@ def test_config_params_applies_a_pattern_that_matches() -> None:
   assert found["rpm"] == 1
 
 
-def test_config_params_ignores_a_pattern_that_does_not_match() -> None:
+def test_config_params_ignores_pattern_that_does_not_match() -> None:
   """A pattern the slug fails keeps the provider value."""
   found = enrichment.config_params(
     {"rpm": 5, "models": {"*small*": {"rpm": 1}}}, "a-big-model"
@@ -251,7 +251,7 @@ def test_config_params_ignores_a_pattern_that_does_not_match() -> None:
   assert found["rpm"] == 5
 
 
-def test_config_params_takes_the_last_matching_entry() -> None:
+def test_config_params_takes_last_matching_entry() -> None:
   """Two matching entries resolve in file order, so the later one wins."""
   block = {"models": {"*big*": {"rpm": 1}, "*model": {"rpm": 2}}}
   assert enrichment.config_params(block, "a-big-model")["rpm"] == 2
@@ -279,7 +279,7 @@ def test_enrich_reads_each_provider_once() -> None:
   assert problems == []
 
 
-def test_enrich_gives_a_text_row_the_chat_mode() -> None:
+def test_enrich_gives_text_row_chat_mode() -> None:
   """A row no catalog names takes the chat mode, and a media row keeps its own mode."""
   fetch, _ = sequenced({"data": [], "has_more": False}, {"models": []})
   rows, problems = enrichment.enrich(["openrouter/new-model"], {}, fetch)
@@ -295,7 +295,7 @@ def test_enrich_gives_a_text_row_the_chat_mode() -> None:
   assert rows[0]["mode"] == "image_generation", rows[0]["mode"]
 
 
-def test_enrich_reads_the_providers_at_the_same_time() -> None:
+def test_enrich_reads_providers_at_same_time() -> None:
   """The provider reads can satisfy a two-party synchronization barrier."""
   both = threading.Barrier(2, timeout=5)
 
@@ -322,7 +322,7 @@ def test_enrich_logs_each_source_read(caplog) -> None:
     assert told[0].args == ("openrouter", count)
 
 
-def test_enrich_reports_a_catalog_that_failed() -> None:
+def test_enrich_reports_catalog_that_failed() -> None:
   """A provider whose reads raised takes one problem line per source, and the rows still come out."""
   failed: list[str] = []
   rows, problems = enrichment.enrich(
@@ -335,7 +335,7 @@ def test_enrich_reports_a_catalog_that_failed() -> None:
   assert [row["id"] for row in rows] == ["openrouter/a", "openrouter/b"]
 
 
-def test_enrich_reports_a_modelschemas_source_that_failed() -> None:
+def test_enrich_reports_modelschemas_source_that_failed() -> None:
   """Only the modelschemas read failed: one problem line, and the other source still fills."""
   failed: list[str] = []
 
@@ -353,7 +353,7 @@ def test_enrich_reports_a_modelschemas_source_that_failed() -> None:
   assert rows[0]["rpm"] == 9
 
 
-def test_enrich_fills_only_what_the_earlier_sources_left_empty() -> None:
+def test_enrich_fills_only_what_earlier_sources_left_empty() -> None:
   """modelschemas fills gaps while native columns and config values take precedence."""
   fetch, _ = sequenced(PAGE, MS_PAGE)
   config = {"openrouter": {"models": {"c": {"supported_reasoning_efforts": ["xhigh"]}}}}
@@ -411,7 +411,7 @@ def test_config_keeps_reasoning_without_native_rows() -> None:
   } == {slug: (True, ["none", "max"]) for slug in slugs}
 
 
-def test_enrich_keeps_the_litellm_ladder_over_modelschemas() -> None:
+def test_enrich_keeps_litellm_ladder_over_modelschemas() -> None:
   """A ladder catalog holds stays over the one the service names."""
   litellm = {
     "data": [{"id": "openrouter/g", "supported_efforts": ["high"]}],
@@ -432,7 +432,7 @@ def test_enrich_keeps_the_litellm_ladder_over_modelschemas() -> None:
   assert rows[0]["supported_efforts"] == ["high"]
 
 
-def test_enrich_lets_the_native_columns_beat_the_catalog() -> None:
+def test_enrich_lets_native_columns_beat_catalog() -> None:
   """Native RPM overrides the LiteLLM RPM."""
   fetch, _ = sequenced(PAGE)
   rows, _ = enrichment.enrich(
@@ -441,7 +441,7 @@ def test_enrich_lets_the_native_columns_beat_the_catalog() -> None:
   assert rows[0]["rpm"] == 1
 
 
-def test_enrich_leaves_a_model_with_no_catalog_entry() -> None:
+def test_enrich_leaves_model_with_no_catalog_entry() -> None:
   """A model without a catalog entry remains in the results with no RPM value."""
   fetch, _ = sequenced(PAGE)
   rows, _ = enrichment.enrich(["openrouter/zzz"], {}, fetch)
@@ -449,7 +449,7 @@ def test_enrich_leaves_a_model_with_no_catalog_entry() -> None:
   assert rows[0]["rpm"] is None
 
 
-def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
+def test_enrich_finalizes_supported_efforts_ladder() -> None:
   """Enrichment resolves effort lists and tiers, and clears efforts for non-reasoning models."""
   fetch, _ = sequenced(PAGE)
   config = {
@@ -494,7 +494,7 @@ def test_enrich_finalizes_the_supported_efforts_ladder() -> None:
   ],
 )
 @pytest.mark.parametrize("value", [7, "bad", {}, {"id": "not-a-list"}, False])
-def test_source_requires_a_list(field, reader, value) -> None:
+def test_source_requires_list(field, reader, value) -> None:
   """Malformed source containers follow the existing source-failure path."""
   fetch, _ = sequenced({field: value})
   with pytest.raises(enrichment.SourceShapeError):
@@ -502,7 +502,7 @@ def test_source_requires_a_list(field, reader, value) -> None:
 
 
 @pytest.mark.parametrize("value", [7, "high", {"high": True}, False])
-def test_malformed_efforts_keep_the_reasoning_flag(value) -> None:
+def test_malformed_efforts_keep_reasoning_flag(value) -> None:
   """An invalid optional effort list does not discard other row metadata."""
   found = enrichment.modelschemas_columns(
     {
@@ -514,7 +514,7 @@ def test_malformed_efforts_keep_the_reasoning_flag(value) -> None:
 
 
 @pytest.mark.parametrize("source", ["litellm", "modelschemas"])
-def test_malformed_source_keeps_the_healthy_source(source) -> None:
+def test_malformed_source_keeps_healthy_source(source) -> None:
   """A source with an invalid list reports its failure without losing healthy metadata."""
 
   def fetch(url: str, headers: dict[str, str]) -> dict:

@@ -107,7 +107,7 @@ def make_tool(answers=None):
   return tool, calls
 
 
-def test_the_one_file_holds_the_five_groups():
+def test_one_file_holds_five_groups():
   """Verify all five consolidated groups total 25 public tools without valve methods."""
   names = public_names()
   expected = sorted(KNOWLEDGE + FILES + SKILLS + TOOLS + FUNCTIONS)
@@ -116,7 +116,7 @@ def test_the_one_file_holds_the_five_groups():
   assert not [name for name in names if "valve" in name]
 
 
-def test_the_shipped_permission_holds_a_mutation():
+def test_shipped_permission_holds_mutation():
   """Verify `Always ask` denies mutations before any network call."""
   tool, calls = make_tool()
   assert tool.valves.permissions == "Always ask"
@@ -125,7 +125,7 @@ def test_the_shipped_permission_holds_a_mutation():
   assert calls == []
 
 
-def test_always_allow_runs_the_mutation():
+def test_always_allow_runs_mutation():
   """Verify `Always allow` executes delete mutations."""
   tool, calls = make_tool({"DELETE /files/f1": {}})
   tool.valves.permissions = "Always allow"
@@ -134,7 +134,7 @@ def test_always_allow_runs_the_mutation():
   assert calls[0][0] == "DELETE"
 
 
-def test_the_gate_denies_when_no_dialog_is_possible():
+def test_gate_denies_when_no_dialog_is_possible():
   """Verify `Always ask` refuses mutations when no confirmation callback exists."""
   tool, calls = make_tool()
   answer = json.loads(asyncio.run(tool.delete_file("f1", __request__=object())))
@@ -143,7 +143,7 @@ def test_the_gate_denies_when_no_dialog_is_possible():
   assert calls == []
 
 
-def test_allow_reads_frees_a_read_and_holds_a_mutation():
+def test_allow_reads_frees_read_and_holds_mutation():
   """Verify `Allow reads` permits reads while gating mutations."""
   tool, calls = make_tool({"GET /files/": {}})
   tool.valves.permissions = "Allow reads"
@@ -154,7 +154,7 @@ def test_allow_reads_frees_a_read_and_holds_a_mutation():
   assert [call[0] for call in calls] == ["GET"]
 
 
-def test_a_new_item_runs_free_and_joins_the_presets():
+def test_new_item_runs_free_and_joins_presets():
   """Verify skill creation runs under `Allow reads` and attaches to writable presets."""
   presets = {
     "items": [
@@ -193,7 +193,7 @@ def test_a_new_item_runs_free_and_joins_the_presets():
   assert payload["meta"]["skillIds"] == ["my-skill"]
 
 
-def test_list_skills_uses_the_v012_paged_route():
+def test_list_skills_uses_v012_paged_route():
   """Verify `list_skills` calls `/skills/list` and preserves write-access fields."""
   row = {"id": "s1", "name": "Skill One", "is_active": True, "write_access": False}
   tool, calls = make_tool({"GET /skills/list": {"items": [row], "total": 1}})
@@ -203,7 +203,7 @@ def test_list_skills_uses_the_v012_paged_route():
   assert calls[0][1] == "/skills/list" and calls[0][2]["params"] == {"page": 1}
 
 
-def test_create_skill_sends_the_root_and_supporting_files():
+def test_create_skill_sends_root_and_supporting_files():
   """Verify `save_skill(action='create')` sends `SKILL.md` and UTF-8 supporting files."""
   tool, calls = make_tool(
     {
@@ -238,7 +238,7 @@ def test_create_skill_sends_the_root_and_supporting_files():
   assert create[2]["json"]["commit_message"] == "Initial package"
 
 
-def test_show_and_read_skill_files_use_the_versioned_routes():
+def test_show_and_read_skill_files_use_versioned_routes():
   """Verify `show_skill` reads both skill manifests and character-paged supporting files."""
   tool, calls = make_tool(
     {
@@ -285,7 +285,7 @@ def test_show_and_read_skill_files_use_the_versioned_routes():
   assert read[2]["as_text"] is True
 
 
-def test_update_skill_files_stays_behind_the_write_gate():
+def test_update_skill_files_stays_behind_write_gate():
   """Verify `save_skill(action='update_files')` requires write approval."""
   tool, calls = make_tool()
 
@@ -304,7 +304,7 @@ def test_update_skill_files_stays_behind_the_write_gate():
   assert calls == []
 
 
-def test_update_skill_files_posts_operations_with_the_current_version():
+def test_update_skill_files_posts_operations_with_current_version():
   """Verify `save_skill(action='update_files')` posts optimistic-concurrency operations."""
   tool, calls = make_tool(
     {
@@ -423,7 +423,7 @@ def test_install_skill_rejects_unsafe_or_untrusted_urls(target, message):
   assert calls == []
 
 
-def test_legacy_skill_update_keeps_its_single_content_request():
+def test_legacy_skill_update_keeps_single_content_request():
   """Verify `save_skill(action='update')` preserves single-content updates."""
   tool, calls = make_tool({"POST /skills/id/s1/update": {"id": "s1"}})
   tool.valves.permissions = "Always allow"
@@ -537,7 +537,7 @@ def test_consolidated_crud_and_toggles_across_groups():
   assert calls
 
 
-def test_the_preset_filter_takes_ids_and_names():
+def test_preset_filter_takes_ids_and_names():
   """Verify `PRESET_MODELS` matches preset IDs and names or accepts all when empty."""
   tool, _ = make_tool()
   assert tool._preset_selected({"id": "m1", "name": "One"}) is True
@@ -547,7 +547,7 @@ def test_the_preset_filter_takes_ids_and_names():
   assert tool._preset_selected({"id": "m3", "name": "Two"}) is True
 
 
-def test_the_attach_can_remove_a_tool_from_the_presets():
+def test_attach_can_remove_tool_from_presets():
   """Verify `_attach_to_presets` removes tool and function IDs cleanly."""
   presets = {
     "items": [
@@ -583,7 +583,7 @@ def test_the_attach_can_remove_a_tool_from_the_presets():
   assert payload["meta"]["functionIds"] == []
 
 
-def test_the_merge_keeps_the_order_and_the_ids():
+def test_merge_keeps_order_and_ids():
   """Verify `_merge_ids` drops removed entries, appends new ones, and preserves order."""
   merged = MOD._merge_ids(
     [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}],
@@ -637,7 +637,7 @@ def test_operation_status_preserves_results_and_requests(operation, arguments, e
   )
 
 
-def test_status_emitter_is_an_optional_injected_parameter():
+def test_status_emitter_is_optional_injected_parameter():
   methods = inspect.getmembers(Tools, inspect.iscoroutinefunction)
   assert methods
   for name, method in methods:
@@ -651,7 +651,7 @@ def test_status_emitter_is_an_optional_injected_parameter():
 
 
 @pytest.mark.parametrize("failure_at", [False, True])
-def test_status_emission_failure_does_not_change_the_result(failure_at, caplog):
+def test_status_emission_failure_does_not_change_result(failure_at, caplog):
   tool, calls = make_tool()
   tool.valves.permissions = "Always allow"
   expected = asyncio.run(tool.list_skills(__request__=object()))
@@ -677,7 +677,7 @@ def test_status_emission_failure_does_not_change_the_result(failure_at, caplog):
 
 
 @pytest.mark.parametrize("error_type", [ValueError, asyncio.CancelledError])
-def test_status_finishes_when_the_operation_raises(error_type):
+def test_status_finishes_when_operation_raises(error_type):
   tool, _ = make_tool()
   events = []
   error = error_type("operation failed")
@@ -812,7 +812,7 @@ def test_knowledge_path_operations_reject_invalid_paths_before_requests(
     ("Allow reads", "Always ask", True, False, True),
   ],
 )
-def test_directory_path_creation_uses_the_new_item_gate(
+def test_directory_path_creation_uses_new_item_gate(
   mode, user_mode, decision, denied, asked
 ):
   tool, calls = make_tool({"POST /knowledge/k/dirs/create": {"id": "d"}})

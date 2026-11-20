@@ -87,7 +87,7 @@ def sent(slug: str, effort: object) -> dict:
   return CLOUDFLARE.body(slug, payload)
 
 
-def test_the_on_off_toggles_map_the_effort_to_enable_thinking() -> None:
+def test_on_off_toggles_map_effort_to_enable_thinking() -> None:
   """The documented on/off models send `enable_thinking`, and never the effort parameter."""
   for slug in (
     "@cf/zai-org/glm-4.7-flash",
@@ -104,7 +104,7 @@ def test_the_on_off_toggles_map_the_effort_to_enable_thinking() -> None:
   assert CLOUDFLARE.effort(sent("@cf/zai-org/glm-4.7-flash", "max")) == "max"
 
 
-def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
+def test_no_control_rows_drop_effort_and_log_it(caplog) -> None:
   """Clear unsupported effort settings for always-reasoning models and log the action."""
   for slug in (
     "@cf/qwen/qwq-32b",
@@ -119,7 +119,7 @@ def test_the_no_control_rows_drop_the_effort_and_log_it(caplog) -> None:
   assert CLOUDFLARE.effort(sent("@cf/qwen/qwq-32b", "max")) is None
 
 
-def test_a_model_outside_the_toggles_keeps_the_pass_through() -> None:
+def test_model_outside_toggles_keeps_pass_through() -> None:
   """The other Workers AI rows keep the reasoning_effort pass-through."""
   body = sent("@cf/openai/gpt-oss-120b", "low")
   assert body["reasoning_effort"] == "low"

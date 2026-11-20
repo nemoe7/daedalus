@@ -40,7 +40,7 @@ async def read(name: str, data: dict) -> tuple[int, float, str]:
   return count, time.perf_counter() - started, ""
 
 
-def test_readers_stop_after_the_wait() -> None:
+def test_readers_stop_after_wait() -> None:
   for name, data in (("mistral", DATA), ("gemini", GEMINI_DATA)):
     count, seconds, error = asyncio.run(asyncio.wait_for(read(name, data), 5))
     assert error == "Only keep-alive bytes for 0.2s", (name, error)

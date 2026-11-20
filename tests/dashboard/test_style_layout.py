@@ -30,7 +30,7 @@ def test_bundled_fonts(client: TestClient) -> None:
   assert client.get("/ui/fonts/INTER-VAR.woff2").status_code == 404, "the name is exact"
 
 
-def test_phone_model_head_keeps_a_tap_area() -> None:
+def test_phone_model_head_keeps_tap_area() -> None:
   """Phone model CSS defines header padding and shared chip layout."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -47,7 +47,7 @@ def test_phone_model_head_keeps_a_tap_area() -> None:
   )
 
 
-def test_pool_strip_keeps_every_card_its_own_width() -> None:
+def test_pool_strip_keeps_every_card_own_width() -> None:
   """No pool card stretches over a row. A phone swipes the strip instead."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -68,7 +68,7 @@ def test_phone_chips_share_one_row() -> None:
   assert ".phone-chips {\n    display: flex" not in css, "no row of its own"
 
 
-def test_phone_panels_clear_the_last_row() -> None:
+def test_phone_panels_clear_last_row() -> None:
   """Phone CSS adds bottom padding to the main area and panels."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -77,7 +77,7 @@ def test_phone_panels_clear_the_last_row() -> None:
   assert ".panel { padding-bottom: 8px; }" in mobile, "the panel edge clears"
 
 
-def test_the_model_rows_light_up_on_hover() -> None:
+def test_model_rows_light_up_on_hover() -> None:
   """Models hover CSS uses the field color only with pointer hover support."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -90,7 +90,7 @@ def test_the_model_rows_light_up_on_hover() -> None:
   ) in css, "the pointer hover lights model rows and chained request rows"
 
 
-def test_notification_actions_match_the_shared_pointer_hover() -> None:
+def test_notification_actions_match_shared_pointer_hover() -> None:
   """Notification-action hover CSS uses the shared field color only with pointer support."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   gated = "\n".join(
@@ -104,7 +104,7 @@ def test_notification_actions_match_the_shared_pointer_hover() -> None:
   )
 
 
-def test_limit_events_and_rebuilds_share_a_relative_notification_feed() -> None:
+def test_limit_events_and_rebuilds_share_relative_notification_feed() -> None:
   """Notification markup combines limit warnings, resets, and rebuilds with relative times."""
   root = Path(__file__).resolve().parent.parent.parent
   page = (root / "daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
@@ -195,7 +195,7 @@ assert(html.includes('data-rebuild="0"'), 'the rebuild notification still opens 
       assert "padding" not in body, "Limits columns use the shared table cell padding"
 
 
-def test_the_rebuild_diff_strikes_the_old_value() -> None:
+def test_rebuild_diff_strikes_old_value() -> None:
   """Old diff chips carry a strike class, and the CSS strikes them."""
   run_app_js(
     "DIFF_LABELS, diffModel",
@@ -221,7 +221,7 @@ assert(!changed.includes('e-none old'), 'no strike rides on a new effort');
   )
 
 
-def test_a_card_closes_on_the_room_of_its_rows() -> None:
+def test_card_closes_on_room_of_rows() -> None:
   """Settings and Provider card CSS uses 8px-scale insets and 40px desktop rows."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -262,7 +262,7 @@ def test_a_card_closes_on_the_room_of_its_rows() -> None:
   )
 
 
-def test_provider_files_use_the_shared_section_list_style() -> None:
+def test_provider_files_use_shared_section_list_style() -> None:
   """Provider file rows use the same panel and button spacing as other section lists."""
   root = Path(__file__).resolve().parents[2]
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -283,7 +283,7 @@ def test_provider_files_use_the_shared_section_list_style() -> None:
   )
 
 
-def test_the_yaml_editor_fills_the_pane_and_saves_at_the_right() -> None:
+def test_yaml_editor_fills_pane_and_saves_at_right() -> None:
   """YAML textarea flexes to leftover height, and Save sits at right."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -295,7 +295,7 @@ def test_the_yaml_editor_fills_the_pane_and_saves_at_the_right() -> None:
   )
 
 
-def test_the_info_tip_lifts_off_the_card() -> None:
+def test_info_tip_lifts_off_card() -> None:
   """Both hover tip containers carry a shadow, so they read above the card."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -304,7 +304,7 @@ def test_the_info_tip_lifts_off_the_card() -> None:
   )
 
 
-def test_the_limits_table_scrolls_inside_its_panel() -> None:
+def test_limits_table_scrolls_inside_panel() -> None:
   """The Limits table panel is the only scrollport on wide screens."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -334,7 +334,7 @@ def test_the_limits_table_scrolls_inside_its_panel() -> None:
   )
 
 
-def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
+def test_limits_filter_bar_stops_where_table_stops() -> None:
   """The Limits filter bar takes the table column width, and field names itself."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -349,7 +349,7 @@ def test_the_limits_filter_bar_stops_where_the_table_stops() -> None:
   )
 
 
-def test_the_version_reads_in_the_mono_font() -> None:
+def test_version_reads_in_mono_font() -> None:
   """Header and login version CSS uses the mono font."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -362,7 +362,7 @@ def test_the_version_reads_in_the_mono_font() -> None:
   ), "the login version"
 
 
-def test_the_requests_head_keeps_its_rule_while_it_sticks() -> None:
+def test_requests_head_keeps_rule_while_it_sticks() -> None:
   """Sticky request-header CSS uses an inset shadow instead of a bottom border."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -397,7 +397,7 @@ def test_provider_values_and_helpers_use_readable_text_sizes() -> None:
     assert selector in rule.group(1), selector
 
 
-def test_panel_borders_are_soft_and_controls_keep_their_edges() -> None:
+def test_panel_borders_are_soft_and_controls_keep_edges() -> None:
   """Panel borders stay soft, controls stay distinct, and text meets AA contrast in both themes."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   light = css.split(":root {", 1)[1].split("}", 1)[0]
@@ -570,7 +570,7 @@ def test_mobile_request_cards_use_route_first_grid() -> None:
   )
 
 
-def test_requests_hover_rules_need_a_pointer() -> None:
+def test_requests_hover_rules_need_pointer() -> None:
   """Selected request hover rules require pointer hover support."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -610,7 +610,7 @@ def test_limit_columns_stay_compact() -> None:
   assert stacked_num and "font-size: 12px" in stacked_num.group(1)
 
 
-def test_a_tablet_puts_the_limit_cards_under_the_table() -> None:
+def test_tablet_puts_limit_cards_under_table() -> None:
   """The 601 to 1000 px band stacks the provider cards, so the name column keeps its width."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -626,7 +626,7 @@ def test_a_tablet_puts_the_limit_cards_under_the_table() -> None:
   assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in rules
 
 
-def test_requests_time_column_keeps_its_width() -> None:
+def test_requests_time_column_keeps_width() -> None:
   """Desktop request CSS gives model columns equal widths and leaves phones on grid layout."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -664,7 +664,7 @@ def test_requests_time_column_keeps_its_width() -> None:
   assert "width: 1%" not in phone, "the phone cells keep their grid tracks"
 
 
-def test_the_live_switch_reads_blue_live_and_gray_paused() -> None:
+def test_live_switch_reads_blue_live_and_gray_paused() -> None:
   """Live state controls switch markup, pressed attributes, and color rules."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -706,7 +706,7 @@ for (const catalog of [LOCALE, {
   assert 'aria-pressed="false"' in page, "the first paint reads Live"
 
 
-def test_the_requests_bar_keeps_its_line_on_a_filter_selection() -> None:
+def test_requests_bar_keeps_line_on_filter_selection() -> None:
   """Desktop toolbar CSS prevents wrapping and lets the search field shrink."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
@@ -742,7 +742,7 @@ def test_tablet_requests_filters_wrap_without_clipping() -> None:
   assert ".limits-check-stack { max-height: none; margin-block: 0; }" in narrow
 
 
-def test_header_state_matches_the_page_switcher() -> None:
+def test_header_state_matches_page_switcher() -> None:
   """Header CSS removes chip borders and shares status spacing with the tab bar."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -757,7 +757,7 @@ def test_header_state_matches_the_page_switcher() -> None:
   )
 
 
-def test_pills_cap_their_radius() -> None:
+def test_pills_cap_radius() -> None:
   """Pill CSS specifies a bounded corner radius."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -766,7 +766,7 @@ def test_pills_cap_their_radius() -> None:
   assert rule and "border-radius: 10px" in rule.group(1)
 
 
-def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
+def test_phone_keeps_tap_size_of_controls() -> None:
   """Filter-control CSS sets a 44px minimum height."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -777,7 +777,7 @@ def test_a_phone_keeps_the_tap_size_of_its_controls() -> None:
   ) in css, "the phone keeps the 44px target of the filter controls"
 
 
-def test_the_confirm_dialog_keeps_the_phone_gutter() -> None:
+def test_confirm_dialog_keeps_phone_gutter() -> None:
   """Dialog CSS caps width at 420px or the viewport width minus page gutters."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -788,7 +788,7 @@ def test_the_confirm_dialog_keeps_the_phone_gutter() -> None:
   )
 
 
-def test_scroll_edge_affordances_share_the_soft_motion() -> None:
+def test_scroll_edge_affordances_share_soft_motion() -> None:
   """Scroll-edge fade registers block and inline @property lengths and scrollbar carve-outs."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   for edge in ("start", "end", "inline-start", "inline-end"):
@@ -803,7 +803,7 @@ def test_scroll_edge_affordances_share_the_soft_motion() -> None:
   assert ".tab-step" not in css, "no chevron remains to animate"
 
 
-def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
+def test_phone_keeps_one_rhythm_around_bar_rules() -> None:
   """Phone bar CSS defines matching padding and gaps around rules."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -832,7 +832,7 @@ def test_a_phone_keeps_one_rhythm_around_the_bar_rules() -> None:
   )
 
 
-def test_the_save_bars_keep_no_sticky_rule() -> None:
+def test_save_bars_keep_no_sticky_rule() -> None:
   """Provider and Settings page-specific selectors contain no sticky-position rules."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -844,7 +844,7 @@ def test_the_save_bars_keep_no_sticky_rule() -> None:
     )
 
 
-def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
+def test_wide_rail_sticky_never_pushes_rail_down() -> None:
   """Wide-layout CSS places the sticky section rail at the scrollport top."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -860,7 +860,7 @@ def test_the_wide_rail_sticky_never_pushes_the_rail_down() -> None:
   )
 
 
-def test_wide_settings_and_providers_scroll_only_the_section_pane() -> None:
+def test_wide_settings_and_providers_scroll_only_section_pane() -> None:
   """Wide section CSS assigns vertical overflow to the pane and disables outer scrolling."""
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   wide = re.search(r"@media not \(max-width: 60em\) \{(.*?)\n\}", css, re.DOTALL)
@@ -895,7 +895,7 @@ def test_wide_settings_and_providers_scroll_only_the_section_pane() -> None:
   assert "min-height: 0" in pane.group(1), "the section pane owns the vertical overflow"
 
 
-def test_the_requests_bar_keeps_its_own_height() -> None:
+def test_requests_bar_keeps_own_height() -> None:
   """Request CSS assigns scrolling to the table panel and keeps toolbar height independent."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -932,7 +932,7 @@ def test_table_to_cards_recipe_grids_across_mobile_tables() -> None:
   )
 
 
-def test_a_section_row_answers_the_hold() -> None:
+def test_section_row_answers_hold() -> None:
   """Section-button CSS uses the field background for active and hover states."""
   style = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -945,7 +945,7 @@ def test_a_section_row_answers_the_hold() -> None:
   )
 
 
-def test_the_notice_takes_the_red_and_wraps() -> None:
+def test_notice_takes_red_and_wraps() -> None:
   """Notice CSS uses red text, message wrapping, and shared arrival-animation tokens."""
   css = (
     Path(__file__).resolve().parent.parent.parent / "daedalus/dashboard/ui/style.css"
@@ -959,7 +959,7 @@ def test_the_notice_takes_the_red_and_wraps() -> None:
   )
 
 
-def test_the_notice_floats_without_moving_page_content() -> None:
+def test_notice_floats_without_moving_page_content() -> None:
   """Notice markup precedes page content, with fixed positioning and bounded scrolling in CSS."""
   root = Path(__file__).resolve().parent.parent.parent
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")

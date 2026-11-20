@@ -316,7 +316,7 @@ def test_build_rows() -> None:
   assert len(skipped) == 3, skipped
 
 
-def test_the_provider_reads_run_at_the_same_time(monkeypatch) -> None:
+def test_provider_reads_run_at_same_time(monkeypatch) -> None:
   """The provider reads can satisfy a two-party synchronization barrier."""
   monkeypatch.setattr(discovery, "CORES", 2)
   both = threading.Barrier(2, timeout=5)
@@ -331,7 +331,7 @@ def test_the_provider_reads_run_at_the_same_time(monkeypatch) -> None:
   assert "openrouter/google/gemma-4-26b-a4b-it:free" in lines
 
 
-def test_a_line_per_provider_read(caplog) -> None:
+def test_line_per_provider_read(caplog) -> None:
   """Provider reads log raw model counts at INFO."""
   with caplog.at_level("INFO", logger="daedalus.catalog"):
     discovery.build_rows(
@@ -346,7 +346,7 @@ def test_a_line_per_provider_read(caplog) -> None:
   assert sorted(told) == [("INFO", ("gemini", 5)), ("INFO", ("openrouter", 3))], told
 
 
-def test_the_read_cap_holds(monkeypatch) -> None:
+def test_read_cap_holds(monkeypatch) -> None:
   """A one-worker read pool has no overlapping calls."""
   monkeypatch.setattr(discovery, "CORES", 1)
   live = 0
@@ -1035,6 +1035,3 @@ def test_cached_dump_rejects_provider_paths(
     )
   assert not (tmp_path / f"escape.{file_format}").exists()
   assert existing.read_text() == "existing output"
-
-
-

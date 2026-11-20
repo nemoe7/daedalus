@@ -89,7 +89,7 @@ def lines(text: str) -> list[dict]:
   return found
 
 
-async def test_each_round_of_one_message_carries_its_own_line(
+async def test_each_round_of_one_message_carries_own_line(
   client: httpx.AsyncClient,
 ) -> None:
   """Two calls each carry one served-model line, and equal models give equal lines."""
@@ -103,7 +103,7 @@ async def test_each_round_of_one_message_carries_its_own_line(
   assert rounds[0][0]["model"] == "p/a", rounds
 
 
-async def test_the_line_carries_the_routed_reasoning(
+async def test_line_carries_routed_reasoning(
   client: httpx.AsyncClient,
 ) -> None:
   """The reasoning hook overrides the line, and a reasoning of none leaves it bare."""
@@ -118,7 +118,7 @@ async def test_the_line_carries_the_routed_reasoning(
     assert selections[0]["line"] == wanted, (asked, selections)
 
 
-async def test_the_line_follows_the_installed_files(
+async def test_line_follows_installed_files(
   client: httpx.AsyncClient,
 ) -> None:
   """The reasoning hook alone draws no line, and the served model hook alone draws a bare one."""
@@ -147,7 +147,7 @@ async def test_the_line_follows_the_installed_files(
   hooks.set_installed("hooks", [])
 
 
-async def test_the_client_scope_gates_the_line_on_the_request(
+async def test_client_scope_gates_line_on_request(
   client: httpx.AsyncClient,
 ) -> None:
   """An installed file with the client scope runs for its client alone."""

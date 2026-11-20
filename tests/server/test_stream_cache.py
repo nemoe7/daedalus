@@ -129,7 +129,7 @@ CHAT = {"model": "daedalus/moros", "messages": [{"role": "user", "content": "hi"
 DIRECT = {"model": "p/a", "messages": [{"role": "user", "content": "hi"}]}
 
 
-async def test_a_non_stream_client_reads_our_stream(client: httpx.AsyncClient) -> None:
+async def test_non_stream_client_reads_our_stream(client: httpx.AsyncClient) -> None:
   """A race-eligible request with no stream asks for one, and the answer comes back whole."""
   response = await client.post("/v1/chat/completions", json=CHAT)
   assert response.status_code == 200, response.text
@@ -149,7 +149,7 @@ async def test_a_non_stream_client_reads_our_stream(client: httpx.AsyncClient) -
   ]
 
 
-async def test_a_refused_stream_retries_without_one(client: httpx.AsyncClient) -> None:
+async def test_refused_stream_retries_without_one(client: httpx.AsyncClient) -> None:
   """A 400 on the stream attempt reads as a compatibility sign, not a fault of the model."""
   api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = "refuse"
@@ -163,7 +163,7 @@ async def test_a_refused_stream_retries_without_one(client: httpx.AsyncClient) -
   assert api.PENALTIES.weights(["p/a"])["p/a"] == 1.0
 
 
-async def test_a_denied_key_keeps_its_own_path(client: httpx.AsyncClient) -> None:
+async def test_denied_key_keeps_own_path(client: httpx.AsyncClient) -> None:
   """A 401 is not a stream refusal, so a model makes no second attempt without a stream."""
   api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = PLAN["b"] = "denied"
@@ -174,7 +174,7 @@ async def test_a_denied_key_keeps_its_own_path(client: httpx.AsyncClient) -> Non
   assert results == ["HTTP 401", "HTTP 401"], results
 
 
-async def test_a_flagged_model_skips_the_stream(client: httpx.AsyncClient) -> None:
+async def test_flagged_model_skips_stream(client: httpx.AsyncClient) -> None:
   """`streams: false` on model or provider reads whole body at once."""
   config.set_config(
     {
@@ -206,7 +206,7 @@ async def test_a_flagged_model_skips_the_stream(client: httpx.AsyncClient) -> No
   )
 
 
-async def test_a_stream_without_done_falls_back(client: httpx.AsyncClient) -> None:
+async def test_stream_without_done_falls_back(client: httpx.AsyncClient) -> None:
   """A stream that stops early hands request to next model of chain."""
   api.PENALTIES.select = lambda: 0.2
   PLAN["a"] = "cut"
@@ -226,7 +226,7 @@ def delta(**values: object) -> str:
   return json.dumps({"choices": [{"index": 0, "delta": values}]})
 
 
-async def test_cache_merges_the_deltas() -> None:
+async def test_cache_merges_deltas() -> None:
   """The cache joins the text, reasoning, and tool calls of one stream."""
   calls = json.dumps(
     {
@@ -279,14 +279,14 @@ async def test_cache_merges_the_deltas() -> None:
   assert answer["choices"][0]["finish_reason"] == "tool_calls"
 
 
-async def test_cache_needs_the_done_marker() -> None:
+async def test_cache_needs_done_marker() -> None:
   """A stream that stops before [DONE] is a failure, not a short answer."""
   with pytest.raises(ProviderError) as error:
     await stream.cache([], events(delta(content="x")), "p/a")
   assert "[DONE]" in str(error.value)
 
 
-async def test_cache_keeps_the_usage_and_rejects_an_error() -> None:
+async def test_cache_keeps_usage_and_rejects_error() -> None:
   """The last usage lands in the answer, and an error chunk stops cache."""
   usage = json.dumps(
     {"choices": [], "usage": {"prompt_tokens": 1, "completion_tokens": 2}}

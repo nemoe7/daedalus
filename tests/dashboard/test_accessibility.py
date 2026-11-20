@@ -125,7 +125,7 @@ for (const kind of ['env', 'db']) {
   )
 
 
-def test_value_editor_restores_focus_to_the_rebuilt_field() -> None:
+def test_value_editor_restores_focus_to_rebuilt_field() -> None:
   """Save returns focus to the rebuilt value field only when the rebuild dropped it."""
   run_app_js(
     "editValue",
@@ -165,7 +165,7 @@ input.focus = () => { focused += 1; };
   )
 
 
-def test_provider_summary_has_help_without_a_nested_button() -> None:
+def test_provider_summary_has_help_without_nested_button() -> None:
   """Summary markup includes escaped help text and no nested button."""
   run_app_js(
     "fold",
@@ -199,7 +199,7 @@ assert(html.includes('data-model="synthetic/model"'));
   )
 
 
-def test_value_editor_keyboard_activation_uses_the_shared_editor() -> None:
+def test_value_editor_keyboard_activation_uses_shared_editor() -> None:
   """Enter, Space, and click handlers call the shared editor with the write callback."""
   run_app_js(
     "bindValueRows, setEditor: fn => { editValue = fn; }",
@@ -246,7 +246,7 @@ assert.strictEqual(opened, 3);
   )
 
 
-def test_request_chains_open_a_dialog_and_keep_focus() -> None:
+def test_request_chains_open_dialog_and_keep_focus() -> None:
   """The chained row itself opens the dialog, and a redraw returns focus to it."""
   run_app_js(
     "state, renderRequests",

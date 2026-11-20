@@ -518,7 +518,7 @@ def test_keyword_tier() -> None:
     api.PENALTIES.clear()
 
 
-def test_expired_pin_read_retains_its_row_until_prune(folder: Path) -> None:
+def test_expired_pin_read_retains_row_until_prune(folder: Path) -> None:
   """Reading an expired pin retains its row until prune removes it."""
   now = [0.0]
   store = penalties.Penalties(lambda: folder / "r.sqlite3", clock=lambda: now[0])
@@ -539,7 +539,7 @@ def test_expired_pin_read_retains_its_row_until_prune(folder: Path) -> None:
   assert left == 0, "the timer drops it"
 
 
-def test_a_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_busy_store_answers_503(monkeypatch: pytest.MonkeyPatch) -> None:
   """Injected lock and corruption errors produce distinct HTTP 503 responses."""
   config = {"a": {"api_key": "k", "api_base": "https://a.test/v1"}}
   original = api.get_config, api.chain

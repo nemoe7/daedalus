@@ -77,7 +77,7 @@ def test_artifact() -> None:
   assert artifact.global_stats[4].observations > 0
 
 
-def test_artifact_rejects_a_broken_table() -> None:
+def test_artifact_rejects_broken_table() -> None:
   """A table that loses a tier fails at load, not at route time."""
   payload = json.loads(classifier.ARTIFACT_PATH.read_text(encoding="utf-8"))
   payload["global_statistics"] = [
@@ -125,7 +125,7 @@ def test_predict() -> None:
   assert round(coding.probabilities[2], 4) == 0.8645, coding.probabilities[2]
 
 
-def test_threshold_moves_the_bar() -> None:
+def test_threshold_moves_bar() -> None:
   """The `routing.threshold` setting moves the tier of a prompt, cached or not."""
   assert router.required_tier("hi") == 1, "the shipped bar"
   try:
@@ -386,7 +386,7 @@ def test_pools() -> None:
   ]
 
 
-def test_the_catalog_efforts_sit_under_the_config_keys() -> None:
+def test_catalog_efforts_sit_under_config_keys() -> None:
   """A catalog list fills the gap of a missing config key, and the config key keeps the last word."""
   config = {
     "kilo": {"models": {"a": {"supported_reasoning_efforts": ["none", "high"]}}},
@@ -409,7 +409,7 @@ def test_the_catalog_efforts_sit_under_the_config_keys() -> None:
     ), bad
 
 
-def test_the_efforts_key_follows_the_block_hierarchy() -> None:
+def test_efforts_key_follows_block_hierarchy() -> None:
   """`supported_reasoning_efforts` key reads from model entry, then block, then code."""
   config = {
     "kilo": {
@@ -448,7 +448,7 @@ def test_the_efforts_key_follows_the_block_hierarchy() -> None:
   assert router.efforts(config, "unknown/x") == ["none", "low", "medium", "high"]
 
 
-def test_the_effort_ladder_caps_at_five_and_at_the_list() -> None:
+def test_effort_ladder_caps_at_five_and_at_list() -> None:
   """Ladder step 0 is the lowest effort, and a step caps at 5 and at the list end."""
   efforts = ["none", "low", "medium", "high", "xhigh"]
   assert router.effort_at(efforts, 0) == "none"

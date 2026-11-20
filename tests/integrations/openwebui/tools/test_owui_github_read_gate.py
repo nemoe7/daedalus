@@ -82,7 +82,7 @@ def test_each_read_denies_without_network_then_accepts_permission(name, argument
   assert len(calls) == 1
 
 
-def test_read_gate_accepts_model_user_valves_and_keeps_the_result():
+def test_read_gate_accepts_model_user_valves_and_keeps_result():
   tool = github.client()
   tool.valves.permissions = "Always ask"
   calls = []

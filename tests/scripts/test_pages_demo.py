@@ -549,7 +549,7 @@ def demo_read(out: Path, *paths: str) -> dict:
   return json.loads(result.stdout)
 
 
-def test_the_fixtures_cover_each_call_of_the_page() -> None:
+def test_fixtures_cover_each_call_of_page() -> None:
   """The fixtures cover known reads and static page calls."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   assert sorted(fixtures) == sorted(READS), sorted(fixtures)
@@ -558,7 +558,7 @@ def test_the_fixtures_cover_each_call_of_the_page() -> None:
   assert not unknown, unknown
 
 
-def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
+def test_fixtures_hold_each_settings_row_of_page() -> None:
   """Built fixture defaults cover each settings group and key used by the page."""
   fixtures = pages_demo.demo_fixtures("demo.test")
   defaults = fixtures["settings"]["defaults"]
@@ -583,7 +583,7 @@ def test_the_fixtures_hold_each_settings_row_of_the_page() -> None:
   assert "hide_headers" not in defaults["personalization"]
 
 
-def test_the_fixtures_carry_the_edge_cases() -> None:
+def test_fixtures_carry_edge_cases() -> None:
   """Fixture data includes long names, cooldowns, and request fields."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   rows = fixtures["models"]
@@ -668,7 +668,7 @@ def test_the_fixtures_carry_the_edge_cases() -> None:
   )
 
 
-def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None:
+def test_demo_main_form_uses_cloud_blocks_with_empty_local_file() -> None:
   """Provider fixtures inherit main blocks and keep local main text empty."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   shipped = pages_demo.ROOT / "config" / "providers"
@@ -712,7 +712,7 @@ def test_the_demo_main_form_uses_cloud_blocks_with_an_empty_local_file() -> None
 @pytest.mark.parametrize(
   "query, delay", [("", 0), ("?slow=800", 800), ("?other=1&slow=25", 25)]
 )
-def test_the_demo_can_slow_its_answers_for_a_reviewer(
+def test_demo_can_slow_answers_for_reviewer(
   tmp_path: Path, query: str, delay: int
 ) -> None:
   out = pages_demo.build(tmp_path / "site", "demo.9")
@@ -753,7 +753,7 @@ def test_the_demo_can_slow_its_answers_for_a_reviewer(
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
-def test_the_auto_fixture_contains_only_chat_models() -> None:
+def test_auto_fixture_contains_only_chat_models() -> None:
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   auto = next(row for row in fixtures["pools"] if row["name"] == "daedalus/auto")
   members = [item["id"] for item in auto["members"]]
@@ -838,7 +838,7 @@ def test_demo_pool_membership(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
-def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
+def test_demo_keeps_every_row_of_snapshot(tmp_path: Path) -> None:
   """The demo models response retains each captured model ID."""
   fixtures = json.loads(pages_demo.FIXTURES.read_text(encoding="utf-8"))
   ids = [row["id"] for row in fixtures["models"]]
@@ -848,7 +848,7 @@ def test_the_demo_keeps_every_row_of_the_snapshot(tmp_path: Path) -> None:
   assert sorted(row["id"] for row in models) == sorted(ids)
 
 
-def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> None:
+def test_demo_states_source_and_hook_versions(tmp_path: Path) -> None:
   """Demo settings contain the shipped hook source and versions."""
   assert pages_demo.DEMO_SOURCE["repo"] == "nemoe7/daedalus"
   fixtures = pages_demo.demo_fixtures("demo.test")
@@ -883,7 +883,7 @@ def test_the_demo_states_its_source_and_the_hook_versions(tmp_path: Path) -> Non
   }
 
 
-def test_a_capture_without_an_update_block_still_builds(
+def test_capture_without_update_block_still_builds(
   tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """Fixture generation adds version metadata when the update block is absent."""
@@ -896,7 +896,7 @@ def test_a_capture_without_an_update_block_still_builds(
   assert stamped["notifications"]["update"]["current"] == "demo.none"
 
 
-def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> None:
+def test_build_copies_page_and_loads_demo_first(tmp_path: Path) -> None:
   """Built assets include UI, with demo and locale before app."""
   out = pages_demo.build(tmp_path / "site", pages_demo.demo_version())
   page = (out / "index.html").read_text(encoding="utf-8")
@@ -928,7 +928,7 @@ def test_the_build_copies_the_page_and_loads_the_demo_first(tmp_path: Path) -> N
   assert answers["status"]["models"] == len(answers["models"])
 
 
-def test_the_demo_carries_the_version_of_the_build(tmp_path: Path) -> None:
+def test_demo_carries_version_of_build(tmp_path: Path) -> None:
   """Build versions reach status, login, and update responses, with an environment override."""
   out = pages_demo.build(tmp_path / "site", "demo.7")
   script = (
@@ -1056,7 +1056,7 @@ def test_demo_timing_and_event_contract(tmp_path: Path) -> None:
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
-def test_the_demo_answers_the_page_without_a_server(tmp_path: Path) -> None:
+def test_demo_answers_page_without_server(tmp_path: Path) -> None:
   """The JavaScript runtime covers catalog reads, rejected writes, and live requests."""
   version = pages_demo.demo_version()
   out = pages_demo.build(tmp_path / "site", version)
@@ -1261,7 +1261,7 @@ def test_demo_save_name_shapes(tmp_path: Path) -> None:
   assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
 
 
-def test_the_capture_builds_the_demo_state() -> None:
+def test_capture_builds_demo_state() -> None:
   """An in-process capture returns the dashboard version, model IDs, and requests."""
   assert pytest.importorskip("fastapi")
   found = pages_demo.capture()
@@ -1295,7 +1295,7 @@ def test_race_demo_shape() -> None:
     assert attempts[-1]["result"] == "answered" and attempts[-1]["race"] == "won"
 
 
-def test_demo_keeps_valid_limits_when_a_header_group_is_invalid() -> None:
+def test_demo_keeps_valid_limits_when_header_group_is_invalid() -> None:
   answer = pages_demo.answer(
     httpx.Request(
       "POST", "https://groq.test/v1/chat/completions", json={"model": "synthetic-limit"}

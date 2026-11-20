@@ -63,14 +63,14 @@ def triggers(name: str) -> dict:
   return data["on"] if "on" in data else data[True]
 
 
-def test_every_workflow_file_has_the_agreed_name() -> None:
+def test_every_workflow_file_has_agreed_name() -> None:
   """Each workflow uses its expected configured name."""
   assert sorted(path.name for path in WORKFLOWS.glob("*.yml")) == sorted(NAMES)
   for name, expected in NAMES.items():
     assert load(name)["name"] == expected, name
 
 
-def test_the_workflows_that_answer_a_pull_request_do() -> None:
+def test_workflows_that_answer_pull_request_do() -> None:
   """A PR runs the checks, scans, and title rule."""
   for name in ON_PULL_REQUEST:
     event = (
@@ -81,7 +81,7 @@ def test_the_workflows_that_answer_a_pull_request_do() -> None:
     assert event in triggers(name), name
 
 
-def test_the_workflows_that_answer_main_do() -> None:
+def test_workflows_that_answer_main_do() -> None:
   """A push to main runs the checks and scans again on the merged tree."""
   for name in ON_MAIN:
     found = triggers(name)
@@ -89,7 +89,7 @@ def test_the_workflows_that_answer_main_do() -> None:
     assert found["push"]["branches"] == ["main"], name
 
 
-def test_the_workflows_that_offer_a_manual_run_do() -> None:
+def test_workflows_that_offer_manual_run_do() -> None:
   """An operator can start these from the Actions tab."""
   for name in ON_DISPATCH:
     assert "workflow_dispatch" in triggers(name), name
@@ -106,7 +106,7 @@ def test_no_workflow_asks_for_write_all_permissions() -> None:
         assert job["permissions"] not in ("read-all", "write-all"), name
 
 
-def test_codeql_scans_python_and_the_workflows_only() -> None:
+def test_codeql_scans_python_and_workflows_only() -> None:
   """The CodeQL matrix selects Python and Actions but not JavaScript."""
   matrix = load("codeql.yml")["jobs"]["analyze"]["strategy"]["matrix"]
   assert matrix["language"] == ["python", "actions"]
@@ -119,7 +119,7 @@ def test_codeql_scans_python_and_the_workflows_only() -> None:
   )
 
 
-def test_the_codeql_analysis_maps_to_the_pull_request() -> None:
+def test_codeql_analysis_maps_to_pull_request() -> None:
   """PR run analyzes merge commit, so alerts show on PR."""
   data = load("codeql.yml")
   assert "pull_request" in data["on"], (
@@ -139,7 +139,7 @@ def test_the_codeql_analysis_maps_to_the_pull_request() -> None:
   assert "source-root" not in init["with"], "the default root is the repository"
 
 
-def test_only_the_other_scan_jobs_write_code_scanning_results_on_main() -> None:
+def test_only_other_scan_jobs_write_code_scanning_results_on_main() -> None:
   """Outside CodeQL, security-events: write belongs to the jobs that run on main."""
   for name in ("container-trivy.yml", "workflow-security.yml"):
     for job_id, job in load(name)["jobs"].items():
@@ -150,7 +150,7 @@ def test_only_the_other_scan_jobs_write_code_scanning_results_on_main() -> None:
         assert job["if"] == "github.event_name == 'push'", (name, job_id)
 
 
-def test_dependency_workflows_use_the_uv_model() -> None:
+def test_dependency_workflows_use_uv_model() -> None:
   """The dependency model is pyproject.toml and uv.lock, never a requirements file."""
   content = (WORKFLOWS / "dependency-review.yml").read_text()
   assert "uv.lock" in content
@@ -160,7 +160,7 @@ def test_dependency_workflows_use_the_uv_model() -> None:
   assert "requirements.txt" not in content
 
 
-def test_the_pr_title_uses_the_local_contract_checker() -> None:
+def test_pr_title_uses_local_contract_checker() -> None:
   """The title and commit jobs share the copied subject rules, not a title action."""
   data = load("pr-check.yml")
   assert data["name"] == "PR title check"
@@ -170,7 +170,7 @@ def test_the_pr_title_uses_the_local_contract_checker() -> None:
   assert "action-semantic-pull-request" not in (WORKFLOWS / "pr-check.yml").read_text()
 
 
-def test_the_gemini_release_helper_stays_in_place() -> None:
+def test_gemini_release_helper_stays_in_place() -> None:
   """gemini_release.py drives the release workflow, and the workflow still calls it."""
   assert (WORKFLOWS / "gemini_release.py").exists()
 
@@ -193,7 +193,7 @@ def test_docker_jobs_and_absent_image_workflow_files() -> None:
   ]
 
 
-def test_the_container_scan_uses_hadolint() -> None:
+def test_container_scan_uses_hadolint() -> None:
   """Hadolint lints the Dockerfile, and the PR check blocks."""
   content = (WORKFLOWS / "container-scan.yml").read_text()
   assert "hadolint/hadolint-action" in content
@@ -201,7 +201,7 @@ def test_the_container_scan_uses_hadolint() -> None:
   assert Path(".hadolint.yaml").exists()
 
 
-def test_the_workflow_security_scan_uses_actionlint_and_zizmor() -> None:
+def test_workflow_security_scan_uses_actionlint_and_zizmor() -> None:
   """Both tools run, and a config tells zizmor how this repo pins actions."""
   content = (WORKFLOWS / "workflow-security.yml").read_text()
   assert "raven-actions/actionlint" in content
@@ -223,7 +223,7 @@ def test_governance_runs_only_from_trusted_base_code() -> None:
   assert data["permissions"] == {"contents": "read"}
 
 
-def test_pr_files_cannot_replace_the_trusted_checks() -> None:
+def test_pr_files_cannot_replace_trusted_checks() -> None:
   """PR programs and a disabled PR workflow cannot change trusted check results."""
   with TemporaryDirectory() as directory:
     root = Path(directory)
@@ -287,7 +287,7 @@ def test_pr_files_cannot_replace_the_trusted_checks() -> None:
     assert disabled.read_text() == "on: workflow_dispatch\njobs: {}\n"
 
 
-def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
+def test_pr_check_validates_body_prose_and_commits() -> None:
   """One workflow holds the title, description, commit, and version checks."""
   data = load("pr-check.yml")
   assert sorted(data["jobs"]) == ["body", "commits", "title", "versions"]
@@ -308,7 +308,7 @@ def test_the_pr_check_validates_the_body_prose_and_commits() -> None:
   assert "uv sync" not in content
 
 
-def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> None:
+def test_read_only_security_gates_keep_workflow_and_policy_trusted() -> None:
   """Security jobs read PR data with base commands and base policy."""
   for name in (
     "container-scan.yml",
@@ -337,7 +337,7 @@ def test_read_only_security_gates_keep_their_workflow_and_policy_trusted() -> No
     assert "pull_request_target" not in load(name)["on"]
 
 
-def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
+def test_pages_demo_builds_page_and_deploys_it() -> None:
   """The demo goes to Pages from an artifact, and only main deploys it."""
   data = load("pages.yml")
   assert "pull_request" not in triggers("pages.yml")
@@ -356,7 +356,7 @@ def test_the_pages_demo_builds_the_page_and_deploys_it() -> None:
   assert deploy["steps"][-1]["id"] == "deployment"
 
 
-def test_the_ci_workflow_runs_the_prose_linter() -> None:
+def test_ci_workflow_runs_prose_linter() -> None:
   """The CI job checks repo prose and test contracts directly through nemoizer."""
   runs = [
     step["run"] for step in load("ci.yml")["jobs"]["ci"]["steps"] if "run" in step

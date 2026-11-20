@@ -136,7 +136,7 @@ def test_lines() -> None:
     lines.close()
 
 
-def test_lines_releases_its_handler_after_a_failure(monkeypatch) -> None:
+def test_lines_releases_handler_after_failure(monkeypatch) -> None:
   before = tuple(logging.getLogger("daedalus").handlers)
   closed = []
 

@@ -179,7 +179,7 @@ def test_settings() -> None:
       raise AssertionError(text)
 
 
-def test_rebuild_records_the_diff() -> None:
+def test_rebuild_records_diff() -> None:
   import daedalus.catalog
 
   store.migrate()
@@ -203,7 +203,7 @@ def test_rebuild_records_the_diff() -> None:
   assert events[0]["failed"] == ["kilo"]
 
 
-def test_rebuild_records_the_changed_row() -> None:
+def test_rebuild_records_changed_row() -> None:
   store.migrate()
   store.write_store(
     [{"id": "p/one", "mode": "chat", "supported_efforts": "[low, medium]"}]

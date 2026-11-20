@@ -67,7 +67,7 @@ async def client():
   config.set_config(None)
 
 
-async def test_a_429_keeps_its_headers(client: httpx.AsyncClient) -> None:
+async def test_429_keeps_headers(client: httpx.AsyncClient) -> None:
   """The bare rate-limit headers of a 429 land on the Limits page, also when the answer fails."""
   FAIL["on"] = True
   try:
@@ -111,7 +111,7 @@ async def test_headers(client: httpx.AsyncClient) -> None:
     LEFT["requests"] = "3"
 
 
-async def test_the_rows_survive_a_restart(client: httpx.AsyncClient) -> None:
+async def test_rows_survive_restart(client: httpx.AsyncClient) -> None:
   """A new process keeps the lane rows of the last answer, the way a container update keeps them."""
   chat = {"model": "groq/x", "messages": [{"role": "user", "content": "hi"}]}
   response = await client.post("/v1/chat/completions", json=chat)

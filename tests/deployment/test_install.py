@@ -361,7 +361,7 @@ def test_bad_key(tmp_path: Path) -> None:
   assert not (tmp_path / "docker.log").exists()
 
 
-def test_dev_in_checkout_needs_the_dev_compose(tmp_path: Path) -> None:
+def test_dev_in_checkout_needs_dev_compose(tmp_path: Path) -> None:
   """--dev beside the source stops without compose.dev.yml."""
   folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
   (folder / "daedalus").mkdir()
@@ -370,7 +370,7 @@ def test_dev_in_checkout_needs_the_dev_compose(tmp_path: Path) -> None:
   assert not (tmp_path / "docker.log").exists()
 
 
-def test_dev_with_source_builds_the_image(tmp_path: Path) -> None:
+def test_dev_with_source_builds_image(tmp_path: Path) -> None:
   """--dev with the source builds the image, with no dev image to pull."""
   folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
   shutil.copy(ROOT / "compose.dev.yml", folder / "compose.dev.yml")
@@ -380,7 +380,7 @@ def test_dev_with_source_builds_the_image(tmp_path: Path) -> None:
   assert "|||compose -f compose.dev.yml up -d" in (tmp_path / "docker.log").read_text()
 
 
-def test_dev_without_source_pulls_the_dev_image(tmp_path: Path) -> None:
+def test_dev_without_source_pulls_dev_image(tmp_path: Path) -> None:
   """--dev without the source pulls the dev image of main."""
   folder, env = checkout(tmp_path, "DAEDALUS_MASTER_KEY=" + "k" * 20 + "\n")
   shutil.copy(ROOT / "compose.dev.yml", folder / "compose.dev.yml")
@@ -407,7 +407,7 @@ def test_dev_downloads_from_main_and_pulls(tmp_path: Path) -> None:
   )
 
 
-def test_a_crlf_env_takes_a_valid_key(tmp_path: Path) -> None:
+def test_crlf_env_takes_valid_key(tmp_path: Path) -> None:
   """A .env with Windows line ends passes the master key check, and an empty key gets a new 1."""
   key = "sk-" + "a" * 41
   folder, env = checkout(tmp_path, f"DAEDALUS_MASTER_KEY={key}\r\n")
@@ -460,7 +460,7 @@ def test_windows_installer_parses() -> None:
   assert parsed.returncode == 0, parsed.stderr + parsed.stdout
 
 
-def test_windows_installer_has_the_managed_override_contract() -> None:
+def test_windows_installer_has_managed_override_contract() -> None:
   """The Windows source names the expected managed files, state paths and local override."""
   script = (ROOT / "install.ps1").read_text()
   for service in (
@@ -480,7 +480,7 @@ def test_windows_installer_has_the_managed_override_contract() -> None:
   assert "legacy-compose.sha256" in script
 
 
-def test_new_installer_can_install_a_release_before_managed_defaults(
+def test_new_installer_can_install_release_before_managed_defaults(
   tmp_path: Path,
 ) -> None:
   """The installer accepts a synthetic archive when its Compose file does not use the absent managed defaults."""
@@ -532,7 +532,7 @@ def test_standalone_install_downloads_all_service_defaults(tmp_path: Path) -> No
   assert "compose up -d" in (tmp_path / "docker.log").read_text()
 
 
-def test_standalone_install_migrates_a_known_shipped_compose(tmp_path: Path) -> None:
+def test_standalone_install_migrates_known_shipped_compose(tmp_path: Path) -> None:
   """The installer replaces an unedited historical Compose file without a per-key merge."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
   folder, env = checkout(tmp_path, env_text)
@@ -553,7 +553,7 @@ def test_standalone_install_migrates_a_known_shipped_compose(tmp_path: Path) -> 
   assert (folder / ".daedalus-state/managed-files.sha256").is_file()
 
 
-def test_standalone_install_stops_on_an_edited_managed_compose(tmp_path: Path) -> None:
+def test_standalone_install_stops_on_edited_managed_compose(tmp_path: Path) -> None:
   """The installer preserves an unknown Compose edit, writes a candidate and does not merge it."""
   env_text = f"DAEDALUS_MASTER_KEY={'k' * 20}\nCOMPOSE_PROFILES=\n"
   folder, env = checkout(tmp_path, env_text)
@@ -571,7 +571,7 @@ def test_standalone_install_stops_on_an_edited_managed_compose(tmp_path: Path) -
   assert not (tmp_path / "docker.log").exists()
 
 
-def test_a_piped_run_keeps_the_folder_of_another_project(tmp_path: Path) -> None:
+def test_piped_run_keeps_folder_of_another_project(tmp_path: Path) -> None:
   """The pipe leaves BASH_SOURCE empty, so a compose.yml in the current folder claims no install."""
   folder, env = checkout(tmp_path, None)
   project = tmp_path / "project"

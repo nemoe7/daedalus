@@ -72,7 +72,7 @@ def test_issue_search_pages_and_short_records(scope):
 
 
 @pytest.mark.parametrize("name", ["search_mail", "agenda", "search_files"])
-def test_google_list_tokens_reach_the_api_and_return_to_the_agent(name):
+def test_google_list_tokens_reach_api_and_return_to_agent(name):
   tool = google.reader()
   calls = []
 
@@ -97,7 +97,7 @@ def test_google_list_tokens_reach_the_api_and_return_to_the_agent(name):
     assert "nextPageToken" in calls[0]["fields"]
 
 
-def test_manager_list_pages_keep_ids_and_end_without_a_gap():
+def test_manager_list_pages_keep_ids_and_end_without_gap():
   tool, _ = manager.make_tool(
     {"GET /tools/": [{"id": str(i), "name": f"Tool {i}"} for i in range(3)]}
   )
@@ -113,7 +113,7 @@ def test_manager_list_pages_keep_ids_and_end_without_a_gap():
   assert [row["id"] for row in last["items"]] == ["2"] and last["next_offset"] is None
 
 
-def test_skill_manifest_pages_keep_the_version():
+def test_skill_manifest_pages_keep_version():
   tool, _ = manager.make_tool(
     {
       "GET /skills/id/s/files": {
@@ -154,7 +154,7 @@ def test_thread_reads_request_headers_without_message_bodies():
   "total,page,size,expected",
   [(2, 2, 1, None), (3, 2, 1, 3), (1200, 10, 100, None), (0, 1, 20, None)],
 )
-def test_github_search_stops_at_the_total_or_search_limit(
+def test_github_search_stops_at_total_or_search_limit(
   scope, total, page, size, expected
 ):
   tool = github.client()
@@ -354,7 +354,7 @@ def test_private_directory_lookup_still_checks_all_pages_for_duplicates():
 
 
 @pytest.mark.parametrize("name", ["search_mail", "agenda", "search_files"])
-def test_google_lists_end_without_a_continuation_token(name):
+def test_google_lists_end_without_continuation_token(name):
   tool = google.reader()
 
   async def request(*args, **kwargs):

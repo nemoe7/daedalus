@@ -66,7 +66,7 @@ def group_of(monkeypatch: pytest.MonkeyPatch, **group: object) -> None:
   monkeypatch.setattr(settings, "load", lambda path=None: {"hooks": found})
 
 
-def test_update_writes_the_source(
+def test_update_writes_source(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """`hooks update` fetches the sources and prints the record of each installed file."""
@@ -91,7 +91,7 @@ def test_update_writes_the_source(
   assert "moved 1 file" in out
 
 
-def test_update_needs_a_source(
+def test_update_needs_source(
   monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """A settings file with no source reports it and fails."""
@@ -101,7 +101,7 @@ def test_update_needs_a_source(
   assert remote.read_records() == {}, "the call fetches nothing"
 
 
-def test_update_reports_a_bad_settings_file(
+def test_update_reports_bad_settings_file(
   monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """A settings file that does not parse exits 2 with its message."""
@@ -115,7 +115,7 @@ def test_update_reports_a_bad_settings_file(
   assert expected in capsys.readouterr().out
 
 
-def test_list_prints_the_block_and_the_state(
+def test_list_prints_block_and_state(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """`hooks list` prints the version, scope, state, and source of each file."""
@@ -132,7 +132,7 @@ def test_list_prints_the_block_and_the_state(
   assert "off" in rows["two.py"]
 
 
-def test_verify_passes_a_recorded_file(
+def test_verify_passes_recorded_file(
   folder: Path,
   monkeypatch: pytest.MonkeyPatch,
   quiet: None,
@@ -149,7 +149,7 @@ def test_verify_passes_a_recorded_file(
   )
 
 
-def test_verify_repeats_with_a_colocated_lock_and_real_import(
+def test_verify_repeats_with_colocated_lock_and_real_import(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """Repeated checks inspect only the pinned source, not its lock or bytecode."""
@@ -167,7 +167,7 @@ def test_verify_repeats_with_a_colocated_lock_and_real_import(
   assert list(folder.rglob("*.pyc"))
 
 
-def test_verify_fails_a_changed_file_and_a_missing_one(
+def test_verify_fails_changed_file_and_missing_one(
   folder: Path,
   monkeypatch: pytest.MonkeyPatch,
   quiet: None,
@@ -183,7 +183,7 @@ def test_verify_fails_a_changed_file_and_a_missing_one(
   assert changed_status in out and missing_file in out
 
 
-def test_verify_leaves_an_unpinned_file_alone(
+def test_verify_leaves_unpinned_file_alone(
   folder: Path,
   monkeypatch: pytest.MonkeyPatch,
   quiet: None,
@@ -197,7 +197,7 @@ def test_verify_leaves_an_unpinned_file_alone(
   assert "unpinned" in out and "one.py" in out and cli.HOOK_UPDATE_COMMAND in out
 
 
-def test_verify_warns_on_a_file_that_does_not_load(
+def test_verify_warns_on_file_that_does_not_load(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """A load problem warns, and the command still passes."""
@@ -212,7 +212,7 @@ def test_verify_warns_on_a_file_that_does_not_load(
   assert "warn" in out and "one.py" in out and syntax_kind in out
 
 
-def test_verify_reports_a_bad_settings_file(
+def test_verify_reports_bad_settings_file(
   folder: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
   """A settings file that does not parse exits 2 with its message."""
@@ -226,7 +226,7 @@ def test_verify_reports_a_bad_settings_file(
   assert expected in capsys.readouterr().out
 
 
-def test_the_load_check_reads_a_file(folder: Path) -> None:
+def test_load_check_reads_file(folder: Path) -> None:
   """Real check loads a good hook file, and specifies error of a broken one."""
   good = folder / "good.py"
   good.write_bytes(BODY)

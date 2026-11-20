@@ -21,7 +21,7 @@ def test_malformed_live_session_returns_unauthorized(token: str) -> None:
   assert response.json()["error"]["code"] == 401
 
 
-def test_valid_expired_and_changed_signatures_keep_their_contract() -> None:
+def test_valid_expired_and_changed_signatures_keep_contract() -> None:
   key = "synthetic-session-key"
   token = dashboard.cookie(key, time.time(), seconds=60)
   assert dashboard.live(key, token)

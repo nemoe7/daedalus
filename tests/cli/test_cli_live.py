@@ -59,7 +59,7 @@ def live():
   server.server_close()
 
 
-def test_probe_answers_over_the_socket(live: str) -> None:
+def test_probe_answers_over_socket(live: str) -> None:
   assert cli.probe(live) is True
   assert Live.seen == [("GET", "/health")]
   assert cli.probe("http://127.0.0.1:1") is False
@@ -81,9 +81,7 @@ def test_live_refuses_unexpected_requests(
   assert httpx.request(method, live + path).status_code == status
 
 
-def test_live_url_from_the_address_the_host_and_the_port(
-  monkeypatch, live: str
-) -> None:
+def test_live_url_from_address_host_and_port(monkeypatch, live: str) -> None:
   monkeypatch.setenv(cli.DAEDALUS_URL, live)
   assert cli.live_url() == live
   monkeypatch.setenv(cli.DAEDALUS_URL, f"{live}/")
@@ -112,7 +110,7 @@ def test_ask_rebuild(monkeypatch, live: str) -> None:
   assert cli.ask_rebuild(live) is False, "no key means no request"
 
 
-def test_catalog_uses_the_live_server(monkeypatch, live: str) -> None:
+def test_catalog_uses_live_server(monkeypatch, live: str) -> None:
   """Discovery line names server, and server does rebuild."""
   calls: list[str] = []
   monkeypatch.setattr(catalog, "refresh", lambda: calls.append("local"))
@@ -126,7 +124,7 @@ def test_catalog_uses_the_live_server(monkeypatch, live: str) -> None:
   assert Live.seen == [("GET", "/health"), ("POST", f"Bearer {MASTER}")]
 
 
-def test_catalog_runs_here_with_the_force_flag(monkeypatch, live: str) -> None:
+def test_catalog_runs_here_with_force_flag(monkeypatch, live: str) -> None:
   """Flag takes local rebuild after a refusal, and specifies server."""
   calls: list[str] = []
   Live.status = 401
@@ -149,7 +147,7 @@ def test_catalog_runs_here_with_no_server(monkeypatch) -> None:
   assert shown.getvalue() == "", "no discovery line with no server"
 
 
-def test_catalog_stops_when_the_server_refuses(monkeypatch, capsys, live: str) -> None:
+def test_catalog_stops_when_server_refuses(monkeypatch, capsys, live: str) -> None:
   """A refused command stops here, so the store gains no second writer."""
   calls: list[str] = []
   Live.status = 401

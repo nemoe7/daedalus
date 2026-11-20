@@ -54,7 +54,7 @@ def test_repeated_call_argument_order() -> None:
   assert loops.repeated_call(rounds(first, second, third)) == ("c3", 3)
 
 
-def test_repeats_finds_a_loop() -> None:
+def test_repeats_finds_loop() -> None:
   repeats = loops.Repeats()
   found = [repeats.feed(piece) for piece in ["Intro. ", LINE, LINE, LINE]]
   assert found == [None, None, None, None]

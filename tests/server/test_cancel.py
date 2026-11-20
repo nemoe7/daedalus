@@ -123,7 +123,7 @@ async def test_cancel() -> None:
 @pytest.mark.anyio
 @pytest.mark.parametrize("external", [False, True])
 @pytest.mark.parametrize("headers_sent", [False, True])
-async def test_handler_cancellation_ends_only_its_live_row(
+async def test_handler_cancellation_ends_only_live_row(
   monkeypatch: pytest.MonkeyPatch, external: bool, headers_sent: bool
 ) -> None:
   """Handler cancellation propagates and ends its live row without changing history rules."""

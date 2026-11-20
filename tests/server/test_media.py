@@ -125,7 +125,7 @@ def test_unlisted_model(fake: Upstream, client: TestClient) -> None:
   assert len(fake.sent) == count, "the alias never reaches the upstream"
 
 
-def test_provider_error_stays_off_the_wire(
+def test_provider_error_stays_off_wire(
   client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
   """A media attempt that cannot start answers a generic 400, and the detail stays out of the body."""
@@ -766,7 +766,7 @@ def test_pool_retry_skips_same_slug_on_other_provider(
       api.PENALTIES.select = selection
 
 
-def test_a_request_hook_rewrites_a_media_body(
+def test_request_hook_rewrites_media_body(
   fake: Upstream, client: TestClient, state_folder
 ) -> None:
   """The request hook runs for an embeddings request, and a returned body wins."""
@@ -784,7 +784,7 @@ def test_a_request_hook_rewrites_a_media_body(
   assert sent["output_dimension"] == 16, sent
 
 
-def test_a_request_hook_rewrites_media_form_fields(
+def test_request_hook_rewrites_media_form_fields(
   fake: Upstream, client: TestClient, state_folder
 ) -> None:
   """The request hook runs for a transcription, and the form fields carry its change."""

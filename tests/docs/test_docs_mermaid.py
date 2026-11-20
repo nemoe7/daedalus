@@ -27,19 +27,19 @@ def test_docs_carry_no_custom_mermaid_theme() -> None:
   assert found == [], "custom mermaid themes: " + "; ".join(found)
 
 
-def test_the_check_finds_a_theme() -> None:
+def test_check_finds_theme() -> None:
   """A theme line, a class and a node style each count, so the check holds."""
   sample = '%%{init: {"theme": "base"}}%%\nclassDef bad fill:#f00\nclass A bad\nstyle B fill:#0f0\n'
   assert len(CUSTOM.findall(sample)) == 4
 
 
-def test_mermaid_blocks_stay_in_the_docs() -> None:
+def test_mermaid_blocks_stay_in_docs() -> None:
   """The documentation contains 26 Mermaid diagrams in total."""
   total = sum(len(BLOCK.findall(page.read_text(encoding="utf-8"))) for page in pages())
   assert total == 26, total
 
 
-def test_every_flow_chart_names_a_direction() -> None:
+def test_every_flow_chart_names_direction() -> None:
   """A chart with no direction falls back to TD, the tall shape a desktop reader scrolls."""
   found = []
   for page in pages():

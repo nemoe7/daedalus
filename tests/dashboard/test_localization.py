@@ -112,7 +112,7 @@ vm.runInContext("let calling = 0; let spinnerTimer;" + {json.dumps(translation.g
   subprocess.run(["node", "-e", script], check=True)
 
 
-def test_english_catalog_is_a_versioned_dashboard_asset() -> None:
+def test_english_catalog_is_versioned_dashboard_asset() -> None:
   client = TestClient(api.app)
   page = client.get("/")
   assert page.status_code == 200
@@ -124,7 +124,7 @@ def test_english_catalog_is_a_versioned_dashboard_asset() -> None:
   assert asset.headers["cache-control"] == "no-cache"
 
 
-def test_every_locale_reference_has_a_catalog_entry() -> None:
+def test_every_locale_reference_has_catalog_entry() -> None:
   catalog = read_catalog()
   html = (UI / "index.html").read_text(encoding="utf-8")
   app = (UI / "app.js").read_text(encoding="utf-8")
@@ -164,7 +164,7 @@ def test_locale_keys_are_semantic_and_unique() -> None:
   assert not invalid, invalid
 
 
-def test_translation_formats_values_and_returns_a_missing_key() -> None:
+def test_translation_formats_values_and_returns_missing_key() -> None:
   app = (UI / "app.js").read_text(encoding="utf-8")
   helper = re.search(
     r"function t\(key, values = \{\}\) \{.*?^\}", app, re.MULTILINE | re.DOTALL
