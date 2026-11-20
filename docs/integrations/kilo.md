@@ -18,6 +18,7 @@ flowchart LR
   C --> D[Patch each model of the block]
   D --> E[limit.context from max_input_tokens]
   D --> F[reasoning, tool_call, vision fields]
+  D --> I[variants from supported_efforts]
   G[daedalus does not answer in 3 s] --> H[fail open, no change]
 ```
 
@@ -28,6 +29,7 @@ flowchart LR
 | `tool_call` | `supports_function_calling` |
 | `reasoning` | `supports_reasoning` |
 | `modalities.input`, `attachment` | `["text", "image"]` and `true`, when `supports_vision` is `true` |
+| `variants` | `{ reasoningEffort: <effort> }` for each `supported_efforts` entry; skipped when the config entry already has `variants` |
 
 This plugin updates each provider with id `daedalus` or a `daedalus/` model using its
 `baseURL`. API keys resolve in order:

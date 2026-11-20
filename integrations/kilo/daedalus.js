@@ -53,6 +53,14 @@ function patch(model, row) {
     next.modalities = { ...(model.modalities || {}), input: ["text", "image"] };
     next.attachment = true;
   }
+  if (model.variants === undefined
+    && Array.isArray(row.supported_efforts)
+    && row.supported_efforts.length > 0
+    && row.supported_efforts.every((e) => typeof e === "string")) {
+    next.variants = Object.fromEntries(
+      row.supported_efforts.map((e) => [e, { reasoningEffort: e }])
+    );
+  }
   return next;
 }
 

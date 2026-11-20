@@ -21,6 +21,7 @@ ROWS = [
     "max_output_tokens": 32768,
     "supports_function_calling": True,
     "supports_reasoning": True,
+    "supported_efforts": ["none", "minimal", "low", "medium", "high", "xhigh", "max"],
   },
   {
     "id": "gemini/gemini-3.7-flash",
@@ -86,10 +87,20 @@ def run(config: dict, data: str, env_key: str = "") -> tuple[dict, str]:
 def test_patch(base: str, data: str) -> None:
   found, log = run(provider(base, {"apiKey": KEY}), data)
   models = found["daedalus"]["models"]
+  expected_variants = {
+    "none": {"reasoningEffort": "none"},
+    "minimal": {"reasoningEffort": "minimal"},
+    "low": {"reasoningEffort": "low"},
+    "medium": {"reasoningEffort": "medium"},
+    "high": {"reasoningEffort": "high"},
+    "xhigh": {"reasoningEffort": "xhigh"},
+    "max": {"reasoningEffort": "max"},
+  }
   assert models["daedalus/auto"] == {
     "limit": {"context": 262144, "output": 0},
     "reasoning": True,
     "tool_call": True,
+    "variants": expected_variants,
   }, models["daedalus/auto"]
   flash = models["gemini/gemini-3.7-flash"]
   assert flash["limit"] == {"context": 1048576, "output": 0}, flash
@@ -97,6 +108,7 @@ def test_patch(base: str, data: str) -> None:
     flash
   )
   assert flash["reasoning"] is False and flash["name"] == "Flash", flash
+  assert "variants" not in flash, "flash row has no supported_efforts"
   assert models["missing/model"] == {"name": "Kept"}, "a model daedalus does not list"
   assert found["other"]["models"] == {"daedalus-like": {}}, "not a daedalus provider"
   assert "patched 2 models" in log, log
@@ -118,6 +130,19 @@ def test_fail_open(base: str, data: str) -> None:
   found, log = run(config, data)
   assert found == config["provider"], "no change on an error"
   assert "fail open GET" in log and "HTTP 401" in log, log
+
+
+def test_preserves_user_variants(base: str, data: str) -> None:
+  user_variants = {
+    "custom-low": {"reasoningEffort": "low"},
+    "custom-high": {"reasoningEffort": "high"},
+  }
+  config = provider(base, {"apiKey": KEY})
+  config["provider"]["daedalus"]["models"]["daedalus/auto"]["variants"] = user_variants
+  found, _ = run(config, data)
+  assert found["daedalus"]["models"]["daedalus/auto"]["variants"] == user_variants, (
+    "user variants preserved"
+  )
 
 
 @pytest.fixture(scope="module")
