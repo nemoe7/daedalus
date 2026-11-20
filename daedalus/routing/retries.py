@@ -67,7 +67,7 @@ def next_tier(turn: Turn) -> int:
 
 
 def fresh_models(turn: Turn, group: list[str]) -> list[str]:
-  """The models of the first tier that did not answer, without their copies on other providers; a full list restarts."""
+  """The models of the first tier that did not answer, excluding their copies on other providers. A full list restarts."""
   banned = {model_key(m) for m in turn.answered}
   left = [m for m in group if m not in turn.answered and model_key(m) not in banned]
   if left:

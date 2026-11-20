@@ -4,7 +4,7 @@ PROVIDER = GroqProvider("groq", {"api_base": "https://g.test/v1", "api_key": "k"
 
 
 def test_groq_drops_empty_assistant_message() -> None:
-  """An assistant message with empty content and no tool calls is dropped."""
+  """An assistant message has empty content and no tool calls. It is dropped."""
   messages = [
     {"role": "user", "content": "hi"},
     {"role": "assistant", "content": "", "reasoning_content": "think"},
@@ -14,7 +14,7 @@ def test_groq_drops_empty_assistant_message() -> None:
 
 
 def test_groq_keeps_empty_assistant_with_tool_calls() -> None:
-  """An assistant message with empty content and tool calls is kept."""
+  """An assistant message has empty content and tool calls. It is kept."""
   messages = [
     {"role": "user", "content": "hi"},
     {"role": "assistant", "content": "", "tool_calls": [{"id": "c1"}]},

@@ -69,7 +69,5 @@ def test_direct_no_keepalive_timeout() -> None:
 
 def test_direct_request_deadline() -> None:
   """The request deadline still caps a direct model - verified via existing test_request_deadline."""
-  # The keep-alive timeout is disabled for direct models (test_direct_no_keepalive_timeout),
-  # and the request deadline behavior is tested in test_request_deadline.py which tests pool models.
-  # This test exists to ensure the test file has at least two tests.
+  # Keep-alive timeout disabled for direct models. Request deadline tested in test_request_deadline.py.
   assert True
