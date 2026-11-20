@@ -17,7 +17,8 @@ An ADR holds one decision and the reason for it.
 ## Human-facing text
 
 - Lint every human-facing file with `.agents/skills/nemoizer/scripts/nemoizer`.
-- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`, and require 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
+- Before every commit, run `python3 .agents/skills/nemoizer/scripts/nemoizer .` with `NODE_PATH=tests/e2e/node_modules`. Require 0 violations.
+- Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. Require 0 issues. Config rules live in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
 - Review every human-facing edit to `AGENTS.md` with `.agents/skills/nemoizer/SKILL.md`.
 - Docs never hold narrative. State facts, and leave out story text.
 - Use lists and tables. Humans read this text, not models.
@@ -30,6 +31,8 @@ An ADR holds one decision and the reason for it.
 - For each point that needs owner words or an owner decision, add a `> Q:` line with that question. Keep that question until owner input supplies the answer.
 - Use a neutral voice. Do not add a claim, an opinion, or a promise without owner approval.
 - Lint each changed file with `.agents/skills/nemoizer/scripts/nemoizer`. Each run must report 0 violations.
+- Before every commit, run `python3 .agents/skills/nemoizer/scripts/nemoizer .` with `NODE_PATH=tests/e2e/node_modules`. Require 0 violations.
+- Run `npx markdownlint-cli2 "**/*.md"`. Require 0 issues.
 - Show each command for cmd, PowerShell, and bash. Use Mermaid for diagrams.
 
 ## Front-end work
