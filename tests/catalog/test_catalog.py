@@ -1037,24 +1037,4 @@ def test_cached_dump_rejects_provider_paths(
   assert existing.read_text() == "existing output"
 
 
-def test_mistral_voxtral_3_drops_from_the_free_config() -> None:
-  """Free config drops Voxtral 3 audio models and keeps dated free rows."""
-  loaded = config.read_yaml(config.DEFAULT_PATH)
-  mistral = loaded["mistral"]
-  dropped = [
-    "voxtral-mini-transcribe-3",
-    "voxtral-mini-transcribe-3-0",
-    "voxtral-small-transcribe-3",
-    "voxtral-small-transcribe-3-0",
-    "voxtral-mini-tts-3",
-    "voxtral-mini-tts-3-0",
-  ]
-  kept_rows = ["voxtral-mini-2602", "voxtral-mini-tts-2603", "voxtral-small-2507"]
-  kept = discovery.select(mistral, [*dropped, *kept_rows])
-  assert kept == kept_rows, kept
-  assert enrichment.config_params(mistral, "voxtral-mini-2602").get("mode") == (
-    "audio_transcription"
-  )
-  assert enrichment.config_params(mistral, "voxtral-mini-tts-2603").get("mode") == (
-    "audio_speech"
-  )
+

@@ -13,14 +13,14 @@ cloudflare:
     TIER-A:
       - "*qwen3.*"
       - "*nemotron-3-120b-a12b*"
-      - "@cf/openai/gpt-oss-120b"
+      - "@cf/qwen/qwq-32b"
     TIER-B:
       - "*qwen3-30b-a3b*"
       - "*deepseek-r1*"
       - "@cf/openai/gpt-oss-20b"
       - "@cf/zai-org/glm-4.7-flash"
       - "@cf/google/gemma-4-*"
-      - "@cf/qwen/qwq-32b"
+      - "@cf/openai/gpt-oss-120b"
     TIER-C:
       - "@cf/meta/llama-3.3-70b-*"
       - "@cf/meta/llama-4-scout-*"
@@ -40,7 +40,7 @@ cloudflare:
     # Workers AI docs give gpt-oss low, medium, and high, and qwen3.8 low, medium, and xhigh.
     "@cf/openai/gpt-oss-120b": { supported_reasoning_efforts: [low, medium, high] }
     "@cf/openai/gpt-oss-20b": { supported_reasoning_efforts: [low, medium, high] }
-    "@cf/qwen/qwen3.8-27b": { supported_reasoning_efforts: [low, medium, xhigh] }
+    "@cf/qwen/qwen3.8-27b": { supported_reasoning_efforts: [low, medium, high] }
     # Workers AI docs give these 3 an on/off enable_thinking toggle: none turns it off, max keeps it on.
     "@cf/zai-org/glm-4.7-flash": { supported_reasoning_efforts: [none, max] }
     "@cf/google/gemma-4-26b-a4b-it": { supported_reasoning_efforts: [none, max] }
@@ -75,6 +75,7 @@ gemini:
     - "*-image*"
     - "*-live*"
     - lyria-*
+    - genie-4 # world simulation model (WebRTC video), not chat
   tier:
     TIER-A:
       - gemini-3.8-flash
@@ -108,10 +109,10 @@ groq:
     - "*safeguard*"
   tier:
     TIER-A:
-      - openai/gpt-oss-120b
       - qwen/qwen3.8-27b
     TIER-B:
       - openai/gpt-oss-20b
+      - openai/gpt-oss-120b
     TIER-D:
       - allam-2-7b
   models:
@@ -121,7 +122,7 @@ groq:
       max_input_tokens: 7000
       max_output_tokens: 16384
       # Model docs name these three rungs, while the Groq deployment lists no effort set.
-      supported_reasoning_efforts: [low, medium, xhigh]
+      supported_reasoning_efforts: [low, medium, high]
     # allam-2-7b has a 4096 combined window, so the input cap leaves room for the output.
     allam-2-7b: { max_input_tokens: 2048 }
     "whisper-*": { mode: audio_transcription, rpm: 20 }
@@ -142,7 +143,6 @@ kilo:
   tier:
     TIER-A:
       - "nvidia/nemotron-3-super-*"
-      - "nvidia/nemotron-3-ultra-*"
       - "poolside/laguna-s-*"
       - "thinkingmachines/inkling*"
       - "reflection/beam-*"
@@ -153,6 +153,7 @@ kilo:
       - "recursive/flint-v1.0*"
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
+      - "liquid/lfm-3-1.7b*"
 
 mistral:
   api_key: env:MISTRAL_API_KEY
@@ -166,12 +167,11 @@ mistral:
       - codestral-2508
       - labs-leanstral-1-5-1
       - ministral-14b-2512
-      - voxtral-small-2507
     TIER-D:
       - ministral-8b-2512
       - ministral-3b-2512
   models:
-    "voxtral-mini-2*": { mode: audio_transcription }
+    "voxtral-*transcribe*": { mode: audio_transcription }
     "voxtral-mini-tts-2*": { mode: audio_speech } # the TTS models speak, they do not transcribe
     "*embed*": { mode: embedding }
 
