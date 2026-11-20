@@ -86,8 +86,8 @@ def test_the_effort_lands_on_a_name_of_the_model_list() -> None:
         "the client asked high, and the list holds it"
       )
       for asked, wanted, why in (
-        ("medium", "low", "a tie steps down"),
-        ("minimal", "low", "minimal is closer to low than to high"),
+        ("medium", "high", "a skipped level rounds up"),
+        ("minimal", "low", "minimal rounds up to the next listed rung"),
         ("none", "low", "none sits under the list, so the lowest listed name"),
       ):
         asyncio.run(

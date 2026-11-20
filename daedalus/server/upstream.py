@@ -485,7 +485,7 @@ OUTPUT_FIELDS = ("max_tokens", "max_completion_tokens")
 
 # The effort names in rank order, lowest first. A gateway maps a name it lists to itself.
 def nearest_effort(asked: str, listed: list[str]) -> str | None:
-  """Select an exact or nearest listed effort, with lower ties and non-`none` alternatives, or None without a match."""
+  """Select an exact or next listed effort at or above the asked rank, capped at the top, or None without a match."""
   ranks = router.EFFORT_RANKS
   if asked in listed:
     return asked
@@ -497,7 +497,10 @@ def nearest_effort(asked: str, listed: list[str]) -> str | None:
     known = [name for name in known if name != "none"] or known
   if not known:
     return None
-  return min(known, key=lambda name: (abs(ranks.index(name) - rank), ranks.index(name)))
+  above = [name for name in known if ranks.index(name) >= rank]
+  if above:
+    return min(above, key=ranks.index)
+  return max(known, key=ranks.index)
 
 
 def with_defaults(candidate: str, body: dict[str, Any]) -> dict[str, Any]:
