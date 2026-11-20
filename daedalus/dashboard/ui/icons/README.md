@@ -17,18 +17,25 @@ Each file keeps the name of its origin, except these files:
 
 | File | Origin |
 | --- | --- |
+| `aion-labs.svg` | `aionlabs.svg` |
 | `black-forest-labs.svg` | `bfl.svg` |
 | `deepseek-ai.svg` | `deepseek.svg` |
 | `dots-studio.svg` | `dotsstudio.svg` |
 | `fish-audio.svg` | `fishaudio.svg` |
 | `ibm-granite.svg` | `ibm.svg` |
+| `inference-net.svg` | `inference.svg` |
 | `meta-llama.svg` | `meta.svg` |
 | `runwayml.svg` | `runway.svg` |
 | `kilo.svg` | `kilocode.svg` |
 | `mistralai.svg` | `mistral.svg` |
 | `moonshotai.svg` | `moonshot.svg` |
 | `myshell-ai.svg` | `myshell.svg` |
+| `rekaai.svg` | `reka.svg` |
 | `stabilityai.svg` | `stability.svg` |
+| `togethercomputer.svg` | `together.svg` |
+| `typesafe.svg` | `typesafeai.svg` |
+| `x-ai.svg` | `xai.svg` |
+| `xiaomi.svg` | `xiaomimimo.svg` |
 | `z-ai.svg`, `zai-org.svg` | `zai.svg` |
 
 ## Capability icons

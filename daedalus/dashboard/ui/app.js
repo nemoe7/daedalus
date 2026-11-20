@@ -305,12 +305,14 @@ const nameCell = (text, shown = esc(text), label = t("model.column.model_column"
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // Render `provider/developer/slug` without duplicate provider names, using text when no SVG matches.
 const MARK_FILES = new Set([
-  "anthropic", "baai", "baseten", "black-forest-labs", "bytedance", "cloudflare", "cohere", "daedalus",
-  "deepseek-ai",
-  "dots-studio", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite", "inception",
-  "kilo", "liquid", "meta", "meta-llama", "microsoft", "mistral", "mistralai", "moonshotai",
-  "myshell-ai", "nvidia", "openai", "openrouter", "pollinations", "poolside", "qwen", "runwayml",
-  "stabilityai", "stepfun", "z-ai", "zai-org",
+  "aion-labs", "alibaba", "anthropic", "assemblyai", "baai", "baidu", "baseten", "black-forest-labs",
+  "bytedance", "cloudflare", "cohere", "daedalus", "deepseek", "deepseek-ai", "dots-studio",
+  "elevenlabs", "fireworks", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite",
+  "inception", "inference-net", "kilo", "krea", "liquid", "meta", "meta-llama", "microsoft",
+  "minimax", "mistral", "mistralai", "moonshotai", "morph", "myshell-ai", "nousresearch", "nvidia",
+  "openai", "openrouter", "perceptron", "perplexity", "pollinations", "poolside", "qwen",
+  "recraft", "relace", "rekaai", "runway", "runwayml", "sakana", "stabilityai", "stepfun", "tencent",
+  "togethercomputer", "typesafe", "upstage", "x-ai", "xiaomi", "z-ai", "zai-org",
 ]);
 const mark = (name, tint = false) => MARK_FILES.has(name)
   ? tint
