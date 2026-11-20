@@ -1,7 +1,7 @@
 """Hook updates preview first and install only after confirmation."""
 
+from conftest import MASTER, run_app_js
 from fastapi.testclient import TestClient
-from test_dashboard import MASTER, run_app_js
 
 from daedalus import dashboard
 from daedalus.config import remote, settings
