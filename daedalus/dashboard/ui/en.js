@@ -344,6 +344,7 @@ globalThis.DAEDALUS_LOCALE = {
   "provider.secret.environment_text": "From environment",
   "provider.secret.missing_environment_text": "Environment variable not set",
   "provider.secret.note": "env:NAME reads an environment variable. Pasted keys go to the database.",
+  "provider.default.note": "The tier hint of this file: a specific provider pattern wins, then these patterns, then a provider catch-all.",
   "provider.tiers.hint": "Model patterns for each tier. {pattern_hint}",
   "provider.tiers.label": "Tiers",
   "provider.validation.client_key_text": "Write the key name and its value.",

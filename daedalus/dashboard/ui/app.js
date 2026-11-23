@@ -1927,6 +1927,9 @@ const MODEL_ONLY = ["name", "pool", "timeout"];
 const PROVIDER_ONLY = ["hourly_requests"];
 const TIERS = ["TIER-A", "TIER-B", "TIER-C", "TIER-D"];
 
+// The reserved main-file block that holds the global tier hint of its file's providers.
+const DEFAULT_BLOCK = "_default";
+
 const clone = (value) => (value === undefined ? undefined : JSON.parse(JSON.stringify(value)));
 const shown = (value) => (value !== null && typeof value === "object" ? JSON.stringify(value) : String(value));
 
@@ -3437,6 +3440,15 @@ function providerCard(name, block) {
   if (!block || typeof block !== "object" || Array.isArray(block)) {
     return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}">
       <p class="sub">${t("provider.block.invalid_text")}</p></div>`;
+  }
+  if (name === DEFAULT_BLOCK) {
+    // The hint block holds tiers only: no key, base, discovery, or model fields.
+    const tiers = TIERS.map((tier) => `<div class="tier-row"><span class="tier">${tier.slice(-1)}</span>
+      ${listField(tier, block.tier?.[tier], [...path, "tier", tier])}</div>`).join("");
+    return `<div class="card provider" data-section="${esc(name)}" data-provider="${esc(name)}">
+      <p class="sub">${t("provider.default.note")}</p>
+      ${field(t("provider.tiers.label"), t("provider.tiers.hint", { pattern_hint: PATTERN_HINT }), tiers)}
+    </div>`;
   }
   const defaults = state.providerDefaults[name] || state.providerDefaults["*"] || {};
   const tokenInfo = (value) => {

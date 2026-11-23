@@ -25,7 +25,7 @@ from daedalus.catalog.discovery import (
 )
 from daedalus.config import block_for, get_config
 from daedalus.providers.base import clean_display_name, humanize_slug
-from daedalus.routing.router import EFFORT_RANKS, claiming_tier, efforts
+from daedalus.routing.router import EFFORT_RANKS, efforts, tier_of
 from daedalus.store import COLUMNS
 
 logger = logging.getLogger("daedalus.catalog")
@@ -351,8 +351,8 @@ def enrich(
       row["mode"] = row["mode"] or "chat"
     row["supported_efforts"] = supported_ladder(config, line, row)
     row["tier"] = (
-      claiming_tier(block, slug)
-      if block and row.get("mode") in (None, "chat")
+      tier_of(config, provider_name, slug)
+      if row.get("mode") in (None, "chat")
       else None
     )
     rows.append(row)

@@ -1,3 +1,18 @@
+# The tier hint of the free.yml providers: it claims only what no provider block claims.
+# The shared patterns of 2 or more provider blocks, so a new provider serves them in the same tiers.
+_default:
+  tier:
+    TIER-A:
+      - "nvidia/nemotron-3-super-*"
+      - "poolside/laguna-s-*"
+      - "thinkingmachines/inkling*"
+      - "minimax/minimax-m3.1-flash*"
+    TIER-C:
+      - "recursive/flint-v1.0*"
+    TIER-D:
+      - "liquid/lfm-2.5-2.6b*"
+      - "liquid/lfm-3-1.7b*"
+
 cloudflare:
   api_key: env:CLOUDFLARE_API_KEY
   account_id: env:CLOUDFLARE_ACCOUNT_ID

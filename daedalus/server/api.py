@@ -21,7 +21,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from daedalus import __version__, dashboard, providers, store
 from daedalus.catalog import exports, schedule
-from daedalus.config import block_for, get_config, remote, settings
+from daedalus.config import get_config, remote, settings
 from daedalus.providers import hooks, signatures
 from daedalus.providers.base import error_text
 from daedalus.routing import (
@@ -582,8 +582,7 @@ def model_pool(config: dict[str, Any], model: str) -> str | None:
   name, _, slug = model.partition("/")
   tier_name = store.model_limits(model).get("tier")
   if tier_name is None:
-    block = block_for(config, name, slug)
-    tier_name = router.claiming_tier(block, slug) if block else None
+    tier_name = router.tier_of(config, name, slug)
   tier = next(
     (value for value, name in router.TIER_NAMES.items() if name == tier_name), None
   )
@@ -679,8 +678,7 @@ def attempted_pool(config: dict[str, Any], candidate: str) -> str | None:
   provider_name, _, slug = candidate.partition("/")
   tier = store.model_limits(candidate).get("tier")
   if tier is None:
-    block = block_for(config, provider_name, slug)
-    tier = router.claiming_tier(block, slug) if block else None
+    tier = router.tier_of(config, provider_name, slug)
   return POOL_NAMES.get(tier) if tier is not None else None
 
 
@@ -690,8 +688,7 @@ def served(request: Request, config: dict[str, Any], candidate: str) -> None:
   provider_name, _, slug = candidate.partition("/")
   tier = store.model_limits(candidate).get("tier")
   if tier is None:
-    block = block_for(config, provider_name, slug)
-    tier = router.claiming_tier(block, slug) if block else None
+    tier = router.tier_of(config, provider_name, slug)
   if first is None or POOL_NAMES.get(tier, first) == first:
     return
   request.state.pool, request.state.routed = POOL_NAMES[tier], first

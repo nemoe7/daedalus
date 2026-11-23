@@ -678,10 +678,7 @@ def tier_map(config: Mapping[str, Any], lines: list[str]) -> dict[str, str]:
     if not router.pooled(config, line):
       continue
     name, _, slug = line.partition("/")
-    block = block_for(config, name, slug)
-    tier = router.claiming_tier(block, slug) if block else None
-    if tier:
-      found[line] = tier
+    found[line] = router.tier_of(config, name, slug) or ""
   return found
 
 

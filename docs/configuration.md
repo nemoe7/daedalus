@@ -359,6 +359,14 @@ Pattern types:
 
 When patterns of 2 tiers match 1 model, the most specific pattern sets the tier.
 
+A provider file may also hold a `_default` block: a top-level key with one `tier` mapping for the providers of that file. The tiers of 1 model follow 1 order:
+
+1. A provider pattern that beats the `"*"` catch-all in specificity, such as an exact name or a wider glob.
+2. A pattern of the `_default` block of the file that owns the model. This beats a provider `"*"` catch-all.
+3. The provider `"*"` catch-all.
+
+`free.yml` ships a `_default` block with the tier patterns that 2 or more provider blocks share. The Providers page shows `_default` as a card with the tier editor only. Reasoning capability alone never sets a tier.
+
 Order of the model values: provider file, then discovery, then LiteLLM.
 
 The tier comes from the model size, the model capabilities, and rankings from benchmarks and from other users. Kilo and OpenRouter models go to `TIER-B` through the `"*"` pattern, because their free models are usually for agentic tasks.

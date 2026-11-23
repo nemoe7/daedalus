@@ -37,6 +37,10 @@ MEDIA_POOLS: Final[Mapping[str, str]] = {
 }
 # The pool names that clients use, from the `pools` settings. Only renamed pools are here.
 RENAMED: Mapping[str, str] = {}
+# The top-level key of a provider file that holds the global tier hint of its providers.
+DEFAULT_KEY: Final = "_default"
+# The pattern text that claims every model of a provider.
+CATCH_ALL: Final = "*"
 # The `optimization.enabled` setting. A block or a model entry alone turns the switch off for 1 model.
 HEADROOM: bool = True
 
@@ -84,17 +88,69 @@ def tier_models(provider: Mapping[str, Any], tier_name: str) -> list[str]:
   return [name for name in names if isinstance(name, str) and name]
 
 
-def claiming_tier(provider: Mapping[str, Any], slug: str) -> str | None:
-  """The tier with the most specific pattern for a slug. A tie goes to the higher tier."""
+def claiming_tier(
+  provider: Mapping[str, Any], slug: str, catch_all: bool = True
+) -> str | None:
+  """The tier with the most specific pattern for a slug. A tie goes to the higher tier.
+
+  With `catch_all` False, only patterns that beat the bare catch-all in specificity claim.
+  """
   from daedalus.catalog.discovery import matches, specificity
 
+  if not isinstance(provider, Mapping):
+    return None
+  floor = specificity(CATCH_ALL)
   best: tuple[tuple[int, int], str] | None = None
   for tier in reversed(TIERS):
     name = TIER_NAMES[tier]
-    ranks = [specificity(p) for p in tier_models(provider, name) if matches(p, slug)]
+    ranks = [
+      specificity(p)
+      for p in tier_models(provider, name)
+      if matches(p, slug) and (catch_all or specificity(p) > floor)
+    ]
     if ranks and (best is None or max(ranks) > best[0]):
       best = (max(ranks), name)
   return None if best is None else best[1]
+
+
+def _default_block(block: Mapping[str, Any] | None) -> Mapping[str, Any] | None:
+  """The `_default` block that one file block carries, when it holds tier patterns."""
+  found = block.get(DEFAULT_KEY) if block else None
+  return found if isinstance(found, dict) else None
+
+
+def tier_hint_block(
+  config: Mapping[str, Any], name: str, slug: str
+) -> Mapping[str, Any] | None:
+  """The `_default` block of 1 file that owns 1 provider block of 1 model."""
+  provider = config.get(name)
+  if not isinstance(provider, dict):
+    return None
+  block = block_for(config, name, slug)
+  if block is not None:
+    return _default_block(block if block is file_block(provider) else config)
+  own = file_block(provider)
+  if own is not None and main_block(provider) is None:
+    return _default_block(own)
+  return _default_block(config)
+
+
+def tier_of(
+  config: Mapping[str, Any],
+  name: str,
+  slug: str,
+  block: Mapping[str, Any] | None = None,
+) -> str | None:
+  """The tier of one model: a specific provider claim, its file's `_default`, then the catch-all."""
+  if block is None:
+    block = block_for(config, name, slug)
+  specific = claiming_tier(block, slug, catch_all=False) if block else None
+  if specific is not None:
+    return specific
+  hinted = claiming_tier(tier_hint_block(config, name, slug), slug)
+  if hinted is not None:
+    return hinted
+  return claiming_tier(block, slug) if block else None
 
 
 def model_setting(config: Mapping[str, Any], model: str, key: str) -> Any:
@@ -338,9 +394,9 @@ def sorted_lines(config: Mapping[str, Any], lines: list[str]) -> dict[str, list[
       if not line.startswith(head):
         continue
       slug = line[len(head) :]
-      # The block that owns the model also sets its tier.
+      # The block that owns the model also sets its tier, with `_default` as hint.
       block = block_for(config, provider_name, slug)
-      tier = None if block is None else claiming_tier(block, slug)
+      tier = tier_of(config, provider_name, slug, block)
       if tier is not None and pooled(config, line):
         found.setdefault(tier, []).append(line)
   return found
