@@ -24,6 +24,7 @@ Each file keeps the name of its origin, except these files:
 | `fish-audio.svg` | `fishaudio.svg` |
 | `ibm-granite.svg` | `ibm.svg` |
 | `inclusionai.svg` | `ling.svg` |
+| `inclusionai.svg` | `ling.svg` |
 | `inference-net.svg` | `inference.svg` |
 | `meta-llama.svg` | `meta.svg` |
 | `runwayml.svg` | `runway.svg` |
