@@ -274,10 +274,10 @@ a.notification-item .notification-head b { text-decoration: underline; text-deco
 @media (hover: hover) {
   button.notification-item:hover, a.notification-item:hover { background: var(--field); }
 }
-.notification-mark { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
-.notification-item.reset .notification-mark { background: var(--accent); }
-.notification-item.warning .notification-mark { background: var(--warn); }
-.notification-item.rebuild .notification-mark { background: var(--ok); }
+.notification-pip { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.notification-item.reset .notification-pip { background: var(--accent); }
+.notification-item.warning .notification-pip { background: var(--warn); }
+.notification-item.rebuild .notification-pip { background: var(--ok); }
 /* First event opens card itself: count strip above it carried no action. */
 .notification-feed > .notification-item:first-child { border-top: 0; }
 .notification-copy { min-width: 0; display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
@@ -466,12 +466,12 @@ a.more:hover { color: var(--accent-text); }
 /* Model detail modal card with fixed responsive width across desktop and mobile views. */
 .model-modal { width: min(560px, calc(100vw - 32px)); max-width: min(560px, calc(100vw - 32px)); }
 .model-modal h3 { display: flex; align-items: center; gap: 10px; }
-.model-modal h3 img.mark { width: 22px; height: 22px; }
+.model-modal h3 img.icon { width: 22px; height: 22px; }
 .model-modal h3 .name, .model-modal h3 .slug { overflow-wrap: anywhere; }
 .model-id { display: grid; gap: 4px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--field); }
 .model-id .id-row { display: flex; align-items: center; gap: 10px; }
 .model-id .label { flex: 0 0 72px; color: var(--muted); font-size: 12px; }
-.model-id .mark { width: 16px; height: 16px; }
+.model-id .icon { width: 16px; height: 16px; }
 .model-id .value { min-width: 0; overflow-wrap: anywhere; }
 .model-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .model-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
@@ -507,13 +507,13 @@ tr.request.has-chain { cursor: pointer; }
 .mobile-label { display: none; }
 /* A control that only a phone shows, such as the sort of the card list. */
 .only-sm { display: none; }
-/* Inline provider and developer marks beside model names, falling back to plain text. */
-.mark { display: inline-block; width: 16px; height: 16px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
-.mark.tint { background: currentColor; -webkit-mask: var(--mark) center / contain no-repeat; mask: var(--mark) center / contain no-repeat; }
-.mark.slug { width: auto; height: auto; border-radius: 0; vertical-align: baseline; }
-.mark-sep { margin: 0 3px; color: var(--muted); }
-/* A dark theme inverts the monochrome mark files. The text of a slug needs no filter. */
-:root[data-theme="dark"] img.mark { filter: invert(1); }
+/* Inline provider and developer icons beside model names, falling back to plain text. */
+.icon { display: inline-block; width: 16px; height: 16px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
+.icon.tint { background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+.icon.slug { width: auto; height: auto; border-radius: 0; vertical-align: baseline; }
+.icon-sep { margin: 0 3px; color: var(--muted); }
+/* A dark theme inverts the monochrome icon files. The text of a slug needs no filter. */
+:root[data-theme="dark"] img.icon { filter: invert(1); }
 .model-part { overflow: hidden; text-overflow: ellipsis; }
 #limit-rows td.name { max-width: 0; white-space: normal; }
 #limit-rows td.name .cell-value { display: block; overflow-wrap: anywhere; }
@@ -796,7 +796,7 @@ mark.search-hit {
   background: var(--accent); color: var(--on-accent); border-color: var(--accent);
 }
 .tile svg { width: 16px; height: 16px; }
-.tile .mark { width: 16px; height: 16px; vertical-align: middle; }
+.tile .icon { width: 16px; height: 16px; vertical-align: middle; }
 .sections button > span:not(.tile) { flex: 1; min-width: 0; }
 .settings h3, .card.provider > h3, .card.yaml-view > h3, #balances h3 { display: flex; align-items: center; gap: 8px; }
 .provider-flow { display: flex; flex-direction: column; gap: 16px; min-width: 0; min-height: 0; }
@@ -1439,7 +1439,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
     padding: 8px; border: 1px solid var(--line); border-radius: var(--radius); box-shadow: none;
   }
   .notification-item { align-items: start; min-height: 44px; padding: 10px 14px; }
-  .notification-mark { margin-top: 5px; }
+  .notification-pip { margin-top: 5px; }
   .notification-copy { display: grid; gap: 2px; white-space: normal; }
   .notification-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
   .notification-head b { max-width: none; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

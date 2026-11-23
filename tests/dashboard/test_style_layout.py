@@ -990,7 +990,7 @@ def test_model_modal_heading_sizes_images_and_wraps_text() -> None:
     and re.search(r"\b(?:width|height)\s*:", declarations)
   ]
   assert sizes
-  assert all(re.search(r"\bimg\.mark\b", selector) for selector in sizes), sizes
+  assert all(re.search(r"\bimg\.icon\b", selector) for selector in sizes), sizes
   styles = {
     selector.strip(): dict(re.findall(r"([\w-]+)\s*:\s*([^;]+)", declarations))
     for selectors, declarations in rules

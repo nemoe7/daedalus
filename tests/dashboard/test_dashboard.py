@@ -1418,13 +1418,13 @@ def test_update_check_now(client: TestClient) -> None:
 def test_failed_update_check_keeps_glyph_and_word() -> None:
   """A failed update check restores button availability, icon markup, and label text."""
   run_app_js(
-    "icon",
+    "glyph",
     """
 const button = node('update-check');
 button.closest = () => button;
 node('settings').handlers.click[0]({ target: button }).then(() => {
   assert(button.disabled === false, 'the button is live again');
-  assert(button.innerHTML.includes(probe.icon('refresh_cw')), 'the glyph returns');
+  assert(button.innerHTML.includes(probe.glyph('refresh_cw')), 'the glyph returns');
   assert(button.innerHTML.includes(LOCALE['action.check_now_button']), 'the word returns');
 });
 """,

@@ -11,10 +11,10 @@ globalThis.t = t;
 
 function hydrateIcons(root = document) {
   root.querySelectorAll?.("[data-icon]").forEach((node) => {
-    const glyph = node.getAttribute("data-icon");
-    if (!ICON_PATHS[glyph]) return;
-    if (node.classList?.contains?.("ico-slot") || !("outerHTML" in node)) node.innerHTML = icon(glyph);
-    else node.outerHTML = icon(glyph);
+    const name = node.getAttribute("data-icon");
+    if (!GLYPH_PATHS[name]) return;
+    if (node.classList?.contains?.("ico-slot") || !("outerHTML" in node)) node.innerHTML = glyph(name);
+    else node.outerHTML = glyph(name);
   });
 }
 
@@ -273,22 +273,22 @@ const none = (text) => `<div class="more">${text}</div>`;
 function actionButton(content, { variant = "", type = "button", attrs = {} } = {}) {
   return `<button${variant ? ` class="${esc(variant)}"` : ""} type="${esc(type)}"${htmlAttrs(attrs)}>${content}</button>`;
 }
-const iconSlot = (glyph) => `<span class="ico-slot" aria-hidden="true">${icon(glyph)}</span>`;
+const iconSlot = (name) => `<span class="ico-slot" aria-hidden="true">${glyph(name)}</span>`;
 const liveDot = (variant = "live") =>
   `<span class="ico-svg" aria-hidden="true"><i class="dot${variant ? ` ${esc(variant)}` : ""}"></i></span>`;
 function backButton(back, attrs = {}) {
-  return actionButton(`${icon("chevron_left")}<span class="back-label">${esc(back)}</span>`, {
+  return actionButton(`${glyph("chevron_left")}<span class="back-label">${esc(back)}</span>`, {
     variant: "ghost back", attrs,
   });
 }
 function addButton(label, attrs = {}) {
-  return actionButton(`${icon("plus")}<span>${esc(label)}</span>`, {
+  return actionButton(`${glyph("plus")}<span>${esc(label)}</span>`, {
     variant: "add", attrs,
   });
 }
-function iconButton(glyph, { danger = false, variant = "", attrs = {} } = {}) {
+function iconButton(name, { danger = false, variant = "", attrs = {} } = {}) {
   const cls = ["ghost", "icon-btn", danger ? "danger" : "", variant].filter(Boolean).join(" ");
-  return actionButton(icon(glyph), { variant: cls, attrs });
+  return actionButton(glyph(name), { variant: cls, attrs });
 }
 function paneBar(backHtml, headingHtml, toolsHtml = "") {
   return `<div class="pane-bar">${backHtml}${headingHtml}${toolsHtml}</div>`;
@@ -304,12 +304,12 @@ const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${e
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // Render `provider/developer/slug` without duplicate provider names, using text when no SVG matches.
-const MARK_FILES = new Set(window.MARK_FILES || []);
-const mark = (name, tint = false) => MARK_FILES.has(name)
+const ICON_FILES = new Set(window.ICON_FILES || []);
+const icon = (name, tint = false) => ICON_FILES.has(name)
   ? tint
-    ? `<span class="mark tint" style="--mark:url(icons/${esc(name)}.svg)" aria-hidden="true"></span>`
-    : `<img class="mark" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
-  : `<span class="mark slug">${esc(name)}</span>`;
+    ? `<span class="icon tint" style="--icon:url(icons/${esc(name)}.svg)" aria-hidden="true"></span>`
+    : `<img class="icon" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
+  : `<span class="icon slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
 // with a scope prefix such as `@cf/` dropped.
 const parts = (id) => {
@@ -321,13 +321,13 @@ const parts = (id) => {
   return { provider, dev, model };
 };
 // Separate model-ID parts with a slash.
-const sep = '<span class="mark-sep" aria-hidden="true">/</span>';
+const sep = '<span class="icon-sep" aria-hidden="true">/</span>';
 const realModelName = (id) => state.models.find((m) => m.id === id)?.name || "";
 const modelName = (id, pool = "", tint = false) => {
   const { provider, dev, model } = parts(id);
   if (model === null) return esc(id);
   const shown = realModelName(id) || model;
-  const heads = (dev ? [provider, dev] : [provider]).map((name) => mark(name, tint));
+  const heads = (dev ? [provider, dev] : [provider]).map((name) => icon(name, tint));
   const tail = pool ? sep + `<span class="model-part">${esc(pool)}</span>` : "";
   return heads.join(sep) + sep + `<span class="model-part">${esc(shown)}</span>` + tail;
 };
@@ -570,7 +570,7 @@ function renderOverview() {
   draw("ov-models", state.pools.map((pool) => {
     const top = topModel(pool.members, served);
     const health = poolHealth(pool.members);
-    return `<div class="pool-line"><div class="line"><span>${esc(pool.shown.replace("daedalus/", ""))}</span>
+    return `<div class="pool-line"><div class="line"><span>${esc(pool.client_name.replace("daedalus/", ""))}</span>
       <span title="${esc(top?.id)}">${top ? modelName(top.id) : t("model.empty.pool_text")}</span></div>${health === null ? "" : progressMeter(health)}</div>`;
   }).join("") || none(state.models.length ? t("model.pool.no_pools_text") : t("model.empty.catalog_text")));
   draw("ov-limits", overviewLimits(state.limits) || none(t("overview.empty.limits_text")));
@@ -868,8 +868,8 @@ function renderPools(pools) {
       ${progressMeter(health)}<span class="num">${health.toFixed(2)}</span></div>`;
     const context = pool.context
       ? ` <span class="ctx" title="${t("model.context.pool_hint", { count: pool.context.toLocaleString() })}">${tokens(pool.context)}</span>` : "";
-    return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.shown)}: ${esc(POOL_NOTES[pool.name] || "")}">
-      <h3>${esc(pool.shown.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
+    return `<a class="card pool" data-tier="${tier}" data-mode="${esc(mode)}" title="${esc(pool.client_name)}: ${esc(POOL_NOTES[pool.name] || "")}">
+      <h3>${esc(pool.client_name.replace("daedalus/", ""))}${context}</h3>${bar}<div class="sub">${count(pool.members.length, "model")}</div></a>`;
   }).join(""));
   markPools();
 }
@@ -1075,14 +1075,14 @@ function fallbackCell(r, classes = "", live = false) {
 // Round counts down to K, M, or B units. Keep counts below 1,000 as whole numbers.
 const FLOORS = [[1e9, "B"], [1e6, "M"], [1e3, "K"]];
 function floorCount(n) {
-  const [size, mark] = FLOORS.find(([step]) => n >= step) || [1, ""];
-  return `${Math.floor(n / size)}${mark}`;
+  const [size, unit] = FLOORS.find(([step]) => n >= step) || [1, ""];
+  return `${Math.floor(n / size)}${unit}`;
 }
 
-function tokenCell(count, mark = "", label = t("request.column.input_column")) {
+function tokenCell(count, prefix = "", label = t("request.column.input_column")) {
   if (typeof count !== "number") return cell(label, "-", "hide-sm num");
   const shown = floorCount(count);
-  return `<td role="cell" class="hide-sm num" title="${mark}${count.toLocaleString()}">${mobileLabel(label)}<span class="cell-value">${mark}${shown}</span></td>`;
+  return `<td role="cell" class="hide-sm num" title="${prefix}${count.toLocaleString()}">${mobileLabel(label)}<span class="cell-value">${prefix}${shown}</span></td>`;
 }
 
 // The stream time of a finished request: after the first token, or the total time without a stream.
@@ -1112,7 +1112,7 @@ function renderLiveToggle() {
       ? t("request.live.paused_new_button", { count: state.liveWaiting.size })
       : t("request.live.paused_button")
     : t("request.live_button");
-  button.innerHTML = `${state.livePaused ? icon("pause") : icon("activity")} ${esc(label)}`;
+  button.innerHTML = `${state.livePaused ? glyph("pause") : glyph("activity")} ${esc(label)}`;
 }
 
 // Hold changes until the user resumes the table.
@@ -1191,7 +1191,7 @@ function transitionCell(t) {
 // Use catalog tiers, with built-in tiers available before the pool cards load.
 const BUILT_IN_TIERS = { sophos: "A", deinos: "B", koinos: "C", moros: "D" };
 function poolTier(name) {
-  const pool = state.pools.find((p) => p.shown.replace("daedalus/", "") === name);
+  const pool = state.pools.find((p) => p.client_name.replace("daedalus/", "") === name);
   const tier = pool?.members.find((m) => m.tier)?.tier;
   return tier ? tierLetter(tier) : BUILT_IN_TIERS[name] || String(name).slice(0, 1).toUpperCase();
 }
@@ -1516,7 +1516,7 @@ const MODES = {
   rerank: t("model.mode.rerank_label"),
 };
 // Use one decorative SVG wrapper for consistent size and Lucide attributes.
-const ICON_PATHS = {
+const GLYPH_PATHS = {
   settings: '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" />',
   wrench: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.106-3.105c.32-.322.863-.22.983.218a6 6 0 0 1-8.259 7.057l-7.91 7.91a1 1 0 0 1-2.999-3l7.91-7.91a6 6 0 0 1 7.057-8.259c.438.12.54.662.219.984z" />',
   brain: '<path d="M12 18V5" /> <path d="M15 13a4.17 4.17 0 01-3-4 4.17 4.17 0 01-3 4" /> <path d="M17.707 6.294A3 3 0 1012 5a3 3 0 10-5.707 1.294" /> <path d="M17.996 5.125a4 4 0 012.526 5.77" /> <path d="M18 18a4 4 0 002-7.465" /> <path d="M19.967 17.482a4 4 0 11-7.967.517 4 4 0 11-7.967-.517" /> <path d="M6 18a4 4 0 01-2-7.465" /> <path d="M6.004 5.125a4 4 0 00-2.526 5.77" />',
@@ -1558,8 +1558,8 @@ const ICON_PATHS = {
   sun: '<circle cx="12" cy="12" r="4" /> <path d="M12 2v2" /> <path d="M12 20v2" /> <path d="m4.93 4.93 1.41 1.41" /> <path d="m17.66 17.66 1.41 1.41" /> <path d="M2 12h2" /> <path d="M20 12h2" /> <path d="m6.34 17.66-1.41 1.41" /> <path d="m19.07 4.93-1.41 1.41" />',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />',
 };
-function icon(name) {
-  return `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[name]}</svg>`;
+function glyph(name) {
+  return `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${GLYPH_PATHS[name]}</svg>`;
 }
 // Flag chips use registered glyphs. A flag without a glyph keeps its text.
 const FLAG_ICON_NAMES = { vision: "image", pdf_input: "file_text", audio_input: "mic", audio_output: "volume_2" };
@@ -1577,7 +1577,7 @@ function typeChips(m) {
   return `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>`
     + m.flags.filter((f) => f !== REDUNDANT[m.mode])
       .map((f) => (FLAG_ICON_NAMES[f]
-      ? `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${icon(FLAG_ICON_NAMES[f])}</span>`
+      ? `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${glyph(FLAG_ICON_NAMES[f])}</span>`
       : `<span class="chip flag">${esc(FLAGS[f] || f)}</span>`)).join("");
 }
 
@@ -1593,12 +1593,12 @@ function phoneChips(m) {
     : "";
   // Omit chips for unsupported capabilities.
   const tools = m.mode === "chat" && m.tools
-    ? `<span class="chip flag" title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)}</span>` : "";
+    ? `<span class="chip flag" title="${t("model.column.tools_column")}">${glyph(CHIP_ICON_NAMES.tools)}</span>` : "";
   const reasoning = m.mode === "chat" && m.reasoning
-    ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
+    ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${glyph(CHIP_ICON_NAMES.brain)}${m.effort ? `<span class="num">${esc(m.effort)}</span>` : ""}</span>`
     : "";
   const cool = m.cooldown && m.cooldown > Date.now() / 1000
-    ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+    ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${glyph(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
     : "";
   return tier + order + context + tools + reasoning + cool;
 }
@@ -1673,37 +1673,37 @@ function useStats(m) {
 
 function openModelModal(m, trigger = document.activeElement) {
   const { provider, dev, model } = parts(m.id);
-  // Display a mark only when its file exists. Keep plain text for other names.
-  const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");
+  // Display an icon only when its file exists. Keep plain text for other names.
+  const iconImg = (name) => (ICON_FILES.has(name) ? icon(name) : "");
   state.chainAt = null;
   state.diffEvent = null;
   const dialog = mountModalView("model");
   $("modal-title").title = "";
   $("modal-title").innerHTML =
-    `${mark(provider)}${dev ? markImg(dev) : ""}<span class="name">${esc(m.name || model || m.slug || m.id)}</span>`;
+    `${icon(provider)}${dev ? iconImg(dev) : ""}<span class="name">${esc(m.name || model || m.slug || m.id)}</span>`;
   const identity = [
     ...(m.id ? [[t("model.detail.id_label"), m.id, ""]] : []),
     [t("model.column.model_column"), model || m.slug || m.id, ""],
-    ...(dev ? [[t("model.detail.developer_label"), dev, markImg(dev)]] : []),
-    [t("model.detail.provider_label"), provider, markImg(provider)],
+    ...(dev ? [[t("model.detail.developer_label"), dev, iconImg(dev)]] : []),
+    [t("model.detail.provider_label"), provider, iconImg(provider)],
   ].map(([label, value, icon]) =>
     `<div class="id-row"><span class="label">${esc(label)}</span>${icon}<span class="value">${esc(value)}</span></div>`)
     .join("");
   // Pair chip icons with text so the title is not required.
   const flags = (m.flags || []).filter((f) => f !== REDUNDANT[m.mode]).map((f) =>
-    `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}</span>`)
+    `<span class="chip flag" title="${esc(FLAGS[f] || f)}">${FLAG_ICON_NAMES[f] ? `${glyph(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}</span>`)
     .join("");
   const chips = [
     `<span class="chip flag mode">${esc(MODES[m.mode] || m.mode)}</span>` + flags,
     m.tier ? `<span class="chip flag" title="${t("model.column.tier_column")}">${t("model.mobile.tier_text", { value: esc(tierLetter(m.tier)) })}</span>` : "",
     m.order ? `<span class="chip flag" title="${t("model.column.order_column")}">${t("model.mobile.order_text", { value: m.order })}</span>` : "",
     m.mode === "chat" && m.tools
-      ? `<span class="chip flag" title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>` : "",
+      ? `<span class="chip flag" title="${t("model.column.tools_column")}">${glyph(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>` : "",
     m.mode === "chat" && m.reasoning
-      ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>`
+      ? `<span class="chip flag" title="${t("model.column.reasoning_column")}">${glyph(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>`
       : "",
     m.cooldown && m.cooldown > Date.now() / 1000
-      ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${icon(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
+      ? `<span class="chip flag" title="${t("model.column.cooldown_column")}">${glyph(CHIP_ICON_NAMES.cool)}<span class="cool" data-until="${m.cooldown}">${timeLeft(m.cooldown)}</span></span>`
       : "",
   ].join("");
   // Add a bar only for weight. CSS keeps the blocks at one height.
@@ -1966,10 +1966,10 @@ const dirty = () => state.files.length > 0 && fileDirty(state.file);
 
 function renderFiles() {
   const files = state.files.map((file, index) => {
-    const mark = fileDirty(index) ? " &bull;" : "";
+    const dirtySuffix = fileDirty(index) ? " &bull;" : "";
     const shadow = file.shadow ? t("provider.file.shadow_text", { file: file.shadow }) : "";
     const stem = fileName(file.path).replace(/\.ya?ml$/i, "").toLowerCase();
-    return actionButton(`${chipFor("provider-form", stem)}<span>${esc(fileName(file.path))}${mark}</span>`, {
+    return actionButton(`${chipFor("provider-form", stem)}<span>${esc(fileName(file.path))}${dirtySuffix}</span>`, {
       attrs: { "data-file": index, title: `${file.path}${shadow}` },
     });
   }).join("");
@@ -2048,7 +2048,7 @@ function openFile(index) {
 }
 
 // The × button removes the chip value from its list or map.
-const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(icon("x"), {
+const pill = (text, path, key) => `<span class="pill">${esc(text)}${actionButton(glyph("x"), {
   attrs: {
     "aria-label": t("action.remove_button"),
     title: t("action.remove_button"),
@@ -2146,7 +2146,7 @@ const hookFormRow = (entry, path, choices) => {
       title: t("hook.action.select_file_title"),
     },
   });
-  const drop = actionButton(icon("x"), {
+  const drop = actionButton(glyph("x"), {
     attrs: {
       "aria-label": t("action.remove_button"),
       title: t("action.remove_button"),
@@ -2221,8 +2221,8 @@ function hookSurfacesCell(row) {
   const labels = new Map(HOOK_SURFACES.map(([key, label]) => [key, label]));
   const named = new Set(row.runs || []);
   const chips = (row.surfaces || []).map((surface) => {
-    const mark = named.has(surface) ? " named" : "";
-    return `<span class="pill ${row.enabled ? "on" : "off"}${mark}">${esc(labels.get(surface) || surface)}</span>`;
+    const namedSuffix = named.has(surface) ? " named" : "";
+    return `<span class="pill ${row.enabled ? "on" : "off"}${namedSuffix}">${esc(labels.get(surface) || surface)}</span>`;
   }).join("");
   return `<div class="pills">${chips || `<em class="none">${t("hook.empty.surface_text")}</em>`}</div>`;
 }
@@ -2233,7 +2233,7 @@ function hookOrderRows() {
   return orderedSurfaces().map(([surface, label]) => {
     const files = hookOrderFiles(surface);
     const rows = files.map((file, index) => `<li data-hook-order-row="${esc(file)}" data-surface="${surface}" data-index="${index}">
-      ${actionButton(icon("grip_vertical"), { variant: "drag-handle", attrs: {
+      ${actionButton(glyph("grip_vertical"), { variant: "drag-handle", attrs: {
         "data-hook-drag": file, "aria-label": t("hook.order.drag_named_label", { file }), title: t("hook.order.drag_title"),
       } })}
       <span class="cell-value">${hookName(file)}</span></li>`).join("");
@@ -2387,7 +2387,7 @@ function hooksManager() {
       ${scanSources(scan).map((source) => `<span class="sub">${t("hook.scan.at_text", { source: esc(sourceLabel(source)), commit: esc((source.commit || "").slice(0, 7)) })}</span>`).join("")}${scan.files
     .map((file) => `<label class="pill"><input type="checkbox" data-hook-take="${esc(file.name)}"
       ${scan.take[file.name] ? "checked" : ""}>${esc(file.name)}${file.version ? ` ${esc(file.version)}` : ""}</label>`).join("")}
-      ${actionButton(`${icon("download")} ${t("action.take_files_button")}`, {
+      ${actionButton(`${glyph("download")} ${t("action.take_files_button")}`, {
         variant: "primary", attrs: { "data-hook-take-all": true },
       })}</div>` : "";
   return `<div class="hook-group">${field(t("settings.hooks.installed.label"), t("settings.hooks.installed.hint"), `
@@ -2845,11 +2845,11 @@ let HINT_COUNT = 0;
 function infoHint(hint, { interactive = true } = {}) {
   const id = `hint-${++HINT_COUNT}`;
   const trigger = interactive
-    ? actionButton(icon("info"), {
+    ? actionButton(glyph("info"), {
       variant: "hint",
       attrs: { "aria-describedby": id, "aria-label": t("common.hint") },
     })
-    : `<span class="hint" aria-hidden="true">${icon("info")}</span>`;
+    : `<span class="hint" aria-hidden="true">${glyph("info")}</span>`;
   const tip = `<small id="${id}" role="tooltip"${interactive ? "" : ' aria-hidden="true"'}>${esc(hint)}</small>`;
   return { id, markup: `${trigger}${tip}` };
 }
@@ -2891,18 +2891,18 @@ const SECTION_SUMMARIES = {
   maintenance: t("settings.maintenance.summary"),
 };
 // Provider rows share the providers tile: their names are data, not sections.
-// A provider with a vendored mark draws that mark in the tile ink.
+// A provider with a vendored icon draws that icon in the tile ink.
 const PROVIDER_CHIPS = new Set([
   "free", "cloudflare", "gemini", "groq", "kilo", "mistral", "openrouter", "pollinations", "z-ai",
 ]);
 const chipFor = (host, key) => {
   const known = SECTION_CHIPS[key];
-  const provider = host === "provider-form" && !known && MARK_FILES.has(key);
+  const provider = host === "provider-form" && !known && ICON_FILES.has(key);
   const name = known ?? (key === "free" ? "sparkles" : (host === "provider-form" ? SECTION_CHIPS.providers : ""));
   const tint = known || PROVIDER_CHIPS.has(key) ? key : "providers";
   if (!known && !provider && !name) return "";
   return `<span class="tile" data-chip="${esc(tint)}" aria-hidden="true">${
-    provider ? mark(key, true) : icon(name)}</span>`;
+    provider ? icon(key, true) : glyph(name)}</span>`;
 };
 const chip = (key) => chipFor("settings", key);
 
@@ -2922,7 +2922,7 @@ function sectionList(id, items, active, opts = {}) {
       title: id === "settings" ? (SECTION_SUMMARIES[key] ?? null) : null,
     },
   })).join("")}</nav>`).join("");
-  const search = opts.search ? `<label class="rail-search">${icon("search")}<input id="settings-search" type="text"
+  const search = opts.search ? `<label class="rail-search">${glyph("search")}<input id="settings-search" type="text"
     autocomplete="off" aria-label="${esc(t("settings.search_label"))}" placeholder="${esc(t("settings.search_label"))}"></label>` : "";
   return `<div class="rail">${search}${navs}<p class="rail-empty" hidden>${esc(t("settings.search_empty"))}</p></div>`;
 }
@@ -3058,8 +3058,8 @@ function highlightSectionPane(host, rawQuery) {
           }
         }
       }
-      const markHit = Boolean(needle && row.querySelector?.("mark.search-hit"));
-      row.classList?.toggle?.("search-row-hit", Boolean(needle && (keyHit || controlHit || markHit)));
+      const searchHitFound = Boolean(needle && row.querySelector?.("mark.search-hit"));
+      row.classList?.toggle?.("search-row-hit", Boolean(needle && (keyHit || controlHit || searchHitFound)));
     }
   }
 }
@@ -4146,7 +4146,7 @@ function renderSettings() {
         const activeTheme = setting(group, key);
         return `<div class="field info" data-config-key="${esc(cfgKey)}">${labelSpan(label, hint)}
           <div class="theme-seg" id="${id}" role="radiogroup" aria-label="${esc(label)}" data-theme-value="${esc(activeTheme)}">${CHOICES.theme.map(([name, text]) =>
-            actionButton(icon(THEME_ICONS[name]), {
+            actionButton(glyph(THEME_ICONS[name]), {
               attrs: {
                 role: "radio",
                 "data-theme-choice": name,
@@ -4575,7 +4575,7 @@ function renderLimits(data) {
     ? t("limits.checked_text", { time: timeText(data.checked) })
     : t("limits.not_checked_text"));
   $("balances").hidden = !data.providers.length;
-  draw("balances", data.providers.map((p) => `<div class="card"><h3>${MARK_FILES.has(p.name) ? `${mark(p.name)} ` : ""}${esc(p.name)}</h3>
+  draw("balances", data.providers.map((p) => `<div class="card"><h3>${ICON_FILES.has(p.name) ? `${icon(p.name)} ` : ""}${esc(p.name)}</h3>
     ${p.items.map(item => `<div class="balance">${line(esc(BALANCE_LABELS[item.kind]()), esc(balanceValue(item)), { title: balanceValue(item, false) })}</div>`).join("")}</div>`).join(""));
 }
 
@@ -4602,7 +4602,7 @@ const DIFF_KINDS = [
 ];
 
 function rebuildDiff(event) {
-  const marks = DIFF_KINDS.map(([kind, mark, key]) => {
+  const labels = DIFF_KINDS.map(([kind, symbol, key]) => {
     const count = event[key].length;
     if (!count) return "";
     const label = key === "added" ? t("notification.diff_added_text", { count })
@@ -4610,7 +4610,7 @@ function rebuildDiff(event) {
         : t("notification.diff_moved_text", { count });
     return `<span class="${kind}">${label}</span>`;
   }).filter(Boolean).join(" · ");
-  return marks || '<span class="muted">-</span>';
+  return labels || '<span class="muted">-</span>';
 }
 
 const DIFF_CAPABILITIES = {
@@ -4635,7 +4635,7 @@ const DIFF_LABELS = {
 };
 
 function diffChip(label, iconName = "", kind = "") {
-  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${iconName ? `${icon(iconName)} ` : ""}${esc(label)}</span>`;
+  return `<span class="chip flag${kind ? ` ${kind}` : ""}">${iconName ? `${glyph(iconName)} ` : ""}${esc(label)}</span>`;
 }
 
 function diffValue(text) {
@@ -4723,11 +4723,11 @@ function openDiffModal(event) {
   const titleNode = $("modal-title");
   titleNode.textContent = `${event.reason} \u00b7 ${relative(event.at)}`;
   titleNode.title = stamp(event.at);
-  const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>
-    event[key].map((text) => [kind, mark, text]));
+  const lines = DIFF_KINDS.flatMap(([kind, symbol, key]) =>
+    event[key].map((text) => [kind, symbol, text]));
   $("model-modal-body").innerHTML = lines.length
     ? lines
-        .map(([kind, mark, text]) => `<div class="line diff-line"><span class="${kind}">${mark}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
+        .map(([kind, symbol, text]) => `<div class="line diff-line"><span class="${kind}">${symbol}</span><span class="diff-model" title="${esc(text)}">${diffModel(text, kind)}</span></div>`)
         .join("")
     : none(t("model.diff.empty_text"));
   $("modal-close")?.toggleAttribute?.("autofocus", true);
@@ -4741,12 +4741,12 @@ function renderNotifications(data) {
   state.notifications = data;
   const providerLabel = (name) => {
     const key = String(name || "");
-    return MARK_FILES.has(key) ? `${mark(key)} ${esc(key)}` : esc(key);
+    return ICON_FILES.has(key) ? `${icon(key)} ${esc(key)}` : esc(key);
   };
   const modelLabel = (id) => `<span title="${esc(id)}">${modelName(id)}</span>`;
   const item = (kind, at, title, body, attrs = null, href = null) => {
     const plainBody = String(body || "").replace(/<[^>]*>/g, "");
-    const content = `<span class="notification-mark" aria-hidden="true"></span>
+    const content = `<span class="notification-pip" aria-hidden="true"></span>
       <span class="notification-copy"><span class="notification-head"><b>${title}</b>${timeText(at, { tag: "time", variant: "muted" })}</span>
       <span class="notification-body" title="${esc(plainBody)}">${body}</span></span>`;
     if (href) return `<a class="notification-item ${kind}" href="${esc(href)}">${content}</a>`;

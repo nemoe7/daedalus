@@ -110,7 +110,7 @@ def test_icon_only_remove_buttons_carry_aria_labels_and_square_boxes() -> None:
     '"data-drop": JSON.stringify([...path, key])',
     '"data-form-hook-drop": at',
   ):
-    block = app.split(marker, 1)[0].rsplit("actionButton(icon", 1)[1]
+    block = app.split(marker, 1)[0].rsplit("actionButton(glyph", 1)[1]
     assert '"aria-label": t("action.remove_button")' in block, marker
   for marker in (
     '"data-key": k.name',
@@ -140,7 +140,7 @@ def test_app_js_split_requests() -> None:
   code = """
 const fs = require('fs');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const vm = require('vm');
@@ -627,7 +627,7 @@ def test_app_js_model_rows_keep_type_on_phone() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { state, renderModels, $ };'
@@ -676,14 +676,14 @@ assert(html.includes('>' + LOCALE["model.mode.chat_label"] + '<'), 'the mode chi
 assert(html.includes('title="' + LOCALE["model.flag.vision_label"] + '"'), 'the media chip shows');
 assert(html.includes('<div class="types">'), 'the Type column stays for a desktop');
 assert(html.includes('<span class="cell-value">'), 'the name cell keeps its value span');
-assert(html.includes('class="mark slug"') && html.includes('>p<'), 'a name with no file shows its text');
-assert(html.includes('<span class="mark-sep" aria-hidden="true">/</span>'), 'the separator shows');
+assert(html.includes('class="icon slug"') && html.includes('>p<'), 'a name with no file shows its text');
+assert(html.includes('<span class="icon-sep" aria-hidden="true">/</span>'), 'the separator shows');
 assert(html.includes('<span class="model-part">m</span>'), 'the model part shows');
 assert(html.includes('title="p/m"'), 'the title keeps the full id');
 sandbox.matchMedia = () => ({ matches: true });
 probe.renderModels();
 const phone = el('models').innerHTML;
-assert(phone.includes('class="mark slug"'), 'a phone keeps the provider text');
+assert(phone.includes('class="icon slug"'), 'a phone keeps the provider text');
 assert(phone.includes('<span class="model-part">m</span>'), 'a phone keeps the model part');
     const chipRow = phone.split('class="phone-chips"')[1].split('</td>')[0];
     assert(chipRow.includes('title="' + LOCALE["model.column.context_column"] + '"'),
@@ -745,16 +745,16 @@ def test_provider_values_add_opens_two_field_modal() -> None:
   assert '"dialog.provider_value.title":' in catalog
 
 
-def test_app_js_model_marks() -> None:
+def test_app_js_model_icons() -> None:
   """Model-name markup separates provider, developer, and model parts."""
   code = """
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
-  + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES, state };';
+  + String.fromCharCode(10) + 'globalThis.__probe = { modelName, ICON_FILES, state };';
 const byId = new Map();
 const el = (id) => {
   if (!byId.has(id)) byId.set(id, { innerHTML: '', textContent: '', value: '', addEventListener: () => {},
@@ -774,13 +774,13 @@ vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
 const assert = require('assert');
 const modelName = sandbox.__probe.modelName;
-const marks = (html) => (html.match(/class="mark[ "]/g) || []).length;
-const seps = (html) => (html.match(/class="mark-sep"/g) || []).length;
+const iconCount = (html) => (html.match(/class="icon[ "]/g) || []).length;
+const seps = (html) => (html.match(/class="icon-sep"/g) || []).length;
 const full = modelName('openrouter/dots-studio/dots-3-note-preview:free');
-assert.strictEqual(marks(full), 2, 'provider and developer');
+assert.strictEqual(iconCount(full), 2, 'provider and developer');
 assert.strictEqual(seps(full), 2, 'a slash between each part');
 assert(full.includes('<span class="model-part">dots-3-note-preview:free</span>'), 'the model part');
-assert.strictEqual(marks(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 icon when the provider is the developer');
+assert.strictEqual(iconCount(modelName('cloudflare/@cf/cloudflare/clef')), 1, 'provider as developer draws 1 icon');
 assert.strictEqual(seps(modelName('cloudflare/@cf/cloudflare/clef')), 1, '1 slash for 1 head');
 assert(modelName('cloudflare/@cf/cloudflare/clef').includes('<span class="model-part">clef</span>'),
   'the model part of a scope');
@@ -788,19 +788,19 @@ assert(modelName('cloudflare/@cf/openai/gpt-oss-120b').includes('<span class="mo
   'a scope keeps the developer');
 assert.strictEqual(modelName('bare'), 'bare', 'a name with no slash stays text');
 const bare = modelName('p/m');
-assert(bare.includes('class="mark slug"') && bare.includes('>p<'),
-  'the text of a name with no file stands in for a mark');
+assert(bare.includes('class="icon slug"') && bare.includes('>p<'),
+  'the text of a name with no file stands in for an icon');
 assert.strictEqual(seps(bare), 1, 'the slash before the slug');
 assert(bare.includes('<span class="model-part">m</span>'), 'the slug of a bare name');
 assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct')
-  .includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
+  .includes('<img class="icon" src="ui/icons/cloudflare.svg"'), 'a shipped icon file');
 assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash')
-  .includes('<img class="mark" src="ui/icons/inclusionai.svg"'), 'a shipped mark file');
-assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
+  .includes('<img class="icon" src="ui/icons/inclusionai.svg"'), 'a shipped icon file');
+assert(sandbox.__probe.ICON_FILES.has('cloudflare') && sandbox.__probe.ICON_FILES.has('z-ai'), 'the shipped icon set');
 sandbox.__probe.state.models = [{ id: 'openrouter/baseten/mammoth-1:free', name: 'Mammoth 1' }];
 const named = modelName('openrouter/baseten/mammoth-1:free');
 assert(named.includes('ui/icons/openrouter.svg') && named.includes('ui/icons/baseten.svg'),
-  'real-name rendering preserves provider and developer marks');
+  'real-name rendering preserves provider and developer icons');
 assert(named.includes('<span class="model-part">Mammoth 1</span>'),
   'real-name rendering replaces the raw model slug with the human-readable name');
 """
@@ -828,11 +828,11 @@ assert.strictEqual(text({ cancelled: true }), LOCALE["request.state.cancelled_te
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_mark_files_match_icon_folder() -> None:
-  """Injected mark list matches shipped SVG filenames."""
+def test_icon_files_match_icon_folder() -> None:
+  """Injected icon list matches shipped SVG filenames."""
   text = dashboard.versioned_index()
-  block = text.partition("window.MARK_FILES = ")[2].partition(";</script>")[0]
-  assert block, "the page injects the mark list"
+  block = text.partition("window.ICON_FILES = ")[2].partition(";</script>")[0]
+  assert block, "the page injects the icon list"
   names = set(json.loads(block))
   files = {path.stem for path in Path("daedalus/dashboard/ui/icons").glob("*.svg")}
   assert files == names, "page and folder hold same names"
@@ -928,7 +928,7 @@ def test_app_js_request_cards() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
   "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
@@ -963,10 +963,10 @@ const probe = sandbox.__probe;
 // The pool cards give the tier letter of the `frX` code. The built-in names cover the first paint.
 probe.state.pools = [];
 assert(probe.poolTier('deinos') === 'B', 'a built-in pool name gives its tier letter');
-probe.state.pools = [{{ shown: "daedalus/renamed", members: [{{ tier: "TIER-C" }}] }}];
+probe.state.pools = [{{ client_name: "daedalus/renamed", members: [{{ tier: "TIER-C" }}] }}];
 assert(probe.poolTier('renamed') === 'C', 'a renamed pool takes the tier of its cards');
 assert(probe.poolTier('opaque') === 'O', 'an unknown pool keeps a one-letter code');
-probe.state.pools = [{{ shown: "daedalus/deinos", members: [{{ tier: "TIER-A" }}] }}];
+probe.state.pools = [{{ client_name: "daedalus/deinos", members: [{{ tier: "TIER-A" }}] }}];
 probe.renderRequests([{json.dumps(row)}]);
 const html = node('requests').innerHTML;
 const cells = [...html.matchAll(/<td[^>]*>/g)].map((m) => m[0]);
@@ -997,19 +997,19 @@ assert.strictEqual(node('modal-title').textContent,
 assert(!chainHtml.includes(chainTitle(1, "request.chain.fallback.one_text")),
   'the dialog body omits the duplicate title');
 assert(html.includes(LOCALE["request.chain.show_title"]), 'the chained row explains itself on hover');
-// The pool of the auto model rides in the slug, and the daedalus head carries its own mark.
+// The pool of the auto model rides in the slug, and the daedalus head carries its own icon.
 const autoCell = probe.modelName('daedalus/auto', probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}));
 assert.strictEqual(probe.poolOf({{ model: 'daedalus/auto', pool: 'moros' }}), 'moros', 'the auto pool joins the slug');
 assert(autoCell.includes('<span class="model-part">auto</span>') &&
   autoCell.includes('<span class="model-part">moros</span>'), 'the slug reads daedalus/auto/moros');
-assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries its own mark');
+assert(autoCell.includes('ui/icons/daedalus.svg'), 'the daedalus head carries its own icon');
 assert.strictEqual(probe.poolOf({{ model: 'p/big', pool: 'daedalus/deinos' }}), '',
   'a direct model keeps its own slug');
 assert.strictEqual(probe.routingCodes({{ routed: 'deinos' }}).includes('fr'), true, 'the fallback tier code stays');
 assert(!html.includes('class="caret'), 'no chevron sits in the time cell');
 for (const value of ['s1', 'high <span class="from">xhi</span>', 'frA', 'tl3'])
   assert(html.includes(value), 'the table keeps ' + value);
-for (const value of ['<span class="mark slug">p</span>', '<span class="model-part">first</span>',
+for (const value of ['<span class="icon slug">p</span>', '<span class="model-part">first</span>',
   '<pre>rate limited</pre>', '<span class="from">effort xhi</span>'])
   assert(chainHtml.includes(value), 'the dialog keeps ' + value);
 assert(!html.includes('rt2') && !html.includes('tool loop'), 'the frX and tlN codes replace the long forms');
@@ -1041,8 +1041,8 @@ assert(!liveHtml.includes('data-chain-at'), 'live rows carry no chain button');
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_app_js_live_served_by_shows_trying_marks() -> None:
-  """Live Served by markup uses provider and developer marks for the attempted model."""
+def test_app_js_live_served_by_shows_trying_icons() -> None:
+  """Live Served by markup uses provider and developer icons for the attempted model."""
   run_app_js(
     "state, renderLive",
     """
@@ -1056,11 +1056,11 @@ probe.renderLive();
 const html = node('live').innerHTML;
 const servedBy = html.slice(html.indexOf(LOCALE["request.column.served_by_column"]));
 assert(servedBy.includes('trying'), 'the cell keeps the trying word');
-assert(servedBy.includes('ui/icons/cloudflare.svg'), 'the trying model shows its provider mark');
-assert(servedBy.includes('ui/icons/zai-org.svg'), 'the trying model shows its developer mark');
+assert(servedBy.includes('ui/icons/cloudflare.svg'), 'the trying model shows its provider icon');
+assert(servedBy.includes('ui/icons/zai-org.svg'), 'the trying model shows its developer icon');
 assert(servedBy.includes('<span class="model-part">glm-4.7-flash</span>'), 'the model part reads short');
 assert(!servedBy.includes('trying cloudflare/@cf/zai-org/glm-4.7-flash'),
-  'the raw slug never stands in place of the marks');
+  'the raw slug never stands in place of the icons');
 """,
   )
 
@@ -1071,7 +1071,7 @@ def test_app_js_live_clocks_wait_for_first_token() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
 const nodes = new Map();
@@ -1246,20 +1246,20 @@ def test_rebuild_row_opens_diff_modal() -> None:
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert "function openDiffModal(event) {" in app
   assert "openDiffModal(state.notifications.rebuilds[index])" in app
-  assert "const lines = DIFF_KINDS.flatMap(([kind, mark, key]) =>" in app
-  assert "event[key].map((text) => [kind, mark, text])" in app
+  assert "const lines = DIFF_KINDS.flatMap(([kind, symbol, key]) =>" in app
+  assert "event[key].map((text) => [kind, symbol, text])" in app
   assert 'mountModalView("model")' in app
   assert "rebuild-detail" not in app, "the diff rides in the modal, not an inline row"
 
 
-def test_app_js_diff_rows_use_model_marks() -> None:
-  """Catalog-diff markup uses provider and developer marks with field chips."""
+def test_app_js_diff_rows_use_model_icons() -> None:
+  """Catalog-diff markup uses provider and developer icons with field chips."""
   run_app_js(
-    "diffModel, icon, openDiffModal",
+    "diffModel, glyph, openDiffModal",
     """
 const added = probe.diffModel('openrouter/dots-studio/dots-3-note-preview:free');
-assert(added.includes('ui/icons/openrouter.svg'), 'the provider mark shows');
-assert(added.includes('ui/icons/dots-studio.svg'), 'the developer mark shows');
+assert(added.includes('ui/icons/openrouter.svg'), 'the provider icon shows');
+assert(added.includes('ui/icons/dots-studio.svg'), 'the developer icon shows');
 assert(added.includes('<span class="model-part">dots-3-note-preview:free</span>'),
   'a colon in the model slug stays in the model part');
 assert(!added.includes('openrouter/dots-studio/'), 'the full provider path leaves the row');
@@ -1267,10 +1267,10 @@ const entry = 'z-ai/glm-4.7-flash: supports_function_calling 0->1, supports_reas
   + 'supported_efforts ["low", "high", "max"]->["none", "max"], '
   + 'max_input_tokens 4096->8192';
 const changed = probe.diffModel(entry);
-assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider mark');
-assert(changed.includes(`class="chip flag">${probe.icon('wrench')} ${LOCALE["model.column.tools_column"]}</span>`),
+assert(changed.includes('ui/icons/z-ai.svg'), 'a changed row keeps the provider icon');
+assert(changed.includes(`class="chip flag">${probe.glyph('wrench')} ${LOCALE["model.column.tools_column"]}</span>`),
   'the tools chip keeps its normal color');
-assert(changed.includes(`class="chip flag">${probe.icon('brain')} ${LOCALE["model.column.reasoning_column"]}</span>`),
+assert(changed.includes(`class="chip flag">${probe.glyph('brain')} ${LOCALE["model.column.reasoning_column"]}</span>`),
   'the reasoning chip keeps its normal color');
 assert(changed.includes('class="chip flag effort e-low old">' + LOCALE["model.effort.low_label"] + '</span>'),
   'a removed effort reads struck');
@@ -1293,23 +1293,23 @@ const modal = node('model-modal-body').innerHTML;
 assert(modal.includes('class="diff-id added"'), 'an added model identity uses the + color');
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
-assert(modal.includes('class="mark tint"'), 'the provider icon can inherit the identity color');
-assert(modal.includes('--mark:url(icons/openrouter.svg)'),
-  'the tinted provider mark resolves beside the dashboard stylesheet');
-assert(modal.includes('<span class="mark-sep" aria-hidden="true">/</span>'),
-  'the slash separator stays beside the provider mark');
+assert(modal.includes('class="icon tint"'), 'the provider icon can inherit the identity color');
+assert(modal.includes('--icon:url(icons/openrouter.svg)'),
+  'the tinted provider icon resolves beside the dashboard stylesheet');
+assert(modal.includes('<span class="icon-sep" aria-hidden="true">/</span>'),
+  'the slash separator stays beside the provider icon');
 """,
   )
   css = Path("daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
   rule = re.search(r"\.diff-line > \.diff-model \{([^}]*)\}", css)
   assert rule and "white-space: normal" in rule.group(1), "a long row wraps"
   assert "overflow-wrap: anywhere" in rule.group(1), "a long slug can wrap"
-  tinted = re.search(r"\.mark\.tint \{([^}]*)\}", css)
+  tinted = re.search(r"\.icon\.tint \{([^}]*)\}", css)
   assert tinted and "background: currentColor" in tinted.group(1), (
-    "a diff provider mark takes the identity color"
+    "a diff provider icon takes the identity color"
   )
-  assert "mask: var(--mark)" in tinted.group(1), (
-    "the colored mark keeps its provider icon"
+  assert "mask: var(--icon)" in tinted.group(1), (
+    "the colored icon keeps its provider art"
   )
   chips = re.search(r"\.diff-chips \{([^}]*)\}", css)
   assert chips and "display: inline-flex" in chips.group(1), (
@@ -1343,19 +1343,19 @@ def test_select_section_scopes_queries_to_own_host() -> None:
   )
 
 
-def test_provider_tiles_carry_vendored_marks() -> None:
-  """Provider rows in section rail draw vendored mark in tile."""
+def test_provider_tiles_carry_vendored_icons() -> None:
+  """Provider rows in section rail draw vendored icon in tile."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
-  assert "MARK_FILES.has(key)" in block and "mark(key, true)" in block, (
-    "a provider tile draws its vendored mark"
+  assert "ICON_FILES.has(key)" in block and "icon(key, true)" in block, (
+    "a provider tile draws its vendored icon"
   )
   rail = app.partition("function sectionList(id, items,")[2].partition("\n}\n")[0]
   assert "chipFor(id, key)" in rail, "the section rail draws the provider tile"
   css = (root / "daedalus/dashboard/ui/style.css").read_text(encoding="utf-8")
-  tile = css.partition(".tile .mark {")[2].partition("}")[0]
-  assert "width: 16px" in tile, "the tile sizes the mark like its glyph"
+  tile = css.partition(".tile .icon {")[2].partition("}")[0]
+  assert "width: 16px" in tile, "the tile sizes the icon like its glyph"
 
 
 def test_page_scroll_does_not_wait_on_has_support() -> None:
@@ -1727,7 +1727,7 @@ def test_parallel_race_reads_on_page() -> None:
   assert 'rce: t("request.route.race_text")' in app, "the race code"
   assert 'code !== "rce" || raceOn()' in app, "the setting keeps race in the legend"
   assert 'a.race === "won"' in app and 't("request.chain.won_race_text")' in app, (
-    "the winning step carries the mark"
+    "the winning step carries the won label"
   )
   assert "affinity?.mode" in app and 'line(t("common.affinity_label")' in app, (
     "the status card shows the applied affinity mode"
@@ -1887,7 +1887,7 @@ def test_app_js_modal() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
 const nodes = new Map();
@@ -1965,7 +1965,7 @@ def test_app_js_time_stamps() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
 const nodes = new Map();
@@ -2046,7 +2046,7 @@ def test_app_js_retry_code() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
 const nodes = new Map();
@@ -2122,7 +2122,7 @@ def test_app_js_limit_units() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js',
   'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
@@ -2176,7 +2176,7 @@ assert(!html.includes('>' + tokensPerMinute + '</td>'), 'the cell text stays sho
   subprocess.run(["node", "-e", code], check=True)
 
 
-def test_overview_pool_rows_draw_marks_of_top_model() -> None:
+def test_overview_pool_rows_draw_icons_of_top_model() -> None:
   """Overview pool-row code calls the shared model-name formatter."""
   root = Path(__file__).resolve().parent.parent.parent
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
@@ -2186,7 +2186,7 @@ def test_overview_pool_rows_draw_marks_of_top_model() -> None:
     app,
     re.DOTALL,
   )
-  assert row, "the pool row draws the marks of the top model"
+  assert row, "the pool row draws the icons of the top model"
   assert "top ? esc(top.id)" not in app, "no pool row keeps the plain model id"
 
 
@@ -2302,7 +2302,7 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const docEvents = {};
@@ -2457,14 +2457,14 @@ assert.strictEqual(probe.listValue('routing', 'switch').length,
 
 
 def test_app_js_provider_rows_draw_providers_glyph() -> None:
-  """The nested rail rows carry their mark or glyph, and every chip name exists."""
+  """The nested rail rows carry their icon or glyph, and every chip name exists."""
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   block = app.partition("const chipFor = (host, key) => {")[2].partition("};")[0]
   assert (
     'const name = known ?? (key === "free" ? "sparkles" : (host === "provider-form" ? SECTION_CHIPS.providers : ""));'
     in block
   ), "free.yml uses sparkles and unknown provider rows draw the providers glyph"
-  assert "MARK_FILES.has(key)" in block, "a provider row with a mark draws that mark"
+  assert "ICON_FILES.has(key)" in block, "a provider row with an icon draws that icon"
   assert (
     'const tint = known || PROVIDER_CHIPS.has(key) ? key : "providers";' in block
   ), "known providers and free.yml get their own distinct tile color"
@@ -2936,7 +2936,7 @@ def test_app_js_hooks_section() -> None:
     "data-hooks-update",
     "data-hook-take",
     "data-hook-take-all",
-    '${icon("download")} ${t("action.take_files_button")}',
+    '${glyph("download")} ${t("action.take_files_button")}',
     'ask(t("dialog.source.title")',
     "hooks/scan",
     'listValue("hooks", "sources")',
@@ -3039,30 +3039,30 @@ assert(probe.settingsChanges().hooks.dir === 'mine', 'the folder reaches the pay
 def test_app_js_capability_chip_icons() -> None:
   """One renderer gives each registered chip icon its decorative SVG contract."""
   run_app_js(
-    "ICON_PATHS, icon",
+    "GLYPH_PATHS, glyph",
     """
-const names = Object.keys(probe.ICON_PATHS);
+const names = Object.keys(probe.GLYPH_PATHS);
 assert(names.length > 0, 'the icon registry has callers');
 for (const name of names) {
-  const path = probe.ICON_PATHS[name];
-  const glyph = probe.icon(name);
+  const path = probe.GLYPH_PATHS[name];
+  const glyph = probe.glyph(name);
   assert(!path.includes('<svg') && !path.includes('<style') && !path.includes('<g'), name);
   assert(glyph.startsWith('<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"'), name);
   assert(glyph.includes('fill="none" stroke="currentColor" stroke-width="2"'), name);
   assert(glyph.endsWith(`${path}</svg>`), name);
 }
-assert(probe.ICON_PATHS.wrench.includes('M14.7 6.3'), 'the lucide wrench path');
-assert(probe.ICON_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
-assert(probe.ICON_PATHS.refresh_cw.includes('M3 12a9 9'), 'the lucide refresh path');
-assert(probe.ICON_PATHS.download.includes('M12 15V3'), 'the lucide download path');
+assert(probe.GLYPH_PATHS.wrench.includes('M14.7 6.3'), 'the lucide wrench path');
+assert(probe.GLYPH_PATHS.brain.includes('M12 18V5'), 'the lucide brain path');
+assert(probe.GLYPH_PATHS.refresh_cw.includes('M3 12a9 9'), 'the lucide refresh path');
+assert(probe.GLYPH_PATHS.download.includes('M12 15V3'), 'the lucide download path');
 """,
   )
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert (
-    'title="${t("model.column.tools_column")}">${icon(CHIP_ICON_NAMES.tools)}' in app
+    'title="${t("model.column.tools_column")}">${glyph(CHIP_ICON_NAMES.tools)}' in app
   ), "the wrench draws in the tools chip"
   assert (
-    'title="${t("model.column.reasoning_column")}">${icon(CHIP_ICON_NAMES.brain)}'
+    'title="${t("model.column.reasoning_column")}">${glyph(CHIP_ICON_NAMES.brain)}'
     in app
   ), "the brain draws in the reasoning chip"
 
@@ -3248,7 +3248,7 @@ def test_app_js_requests_toolbar_narrows_table() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = {"
@@ -3368,7 +3368,7 @@ def test_app_js_overview_leads_with_4_numbers() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = { state, renderOverview, stamp };\\n";
@@ -3533,7 +3533,7 @@ def test_app_js_fit_section_pane_spares_page_padding() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  'window.ICON_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
   .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
   + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
 const pane = {
@@ -3853,7 +3853,7 @@ def test_limits_filter_rides_in_hash() -> None:
   assert 'id="limits-search"' in page and 'id="limits-clear"' in page, page
   check = page.split('id="limits-check"')[1].split("</button>")[0]
   assert 'data-icon="refresh_cw"' in check, (
-    "the check button hydrates the lucide refresh glyph from ICON_PATHS"
+    "the check button hydrates the lucide refresh glyph from GLYPH_PATHS"
   )
   assert '<span data-i18n="action.check_now_button">' in check, (
     "the word stays for a screen reader, and the locale fill keeps the glyph"
@@ -4141,7 +4141,7 @@ def test_shared_info_hint_and_pane_bar() -> None:
 
 
 def test_shared_static_icons_and_modal_value_input() -> None:
-  """Static index.html buttons hydrate from ICON_PATHS and modal inputs share modalValueInput()."""
+  """Static index.html buttons hydrate from GLYPH_PATHS and modal inputs share modalValueInput()."""
   page = Path("daedalus/dashboard/ui/index.html").read_text(encoding="utf-8")
   app = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert page.count('data-icon="x"') == 2
@@ -4160,12 +4160,12 @@ assert(input.includes('aria-haspopup="dialog" aria-controls="modal"') && input.i
 """,
   )
   run_app_js(
-    "backButton, icon",
+    "backButton, glyph",
     """
 const rendered = probe.backButton('Settings', { 'data-back': true });
 assert(rendered.includes('class="ghost back"'));
 assert(rendered.includes('data-back'));
-assert(rendered.includes(probe.icon('chevron_left')));
+assert(rendered.includes(probe.glyph('chevron_left')));
 assert(rendered.includes('<span class="back-label">Settings</span>'));
 """,
   )
@@ -4238,7 +4238,7 @@ def test_notice_leaves_on_own_keyframes() -> None:
   )
   assert 'data-i18n-aria-label="notice.dismiss_label"' in close.group(0)
   body = page.split('id="notice-close"')[1].split("</button>")[0]
-  assert 'data-icon="x"' in body, "the x hydrates the lucide glyph from ICON_PATHS"
+  assert 'data-icon="x"' in body, "the x hydrates the lucide glyph from GLYPH_PATHS"
   app = (root / "daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
   assert 'note.classList.add("leave");' in app
   assert 'clearProps: "opacity,transform"' in app
@@ -4256,28 +4256,28 @@ def test_model_modal_reads_as_card() -> None:
   assert '[t("model.column.model_column"), model || m.slug || m.id' in app, (
     "the model leads"
   )
-  assert '[t("model.detail.developer_label"), dev, markImg(dev)]' in app, (
+  assert '[t("model.detail.developer_label"), dev, iconImg(dev)]' in app, (
     "the developer rides when present"
   )
   assert '[t("model.detail.provider_label"), provider,' in app, (
     "the provider closes the identity"
   )
-  assert 'const markImg = (name) => (MARK_FILES.has(name) ? mark(name) : "");' in app, (
-    "the lobe marks ride beside the parts that own one"
+  assert 'const iconImg = (name) => (ICON_FILES.has(name) ? icon(name) : "");' in app, (
+    "the lobe icons ride beside the parts that own one"
   )
   assert "CHIP_ICON_NAMES.tools" in app and "CHIP_ICON_NAMES.brain" in app, (
     "the capabilities read as icon chips"
   )
   modal = app.split("function openModelModal")[1].split("\nfunction ")[0]
   assert (
-    '${icon(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>'
+    '${glyph(CHIP_ICON_NAMES.brain)} ${t("model.column.reasoning_column")}</span>'
     in modal
   ), "the reasoning chip draws the brain and the word together"
   assert (
-    '${icon(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>' in modal
+    '${glyph(CHIP_ICON_NAMES.tools)} ${t("model.column.tools_column")}</span>' in modal
   ), "the tools chip draws the wrench and the word together"
   assert (
-    '${FLAG_ICON_NAMES[f] ? `${icon(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}'
+    '${FLAG_ICON_NAMES[f] ? `${glyph(FLAG_ICON_NAMES[f])} ` : ""}${esc(FLAGS[f] || f)}'
     in modal
   ), "the modality chips draw their icon and their label together"
   assert "reasoningCell" not in modal, "no bare Yes rides in the modal"

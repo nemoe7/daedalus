@@ -1146,7 +1146,7 @@ const DEMO_FIXTURES = __FIXTURES__;
         context: contexts.length ? Math.max(...contexts) : null,
         members: members(rows),
         name: `daedalus/${name}`,
-        shown: `daedalus/${name}`,
+        client_name: `daedalus/${name}`,
       };
       if (mode) pool.mode = mode;
       return pool;

@@ -250,7 +250,7 @@ UI_FILES = {
 }
 # The path of each file of the page, so a request name never reaches the file system.
 UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
-# The path of each model mark, 1 file for each segment name in a model id.
+# The path of each model icon, 1 file for each segment name in a model id.
 ICON_PATHS = {path.name: path for path in (UI_DIR / "icons").glob("*.svg")}
 # The path of each bundled variable font in the UI fonts folder.
 FONT_PATHS = {path.name: path for path in (UI_DIR / "fonts").glob("*.woff2")}
@@ -701,8 +701,8 @@ def versioned_index() -> str:
   for name in UI_FILES:
     tag = hashlib.sha256((UI_DIR / name).read_bytes()).hexdigest()[:12]
     text = text.replace(f'"ui/{name}"', f'"ui/{name}?v={tag}"')
-  marks = json.dumps(sorted(path.stem for path in ICON_PATHS.values()))
-  script = f"<script>window.MARK_FILES = {marks};</script>"
+  icons = json.dumps(sorted(path.stem for path in ICON_PATHS.values()))
+  script = f"<script>window.ICON_FILES = {icons};</script>"
   return text.replace("</body>", f"{script}\n</body>")
 
 
@@ -735,7 +735,7 @@ def page() -> APIRouter:
     return await serve_ui_asset(name)
 
   @pages.get("/ui/icons/{name}", include_in_schema=False)
-  async def model_mark(name: str) -> Response:
+  async def model_icon(name: str) -> Response:
     path = ICON_PATHS.get(name)
     if path is None:
       return failure(404, "Not found.", "invalid_request_error")
@@ -1076,7 +1076,7 @@ def pool_routes(
         }
       )
     for pool in found:
-      pool["shown"] = router.pool_name(pool["name"])
+      pool["client_name"] = router.pool_name(pool["name"])
       sizes = [limits.get(member["id"]) or 0 for member in pool["members"]]
       pool["context"] = max(sizes, default=0) or None
     return JSONResponse(found)

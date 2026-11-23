@@ -4581,7 +4581,7 @@
         }
       ],
       "name": "daedalus/auto",
-      "shown": "daedalus/auto"
+      "client_name": "daedalus/auto"
     },
     {
       "context": 1048576,
@@ -4678,7 +4678,7 @@
         }
       ],
       "name": "daedalus/sophos",
-      "shown": "daedalus/sophos"
+      "client_name": "daedalus/sophos"
     },
     {
       "context": 1048576,
@@ -4859,7 +4859,7 @@
         }
       ],
       "name": "daedalus/deinos",
-      "shown": "daedalus/deinos"
+      "client_name": "daedalus/deinos"
     },
     {
       "context": 1048576,
@@ -4956,7 +4956,7 @@
         }
       ],
       "name": "daedalus/koinos",
-      "shown": "daedalus/koinos"
+      "client_name": "daedalus/koinos"
     },
     {
       "context": 262144,
@@ -5059,7 +5059,7 @@
         }
       ],
       "name": "daedalus/moros",
-      "shown": "daedalus/moros"
+      "client_name": "daedalus/moros"
     },
     {
       "context": 98304,
@@ -5121,7 +5121,7 @@
       ],
       "mode": "audio_transcription",
       "name": "daedalus/graphos",
-      "shown": "daedalus/graphos"
+      "client_name": "daedalus/graphos"
     },
     {
       "context": null,
@@ -5213,7 +5213,7 @@
       ],
       "mode": "image_generation",
       "name": "daedalus/photos",
-      "shown": "daedalus/photos"
+      "client_name": "daedalus/photos"
     }
   ],
   "provider-defaults": {

@@ -120,14 +120,14 @@ async def test_manual() -> None:
   finally:
     release.set()
   await asyncio.gather(*schedule.TASKS)
-  assert calls == [1] and not schedule.BUSY, "the busy mark clears at the end"
+  assert calls == [1] and not schedule.BUSY, "BUSY clears at the end"
 
   def broken() -> None:
     raise RuntimeError("down")
 
   assert schedule.start(broken)
   await asyncio.gather(*schedule.TASKS)
-  assert not schedule.BUSY, "a failure clears the busy mark too"
+  assert not schedule.BUSY, "a failure clears BUSY too"
 
 
 async def test_queued_config_rebuild() -> None:

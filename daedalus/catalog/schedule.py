@@ -54,11 +54,11 @@ def upcoming(now: float) -> float | None:
 
 def due(now: float) -> bool:
   """Tell if the store is older than the latest rebuild time."""
-  mark = last(now)
-  if mark is None:
+  last_due = last(now)
+  if last_due is None:
     return False
   built = store.built()
-  return built is None or built < mark
+  return built is None or built < last_due
 
 
 def _record(before: dict[str, dict], reason: str) -> None:
@@ -119,7 +119,7 @@ def start(refresh: Callable[[], object]) -> bool:
   global BUSY
   if BUSY:
     return False
-  # The mark goes on before the task runs, so that a second click finds it.
+  # BUSY is set before the task runs, so that a second click finds it.
   BUSY = True
 
   async def manual() -> None:
