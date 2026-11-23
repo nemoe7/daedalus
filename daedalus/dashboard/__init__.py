@@ -250,7 +250,7 @@ UI_FILES = {
 }
 # The path of each file of the page, so a request name never reaches the file system.
 UI_PATHS = {name: UI_DIR / name for name in UI_FILES}
-# The path of each model mark, 1 file for each name in the app.js set.
+# The path of each model mark, 1 file for each segment name in a model id.
 ICON_PATHS = {path.name: path for path in (UI_DIR / "icons").glob("*.svg")}
 # The path of each bundled variable font in the UI fonts folder.
 FONT_PATHS = {path.name: path for path in (UI_DIR / "fonts").glob("*.woff2")}
@@ -701,7 +701,9 @@ def versioned_index() -> str:
   for name in UI_FILES:
     tag = hashlib.sha256((UI_DIR / name).read_bytes()).hexdigest()[:12]
     text = text.replace(f'"ui/{name}"', f'"ui/{name}?v={tag}"')
-  return text
+  marks = json.dumps(sorted(path.stem for path in ICON_PATHS.values()))
+  script = f"<script>window.MARK_FILES = {marks};</script>"
+  return text.replace("</body>", f"{script}\n</body>")
 
 
 def page() -> APIRouter:

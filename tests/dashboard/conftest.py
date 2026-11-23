@@ -22,6 +22,10 @@ CONFIG = {
   }
 }
 MASTER = "master-key-0123456789"
+# Mark stems injected in VM sandboxes, matching what the page serves.
+MARK_STEMS = sorted(
+  path.stem for path in Path("daedalus/dashboard/ui/icons").glob("*.svg")
+)
 AUTH = {"Authorization": f"Bearer {MASTER}"}
 ROWS = [
   {
@@ -87,7 +91,7 @@ const sandbox = {{
   }},
   navigator: {{}},
   location: {{ hash: '' }},
-  window: {{ addEventListener: () => {{}} }},
+  window: {{ addEventListener: () => {{}}, MARK_FILES: {json.dumps(MARK_STEMS)} }},
   getSelection: () => ({{ isCollapsed: true }}),
   $: (id) => (id === 'nav' ? nav : el(id)),
   setInterval: () => 0,
@@ -146,7 +150,7 @@ const sandbox = {{
   location: {{ hash: '' }},
   history: {{ replaceState: () => {{}}, pushState: () => {{}} }},
   URLSearchParams,
-  window: {{ addEventListener: () => {{}} }},
+  window: {{ addEventListener: () => {{}}, MARK_FILES: {json.dumps(MARK_STEMS)} }},
   getSelection: () => ({{ isCollapsed: true }}),
   console: {{ error: () => {{}} }},
   $: node,

@@ -304,16 +304,7 @@ const mobileLabel = (text) => `<span class="mobile-label" aria-hidden="true">${e
 const nameCell = (text, shown = esc(text), label = t("model.column.model_column"), extra = "") =>
   `<td role="cell" class="name" title="${esc(text)}">${label ? mobileLabel(label) : ""}<span class="cell-value">${shown}</span>${extra}</td>`;
 // Render `provider/developer/slug` without duplicate provider names, using text when no SVG matches.
-const MARK_FILES = new Set([
-  "aion-labs", "alibaba", "anthropic", "assemblyai", "baai", "baidu", "baseten", "black-forest-labs",
-  "bytedance", "cloudflare", "cohere", "daedalus", "deepseek", "deepseek-ai", "dots-studio",
-  "elevenlabs", "fireworks", "fish-audio", "gemini", "google", "groq", "ibm", "ibm-granite",
-  "inception", "inference-net", "kilo", "krea", "liquid", "meta", "meta-llama", "microsoft",
-  "minimax", "mistral", "mistralai", "moonshotai", "morph", "myshell-ai", "nousresearch", "nvidia",
-  "openai", "openrouter", "perceptron", "perplexity", "pollinations", "poolside", "qwen",
-  "recraft", "relace", "rekaai", "runway", "runwayml", "sakana", "stabilityai", "stepfun", "tencent",
-  "togethercomputer", "typesafe", "upstage", "x-ai", "xiaomi", "z-ai", "zai-org",
-]);
+const MARK_FILES = new Set(window.MARK_FILES || []);
 const mark = (name, tint = false) => MARK_FILES.has(name)
   ? tint
     ? `<span class="mark tint" style="--mark:url(icons/${esc(name)}.svg)" aria-hidden="true"></span>`

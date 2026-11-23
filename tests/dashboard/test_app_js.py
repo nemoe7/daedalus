@@ -140,7 +140,9 @@ def test_app_js_split_requests() -> None:
   code = """
 const fs = require('fs');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const vm = require('vm');
 const sandbox = {
   TRANSITION_REASONS: { err: 'Previous upstream attempt failed', lmt: 'Rate limit' },
@@ -625,7 +627,9 @@ def test_app_js_model_rows_keep_type_on_phone() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { state, renderModels, $ };'
 const byId = new Map();
 const el = (id) => {
@@ -747,7 +751,9 @@ def test_app_js_model_marks() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + String.fromCharCode(10) + 'globalThis.__probe = { modelName, MARK_FILES, state };';
 const byId = new Map();
 const el = (id) => {
@@ -788,8 +794,8 @@ assert.strictEqual(seps(bare), 1, 'the slash before the slug');
 assert(bare.includes('<span class="model-part">m</span>'), 'the slug of a bare name');
 assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct')
   .includes('<img class="mark" src="ui/icons/cloudflare.svg"'), 'a shipped mark file');
-assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash').includes('class="mark slug">inclusionai<'),
-  'a name with no file shows its text');
+assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash')
+  .includes('<img class="mark" src="ui/icons/inclusionai.svg"'), 'a shipped mark file');
 assert(sandbox.__probe.MARK_FILES.has('cloudflare') && sandbox.__probe.MARK_FILES.has('z-ai'), 'the shipped mark set');
 sandbox.__probe.state.models = [{ id: 'openrouter/baseten/mammoth-1:free', name: 'Mammoth 1' }];
 const named = modelName('openrouter/baseten/mammoth-1:free');
@@ -823,13 +829,13 @@ assert.strictEqual(text({ cancelled: true }), LOCALE["request.state.cancelled_te
 
 
 def test_mark_files_match_icon_folder() -> None:
-  """The app.js mark set matches shipped SVG filenames."""
-  source = Path("daedalus/dashboard/ui/app.js").read_text(encoding="utf-8")
-  block = source.partition("const MARK_FILES = new Set([")[2].partition("]);")[0]
-  assert block, "the mark set is a literal"
-  names = set(re.findall(r'"([a-z0-9-]+)"', block))
+  """Injected mark list matches shipped SVG filenames."""
+  text = dashboard.versioned_index()
+  block = text.partition("window.MARK_FILES = ")[2].partition(";</script>")[0]
+  assert block, "the page injects the mark list"
+  names = set(json.loads(block))
   files = {path.stem for path in Path("daedalus/dashboard/ui/icons").glob("*.svg")}
-  assert files == names, "the set and the folder hold the same names"
+  assert files == names, "page and folder hold same names"
 
 
 def test_app_js_state_chip() -> None:
@@ -922,7 +928,9 @@ def test_app_js_request_cards() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') +
   "\\nglobalThis.__probe = {{ renderRequests, renderLive," +
   " poolTier, state, modelName, poolOf, routingCodes, openChain }};";
 const nodes = new Map();
@@ -1063,7 +1071,9 @@ def test_app_js_live_clocks_wait_for_first_token() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { tickLive, state };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', children: [], listeners: {}, classList: { add: () => {},
@@ -1877,7 +1887,9 @@ def test_app_js_modal() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { ask, state };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -1953,7 +1965,9 @@ def test_app_js_time_stamps() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { stamp, relative };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -2032,7 +2046,9 @@ def test_app_js_retry_code() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { transitionCell };";
 const nodes = new Map();
 const node = (id) => {
   if (!nodes.has(id)) nodes.set(id, { innerHTML: '', textContent: '', value: '', hidden: false, returnValue: '',
@@ -2106,7 +2122,9 @@ def test_app_js_limit_units() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js',
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js',
   'utf8') + "\\nglobalThis.__probe = {{ renderLimits, state }};";
 const nodes = new Map();
 const node = (id) => {{
@@ -2284,7 +2302,9 @@ const fs = require('fs');
 const vm = require('vm');
 const assert = require('assert');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8');
 const docEvents = {};
 const el = () => ({ innerHTML: '', textContent: '', addEventListener: () => {},
   classList: { add: () => {}, remove: () => {}, toggle: () => {} } });
@@ -3228,7 +3248,9 @@ def test_app_js_requests_toolbar_narrows_table() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = {"
   + " state, renderRequestTable, requestMatches,"
   + " checkRequestsScroll, resetRequestsScroll, REQUESTS_PAGE, REQUESTS_STEP"
@@ -3346,7 +3368,9 @@ def test_app_js_overview_leads_with_4_numbers() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8')
   + "\\nglobalThis.__probe = { state, renderOverview, stamp };\\n";
 const nodes = new Map();
 const node = (id) => {
@@ -3509,7 +3533,9 @@ def test_app_js_fit_section_pane_spares_page_padding() -> None:
 const fs = require('fs');
 const vm = require('vm');
 const src = fs.readFileSync('daedalus/dashboard/ui/en.js', 'utf8') + "\\n" +
-  fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
+  'window.MARK_FILES = ' + JSON.stringify(require('fs').readdirSync('daedalus/dashboard/ui/icons')
+  .filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4))) + String.fromCharCode(10)
+  + fs.readFileSync('daedalus/dashboard/ui/app.js', 'utf8') + "\\nglobalThis.__probe = { fitSectionPane };";
 const pane = {
   offsetParent: {}, style: { setProperty() {} }, scrollTop: 0, clientHeight: 200, scrollHeight: 600,
   classList: { toggle: () => {} }, getBoundingClientRect: () => ({ top: 128 }),
