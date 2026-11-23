@@ -103,7 +103,7 @@ services:
 
   headroom:
     profiles: [headroom]
-    image: ghcr.io/headroomlabs-ai/headroom:0.41.0-slim # distroless: no shell
+    image: ghcr.io/headroomlabs-ai/headroom:0.45.0-slim # distroless: no shell
     container_name: daedalus-headroom
     command: ["--host", "0.0.0.0", "--port", "8787"]
     env_file:
