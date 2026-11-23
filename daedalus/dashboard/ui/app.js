@@ -4000,6 +4000,7 @@ const SETTINGS = [
   ["optimization", t("settings.optimization.title"), [
     ["enabled", t("settings.optimization.enabled.label"), "", t("settings.optimization.enabled.hint")],
     ["timeout", t("settings.optimization.timeout.label"), "s", t("settings.optimization.timeout.hint")],
+    ["protect_recent", t("settings.optimization.protect_recent.label"), "", t("settings.optimization.protect_recent.hint")],
   ]],
   ["privacy", t("settings.privacy.title"), [
     ["forward_owui_chat_id", t("settings.privacy.forward_chat_id.label"), "", t("settings.privacy.forward_chat_id.hint")],

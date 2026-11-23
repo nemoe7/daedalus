@@ -78,7 +78,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "longest": 2000,
   },
   # The message compression through Headroom. A block or a model entry turns it off for 1 model.
-  "optimization": {"enabled": True, "timeout": 5.0, "protect_recent": None},
+  "optimization": {"enabled": True, "timeout": 5.0, "protect_recent": 6},
   # Client metadata that may leave daedalus for a provider.
   "privacy": {"forward_owui_chat_id": False},
   "catalog": {"every": 6.0, "anchor": 6.0},

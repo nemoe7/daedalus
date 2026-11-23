@@ -545,6 +545,8 @@ globalThis.DAEDALUS_LOCALE = {
   "settings.optimization.enabled.label": "Headroom on",
   "settings.optimization.timeout.hint": "After this time, the original messages go to the provider.",
   "settings.optimization.timeout.label": "Headroom timeout",
+  "settings.optimization.protect_recent.hint": "The last 6 messages go to the provider uncompressed. Empty sends no field.",
+  "settings.optimization.protect_recent.label": "Protect recent messages",
   "settings.optimization.summary": "Enable prompt optimization and cap its wait.",
   "settings.optimization.title": "Optimization",
   "settings.personalization.audio.hint": "The client name of the transcription pool: graphos by default.",

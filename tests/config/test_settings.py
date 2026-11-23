@@ -422,7 +422,8 @@ def test_headroom_switch() -> None:
 
 def test_protect_recent() -> None:
   """`protect_recent` accepts empty or a whole count of messages."""
-  assert settings.parse("")["optimization"]["protect_recent"] is None
+  assert settings.parse("")["optimization"]["protect_recent"] == 6
+  assert settings.DEFAULTS["optimization"]["protect_recent"] == 6
   assert settings.check("optimization", "protect_recent", None) is None
   assert settings.check("optimization", "protect_recent", 0) == 0
   assert (

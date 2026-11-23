@@ -167,7 +167,7 @@ Values use hours. For example, `0.5` means 30 minutes. Replace existing out-of-r
 | --- | --- | --- |
 | `optimization.enabled` | `true` | `false`: the messages of each model go to the provider unchanged. |
 | `optimization.timeout` | `5` | Seconds for the full Headroom answer. Then the original messages go to the provider. |
-| `optimization.protect_recent` | unset | The last N messages stay uncompressed. Unset sends no field. |
+| `optimization.protect_recent` | `6` | The last N messages stay uncompressed. Unset sends no field. |
 
 ### Privacy
 
