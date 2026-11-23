@@ -1107,6 +1107,17 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
   /* A pane that holds one filling card stops scrolling, so the card's own form carries the scroll. */
   .section-pane.fit-host { overflow: hidden; mask-image: none; display: flex; flex-direction: column; }
   .section-pane:not(.fit-host) > .card { align-self: start; }
+  /* The scroll edge fades only show on a pane that actually scrolls, so a short section stops fading. */
+  .section-pane.edge-fade {
+    mask-image:
+      linear-gradient(to bottom, transparent, black var(--edge-start), black calc(100% - var(--edge-end)), transparent),
+      linear-gradient(to left, black var(--scrollbar-carve), transparent var(--scrollbar-carve));
+    mask-composite: add;
+  }
+  .section-pane.edge-fade-top { --edge-start: var(--edge-fade); }
+  .section-pane:not(.edge-fade-top) { --edge-start: 0px; }
+  .section-pane.edge-fade-bottom { --edge-end: var(--edge-fade); }
+  .section-pane:not(.edge-fade-bottom) { --edge-end: 0px; }
   .section-pane.fit-host > .card,
   .section-pane.fit-host > .provider-flow { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
   .card.yaml-view textarea { flex: 1 1 auto; min-height: 120px; }
@@ -1538,7 +1549,7 @@ section[data-page="limits"] > .editbar > .ghost { padding: 3px 12px; }
 .transition { white-space: normal; }
 @media (prefers-reduced-motion: no-preference) {
   @supports (animation-timeline: scroll(self)) {
-    #app > main:not([data-page="models"]), .section-pane:not(.fit-host), .modal, .step pre, .notice, textarea {
+    #app > main:not([data-page="models"]), .modal, .step pre, .notice, textarea {
       scroll-padding-block: var(--edge-fade);
       mask-image:
         linear-gradient(to bottom, transparent, black var(--edge-start), black calc(100% - var(--edge-end)), transparent),

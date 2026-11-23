@@ -5334,6 +5334,11 @@ function requestHash() {
 function markPaneEdges(pane) {
   pane.classList.toggle("fit-host", pane.querySelector(
     ":scope > .provider-flow:not([hidden]), :scope > .card.yaml-view:not([hidden])") != null);
+  // The scroll edge fades only show on a pane that actually scrolls, so a
+  // short section stops fading instead of carrying the previous fade.
+  pane.classList.toggle("edge-fade", pane.scrollHeight > pane.clientHeight);
+  pane.classList.toggle("edge-fade-top", pane.scrollTop > 0);
+  pane.classList.toggle("edge-fade-bottom", pane.scrollTop + pane.clientHeight < pane.scrollHeight);
 }
 
 function markSectionPaneEdges() {
@@ -5394,12 +5399,13 @@ document.addEventListener("scroll", (event) => {
   ) {
     checkRequestsScroll(scroller);
   }
+  if (scroller?.matches?.(".section-pane")) markPaneEdges(scroller);
   placeInfoTip(document.querySelector(".field.info .hint:hover, .fold summary .hint:hover") || document.activeElement);
 }, true);
 window.addEventListener("scroll", () => {
   if (shownPage === "requests") checkRequestsScroll(document.scrollingElement);
 }, { passive: true });
-window.addEventListener("resize", queueRequestsFill);
+window.addEventListener("resize", () => { markSectionPaneEdges(); queueRequestsFill(); });
 
 // The strip breathes its own clipped edges: fades only, no chevrons.
 const nav = $("nav");
