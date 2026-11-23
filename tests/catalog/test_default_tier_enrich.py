@@ -1,7 +1,8 @@
 """Enrichment stamps `_default` tiers into store rows."""
 
+from test_enrichment import PAGE, sequenced
+
 from daedalus.catalog import enrichment
-from tests.catalog.test_enrichment import PAGE, sequenced
 
 
 def test_enrich_lets_default_claim_beat_catch_all() -> None:
