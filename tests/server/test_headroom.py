@@ -70,7 +70,7 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   assert payload == {
     "messages": body["messages"],
     "model": "a/1",
-    "config": {"mode": "lossy_inline"},
+    "config": {"mode": "lossless"},
   }, payload
   sidecar.status = 404
   for _ in range(2):
@@ -92,7 +92,7 @@ def test_compress_protect_recent(
   monkeypatch.setattr(headroom, "PROTECT_RECENT", 6)
   asyncio.run(headroom.compress(body, "a/1"))
   payload = json.loads(sidecar.compress[-1].content)
-  assert payload["config"] == {"mode": "lossy_inline", "protect_recent": 6}, payload
+  assert payload["config"] == {"mode": "lossless", "protect_recent": 6}, payload
 
 
 @pytest.mark.parametrize(

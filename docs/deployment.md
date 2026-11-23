@@ -282,7 +282,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 
 | Setting | Value |
 | --- | --- |
-| Mode | `lossy_inline` |
+| Mode | `lossless`: format-native folds only, no markers, no lossy pass. |
 | Switch | `optimization.enabled`, or `headroom: false` in a provider block or a model entry. |
 | Timeout | 5 s. Then the original messages go to the provider. |
 | Recent messages | `optimization.protect_recent`, default 6: the last N messages stay uncompressed. Unset sends no field. |

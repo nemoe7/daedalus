@@ -10,7 +10,7 @@ import httpx
 from daedalus.server import upstream
 
 HEADROOM_URL = "HEADROOM_URL"
-MODE = "lossy_inline"
+MODE = "lossless"
 TIMEOUT_SECONDS = 5.0
 HEALTH_TIMEOUT_SECONDS = 1.0
 PROTECT_RECENT: int | None = None
