@@ -832,3 +832,27 @@ test("hooks manager and client spoofing fit desktop, tablet, and phone without c
     await expect(page.locator('.card[data-section="hooks"] .hook-table')).toBeVisible();
   }
 });
+
+test("a present provider icon loads and displays on the models page", async ({ page }) => {
+  await open(page, "#/models", 1440, 900);
+  const icon = await page.evaluate(async () => {
+    const imgs = [...document.querySelectorAll("img.icon")].filter((img) => {
+      const box = img.getBoundingClientRect();
+      return box.width > 0 && box.height > 0;
+    });
+    const img = imgs[0];
+    if (!img) return null;
+    if (!img.complete) {
+      await new Promise((done) => img.addEventListener("load", done, { once: true }));
+    }
+    return {
+      src: img.getAttribute("src") || "",
+      loaded: img.complete && img.naturalWidth > 0,
+      displayed: img.getBoundingClientRect().width > 0,
+    };
+  });
+  expect(icon, "the models page shows at least one present provider icon").not.toBeNull();
+  expect(icon.src, "the icon points at the served icon route").toMatch(/^ui\/icons\/.+\.svg/);
+  expect(icon.loaded, "the icon file fetches and decodes").toBe(true);
+  expect(icon.displayed, "the icon is visible on screen").toBe(true);
+});

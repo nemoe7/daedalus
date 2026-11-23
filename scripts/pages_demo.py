@@ -1775,6 +1775,12 @@ def build(out: Path, version: str) -> Path:
     encoding="utf-8",
   )
   page = (UI / "index.html").read_text(encoding="utf-8")
+  # Inject the icon list before the page scripts, as versioned_index does.
+  stems = json.dumps(sorted(path.stem for path in (UI / "icons").glob("*.svg")))
+  page = page.replace(
+    '<script src="ui/gsap.min.js">',
+    f'<script>window.ICON_FILES = {stems};</script>\n<script src="ui/gsap.min.js">',
+  )
   marker = (
     '<script src="ui/gsap.min.js"></script>\n'
     '<script src="ui/en.js"></script>\n'

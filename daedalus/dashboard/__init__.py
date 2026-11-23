@@ -698,12 +698,16 @@ def model_tag(
 def versioned_index() -> str:
   """The page with a content hash on each asset link, so no cache serves an old file."""
   text = (UI_DIR / "index.html").read_text(encoding="utf-8")
+  # app.js reads window.ICON_FILES at load time. Define the list before every script tag.
+  icons = json.dumps(sorted(path.stem for path in ICON_PATHS.values()))
+  script = f"<script>window.ICON_FILES = {icons};</script>"
+  text = text.replace(
+    '<script src="ui/gsap.min.js">', f'{script}\n<script src="ui/gsap.min.js">'
+  )
   for name in UI_FILES:
     tag = hashlib.sha256((UI_DIR / name).read_bytes()).hexdigest()[:12]
     text = text.replace(f'"ui/{name}"', f'"ui/{name}?v={tag}"')
-  icons = json.dumps(sorted(path.stem for path in ICON_PATHS.values()))
-  script = f"<script>window.ICON_FILES = {icons};</script>"
-  return text.replace("</body>", f"{script}\n</body>")
+  return text
 
 
 def page() -> APIRouter:

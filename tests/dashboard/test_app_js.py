@@ -838,6 +838,22 @@ def test_icon_files_match_icon_folder() -> None:
   assert files == names, "page and folder hold same names"
 
 
+def test_icon_list_is_defined_before_app_js() -> None:
+  """The injected icon list precedes every page script, including ui/app.js."""
+  text = dashboard.versioned_index()
+  icon_at = text.index("window.ICON_FILES = ")
+  assert text.index('<script src="ui/app.js') > icon_at, (
+    "icon list is defined before app.js"
+  )
+  for marker in (
+    '<script src="ui/gsap.min.js',
+    '<script src="ui/en.js',
+    '<script src="ui/vendor/sortable.min.js',
+    '<script src="ui/app.js',
+  ):
+    assert text.index(marker) > icon_at, f"{marker} follows the icon list"
+
+
 def test_app_js_state_chip() -> None:
   """Status markup flags loading and unknown states, then clears them after a response."""
   code = _app_js_vm(
@@ -1294,8 +1310,8 @@ assert(modal.includes('class="diff-id added"'), 'an added model identity uses th
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
 assert(modal.includes('class="icon tint"'), 'the provider icon can inherit the identity color');
-assert(modal.includes('--icon:url(icons/openrouter.svg)'),
-  'the tinted provider icon resolves beside the dashboard stylesheet');
+assert(modal.includes('--icon:url(ui/icons/openrouter.svg)'),
+  'the tinted provider icon points at the served icon route');
 assert(modal.includes('<span class="icon-sep" aria-hidden="true">/</span>'),
   'the slash separator stays beside the provider icon');
 """,
