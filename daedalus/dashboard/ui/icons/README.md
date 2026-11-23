@@ -6,7 +6,7 @@ provider or developer. The file name is the name in the model id, such as `openr
 
 ## Source
 
-The files come from `lobehub/lobe-icons` at commit `514037a`, from the mono set under
+The files come from `lobehub/lobe-icons` at commit `cfd0e17`, from the mono set under
 `packages/static-svg/icons/`. The license is MIT, in `LICENSE`. A file keeps the shape of its
 origin under the catalog name. `daedalus.svg` is not from that set: it is the repo logo
 [`daedalus/dashboard/ui/logo.svg`](../logo.svg) in 1 color.
@@ -23,6 +23,7 @@ Each file keeps the name of its origin, except these files:
 | `dots-studio.svg` | `dotsstudio.svg` |
 | `fish-audio.svg` | `fishaudio.svg` |
 | `ibm-granite.svg` | `ibm.svg` |
+| `inclusionai.svg` | `ling.svg` |
 | `inference-net.svg` | `inference.svg` |
 | `meta-llama.svg` | `meta.svg` |
 | `runwayml.svg` | `runway.svg` |
