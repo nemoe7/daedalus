@@ -1724,6 +1724,7 @@ def apply_settings(values: dict[str, dict[str, Any]]) -> None:
   loops.LONGEST = limits["longest"]
   PENALTIES.stay = affinity["stay"]
   headroom.TIMEOUT_SECONDS = values["optimization"]["timeout"]
+  headroom.PROTECT_RECENT = values["optimization"]["protect_recent"]
   upstream.FORWARD_OWUI_CHAT_ID = values["privacy"]["forward_owui_chat_id"]
   schedule.EVERY, schedule.ANCHOR = (
     values["catalog"]["every"],

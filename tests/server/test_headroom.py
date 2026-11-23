@@ -84,6 +84,17 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   assert result["messages"] == SHORT and saved == 42, (result, saved)
 
 
+def test_compress_protect_recent(
+  sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A set `protect_recent` goes in the request config."""
+  body = {"model": "daedalus/auto", "messages": SHORT}
+  monkeypatch.setattr(headroom, "PROTECT_RECENT", 6)
+  asyncio.run(headroom.compress(body, "a/1"))
+  payload = json.loads(sidecar.compress[-1].content)
+  assert payload["config"] == {"mode": "lossy_inline", "protect_recent": 6}, payload
+
+
 @pytest.mark.parametrize(
   "raw, expected",
   [("1e309", None), ("-1e309", None), ('"invalid"', None), ("null", 0), ("42", 42)],

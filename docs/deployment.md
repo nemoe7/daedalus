@@ -285,6 +285,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Mode | `lossy_inline` |
 | Switch | `optimization.enabled`, or `headroom: false` in a provider block or a model entry. |
 | Timeout | 5 s. Then the original messages go to the provider. |
+| Recent messages | `optimization.protect_recent`: the last N messages stay uncompressed. Unset sends no field. |
 | Failure | daedalus sends the original messages. |
 | Log | `saved=N` shows the saved tokens. |
 | `HEADROOM_BEACON` | `off`. The anonymous upload of compression stats, on by default. |

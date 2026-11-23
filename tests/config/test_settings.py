@@ -420,6 +420,23 @@ def test_headroom_switch() -> None:
   assert "optimization.enabled" in str(error.value)
 
 
+def test_protect_recent() -> None:
+  """`protect_recent` accepts empty or a whole count of messages."""
+  assert settings.parse("")["optimization"]["protect_recent"] is None
+  assert settings.check("optimization", "protect_recent", None) is None
+  assert settings.check("optimization", "protect_recent", 0) == 0
+  assert (
+    settings.parse("optimization:\n  protect_recent: 6\n")["optimization"][
+      "protect_recent"
+    ]
+    == 6
+  )
+  for bad in (True, -1, 2.5, "6"):
+    with pytest.raises(settings.SettingsError) as error:
+      settings.check("optimization", "protect_recent", bad)
+    assert "optimization.protect_recent" in str(error.value)
+
+
 def test_routing_threshold() -> None:
   """The classifier threshold accepts numbers from zero through one."""
   assert (

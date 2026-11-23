@@ -78,7 +78,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "longest": 2000,
   },
   # The message compression through Headroom. A block or a model entry turns it off for 1 model.
-  "optimization": {"enabled": True, "timeout": 5.0},
+  "optimization": {"enabled": True, "timeout": 5.0, "protect_recent": None},
   # Client metadata that may leave daedalus for a provider.
   "privacy": {"forward_owui_chat_id": False},
   "catalog": {"every": 6.0, "anchor": 6.0},
@@ -244,6 +244,14 @@ def check(group: str, key: str, value: Any) -> Any:
     return value
   if key == "chance":
     return unit_interval(name, value)
+  if key == "protect_recent":
+    if value is None:
+      return None
+    if isinstance(value, bool) or not isinstance(value, int):
+      raise SettingsError(f"{name} must be a whole number of messages, or empty")
+    if value < 0:
+      raise SettingsError(f"{name} must be at least 0")
+    return value
   if (
     isinstance(value, bool)
     or not isinstance(value, int | float)

@@ -13,6 +13,7 @@ HEADROOM_URL = "HEADROOM_URL"
 MODE = "lossy_inline"
 TIMEOUT_SECONDS = 5.0
 HEALTH_TIMEOUT_SECONDS = 1.0
+PROTECT_RECENT: int | None = None
 
 logger = logging.getLogger("daedalus")
 _down = False
@@ -53,12 +54,15 @@ async def compress(
   base = base_url()
   if not base:
     return body, None
+  config: dict[str, Any] = {"mode": MODE}
+  if PROTECT_RECENT is not None:
+    config["protect_recent"] = PROTECT_RECENT
   try:
     # The httpx timeout is for each read, so a sidecar that keeps sending bytes needs the total limit.
     response = await asyncio.wait_for(
       upstream.get_client().post(
         f"{base}/v1/compress",
-        json={"messages": body["messages"], "model": model, "config": {"mode": MODE}},
+        json={"messages": body["messages"], "model": model, "config": config},
         timeout=TIMEOUT_SECONDS,
       ),
       TIMEOUT_SECONDS,
