@@ -10,6 +10,7 @@ _default:
     TIER-C:
       - "recursive/flint-v1.0*"
       - "nvidia/nemotron-3.5-lightning*"
+      - "nvidia/nemotron-3-nano-omni-*"
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
       - "liquid/lfm-3-1.7b*"
