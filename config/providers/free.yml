@@ -89,9 +89,13 @@ cohere:
     TIER-C:
       - "command-r-*"
       - "north-mini-code-*"
+      - "c4ai-aya-*"
     TIER-D:
       - "command-r7b-*"
+      - "tiny-aya-*"
   models:
+    c4ai-aya-expanse-32b: { max_input_tokens: 128000, max_output_tokens: 4000 }
+    c4ai-aya-vision-32b: { max_input_tokens: 16384, max_output_tokens: 4000, supports_vision: true }
     command-a-03-2025: { max_input_tokens: 256000, max_output_tokens: 8000 }
     command-a-plus-05-2026: { max_input_tokens: 128000, max_output_tokens: 8000 }
     command-a-reasoning-08-2025: { max_input_tokens: 256000, max_output_tokens: 8000 }
@@ -100,6 +104,10 @@ cohere:
     command-r-plus-08-2024: { max_input_tokens: 128000, max_output_tokens: 4000 }
     command-r7b-12-2024: { max_input_tokens: 128000, max_output_tokens: 4000 }
     north-mini-code-1.0: { max_input_tokens: 256000, max_output_tokens: 8000 }
+    tiny-aya-earth: { max_input_tokens: 8192, max_output_tokens: 8000 }
+    tiny-aya-fire: { max_input_tokens: 8192, max_output_tokens: 8000 }
+    tiny-aya-global: { max_input_tokens: 8192, max_output_tokens: 8000 }
+    tiny-aya-water: { max_input_tokens: 8192, max_output_tokens: 8000 }
 
 gemini:
   api_key: env:GEMINI_API_KEY
