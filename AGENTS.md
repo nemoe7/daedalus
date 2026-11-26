@@ -15,6 +15,27 @@ Run these no matter what changed.
 - Lint Markdown with `npx markdownlint-cli2 "**/*.md"`. Require 0 issues.
 - Keep Markdown config in `.markdownlint-cli2.jsonc`: markdownlint defaults, MD060 on, and MD013 off.
 
+## Dump parsing
+
+Use `scripts/parse_dump.py` to read dump files, and do not read raw dump JSON by hand.
+The script reads `.daedalus-state/dump`, prints to stdout, and writes no file.
+
+- With no path, it lists the dump files and their row counts.
+- With a path, it prints the model rows of that file.
+- Filter rows with `--provider`, `--tier`, or `--mode`, and pick `--format text` or `--format json`.
+
+List the dump files:
+
+- cmd: `python3 scripts\parse_dump.py`
+- PowerShell: `python3 scripts\parse_dump.py`
+- bash: `python3 scripts/parse_dump.py`
+
+Print the TIER-B rows of one dump file:
+
+- cmd: `python3 scripts\parse_dump.py .daedalus-state\dump\<file>.json --tier TIER-B`
+- PowerShell: `python3 scripts\parse_dump.py .daedalus-state\dump\<file>.json --tier TIER-B`
+- bash: `python3 scripts/parse_dump.py .daedalus-state/dump/<file>.json --tier TIER-B`
+
 ## Human-facing text
 
 - Docs state facts, and never hold narrative or story text.
