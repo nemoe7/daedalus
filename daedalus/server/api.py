@@ -53,7 +53,7 @@ AFFINITY_MODE = settings.DEFAULTS["affinity"]["mode"]
 PARALLEL_ENABLED = False
 PARALLEL_COUNT = 1
 PARALLEL_CHANCE = 0.05
-PARALLEL_SLOW_SECONDS = 30.0
+PARALLEL_SLOW_SECONDS = 10.0
 PARALLEL_PENALTY = 0.9
 # Upstream statuses that never mean a stream refusal: key and rate limit.
 NOT_A_REFUSAL = (401, 403, 429)

@@ -52,7 +52,7 @@ DEFAULTS: dict[str, dict[str, Any]] = {
     "change_on_draw": True,
     "count": 1,
     "chance": 0.05,
-    "slow": 30.0,
+    "slow": 10.0,
     "penalty": 0.9,
   },
   # The load balance after a fault, a slow token or a rate limit.
