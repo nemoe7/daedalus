@@ -39,8 +39,8 @@ def _service_env(compose: dict[str, object], name: str) -> dict[str, object]:
 def test_every_service_layers_managed_defaults_before_local_overrides() -> None:
   """Every service gets shipped defaults and an optional user-owned env layer."""
   expected = {
-        "api": 3,
-        "open-webui": 40,
+    "api": 3,
+    "open-webui": 40,
     "webui-db": 3,
     "tika": 1,
     "searxng": 2,
