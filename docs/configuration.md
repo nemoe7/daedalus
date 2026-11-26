@@ -77,7 +77,6 @@ Provider keys:
 | `GEMINI_API_KEY` | Gemini |
 | `GROQ_API_KEY` | Groq |
 | `KILO_API_KEY` | Kilo |
-| `MISTRAL_API_KEY` | Mistral |
 | `OPENROUTER_API_KEY` | OpenRouter |
 | `POLLINATIONS_API_KEY` | Pollinations: the secret `sk_` key from <https://enter.pollinations.ai> |
 | `ZAI_API_KEY` | Z.ai |

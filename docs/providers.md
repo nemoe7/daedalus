@@ -8,14 +8,13 @@ Each provider except Pollinations has a tested free tier.
 | `gemini` | Google Gemini | Native Gemini API | daedalus maps OpenAI to Gemini and back, thought signatures included. [`free.yml`](../config/providers/free.yml) sets `reasoning_effort: high`. |
 | `groq` | Groq | OpenAI-compatible | daedalus sends only the message fields that Groq accepts, and drops an assistant message that is empty after this filter. |
 | `kilo` | Kilo Gateway | OpenAI-compatible | Only models whose discovery row has `isFree: true`. |
-| `mistral` | Mistral | OpenAI-compatible | daedalus sends only the message fields that Mistral accepts. `reasoning_effort`: `none` or `high`. Thinking chunks are `reasoning_content`. |
 | `openrouter` | OpenRouter | OpenAI-compatible, plus the OpenRouter Image API (`/images`). Speech is mp3, or pcm when the request asks for it. | Only `:free` and price-0 `stealth/` models. Output types set the modes. Images need credits. |
 | `pollinations` | Pollinations | OpenAI-compatible | In [`pollinations.yml`](../config/providers/pollinations.yml), not [`free.yml`](../config/providers/free.yml): its Pollen does not refill ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). Order 2, as Cloudflare. |
 | `z-ai` | Z.ai | OpenAI-compatible | Only the 3 free models under `models:`: `glm-4.5-flash`, `glm-4.7-flash`, and `glm-4.6v-flash`. |
 
 | Provider | How daedalus keeps it free |
 | --- | --- |
-| Cloudflare, Gemini, Groq, Mistral | Use an account on the free plan, with no payment method. |
+| Cloudflare, Gemini, Groq | Use an account on the free plan, with no payment method. |
 | Kilo | The `isFree: true` discovery match. |
 | OpenRouter | The `!*:free` exclude pattern. Lyria models show price 0 and cost money for each song. |
 | Pollinations | Not free ([pollinations#11580](https://github.com/pollinations/pollinations/issues/11580)). The `"*"` exclude pattern, only the 4 image models under `models:`. |
@@ -33,7 +32,7 @@ The image pool uses `lykon/dreamshaper-8-lcm`, `black-forest-labs/flux.1-schnell
 
 ## Get a key
 
-The 8 providers each need a key: Cloudflare, Gemini, Groq, Kilo, Mistral, OpenRouter, Pollinations, and Z.ai. See [Provider keys](provider-keys.md) for the steps of each one.
+The 7 providers each need a key: Cloudflare, Gemini, Groq, Kilo, OpenRouter, Pollinations, and Z.ai. See [Provider keys](provider-keys.md) for the steps of each one.
 
 ### Use the key
 
@@ -96,7 +95,6 @@ A mode that daedalus does not know keeps the model out of every chain and pool.
 | Cloudflare | Yes | Whisper, native API | MeloTTS and Aura, native API | Flux and SDXL-type models, native API | FLUX.2, native API |
 | Gemini | Yes, native API | `gemini-3.5-transcribe`, native API | 3.x TTS models, native API | 400 | 400 |
 | Groq | - | Yes | Yes | - | - |
-| Mistral | Yes | `language` and `temperature` only | - | - | - |
 | OpenRouter | Yes | - | Yes, mp3, or pcm | Image API, needs a credit balance | Image API, `input_references` |
 | Pollinations | - | - | - | Yes, with Pollen | `flux.2-klein-4b`, with Pollen |
 
@@ -131,13 +129,5 @@ The Gemini exclude list keeps these models out:
 | Robotics ER, Antigravity | They are for robot vision and for agents. |
 | `aqa` | It answers from given sources only. |
 | `*-latest` aliases | The model behind each alias changes over time. |
-
-The Mistral exclude list is in [the shipped provider config](../config/providers/free.yml).
-Discovery also drops these Mistral rows:
-
-| Rows | Reason |
-| --- | --- |
-| An ID reference to another declared alias | Check `name` first, then `billing_model_name` for human-readable names. A human-readable name alone is not an alias ID. |
-| The `ocr`, `moderation`, `classification`, or `audio_transcription_realtime` capability | No daedalus endpoint serves these models. |
 
 The Groq `rpm` and `tpm` values come from the free limits in the [Groq docs](https://console.groq.com/docs/rate-limits).

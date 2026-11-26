@@ -206,13 +206,13 @@ The installers ask for profiles only when `.env` is absent. If you decline Open 
 | `AUDIO_STT_OPENAI_API_BASE_URL`, `AUDIO_STT_OPENAI_API_KEY`, `IMAGES_OPENAI_API_BASE_URL`, `IMAGES_OPENAI_API_KEY`, `IMAGES_EDIT_OPENAI_API_BASE_URL`, `IMAGES_EDIT_OPENAI_API_KEY` | The daedalus API base and key. Without them, speech and images go to OpenAI. |
 | `VECTOR_DB`, `PGVECTOR_DB_URL` | `pgvector` in `webui-db`, for files, knowledge, and memory. `main-slim` supports no other vector store. |
 | `ENABLE_MEMORY_BACKGROUND_REVIEW`, `MEMORIES_REVIEW_INTERVAL_TURNS` | `true` and `5`. After every 5th user turn, the chat model reviews the last turns and drafts the memories. |
-| `RAG_OPENAI_API_BASE_URL`, `RAG_OPENAI_API_KEY`, `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `http://api:3357/v1`, the daedalus key, `openai`, and `mistral/mistral-embed-2312`. `main-slim` has no local embedding model. |
+| `RAG_OPENAI_API_BASE_URL`, `RAG_OPENAI_API_KEY`, `RAG_EMBEDDING_ENGINE`, `RAG_EMBEDDING_MODEL` | `http://api:3357/v1`, the daedalus key, `openai`, and `gemini/gemini-embedding-2`. `main-slim` has no local embedding model. |
 | `CONTENT_EXTRACTION_ENGINE`, `TIKA_SERVER_URL` | `tika` and `http://tika:9998`. Without the `tika` profile, PDF, Office, and image files fail. Plain text skips it. |
 | `ENABLE_WEB_SEARCH`, `WEB_SEARCH_ENGINE`, `SEARXNG_QUERY_URL` | `true`, `searxng`, and `http://searxng:8080/search?q=<query>`. Without the `search` profile, a web search fails. |
 | `DEFAULT_MODEL_METADATA` | On in each new chat. An existing install: **Admin Settings > Models > Defaults**. |
 | MCP servers | MCP tools need **Native** function calling. Tool requests skip the models without it. See [MCP](https://docs.openwebui.com/features/extensibility/mcp/). |
 | Spoken replies | **Settings > Audio**: Web API or Kokoro.js. Gemini TTS allows 3 requests per minute. |
-| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true`, and `2`: 32 chunks in each call, 2 calls at a time, inside the free Mistral limits |
+| `RAG_EMBEDDING_BATCH_SIZE`, `ENABLE_ASYNC_EMBEDDING`, `RAG_EMBEDDING_CONCURRENT_REQUESTS` | `32`, `true`, and `2`: 32 chunks in each call, 2 calls at a time, inside the free Gemini limits |
 
 After a change of `personalization.audio` or `personalization.images` in [`config/daedalus.yml`](../config/daedalus.yml), override `AUDIO_STT_MODEL`, `IMAGE_GENERATION_MODEL` or `IMAGE_EDIT_MODEL` in `services/open-webui/local.env` and update **Admin Settings**. Also change the pool names in the Kilo and Open WebUI model settings.
 
@@ -228,7 +228,7 @@ To check the services and settings:
 
 1. `docker compose exec open-webui curl -s "http://searxng:8080/search?q=test&format=json" | head -c 200` shows JSON.
 2. `docker compose exec open-webui curl -s http://tika:9998/version` shows the Tika version.
-3. **Admin Settings > Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `mistral/mistral-embed-2312`.
+3. **Admin Settings > Documents** shows Tika at `http://tika:9998`, and embeddings `OpenAI` with `gemini/gemini-embedding-2`.
 4. **Admin Settings > Web Search** shows `searxng`. **Code Execution** shows the code interpreter on, with `pyodide`.
 5. **Admin Settings > Audio** and **Images** show `http://api:3357/v1`, with **Image Edit** on (`daedalus/photos`). An older database keeps its values: set them there.
 6. Upload a PDF in a chat. The daedalus log shows `/v1/embeddings` requests.
@@ -253,8 +253,10 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Content | Vectors for files, knowledge, and memory. Chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
 | Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`, all `openwebui`. |
-| Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `1024`, the size of a `mistral/mistral-embed-2312` vector. A new model needs a new index. |
+| Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `3072`, the size of a `gemini/gemini-embedding-2` vector. A new model needs a new index. |
 | Volume | `webui-db` |
+
+An install that used `mistral/mistral-embed-2312` keeps 1024-dimension vectors. After the switch, delete the stored vectors and embed the sources again: drop the vector rows, or point the install at a fresh data volume.
 
 ### Tika
 

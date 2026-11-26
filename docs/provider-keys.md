@@ -27,12 +27,6 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 2. Open **API Key** at the bottom of the dashboard.
 3. Copy the key.
 
-## Mistral
-
-1. Go to <https://console.mistral.ai/api-keys/> and sign in, or create an account.
-2. Select **Create new key**.
-3. Copy the key.
-
 ## OpenRouter
 
 1. Go to <https://openrouter.ai/settings/keys> and sign in, or create an account.
