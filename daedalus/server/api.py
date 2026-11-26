@@ -1495,7 +1495,9 @@ async def run_chat(plan: Plan) -> Response:
           PACING.credit(
             pin.lane(candidate), stream.cached_tokens(completion.get("usage"))
           )
-        ttft = time.perf_counter() - started
+        # The answer time is the moment content landed, so the attempt note
+        # and the ttft read the same instant, not the post-processing after it.
+        ttft = content["at"] - started
         attempts.append(
           upstream.note(candidate, "answered", started, ended=content["at"]) | sent
         )
@@ -1509,7 +1511,7 @@ async def run_chat(plan: Plan) -> Response:
         remember(request, turn, candidate)
         return JSONResponse(completion)
       events, pending = content["events"], content["pending"]
-      ttft = time.perf_counter() - started
+      ttft = content["at"] - started
     except TimeoutError:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
