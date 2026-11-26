@@ -447,9 +447,11 @@ def read_providers(
       # A provider file discovers with its own settings, and takes its own models.
       blocks.append((settings(provider_name, file), True))
     for provider, is_file in blocks:
-      if require_api_key and not (provider.get("api_key") or ""):
-        skipped.append(f"{provider_name}: no api_key")
-        continue
+      if require_api_key:
+        kind = PROVIDERS.get(provider_name, OpenAIProvider)
+        if not kind.keyless and not (provider.get("api_key") or ""):
+          skipped.append(f"{provider_name}: no api_key")
+          continue
       source = provider.get("discovery_url")
       if not isinstance(source, str) or not source:
         skipped.append(f"{provider_name}: no discovery_url")

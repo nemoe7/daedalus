@@ -452,6 +452,8 @@ class OpenAIProvider:
   unsupported: tuple[str, ...] = ()
   # True when the provider documents `stream_options.include_usage`, so daedalus asks for the count.
   stream_usage: ClassVar[bool] = False
+  # True when the provider works without an API key (no Authorization header).
+  keyless: ClassVar[bool] = False
   defaults: ClassVar[Mapping[str, str]] = {"api_type": "openai"}
   # The message fields for each role, for a provider that rejects other fields. Empty: all fields.
   message_fields: ClassVar[Mapping[str, frozenset[str]]] = {}
@@ -513,7 +515,11 @@ class OpenAIProvider:
     if parsed.username or parsed.password:
       raise ProviderError(f"Credentials in api_base for {name}")
     key = config.get("api_key")
-    if not isinstance(key, str) or not key:
+    if key is None:
+      key = ""
+    if not isinstance(key, str):
+      raise ProviderError(f"Invalid api_key for {name}")
+    if not key and not type(self).keyless:
       raise ProviderError(f"Missing api_key for {name}")
     self.name, self.base, self.key = name, base, key
 
@@ -537,7 +543,9 @@ class OpenAIProvider:
 
   @staticmethod
   def auth(key: str) -> dict[str, str]:
-    """The header that carries the API key."""
+    """The header that carries the API key, empty for a keyless provider."""
+    if not key:
+      return {}
     return {"Authorization": f"Bearer {key}"}
 
   def headers(self) -> dict[str, str]:
