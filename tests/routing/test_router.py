@@ -208,6 +208,15 @@ def test_direct_only() -> None:
   assert router.pooled(keyless, "openrouter/a/keep") is False, "no key, no pools"
 
 
+def test_keyless_provider_pools_without_a_key() -> None:
+  """A provider whose class sets `keyless` joins the tiers with no api_key."""
+  config = {"vireonix": {"tier": {"TIER-B": ["auto"]}}}
+  lines = ["vireonix/auto"]
+  assert router.keyed(config, "vireonix/auto") is True, "keyless class counts as keyed"
+  assert router.pooled(config, "vireonix/auto") is True
+  assert router.candidates(config, "TIER-B", lines) == ["vireonix/auto"]
+
+
 def test_headroom_allowed() -> None:
   """The Headroom compression turns off at 4 levels, and the narrow level wins."""
   plain = {"p": {"api_key": "k"}}

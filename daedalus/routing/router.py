@@ -253,8 +253,13 @@ def streams_allowed(config: Mapping[str, Any], model: str) -> bool:
 
 
 def keyed(config: Mapping[str, Any], model: str) -> bool:
-  """Tell if the block that owns the model has an API key."""
+  """Tell if the model works in the pools: the block has a key, or the provider is keyless."""
   name, _, slug = model.partition("/")
+  from daedalus.providers import PROVIDERS
+
+  kind = PROVIDERS.get(name)
+  if kind is not None and kind.keyless:
+    return True
   block = block_for(config, name, slug)
   key = block.get("api_key") if block else None
   return isinstance(key, str) and bool(key)
