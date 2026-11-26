@@ -72,6 +72,35 @@ cloudflare:
     # Clairic extracts typed values, not chat text, although Workers AI lists it as text too.
     "@cf/cloudflare/clairic*": { mode: decisions }
 
+cohere:
+  api_key: env:COHERE_API_KEY
+  # Trial keys: 1,000 requests a month, 20 requests a minute for each chat model.
+  rpm: 20
+  # Free on a trial key: the key type sets free, not the model. Keep chat rows only.
+  exclude:
+    - "embed-*"
+    - "rerank-*"
+    - "parse-*"
+    - "*transcribe*"
+    - "*translate*"
+  tier:
+    TIER-B:
+      - "command-a-*"
+    TIER-C:
+      - "command-r-*"
+      - "north-mini-code-*"
+    TIER-D:
+      - "command-r7b-*"
+  models:
+    command-a-03-2025: { max_input_tokens: 256000, max_output_tokens: 8000 }
+    command-a-plus-05-2026: { max_input_tokens: 128000, max_output_tokens: 8000 }
+    command-a-reasoning-08-2025: { max_input_tokens: 256000, max_output_tokens: 8000 }
+    command-a-vision-07-2025: { max_input_tokens: 128000, max_output_tokens: 8000, supports_vision: true }
+    command-r-08-2024: { max_input_tokens: 128000, max_output_tokens: 4000 }
+    command-r-plus-08-2024: { max_input_tokens: 128000, max_output_tokens: 4000 }
+    command-r7b-12-2024: { max_input_tokens: 128000, max_output_tokens: 4000 }
+    north-mini-code-1.0: { max_input_tokens: 256000, max_output_tokens: 8000 }
+
 gemini:
   api_key: env:GEMINI_API_KEY
   reasoning_effort: high
@@ -195,6 +224,20 @@ openrouter:
       - "recursive/flint-v1.0*"
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
+
+sensenova:
+  api_key: env:SENSENOVA_API_KEY
+  # Free during the public beta: the tokenplan business. Keep chat rows only.
+  exclude:
+    - "*"
+  tier:
+    TIER-B:
+      - "sensenova-6.8-flash"
+    TIER-C:
+      - "sensenova-6.8-flash-lite"
+  models:
+    sensenova-6.8-flash: { max_input_tokens: 262144, max_output_tokens: 65536 }
+    sensenova-6.8-flash-lite: { max_input_tokens: 262144, max_output_tokens: 65536 }
 
 z-ai:
   api_key: env:ZAI_API_KEY

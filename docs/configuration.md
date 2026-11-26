@@ -74,11 +74,13 @@ Provider keys:
 | Name | Provider |
 | --- | --- |
 | `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_API_KEY` | Cloudflare Workers AI |
+| `COHERE_API_KEY` | Cohere |
 | `GEMINI_API_KEY` | Gemini |
 | `GROQ_API_KEY` | Groq |
 | `KILO_API_KEY` | Kilo |
 | `OPENROUTER_API_KEY` | OpenRouter |
 | `POLLINATIONS_API_KEY` | Pollinations: the secret `sk_` key from <https://enter.pollinations.ai> |
+| `SENSENOVA_API_KEY` | SenseNova |
 | `ZAI_API_KEY` | Z.ai |
 
 daedalus skips each provider that has no key. A `client_keys` value can read other names, for example `GEMINI_API_KEY_KILO`.

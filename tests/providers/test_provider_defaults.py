@@ -167,3 +167,24 @@ def test_hidden_inputs() -> None:
   shown = base.error_detail(raw.encode(), 4000)
   assert "PROMPT" not in shown and '"msg": "Extra"' in shown, shown
   assert base.error_detail(b"plain text", 5) == "plain", "not JSON: cut only"
+
+
+def test_cohere_unsupported_fields() -> None:
+  setup = {"cohere": {"api_key": "k"}}
+  _, _, sent, _ = providers.prepare("cohere/m", MESSAGE, setup)
+  assert sent["model"] == "m", sent
+  for field in ("n", "logit_bias", "parallel_tool_calls"):
+    body = {**MESSAGE, field: 1}
+    try:
+      providers.prepare("cohere/m", body, setup)
+    except providers.ProviderError:
+      pass
+    else:
+      raise AssertionError(f"{field} is not a Cohere field")
+
+
+def test_sensenova_discoverable() -> None:
+  keep = providers.SenseNovaProvider.discoverable
+  assert keep({"id": "sensenova-6.8-flash", "output_modalities": ["text"]})
+  assert not keep({"id": "sensenova-u1-fast", "output_modalities": ["image"]})
+  assert keep({"id": "sensenova-6.8-flash"})

@@ -14,12 +14,14 @@ from daedalus.providers.base import (
   frame,
 )
 from daedalus.providers.cloudflare import CloudflareProvider
+from daedalus.providers.cohere import CohereProvider
 from daedalus.providers.gemini import GeminiProvider
 from daedalus.providers.groq import GroqProvider
 from daedalus.providers.kilo import KiloProvider
 from daedalus.providers.mistral import MistralProvider
 from daedalus.providers.openrouter import OpenRouterProvider
 from daedalus.providers.pollinations import PollinationsProvider
+from daedalus.providers.sensenova import SenseNovaProvider
 from daedalus.providers.zai import ZAiProvider
 
 API_TYPES: dict[str, type[OpenAIProvider]] = {
@@ -28,12 +30,14 @@ API_TYPES: dict[str, type[OpenAIProvider]] = {
 }
 PROVIDERS: dict[str, type[OpenAIProvider]] = {
   "cloudflare": CloudflareProvider,
+  "cohere": CohereProvider,
   "gemini": GeminiProvider,
   "groq": GroqProvider,
   "kilo": KiloProvider,
   "mistral": MistralProvider,
   "openrouter": OpenRouterProvider,
   "pollinations": PollinationsProvider,
+  "sensenova": SenseNovaProvider,
   "z-ai": ZAiProvider,
 }
 

@@ -9,6 +9,12 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 3. Under **Use REST API**, select **Create Workers AI API Token**.
 4. Copy the token and **Account ID** from the right sidebar.
 
+## Cohere
+
+1. Go to <https://dashboard.cohere.com/api-keys> and sign in, or create an account.
+2. Create a Trial key. A trial key is free, rate-limited, and not for production use.
+3. Copy the key.
+
 ## Google Gemini
 
 1. Go to <https://aistudio.google.com/apikey> with a Google account.
@@ -38,6 +44,13 @@ Each provider needs 1 key, and daedalus skips a provider without one. The steps 
 1. Go to <https://enter.pollinations.ai> and sign up.
 2. Generate a key.
 3. Copy the key. Pollinations is not free: the account spends its Pollen balance, and Pollen does not refill.
+
+## SenseNova
+
+1. Go to <https://platform.sensenova.ai/console/keys> and sign in, or create an account.
+2. Verify your email or phone.
+3. Create a key that starts with `sk-`.
+4. Copy the key. The public beta is free.
 
 ## Z.ai
 
