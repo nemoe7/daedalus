@@ -253,7 +253,7 @@ The `webui` profile starts `webui-db` with Open WebUI.
 | Content | Vectors for files, knowledge, and memory. Chats stay in the `open-webui` volume. |
 | Password | `OPENWEBUI_DB_PASSWORD`, default `openwebui`. No port on the host. |
 | Keys | `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `POSTGRES_DB`, all `openwebui`. |
-| Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `3072`, the size of a `gemini/gemini-embedding-2` vector. A new model needs a new index. |
+| Vector size | `PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH` is `3072`, the size of a `gemini/gemini-embedding-2` vector. `PGVECTOR_USE_HALFVEC` is `true`, because the `vector` type stops at 2000 dimensions. A new model needs a new index. |
 | Volume | `webui-db` |
 
 An install that used `mistral/mistral-embed-2312` keeps 1024-dimension vectors. After the switch, delete the stored vectors and embed the sources again: drop the vector rows, or point the install at a fresh data volume.

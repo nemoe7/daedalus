@@ -39,8 +39,8 @@ def _service_env(compose: dict[str, object], name: str) -> dict[str, object]:
 def test_every_service_layers_managed_defaults_before_local_overrides() -> None:
   """Every service gets shipped defaults and an optional user-owned env layer."""
   expected = {
-    "api": 3,
-    "open-webui": 39,
+        "api": 3,
+        "open-webui": 40,
     "webui-db": 3,
     "tika": 1,
     "searxng": 2,
@@ -121,6 +121,7 @@ def test_openwebui_embeds_through_listed_model() -> None:
   env = _service_env(compose, "open-webui")
   assert env["RAG_EMBEDDING_MODEL"] == "gemini/gemini-embedding-2"
   assert env["PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH"] == "3072"
+  assert env["PGVECTOR_USE_HALFVEC"] == "true"
 
 
 def test_headroom_pin_allows_internal_bind() -> None:
