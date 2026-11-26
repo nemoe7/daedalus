@@ -1328,7 +1328,7 @@ assert(modal.includes('class="diff-id added"'), 'an added model identity uses th
 assert(modal.includes('class="diff-id removed"'), 'a removed model identity uses the - color');
 assert(modal.includes('class="diff-id moved"'), 'a changed model identity uses the ~ color');
 assert(modal.includes('class="icon tint"'), 'the provider icon can inherit the identity color');
-assert(modal.includes('--icon:url(ui/icons/openrouter.svg)'),
+assert(modal.includes('mask:url(/ui/icons/openrouter.svg)'),
   'the tinted provider icon points at the served icon route');
 assert(modal.includes('<span class="icon-sep" aria-hidden="true">/</span>'),
   'the slash separator stays beside the provider icon');
@@ -1342,9 +1342,7 @@ assert(modal.includes('<span class="icon-sep" aria-hidden="true">/</span>'),
   assert tinted and "background: currentColor" in tinted.group(1), (
     "a diff provider icon takes the identity color"
   )
-  assert "mask: var(--icon)" in tinted.group(1), (
-    "the colored icon keeps its provider art"
-  )
+  assert "mask:" not in tinted.group(1), "the mask declaration moved inline"
   chips = re.search(r"\.diff-chips \{([^}]*)\}", css)
   assert chips and "display: inline-flex" in chips.group(1), (
     "the change chips share a row"

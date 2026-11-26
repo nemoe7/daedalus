@@ -307,7 +307,7 @@ const nameCell = (text, shown = esc(text), label = t("model.column.model_column"
 const ICON_FILES = new Set(window.ICON_FILES || []);
 const icon = (name, tint = false) => ICON_FILES.has(name)
   ? tint
-    ? `<span class="icon tint" style="--icon:url(ui/icons/${esc(name)}.svg)" aria-hidden="true"></span>`
+    ? `<span class="icon tint" style="mask:url(/ui/icons/${esc(name)}.svg) center / contain no-repeat;-webkit-mask:url(/ui/icons/${esc(name)}.svg) center / contain no-repeat" aria-hidden="true"></span>`
     : `<img class="icon" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
   : `<span class="icon slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,

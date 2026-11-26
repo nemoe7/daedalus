@@ -856,3 +856,27 @@ test("a present provider icon loads and displays on the models page", async ({ p
   expect(icon.loaded, "the icon file fetches and decodes").toBe(true);
   expect(icon.displayed, "the icon is visible on screen").toBe(true);
 });
+
+test("a tinted provider icon paints on the providers rail", async ({ page }) => {
+  await open(page, "#/settings?section=providers", 1440, 900);
+  const chip = page.locator('#files button[data-file]').filter({ hasText: "openrouter.yml" })
+    .locator(".tile .icon.tint");
+  await expect(chip, "the provider rail draws a tinted icon chip").toBeVisible();
+  const paint = await chip.evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const style = getComputedStyle(el);
+    const raw = style.maskImage || style.webkitMaskImage || "";
+    const match = raw.match(/url\((["']?)([^"')]+)\1\)/);
+    const url = match ? new URL(match[2], location.href).href : "";
+    return { width: box.width, height: box.height, maskImage: raw, url };
+  });
+  expect(paint.width).toBeGreaterThan(0);
+  expect(paint.height).toBeGreaterThan(0);
+  expect(paint.maskImage, "the chip mask resolves to an icon URL").not.toBe("none");
+  expect(
+    paint.url,
+    "the chip mask points at the served icon route",
+  ).toBe("http://127.0.0.1:8011/ui/icons/openrouter.svg");
+  const res = await page.request.fetch(paint.url);
+  expect(res.status(), "the icon file fetches").toBe(200);
+});

@@ -509,7 +509,7 @@ tr.request.has-chain { cursor: pointer; }
 .only-sm { display: none; }
 /* Inline provider and developer icons beside model names, falling back to plain text. */
 .icon { display: inline-block; width: 16px; height: 16px; border-radius: 4px; vertical-align: -3px; object-fit: contain; }
-.icon.tint { background: currentColor; -webkit-mask: var(--icon) center / contain no-repeat; mask: var(--icon) center / contain no-repeat; }
+.icon.tint { background: currentColor; }
 .icon.slug { width: auto; height: auto; border-radius: 0; vertical-align: baseline; }
 .icon-sep { margin: 0 3px; color: var(--muted); }
 /* A dark theme inverts the monochrome icon files. The text of a slug needs no filter. */
