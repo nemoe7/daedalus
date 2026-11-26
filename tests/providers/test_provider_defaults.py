@@ -188,3 +188,32 @@ def test_sensenova_discoverable() -> None:
   assert keep({"id": "sensenova-6.8-flash", "output_modalities": ["text"]})
   assert not keep({"id": "sensenova-u1-fast", "output_modalities": ["image"]})
   assert keep({"id": "sensenova-6.8-flash"})
+
+
+def test_vireonix_provider() -> None:
+  merged = providers.settings("vireonix", {})
+  assert merged["api_base"] == "https://vireonix.ai/v1", merged
+  assert merged["discovery_url"] == "https://vireonix.ai/v1/models", merged
+
+  setup = {"vireonix": {"tier": {"TIER-B": ["auto"]}}}
+  provider, url, _, headers = providers.prepare("vireonix/auto", MESSAGE, setup)
+  assert type(provider).__name__ == "VireonixProvider"
+  assert url == "https://vireonix.ai/v1/chat/completions", url
+  assert "authorization" not in {key.lower() for key in headers}, headers
+
+  def fetch(url: str, headers: dict) -> dict:
+    return {
+      "data": [
+        {
+          "id": "auto",
+          "display_name": "Auto",
+          "context_window": 1000000,
+          "input_tokens_per_hour": 20000000,
+          "output_tokens_per_hour": 200000,
+        }
+      ]
+    }
+
+  lines, skipped = discovery.build_rows(setup, fetch)
+  assert list(lines) == ["vireonix/auto"], lines
+  assert skipped == [], skipped
