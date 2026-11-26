@@ -79,6 +79,40 @@ def test_new_message(client: TestClient) -> None:
   assert ask(client, later, CHAT) == "b/bravo", "a try again of the new message"
 
 
+def test_digest_ignores_trailing_answer() -> None:
+  """A regenerate sends the thread with the answer it repeats, and still matches."""
+  asked = [{"role": "user", "content": "hi"}]
+  answered = [*asked, {"role": "assistant", "content": "c/charlie"}]
+  assert retries.digest(asked) == retries.digest(answered), (
+    "a regenerate repeats the turn"
+  )
+  versions = [*answered, {"role": "assistant", "content": "b/bravo"}]
+  assert retries.digest(asked) == retries.digest(versions), (
+    "each version repeats the turn"
+  )
+  tool_step = [
+    *asked,
+    {"role": "assistant", "content": "", "tool_calls": [{}]},
+    {"role": "tool", "content": "{}"},
+  ]
+  assert retries.digest(asked) != retries.digest(tool_step), "a tool step is no retry"
+  later = [
+    *asked,
+    {"role": "assistant", "content": "x"},
+    {"role": "user", "content": "ok"},
+  ]
+  assert retries.digest(asked) != retries.digest(later), "a new user turn is no retry"
+
+
+def test_regenerate_payload(client: TestClient) -> None:
+  """A regenerate request ends with the answer it repeats, and counts as a try again."""
+  retry_chat = {"X-OpenWebUI-Chat-Id": "chat-regenerate"}
+  assert ask(client, FIRST, retry_chat) == "c/charlie"
+  regenerate = [*FIRST, {"role": "assistant", "content": "c/charlie"}]
+  assert ask(client, regenerate, retry_chat) == "b/bravo", "a regenerate is a try again"
+  assert dashboard.HISTORY.latest(1)[0]["retry"] == "1"
+
+
 def test_task_between(client: TestClient) -> None:
   message = [{"role": "user", "content": "task between"}]
   task = [{"role": "user", "content": "### Task: suggest follow-ups"}]

@@ -24,7 +24,11 @@ class Turn:
 
 def digest(messages: list[dict]) -> str:
   """Hash of messages without system messages, which can hold time."""
+  # A regenerate repeats a message: trailing plain answers drop from the digest,
+  # so a regenerate hashes like the request it answers.
   kept = [m for m in messages if m.get("role") != "system"]
+  while kept and kept[-1].get("role") == "assistant" and not kept[-1].get("tool_calls"):
+    kept.pop()
   return keys.digest(json.dumps(kept, sort_keys=True, ensure_ascii=False))
 
 

@@ -1,5 +1,5 @@
 # ---
-# version: 1.0.11
+# version: 1.0.12
 # surfaces: [on-request, on-prompt, on-chunk]
 # scope: client
 # targets: [OWUI]
@@ -93,6 +93,16 @@ def _newest(messages: Any, prompt: str) -> str:
   return "\n".join(text for _, text in sorted(found.values()))
 
 
+def _roles(body: Any) -> list[str]:
+  """Roles of the last 2 messages, for the debug log of a turn."""
+  messages = body.get("messages") if isinstance(body, dict) else None
+  if not isinstance(messages, list):
+    return []
+  return [
+    str(message.get("role")) for message in messages[-2:] if isinstance(message, dict)
+  ]
+
+
 def on_request(value: dict, model: str, headers: dict) -> dict | None:
   """Key of turn, and on a repeat code of row.
 
@@ -105,9 +115,12 @@ def on_request(value: dict, model: str, headers: dict) -> dict | None:
     controls = body.pop(CONTROL)
     value[CONTROL] = controls if isinstance(controls, dict) else {}
   chat = headers.get(HEADER)
+  roles = _roles(body)
   if not chat:
+    logger.debug("no chat header, roles %s", roles)
     return value if CONTROL in value else None
   value["key"] = f"{chat}\x00{value['digest']}"
+  logger.debug("turn key chat %s digest %s roles %s", chat, value["digest"], roles)
   count = value.get("count")
   if count:
     value["code"] = f"rt{count}"
