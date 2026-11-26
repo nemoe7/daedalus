@@ -254,6 +254,10 @@ sensenova:
     sensenova-6.8-flash: { max_input_tokens: 262144, max_output_tokens: 65536 }
     sensenova-6.8-flash-lite: { max_input_tokens: 262144, max_output_tokens: 65536 }
 
+vireonix:
+  tier:
+    TIER-B:
+      - auto
 z-ai:
   api_key: env:ZAI_API_KEY
   exclude:
