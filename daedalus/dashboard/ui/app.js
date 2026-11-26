@@ -810,9 +810,12 @@ function renderChips() {
 }
 
 function setStateKnown(value) {
+  const recovered = value === true && stateKnown === false;
   stateKnown = value;
   const app = $("app");
   if (app?.dataset) app.dataset.loading = value === null ? "1" : "";
+  // A successful read after a failure clears the unreachable-server notice.
+  if (recovered) closeNotice();
   renderChips();
 }
 

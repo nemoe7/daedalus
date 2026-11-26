@@ -85,7 +85,7 @@ globalThis.DAEDALUS_LOCALE = {
   "dialog.hooks_install.title": "Install hook files?",
   "dialog.hooks_install.message": "Install {files} hook file(s) from {sources}? Hooks run code with the same access as Daedalus. Review the source before installing.",
   "dialog.value_label": "Value",
-  "error.dashboard_unreachable_text": "The dashboard cannot reach the server.",
+  "error.dashboard_unreachable_text": "Failed to reach server.",
   "error.http_without_message": "The server answered HTTP {status} with no message.",
   "error.store_busy_text": "The state store is busy. Try again.",
   "error.store_unreadable_text": "The model store is not readable. Run {command}.",

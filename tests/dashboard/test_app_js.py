@@ -877,6 +877,24 @@ assert(byId.get('card-health').innerHTML.includes(LOCALE["state.healthy_text"]),
   subprocess.run(["node", "-e", code], check=True)
 
 
+def test_app_js_notice_clears_on_recovery() -> None:
+  """A successful status read after a failure closes the unreachable-server notice."""
+  code = _app_js_vm(
+    """
+sandbox.showNotice(LOCALE["error.dashboard_unreachable_text"]);
+const notice = byId.get('notice');
+assert.strictEqual(notice.hidden, false, 'the failure shows the notice');
+sandbox.setStateKnown(false);
+sandbox.renderStatus({
+  healthy: true, sessions: 2, models: 80, version: 'v1',
+  catalog: { built: 1, next: 2, rebuilding: false },
+});
+assert.strictEqual(notice.hidden, true, 'the good answer closes the notice');
+"""
+  )
+  subprocess.run(["node", "-e", code], check=True)
+
+
 def test_app_js_top_model() -> None:
   """The top model has the most served requests, with catalog order breaking ties."""
   code = _app_js_vm(
