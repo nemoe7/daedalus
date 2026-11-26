@@ -247,12 +247,14 @@ requesty:
   tier:
     TIER-A:
       - "nvidia/nemotron-3-ultra-*"
+    TIER-B:
+      - "novita/ling-3.1-flash*"
     TIER-C:
       - "nvidia/nemotron-3.5-lightning-*"
-      - "nvidia/nemotron-3-nano-omni-*"
-      - "novita/ling-3.1-flash*"
       - "nvidia/muse-glimmer-*"
       - "google/gemma-4-31b-it"
+    TIER-D:
+      - "nvidia/nemotron-3-nano-omni-*"
 
 sensenova:
   api_key: env:SENSENOVA_API_KEY

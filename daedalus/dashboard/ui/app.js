@@ -311,13 +311,14 @@ const icon = (name, tint = false) => ICON_FILES.has(name)
     : `<img class="icon" src="ui/icons/${esc(name)}.svg" alt="" aria-hidden="true">`
   : `<span class="icon slug">${esc(name)}</span>`;
 // `provider/dev/model` and `provider/model` both land. The developer is the part before the model,
-// with a scope prefix such as `@cf/` dropped.
+// with a scope prefix such as `@cf/` dropped. Novita ling rows show the inclusionai icon.
 const parts = (id) => {
   const bits = String(id).split("/");
   const provider = bits.shift();
   const model = bits.length ? bits.pop() : null;
   let dev = bits.length ? bits[bits.length - 1] : null;
   if (dev && dev.toLowerCase() === provider.toLowerCase()) dev = null;
+  if (provider === "novita" && model && model.startsWith("ling-")) dev = "inclusionai";
   return { provider, dev, model };
 };
 // Separate model-ID parts with a slash.

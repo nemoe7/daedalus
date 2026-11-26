@@ -796,6 +796,9 @@ assert(modelName('cloudflare/@cf/meta/llama-3.1-8b-instruct')
   .includes('<img class="icon" src="ui/icons/cloudflare.svg"'), 'a shipped icon file');
 assert(modelName('cloudflare/@cf/inclusionai/ling-3.0-flash')
   .includes('<img class="icon" src="ui/icons/inclusionai.svg"'), 'a shipped icon file');
+assert(modelName('novita/ling-3.1-flash')
+  .includes('<img class="icon" src="ui/icons/inclusionai.svg"'),
+  'the novita ling row shows the inclusionai developer icon');
 assert(sandbox.__probe.ICON_FILES.has('cloudflare') && sandbox.__probe.ICON_FILES.has('z-ai'), 'the shipped icon set');
 sandbox.__probe.state.models = [{ id: 'openrouter/baseten/mammoth-1:free', name: 'Mammoth 1' }];
 const named = modelName('openrouter/baseten/mammoth-1:free');

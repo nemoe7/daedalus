@@ -60,6 +60,9 @@ def icon_names(row: dict) -> list[str]:
     dev = middle[-1]
     if dev.lower() != provider.lower():
       names.append(dev)
+  # Novita serves the Ling series of inclusionAI, so the developer icon is inclusionai.
+  if provider == "novita" and bits[-1].startswith("ling-"):
+    names.append("inclusionai")
   return names
 
 

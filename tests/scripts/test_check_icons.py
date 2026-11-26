@@ -42,6 +42,15 @@ def test_icon_names_single_part_id_is_empty():
   assert check_icons.icon_names({"id": "gpt-4"}) == []
 
 
+def test_icon_names_novita_ling_uses_inclusionai():
+  """A novita ling row adds the inclusionai developer icon."""
+  assert check_icons.icon_names({"id": "novita/ling-3.1-flash"}) == [
+    "novita",
+    "inclusionai",
+  ]
+  assert check_icons.icon_names({"id": "novita/other-model"}) == ["novita"]
+
+
 def test_covered_keeps_names_with_file(tmp_path):
   """A name with an SVG file counts as covered."""
   svg(tmp_path, "openai")
