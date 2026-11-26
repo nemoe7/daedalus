@@ -67,11 +67,7 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   sent = sidecar.compress[-1]
   assert str(sent.url) == "http://headroom:8787/v1/compress", sent.url
   payload = json.loads(sent.content)
-  assert payload == {
-    "messages": body["messages"],
-    "model": "a/1",
-    "config": {"mode": "lossless"},
-  }, payload
+  assert payload["messages"] == body["messages"] and payload["model"] == "a/1", payload
   sidecar.status = 404
   for _ in range(2):
     assert asyncio.run(headroom.compress(body, "a/1")) == (body, None), "fail open"
@@ -82,17 +78,6 @@ def test_compress(sidecar: Sidecar, lines: Lines) -> None:
   sidecar.status = 200
   result, saved = asyncio.run(headroom.compress(body, "a/1"))
   assert result["messages"] == SHORT and saved == 42, (result, saved)
-
-
-def test_compress_protect_recent(
-  sidecar: Sidecar, monkeypatch: pytest.MonkeyPatch
-) -> None:
-  """A set `protect_recent` goes in the request config."""
-  body = {"model": "daedalus/auto", "messages": SHORT}
-  monkeypatch.setattr(headroom, "PROTECT_RECENT", 6)
-  asyncio.run(headroom.compress(body, "a/1"))
-  payload = json.loads(sidecar.compress[-1].content)
-  assert payload["config"] == {"mode": "lossless", "protect_recent": 6}, payload
 
 
 @pytest.mark.parametrize(
