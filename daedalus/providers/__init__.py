@@ -21,6 +21,7 @@ from daedalus.providers.kilo import KiloProvider
 from daedalus.providers.mistral import MistralProvider
 from daedalus.providers.openrouter import OpenRouterProvider
 from daedalus.providers.pollinations import PollinationsProvider
+from daedalus.providers.requesty import RequestyProvider
 from daedalus.providers.sensenova import SenseNovaProvider
 from daedalus.providers.vireonix import VireonixProvider
 from daedalus.providers.zai import ZAiProvider
@@ -38,6 +39,7 @@ PROVIDERS: dict[str, type[OpenAIProvider]] = {
   "mistral": MistralProvider,
   "openrouter": OpenRouterProvider,
   "pollinations": PollinationsProvider,
+  "requesty": RequestyProvider,
   "sensenova": SenseNovaProvider,
   "vireonix": VireonixProvider,
   "z-ai": ZAiProvider,

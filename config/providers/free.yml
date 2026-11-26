@@ -240,6 +240,20 @@ openrouter:
         - on-chunk: hooks/ernie_think.py
         - on-answer: hooks/ernie_think.py
 
+requesty:
+  api_key: env:REQUESTY_API_KEY
+  # Free tier: 200 requests a day, https://docs.requesty.ai/quickstart
+  hourly_requests: 8
+  tier:
+    TIER-A:
+      - "nvidia/nemotron-3-ultra-*"
+    TIER-C:
+      - "nvidia/nemotron-3.5-lightning-*"
+      - "nvidia/nemotron-3-nano-omni-*"
+      - "novita/ling-3.1-flash*"
+      - "nvidia/muse-glimmer-*"
+      - "google/gemma-4-31b-it"
+
 sensenova:
   api_key: env:SENSENOVA_API_KEY
   # Free during the public beta: the tokenplan business. Keep chat rows only.
