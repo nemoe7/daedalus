@@ -143,6 +143,22 @@ def test_slow_first_token_starts_second_model(client: TestClient) -> None:
   assert CALLS == ["b/1", "b/2", "b/2"], "the fast pin answers alone"
 
 
+def test_race_winner_ttft_excludes_slow_wait(
+  client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+  """A runner that wins after the slow wait keeps its own TTFT, not the lead's head start."""
+  monkeypatch.setattr(api, "PARALLEL_SLOW_SECONDS", 0.2)
+  monkeypatch.setattr(api, "SLOW_SECONDS", 0.1)
+  PLAN.update({"b/1": 1.0, "b/2": 0.0})
+  assert stream(client, "daedalus/deinos") == "b/2", "the runner wins"
+  answered = next(a for a in attempts() if a["result"] == "answered")
+  assert answered["seconds"] < 0.1, answered
+  key = api.session_key(MASTER, [FIRST])
+  assert api.PENALTIES.pinned(key, "daedalus/deinos") == "b/2", (
+    "the fast runner pins, not the slow threshold"
+  )
+
+
 def test_chance_starts_second_model(client: TestClient) -> None:
   """A draw below `affinity.chance` starts the second model with the first one."""
   api.PARALLEL_CHANCE = 1.0

@@ -994,6 +994,7 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
         "response": response,
         "wait": wait,
         "raw": raw,
+        "began": began,
         "at": time.perf_counter(),
       }
     events = stream.sse_data(provider.stream(response, model, True, wait), wait)
@@ -1004,6 +1005,7 @@ async def start_candidate(plan, model: str, sent: dict[str, Any]) -> dict[str, A
       "wait": wait,
       "events": events,
       "pending": pending,
+      "began": began,
       "at": time.perf_counter(),
     }
   except BaseException:
@@ -1035,6 +1037,7 @@ async def race_models(
     for take in takes:
       if take is winner:
         continue
+      began = started
       if not take.task.done():
         take.task.cancel()
         with suppress(asyncio.CancelledError):
@@ -1044,6 +1047,7 @@ async def race_models(
         exc = take.task.exception()
         if exc is None:
           content = take.task.result()
+          began = content["began"]
           if "events" in content:
             await content["events"].aclose()
           else:
@@ -1057,7 +1061,7 @@ async def race_models(
           )
           plan.pin.failed(take.model, exc, plan.attempts[-1])
         continue
-      plan.attempts.append(upstream.note(take.model, "lost race", started) | take.sent)
+      plan.attempts.append(upstream.note(take.model, "lost race", began) | take.sent)
       PENALTIES.record(take.model, PARALLEL_PENALTY)
       logger.info("parallel %s lost the race", take.model)
     if winner is None:
@@ -1497,9 +1501,10 @@ async def run_chat(plan: Plan) -> Response:
           )
         # The answer time is the moment content landed, so the attempt note
         # and the ttft read the same instant, not the post-processing after it.
-        ttft = content["at"] - started
+        ttft = content["at"] - content["began"]
         attempts.append(
-          upstream.note(candidate, "answered", started, ended=content["at"]) | sent
+          upstream.note(candidate, "answered", content["began"], ended=content["at"])
+          | sent
         )
         request.state.via, request.state.pin = (
           candidate,
@@ -1511,7 +1516,7 @@ async def run_chat(plan: Plan) -> Response:
         remember(request, turn, candidate)
         return JSONResponse(completion)
       events, pending = content["events"], content["pending"]
-      ttft = content["at"] - started
+      ttft = content["at"] - content["began"]
     except TimeoutError:
       attempts.append(upstream.late_note(candidate, started) | sent)
       pin.failed(candidate, attempt=attempts[-1])
@@ -1567,7 +1572,7 @@ async def run_chat(plan: Plan) -> Response:
       continue
     rest = [m for m in models[index + 1 :] if m != candidate]
     attempts.append(
-      upstream.note(candidate, "answered", started, ended=content["at"]) | sent
+      upstream.note(candidate, "answered", content["began"], ended=content["at"]) | sent
     )
     request.state.via, request.state.pin = (
       candidate,
