@@ -233,6 +233,13 @@ openrouter:
     TIER-D:
       - "liquid/lfm-2.5-2.6b*"
 
+  models:
+    # ERNIE returns its chain of thought as <ernie:think> tags inside content.
+    "baidu/ernie-5.5-flash-preview:free":
+      hooks:
+        - on-chunk: hooks/ernie_think.py
+        - on-answer: hooks/ernie_think.py
+
 sensenova:
   api_key: env:SENSENOVA_API_KEY
   # Free during the public beta: the tokenplan business. Keep chat rows only.
