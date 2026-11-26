@@ -65,18 +65,6 @@
       "end": "0123",
       "has_env": true,
       "has_saved": true,
-      "length": 27,
-      "name": "MISTRAL_API_KEY",
-      "start": "not-",
-      "state": "saved",
-      "used": [
-        "free.yml"
-      ]
-    },
-    {
-      "end": "0123",
-      "has_env": true,
-      "has_saved": true,
       "length": 30,
       "name": "OPENROUTER_API_KEY",
       "start": "not-",
@@ -114,6 +102,25 @@
   "files": [
     {
       "blocks": {
+        "_default": {
+          "tier": {
+            "TIER-A": [
+              "nvidia/nemotron-3-super-*",
+              "poolside/laguna-s-*",
+              "thinkingmachines/inkling*",
+              "minimax/minimax-m3.1-flash*"
+            ],
+            "TIER-C": [
+              "recursive/flint-v1.0*",
+              "nvidia/nemotron-3.5-lightning*",
+              "nvidia/nemotron-3-nano-omni-*"
+            ],
+            "TIER-D": [
+              "liquid/lfm-2.5-2.6b*",
+              "liquid/lfm-3-1.7b*"
+            ]
+          }
+        },
         "cloudflare": {
           "account_id": "env:CLOUDFLARE_ACCOUNT_ID",
           "api_key": "env:CLOUDFLARE_API_KEY",
@@ -175,7 +182,7 @@
               "supported_reasoning_efforts": [
                 "low",
                 "medium",
-                "xhigh"
+                "high"
               ]
             },
             "@cf/qwen/qwq-32b": {
@@ -197,7 +204,7 @@
             "TIER-A": [
               "*qwen3.*",
               "*nemotron-3-120b-a12b*",
-              "@cf/openai/gpt-oss-120b"
+              "@cf/qwen/qwq-32b"
             ],
             "TIER-B": [
               "*qwen3-30b-a3b*",
@@ -205,7 +212,7 @@
               "@cf/openai/gpt-oss-20b",
               "@cf/zai-org/glm-4.7-flash",
               "@cf/google/gemma-4-*",
-              "@cf/qwen/qwq-32b"
+              "@cf/openai/gpt-oss-120b"
             ],
             "TIER-C": [
               "@cf/meta/llama-3.3-70b-*",
@@ -237,12 +244,13 @@
             "gemini-3.1-pro-preview*",
             "gemini-3.5-flash",
             "gemini-3.7-flash*",
-            "gemini-4-argon",
+            "gemini-4*",
             "deep-research*",
             "*omni*",
             "*-image*",
             "*-live*",
-            "lyria-*"
+            "lyria-*",
+            "genie-4"
           ],
           "models": {
             "gemini-3*-transcribe": {
@@ -308,6 +316,16 @@
               ],
               "tpm": 250000
             },
+            "gemini-4-hydrogen": {
+              "rpm": 5,
+              "supported_reasoning_efforts": [
+                "minimal",
+                "low",
+                "medium",
+                "high"
+              ],
+              "tpm": 250000
+            },
             "gemma-4-26b-a4b-it": {
               "rpm": 30,
               "supported_reasoning_efforts": [
@@ -332,7 +350,8 @@
           "reasoning_effort": "high",
           "tier": {
             "TIER-A": [
-              "gemini-3.8-flash"
+              "gemini-3.8-flash",
+              "gemini-4-hydrogen"
             ],
             "TIER-B": [
               "gemini-3.6-flash",
@@ -372,7 +391,7 @@
               "supported_reasoning_efforts": [
                 "low",
                 "medium",
-                "xhigh"
+                "high"
               ]
             },
             "whisper-*": {
@@ -383,11 +402,11 @@
           "rpm": 30,
           "tier": {
             "TIER-A": [
-              "openai/gpt-oss-120b",
               "qwen/qwen3.8-27b"
             ],
             "TIER-B": [
-              "openai/gpt-oss-20b"
+              "openai/gpt-oss-20b",
+              "openai/gpt-oss-120b"
             ],
             "TIER-D": [
               "allam-2-7b"
@@ -409,7 +428,6 @@
           "tier": {
             "TIER-A": [
               "nvidia/nemotron-3-super-*",
-              "nvidia/nemotron-3-ultra-*",
               "poolside/laguna-s-*",
               "thinkingmachines/inkling*",
               "reflection/beam-*",
@@ -422,39 +440,8 @@
               "recursive/flint-v1.0*"
             ],
             "TIER-D": [
-              "liquid/lfm-2.5-2.6b*"
-            ]
-          }
-        },
-        "mistral": {
-          "api_key": "env:MISTRAL_API_KEY",
-          "exclude": [
-            "*-latest",
-            "mistral-small-2603",
-            "voxtral-*-transcribe-3*",
-            "voxtral-mini-tts-3*"
-          ],
-          "models": {
-            "*embed*": {
-              "mode": "embedding"
-            },
-            "voxtral-mini-2*": {
-              "mode": "audio_transcription"
-            },
-            "voxtral-mini-tts-2*": {
-              "mode": "audio_speech"
-            }
-          },
-          "tier": {
-            "TIER-C": [
-              "codestral-2508",
-              "labs-leanstral-1-5-1",
-              "ministral-14b-2512",
-              "voxtral-small-2507"
-            ],
-            "TIER-D": [
-              "ministral-8b-2512",
-              "ministral-3b-2512"
+              "liquid/lfm-2.5-2.6b*",
+              "liquid/lfm-3-1.7b*"
             ]
           }
         },
@@ -613,29 +600,29 @@
   },
   "keys": [
     {
-      "created": 1791608878.9991112,
+      "created": 1795664931.4338503,
       "name": "openwebui",
-      "start": "sk-MRXO",
+      "start": "sk-4r79",
       "used": null
     },
     {
-      "created": 1791608879.0000796,
+      "created": 1795664931.4399912,
       "name": "kilo-code",
-      "start": "sk-3Zxv",
+      "start": "sk-o0WF",
       "used": null
     },
     {
-      "created": 1791608879.0009713,
+      "created": 1795664931.4453518,
       "name": "openwebui-home-assistant-integration-001",
-      "start": "sk-qJ02",
+      "start": "sk-0S_o",
       "used": null
     }
   ],
   "limits": {
-    "checked": 1791608879.1300862,
+    "checked": 1795664931.794958,
     "lanes": [
       {
-        "at": 1791608879.0994048,
+        "at": 1795664931.6459534,
         "client": null,
         "model": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
         "rows": [
@@ -643,20 +630,104 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791608916.0994048,
+            "reset": 1795664968.6459534,
             "span": "minute"
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791608891.0994048,
+            "reset": 1795664943.6459534,
             "span": null
           }
         ]
       },
       {
-        "at": 1791608879.125328,
+        "at": 1795664931.7035775,
+        "client": null,
+        "model": "gemini/gemini-3.1-flash-lite",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1795664968.7035775,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1795664943.7035775,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1795664931.588556,
+        "client": null,
+        "model": "gemini/gemini-3.1-flash-lite-preview",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1795664968.588556,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1795664943.588556,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1795664931.5570412,
+        "client": null,
+        "model": "gemini/gemma-4-31b-it",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1795664968.5570412,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1795664943.5570412,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1795664931.6220107,
+        "client": null,
+        "model": "groq/qwen/qwen3.8-27b",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1795664968.6220107,
+            "span": "day"
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1795664943.6220107,
+            "span": "minute"
+          }
+        ]
+      },
+      {
+        "at": 1795664931.7686477,
         "client": null,
         "model": "groq/whisper-large-v3",
         "rows": [
@@ -664,104 +735,62 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791608916.125328,
+            "reset": 1795664968.7686477,
             "span": "day"
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791608891.125328,
+            "reset": 1795664943.7686477,
             "span": "minute"
           }
         ]
       },
       {
-        "at": 1791608879.1112962,
+        "at": 1795664931.5623662,
         "client": null,
-        "model": "mistral/codestral-2508",
+        "model": "openrouter/google/gemma-4-31b-it:free",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791608916.1112962,
+            "reset": 1795664968.5623662,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791608891.1112962,
+            "reset": 1795664943.5623662,
             "span": null
           }
         ]
       },
       {
-        "at": 1791608879.086574,
+        "at": 1795664931.7090082,
         "client": null,
-        "model": "mistral/voxtral-small-2507",
+        "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
         "rows": [
           {
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791608916.086574,
+            "reset": 1795664968.7090082,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791608891.086574,
+            "reset": 1795664943.7090082,
             "span": null
           }
         ]
       },
       {
-        "at": 1791608879.119664,
-        "client": null,
-        "model": "openrouter/liquid/lfm-2.5-2.6b:free",
-        "rows": [
-          {
-            "kind": "requests",
-            "limit": 14400.0,
-            "remaining": 14312.0,
-            "reset": 1791608916.119664,
-            "span": null
-          },
-          {
-            "kind": "tokens",
-            "limit": 4000000.0,
-            "remaining": 3980123.0,
-            "reset": 1791608891.119664,
-            "span": null
-          }
-        ]
-      },
-      {
-        "at": 1791608879.080112,
-        "client": null,
-        "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
-        "rows": [
-          {
-            "kind": "requests",
-            "limit": 14400.0,
-            "remaining": 14312.0,
-            "reset": 1791608916.080112,
-            "span": null
-          },
-          {
-            "kind": "tokens",
-            "limit": 4000000.0,
-            "remaining": 3980123.0,
-            "reset": 1791608891.080112,
-            "span": null
-          }
-        ]
-      },
-      {
-        "at": 1791608879.1051917,
+        "at": 1795664931.6769328,
         "client": null,
         "model": "openrouter/z-ai/glm-5.3-flash",
         "rows": [
@@ -769,14 +798,35 @@
             "kind": "requests",
             "limit": 14400.0,
             "remaining": 14312.0,
-            "reset": 1791608916.1051917,
+            "reset": 1795664968.6769328,
             "span": null
           },
           {
             "kind": "tokens",
             "limit": 4000000.0,
             "remaining": 3980123.0,
-            "reset": 1791608891.1051917,
+            "reset": 1795664943.6769328,
+            "span": null
+          }
+        ]
+      },
+      {
+        "at": 1795664931.7450337,
+        "client": null,
+        "model": "z-ai/glm-4.6v-flash",
+        "rows": [
+          {
+            "kind": "requests",
+            "limit": 14400.0,
+            "remaining": 14312.0,
+            "reset": 1795664968.7450337,
+            "span": null
+          },
+          {
+            "kind": "tokens",
+            "limit": 4000000.0,
+            "remaining": 3980123.0,
+            "reset": 1795664943.7450337,
             "span": null
           }
         ]
@@ -787,9 +837,9 @@
         "items": [
           {
             "kind": "free_requests",
-            "limit": 1000,
+            "limit": 1000.0,
             "share": 0.991,
-            "value": 991
+            "value": 991.0
           }
         ],
         "name": "openrouter"
@@ -800,13 +850,13 @@
             "kind": "balance",
             "limit": null,
             "share": null,
-            "value": 0
+            "value": 0.0
           },
           {
             "kind": "hourly_requests",
             "limit": "200",
-            "share": 0.99,
-            "value": "198"
+            "share": 0.995,
+            "value": "199"
           }
         ],
         "name": "kilo"
@@ -828,7 +878,7 @@
             "kind": "neurons",
             "limit": 10000,
             "share": 1.0,
-            "value": 10000
+            "value": 10000.0
           }
         ],
         "name": "cloudflare"
@@ -1559,7 +1609,7 @@
     },
     {
       "client_cooldowns": {},
-      "cooldown": 1792989197.301514,
+      "cooldown": 1795758531.7819047,
       "effort": null,
       "efforts": [],
       "flags": [
@@ -1689,10 +1739,10 @@
       "reasoning": true,
       "rpm": 300,
       "slug": "@cf/openai/gpt-oss-120b",
-      "tier": "TIER-A",
+      "tier": "TIER-B",
       "tools": true,
       "tpm": null,
-      "weight": 0.5000005415184536
+      "weight": 0.5000008994367959
     },
     {
       "client_cooldowns": {},
@@ -1913,7 +1963,7 @@
       "reasoning": true,
       "rpm": 300,
       "slug": "@cf/qwen/qwq-32b",
-      "tier": "TIER-B",
+      "tier": "TIER-A",
       "tools": false,
       "tpm": null,
       "weight": 1.0
@@ -2086,7 +2136,7 @@
       "tier": "TIER-C",
       "tools": true,
       "tpm": 250000,
-      "weight": 1.0
+      "weight": 0.5000029438789698
     },
     {
       "client_cooldowns": {},
@@ -2116,7 +2166,7 @@
       "tier": "TIER-C",
       "tools": true,
       "tpm": 250000,
-      "weight": 1.0
+      "weight": 0.500006014540406
     },
     {
       "client_cooldowns": {},
@@ -2218,6 +2268,36 @@
       "rpm": 5,
       "slug": "gemini-3.6-flash",
       "tier": "TIER-B",
+      "tools": true,
+      "tpm": 250000,
+      "weight": 1.0
+    },
+    {
+      "client_cooldowns": {},
+      "cooldown": null,
+      "effort": "high",
+      "efforts": [
+        "minimal",
+        "low",
+        "medium",
+        "high"
+      ],
+      "flags": [
+        "vision",
+        "pdf_input",
+        "audio_input"
+      ],
+      "id": "gemini/gemini-4-hydrogen",
+      "max_input_tokens": 1048576,
+      "max_output_tokens": 65536,
+      "mode": "chat",
+      "name": "Gemini 4 Hydrogen",
+      "order": 1,
+      "provider": "gemini",
+      "reasoning": true,
+      "rpm": 5,
+      "slug": "gemini-4-hydrogen",
+      "tier": "TIER-A",
       "tools": true,
       "tpm": 250000,
       "weight": 1.0
@@ -2416,7 +2496,7 @@
       "tier": "TIER-B",
       "tools": true,
       "tpm": 16000,
-      "weight": 1.0
+      "weight": 0.50000685648837
     },
     {
       "client_cooldowns": {},
@@ -2501,7 +2581,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "openai/gpt-oss-120b",
-      "tier": "TIER-A",
+      "tier": "TIER-B",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -2710,7 +2790,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-      "tier": "TIER-B",
+      "tier": "TIER-C",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -2760,7 +2840,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "nvidia/nemotron-3-ultra-550b-a55b:free",
-      "tier": "TIER-A",
+      "tier": "TIER-B",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -2784,7 +2864,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "nvidia/nemotron-3.5-lightning:free",
-      "tier": "TIER-B",
+      "tier": "TIER-C",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -2970,231 +3050,6 @@
       "rpm": null,
       "slug": "xingchen-agi/xing4.0-29b-a4b:free",
       "tier": "TIER-B",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [],
-      "id": "mistral/codestral-2508",
-      "max_input_tokens": 256000,
-      "max_output_tokens": 128000,
-      "mode": "chat",
-      "name": "Codestral 2508",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "codestral-2508",
-      "tier": "TIER-C",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [],
-      "id": "mistral/codestral-embed",
-      "max_input_tokens": 8192,
-      "max_output_tokens": null,
-      "mode": "embedding",
-      "name": "Codestral Embed",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "codestral-embed",
-      "tier": null,
-      "tools": false,
-      "tpm": null,
-      "weight": null
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [
-        "none",
-        "high"
-      ],
-      "flags": [
-        "vision"
-      ],
-      "id": "mistral/labs-leanstral-1-5-1",
-      "max_input_tokens": 262144,
-      "max_output_tokens": 131072,
-      "mode": "chat",
-      "name": "Labs Leanstral 1.5.1",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": true,
-      "rpm": null,
-      "slug": "labs-leanstral-1-5-1",
-      "tier": "TIER-C",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "vision"
-      ],
-      "id": "mistral/ministral-14b-2512",
-      "max_input_tokens": 262144,
-      "max_output_tokens": 262144,
-      "mode": "chat",
-      "name": "Ministral 14B 2512",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "ministral-14b-2512",
-      "tier": "TIER-C",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "vision"
-      ],
-      "id": "mistral/ministral-3b-2512",
-      "max_input_tokens": 131072,
-      "max_output_tokens": 131072,
-      "mode": "chat",
-      "name": "Ministral 3B 2512",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "ministral-3b-2512",
-      "tier": "TIER-D",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "vision"
-      ],
-      "id": "mistral/ministral-8b-2512",
-      "max_input_tokens": 262144,
-      "max_output_tokens": 262144,
-      "mode": "chat",
-      "name": "Ministral 8B 2512",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "ministral-8b-2512",
-      "tier": "TIER-D",
-      "tools": true,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [],
-      "id": "mistral/mistral-embed-2312",
-      "max_input_tokens": 8192,
-      "max_output_tokens": null,
-      "mode": "embedding",
-      "name": "Mistral Embed 2312",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "mistral-embed-2312",
-      "tier": null,
-      "tools": false,
-      "tpm": null,
-      "weight": null
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [],
-      "id": "mistral/voxtral-mini-2602",
-      "max_input_tokens": 16384,
-      "max_output_tokens": null,
-      "mode": "audio_transcription",
-      "name": "Voxtral Mini Transcribe",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "voxtral-mini-2602",
-      "tier": null,
-      "tools": false,
-      "tpm": null,
-      "weight": 1.0
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "audio_output"
-      ],
-      "id": "mistral/voxtral-mini-tts-2603",
-      "max_input_tokens": 4096,
-      "max_output_tokens": null,
-      "mode": "audio_speech",
-      "name": "Voxtral Mini TTS",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "voxtral-mini-tts-2603",
-      "tier": null,
-      "tools": true,
-      "tpm": null,
-      "weight": null
-    },
-    {
-      "client_cooldowns": {},
-      "cooldown": null,
-      "effort": null,
-      "efforts": [],
-      "flags": [
-        "audio_input"
-      ],
-      "id": "mistral/voxtral-small-2507",
-      "max_input_tokens": 32768,
-      "max_output_tokens": 32768,
-      "mode": "chat",
-      "name": "Voxtral Small Transcribe",
-      "order": 1,
-      "provider": "mistral",
-      "reasoning": false,
-      "rpm": null,
-      "slug": "voxtral-small-2507",
-      "tier": "TIER-C",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -3531,7 +3386,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-      "tier": "TIER-B",
+      "tier": "TIER-C",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -3651,7 +3506,7 @@
       "reasoning": true,
       "rpm": null,
       "slug": "nvidia/nemotron-3.5-lightning:free",
-      "tier": "TIER-B",
+      "tier": "TIER-C",
       "tools": true,
       "tpm": null,
       "weight": 1.0
@@ -4076,57 +3931,14 @@
     }
   ],
   "notifications": {
-    "limits": [
-      {
-        "at": 1791597600.0,
-        "client": "owui",
-        "kind": "requests",
-        "limit": 30.0,
-        "model": "groq/openai/gpt-oss-120b",
-        "remaining": 6.0,
-        "reset": 1791601200.0,
-        "share": 0.2,
-        "span": "minute"
-      }
-    ],
-    "rebuilds": [
-      {
-        "added": [
-          "groq/openai/gpt-oss-120b"
-        ],
-        "at": 1791594000.0,
-        "changed": [
-          "groq/qwen/qwen3.8-27b"
-        ],
-        "failed": [],
-        "models": 76,
-        "reason": "scheduled",
-        "removed": []
-      }
-    ],
-    "resets": [
-      {
-        "at": 1791590400.0,
-        "client": null,
-        "kind": "neurons",
-        "provider": "cloudflare",
-        "span": "day"
-      }
-    ],
-    "update": {
-      "at": 1791597600.0,
-      "behind": 2,
-      "channel": "dev",
-      "current": "demo",
-      "error": null,
-      "latest": null,
-      "repo": "nemoe7/daedalus",
-      "update": true,
-      "url": null
-    }
+    "limits": [],
+    "rebuilds": [],
+    "resets": [],
+    "update": null
   },
   "pools": [
     {
+      "client_name": "daedalus/auto",
       "context": 1048576,
       "members": [
         {
@@ -4167,25 +3979,25 @@
         },
         {
           "cooldown": null,
-          "id": "cloudflare/@cf/openai/gpt-oss-120b",
-          "tier": "TIER-A",
-          "weight": 0.5000004815874028
-        },
-        {
-          "cooldown": null,
           "id": "cloudflare/@cf/qwen/qwen3.8-27b",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "gemini/gemini-3.8-flash",
+          "id": "cloudflare/@cf/qwen/qwq-32b",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "groq/openai/gpt-oss-120b",
+          "id": "gemini/gemini-4-hydrogen",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "gemini/gemini-3.8-flash",
           "tier": "TIER-A",
           "weight": 1.0
         },
@@ -4198,12 +4010,6 @@
         {
           "cooldown": null,
           "id": "kilo/nvidia/nemotron-3-super-120b-a12b:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
           "tier": "TIER-A",
           "weight": 1.0
         },
@@ -4245,18 +4051,6 @@
         },
         {
           "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
           "id": "openrouter/nvidia/nemotron-3.5-super-vl:free",
           "tier": "TIER-B",
           "weight": 1.0
@@ -4287,6 +4081,12 @@
         },
         {
           "cooldown": null,
+          "id": "cloudflare/@cf/openai/gpt-oss-120b",
+          "tier": "TIER-B",
+          "weight": 0.5000012069999963
+        },
+        {
+          "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-20b",
           "tier": "TIER-B",
           "weight": 1.0
@@ -4294,12 +4094,6 @@
         {
           "cooldown": null,
           "id": "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "cloudflare/@cf/qwen/qwq-32b",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4325,6 +4119,12 @@
           "cooldown": null,
           "id": "gemini/gemma-4-31b-it",
           "tier": "TIER-B",
+          "weight": 0.5000071640552346
+        },
+        {
+          "cooldown": null,
+          "id": "groq/openai/gpt-oss-120b",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
@@ -4347,13 +4147,7 @@
         },
         {
           "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3.5-lightning:free",
+          "id": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4395,6 +4189,18 @@
         },
         {
           "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "openrouter/recursive/flint-v1.0:free",
           "tier": "TIER-C",
           "weight": 1.0
@@ -4412,7 +4218,7 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791702479.1273704,
+          "cooldown": 1795758531.7819047,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
           "weight": 1.0
@@ -4439,13 +4245,13 @@
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000032514434277
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000063221067528
         },
         {
           "cooldown": null,
@@ -4455,31 +4261,19 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "kilo/recursive/flint-v1.0:free",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/codestral-2508",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/labs-leanstral-1-5-1",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/ministral-14b-2512",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/voxtral-small-2507",
           "tier": "TIER-C",
           "weight": 1.0
         },
@@ -4563,27 +4357,15 @@
         },
         {
           "cooldown": null,
-          "id": "mistral/ministral-3b-2512",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/ministral-8b-2512",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
           "id": "z-ai/glm-4.6v-flash",
           "tier": "TIER-D",
           "weight": 1.0
         }
       ],
-      "name": "daedalus/auto",
-      "client_name": "daedalus/auto"
+      "name": "daedalus/auto"
     },
     {
+      "client_name": "daedalus/sophos",
       "context": 1048576,
       "members": [
         {
@@ -4624,25 +4406,25 @@
         },
         {
           "cooldown": null,
-          "id": "cloudflare/@cf/openai/gpt-oss-120b",
-          "tier": "TIER-A",
-          "weight": 0.5000004855348426
-        },
-        {
-          "cooldown": null,
           "id": "cloudflare/@cf/qwen/qwen3.8-27b",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "gemini/gemini-3.8-flash",
+          "id": "cloudflare/@cf/qwen/qwq-32b",
           "tier": "TIER-A",
           "weight": 1.0
         },
         {
           "cooldown": null,
-          "id": "groq/openai/gpt-oss-120b",
+          "id": "gemini/gemini-4-hydrogen",
+          "tier": "TIER-A",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "gemini/gemini-3.8-flash",
           "tier": "TIER-A",
           "weight": 1.0
         },
@@ -4660,12 +4442,6 @@
         },
         {
           "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
-          "tier": "TIER-A",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
           "id": "kilo/poolside/laguna-s-2.1:free",
           "tier": "TIER-A",
           "weight": 1.0
@@ -4677,10 +4453,10 @@
           "weight": 1.0
         }
       ],
-      "name": "daedalus/sophos",
-      "client_name": "daedalus/sophos"
+      "name": "daedalus/sophos"
     },
     {
+      "client_name": "daedalus/deinos",
       "context": 1048576,
       "members": [
         {
@@ -4704,18 +4480,6 @@
         {
           "cooldown": null,
           "id": "openrouter/google/gemma-4-31b-it:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4751,6 +4515,12 @@
         },
         {
           "cooldown": null,
+          "id": "cloudflare/@cf/openai/gpt-oss-120b",
+          "tier": "TIER-B",
+          "weight": 0.5000012345493454
+        },
+        {
+          "cooldown": null,
           "id": "cloudflare/@cf/openai/gpt-oss-20b",
           "tier": "TIER-B",
           "weight": 1.0
@@ -4758,12 +4528,6 @@
         {
           "cooldown": null,
           "id": "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "cloudflare/@cf/qwen/qwq-32b",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4789,6 +4553,12 @@
           "cooldown": null,
           "id": "gemini/gemma-4-31b-it",
           "tier": "TIER-B",
+          "weight": 0.500007191604912
+        },
+        {
+          "cooldown": null,
+          "id": "groq/openai/gpt-oss-120b",
+          "tier": "TIER-B",
           "weight": 1.0
         },
         {
@@ -4811,13 +4581,7 @@
         },
         {
           "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-          "tier": "TIER-B",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "kilo/nvidia/nemotron-3.5-lightning:free",
+          "id": "kilo/nvidia/nemotron-3-ultra-550b-a55b:free",
           "tier": "TIER-B",
           "weight": 1.0
         },
@@ -4858,12 +4622,24 @@
           "weight": 1.0
         }
       ],
-      "name": "daedalus/deinos",
-      "client_name": "daedalus/deinos"
+      "name": "daedalus/deinos"
     },
     {
+      "client_name": "daedalus/koinos",
       "context": 1048576,
       "members": [
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
         {
           "cooldown": null,
           "id": "openrouter/recursive/flint-v1.0:free",
@@ -4883,7 +4659,7 @@
           "weight": 1.0
         },
         {
-          "cooldown": 1791702479.1273704,
+          "cooldown": 1795758531.7819047,
           "id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
           "tier": "TIER-C",
           "weight": 1.0
@@ -4910,13 +4686,13 @@
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000032827684457
         },
         {
           "cooldown": null,
           "id": "gemini/gemini-3.1-flash-lite-preview",
           "tier": "TIER-C",
-          "weight": 1.0
+          "weight": 0.5000063534319632
         },
         {
           "cooldown": null,
@@ -4926,39 +4702,27 @@
         },
         {
           "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
+          "id": "kilo/nvidia/nemotron-3.5-lightning:free",
+          "tier": "TIER-C",
+          "weight": 1.0
+        },
+        {
+          "cooldown": null,
           "id": "kilo/recursive/flint-v1.0:free",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/codestral-2508",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/labs-leanstral-1-5-1",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/ministral-14b-2512",
-          "tier": "TIER-C",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/voxtral-small-2507",
           "tier": "TIER-C",
           "weight": 1.0
         }
       ],
-      "name": "daedalus/koinos",
-      "client_name": "daedalus/koinos"
+      "name": "daedalus/koinos"
     },
     {
+      "client_name": "daedalus/moros",
       "context": 262144,
       "members": [
         {
@@ -5041,27 +4805,15 @@
         },
         {
           "cooldown": null,
-          "id": "mistral/ministral-3b-2512",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/ministral-8b-2512",
-          "tier": "TIER-D",
-          "weight": 1.0
-        },
-        {
-          "cooldown": null,
           "id": "z-ai/glm-4.6v-flash",
           "tier": "TIER-D",
           "weight": 1.0
         }
       ],
-      "name": "daedalus/moros",
-      "client_name": "daedalus/moros"
+      "name": "daedalus/moros"
     },
     {
+      "client_name": "daedalus/graphos",
       "context": 98304,
       "members": [
         {
@@ -5111,19 +4863,13 @@
           "id": "groq/whisper-large-v3-turbo",
           "tier": null,
           "weight": 1.0
-        },
-        {
-          "cooldown": null,
-          "id": "mistral/voxtral-mini-2602",
-          "tier": null,
-          "weight": 1.0
         }
       ],
       "mode": "audio_transcription",
-      "name": "daedalus/graphos",
-      "client_name": "daedalus/graphos"
+      "name": "daedalus/graphos"
     },
     {
+      "client_name": "daedalus/photos",
       "context": null,
       "members": [
         {
@@ -5212,8 +4958,7 @@
         }
       ],
       "mode": "image_generation",
-      "name": "daedalus/photos",
-      "client_name": "daedalus/photos"
+      "name": "daedalus/photos"
     }
   ],
   "provider-defaults": {
@@ -5290,7 +5035,7 @@
   "requests": [
     {
       "app": "OWUI",
-      "at": 1792028752.5710046,
+      "at": 1795664931.792972,
       "attempts": [
         {
           "error": "HTTP 500: upstream failed",
@@ -5340,17 +5085,28 @@
     },
     {
       "app": "Kilo",
-      "at": 1791608879.1283774,
+      "at": 1795664931.79281,
       "attempts": [
         {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.1-flash-lite",
+          "result": "failed",
+          "seconds": 0.005,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
           "error": "",
-          "model": "mistral/codestral-2508",
+          "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": "low",
-      "fallbacks": "0",
+      "fallbacks": "1",
       "key": "master",
       "loop": "2",
       "model": "daedalus/koinos",
@@ -5358,7 +5114,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.005,
+      "seconds": 0.025,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -5367,13 +5123,19 @@
         "input": 1200,
         "output": 240
       },
-      "transition": null,
-      "ttft": "0.001s",
-      "via": "mistral/codestral-2508"
+      "transition": {
+        "from_model": "gemini/gemini-3.1-flash-lite",
+        "from_pool": "koinos",
+        "reason": "err",
+        "to_model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.004s",
+      "via": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     },
     {
       "app": "Kilo",
-      "at": 1791608879.1283095,
+      "at": 1795664931.792648,
       "attempts": [
         {
           "error": "the deployment is down",
@@ -5430,7 +5192,7 @@
     },
     {
       "app": "OWUI",
-      "at": 1791608879.12821,
+      "at": 1795664931.7924526,
       "attempts": [
         {
           "error": "",
@@ -5440,7 +5202,7 @@
         }
       ],
       "effort": "high",
-      "fallbacks": "0",
+      "fallbacks": "1",
       "key": "master",
       "loop": null,
       "model": "daedalus/koinos",
@@ -5448,7 +5210,7 @@
       "race": "off",
       "retry": null,
       "routed": "moros",
-      "seconds": 0.005,
+      "seconds": 1.2,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -5469,13 +5231,13 @@
     },
     {
       "app": null,
-      "at": 1791608879.1258469,
+      "at": 1795664931.7702942,
       "attempts": [
         {
           "error": "",
           "model": "groq/whisper-large-v3",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": null,
@@ -5487,7 +5249,7 @@
       "race": null,
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.015,
       "session": null,
       "status": 200,
       "stream": null,
@@ -5498,13 +5260,13 @@
     },
     {
       "app": null,
-      "at": 1791608879.120503,
+      "at": 1795664931.747934,
       "attempts": [
         {
           "error": "",
-          "model": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "model": "z-ai/glm-4.6v-flash",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": null,
@@ -5516,7 +5278,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.006,
+      "seconds": 0.027,
       "session": "9e4f2c5",
       "status": 200,
       "stream": false,
@@ -5526,22 +5288,33 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.001s",
-      "via": "openrouter/liquid/lfm-2.5-2.6b:free"
+      "ttft": "0.004s",
+      "via": "z-ai/glm-4.6v-flash"
     },
     {
       "app": null,
-      "at": 1791608879.1128466,
+      "at": 1795664931.7127008,
       "attempts": [
         {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.1-flash-lite",
+          "result": "failed",
+          "seconds": 0.005,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
           "error": "",
-          "model": "mistral/codestral-2508",
+          "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": null,
-      "fallbacks": "0",
+      "fallbacks": "1",
       "key": "master",
       "loop": null,
       "model": "daedalus/koinos",
@@ -5549,7 +5322,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.005,
+      "seconds": 0.025,
       "session": "547df45",
       "status": 200,
       "stream": true,
@@ -5558,20 +5331,26 @@
         "input": 14,
         "output": 5
       },
-      "transition": null,
-      "ttft": "0.001s",
-      "via": "mistral/codestral-2508"
+      "transition": {
+        "from_model": "gemini/gemini-3.1-flash-lite",
+        "from_pool": "koinos",
+        "reason": "err",
+        "to_model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.004s",
+      "via": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
     },
     {
       "app": null,
-      "at": 1791608879.105978,
+      "at": 1795664931.6800382,
       "attempts": [
         {
           "effort": "low",
           "error": "",
           "model": "openrouter/z-ai/glm-5.3-flash",
           "result": "answered",
-          "seconds": 0.002
+          "seconds": 0.01
         }
       ],
       "effort": null,
@@ -5583,7 +5362,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.004,
+      "seconds": 0.023,
       "session": "5d7e3b6",
       "status": 200,
       "stream": false,
@@ -5593,18 +5372,18 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.002s",
+      "ttft": "0.010s",
       "via": "openrouter/z-ai/glm-5.3-flash"
     },
     {
       "app": null,
-      "at": 1791608879.1002505,
+      "at": 1795664931.6486702,
       "attempts": [
         {
           "error": "",
           "model": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.005
         }
       ],
       "effort": null,
@@ -5616,7 +5395,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.003,
+      "seconds": 0.016,
       "session": "cebe6de",
       "status": 200,
       "stream": false,
@@ -5626,18 +5405,18 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.001s",
+      "ttft": "0.005s",
       "via": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct"
     },
     {
       "app": null,
-      "at": 1791608879.0953407,
+      "at": 1795664931.6248956,
       "attempts": [
         {
           "error": "",
-          "model": "kilo/nvidia/nemotron-3-super-120b-a12b:free",
+          "model": "groq/qwen/qwen3.8-27b",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": null,
@@ -5649,73 +5428,8 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.005,
+      "seconds": 0.019,
       "session": "79f3636",
-      "status": 200,
-      "stream": false,
-      "tokens": {
-        "estimate": true,
-        "input": 22
-      },
-      "transition": null,
-      "ttft": "0.001s",
-      "via": "kilo/nvidia/nemotron-3-super-120b-a12b:free"
-    },
-    {
-      "app": null,
-      "at": 1791608879.0884438,
-      "attempts": [
-        {
-          "error": "",
-          "model": "mistral/voxtral-small-2507",
-          "result": "answered",
-          "seconds": 0.001
-        }
-      ],
-      "effort": null,
-      "fallbacks": "0",
-      "key": "master",
-      "loop": null,
-      "model": "daedalus/koinos",
-      "pool": null,
-      "race": "off",
-      "retry": null,
-      "routed": null,
-      "seconds": 0.005,
-      "session": "115f867",
-      "status": 200,
-      "stream": true,
-      "tokens": {
-        "estimate": false,
-        "input": 14,
-        "output": 5
-      },
-      "transition": null,
-      "ttft": "0.001s",
-      "via": "mistral/voxtral-small-2507"
-    },
-    {
-      "app": null,
-      "at": 1791608879.0812528,
-      "attempts": [
-        {
-          "error": "",
-          "model": "openrouter/nvidia/nemotron-3.5-lightning:free",
-          "result": "answered",
-          "seconds": 0.001
-        }
-      ],
-      "effort": null,
-      "fallbacks": "0",
-      "key": "master",
-      "loop": null,
-      "model": "daedalus/deinos",
-      "pool": null,
-      "race": "off",
-      "retry": null,
-      "routed": null,
-      "seconds": 0.005,
-      "session": "4702aa7",
       "status": 200,
       "stream": false,
       "tokens": {
@@ -5724,18 +5438,118 @@
         "output": 9
       },
       "transition": null,
-      "ttft": "0.002s",
-      "via": "openrouter/nvidia/nemotron-3.5-lightning:free"
+      "ttft": "0.004s",
+      "via": "groq/qwen/qwen3.8-27b"
     },
     {
       "app": null,
-      "at": 1791608879.0736208,
+      "at": 1795664931.5981538,
+      "attempts": [
+        {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Upstream stream ended before completion",
+          "model": "gemini/gemini-3.1-flash-lite-preview",
+          "result": "failed",
+          "seconds": 0.005,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "error": "",
+          "model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "result": "answered",
+          "seconds": 0.003
+        }
+      ],
+      "effort": null,
+      "fallbacks": "1",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/koinos",
+      "pool": null,
+      "race": "off",
+      "retry": null,
+      "routed": null,
+      "seconds": 0.026,
+      "session": "115f867",
+      "status": 200,
+      "stream": true,
+      "tokens": {
+        "estimate": false,
+        "input": 14,
+        "output": 5
+      },
+      "transition": {
+        "from_model": "gemini/gemini-3.1-flash-lite-preview",
+        "from_pool": "koinos",
+        "reason": "err",
+        "to_model": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.003s",
+      "via": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+    },
+    {
+      "app": null,
+      "at": 1795664931.5645463,
+      "attempts": [
+        {
+          "effort": "thinkingLevel=high",
+          "error": "ProviderError: Gemini returned no candidate",
+          "model": "gemini/gemma-4-31b-it",
+          "result": "failed",
+          "seconds": 0.005,
+          "weight_change": {
+            "from": 1.0,
+            "to": 0.5
+          }
+        },
+        {
+          "error": "",
+          "model": "openrouter/google/gemma-4-31b-it:free",
+          "result": "answered",
+          "seconds": 0.004
+        }
+      ],
+      "effort": null,
+      "fallbacks": "1",
+      "key": "master",
+      "loop": null,
+      "model": "daedalus/deinos",
+      "pool": null,
+      "race": "off",
+      "retry": null,
+      "routed": null,
+      "seconds": 0.023,
+      "session": "4702aa7",
+      "status": 200,
+      "stream": false,
+      "tokens": {
+        "estimate": false,
+        "input": 24,
+        "output": 9
+      },
+      "transition": {
+        "from_model": "gemini/gemma-4-31b-it",
+        "from_pool": "deinos",
+        "reason": "err",
+        "to_model": "openrouter/google/gemma-4-31b-it:free",
+        "to_pool": "deinos"
+      },
+      "ttft": "0.004s",
+      "via": "openrouter/google/gemma-4-31b-it:free"
+    },
+    {
+      "app": null,
+      "at": 1795664931.532869,
       "attempts": [
         {
           "error": "",
           "model": "kilo/liquid/lfm-2.5-2.6b:free",
           "result": "answered",
-          "seconds": 0.001
+          "seconds": 0.004
         }
       ],
       "effort": null,
@@ -5747,7 +5561,7 @@
       "race": "off",
       "retry": null,
       "routed": null,
-      "seconds": 0.013,
+      "seconds": 0.032,
       "session": "a57a308",
       "status": 200,
       "stream": false,
@@ -5756,7 +5570,7 @@
         "input": 14
       },
       "transition": null,
-      "ttft": "0.001s",
+      "ttft": "0.004s",
       "via": "kilo/liquid/lfm-2.5-2.6b:free"
     }
   ],
@@ -5807,6 +5621,7 @@
       },
       "optimization": {
         "enabled": true,
+        "protect_recent": 6,
         "timeout": 5.0
       },
       "personalization": {
@@ -5856,6 +5671,9 @@
       }
     },
     "file": {
+      "affinity": {
+        "mode": "race"
+      },
       "hooks": {
         "order": {
           "on-chunk": [
@@ -5865,6 +5683,7 @@
         },
         "sources": [
           {
+            "auto_update": false,
             "path": "hooks",
             "ref": "main",
             "repo": "nemoe7/daedalus"
@@ -5874,11 +5693,102 @@
     },
     "headroom_available": false,
     "hook_files": [
+      "hooks/client_spoof.py",
       "hooks/or_cheapest_output.py",
       "hooks/owui_auto_reasoning_effort.py",
       "hooks/served_model.py"
     ],
     "hook_rows": [
+      {
+        "author": "nemoe7",
+        "enabled": true,
+        "name": "client_spoof.py",
+        "path": "hooks/client_spoof.py",
+        "problem": "",
+        "record": {},
+        "runs": [],
+        "scope": "global",
+        "settings": [
+          {
+            "choices": [],
+            "columns": [
+              {
+                "choices": [
+                  "owui",
+                  "kilo",
+                  "opencode"
+                ],
+                "columns": [],
+                "default": null,
+                "key": "source",
+                "label": "From",
+                "maximum": null,
+                "minimum": null,
+                "options": false,
+                "type": "choice",
+                "unique": true
+              },
+              {
+                "choices": [
+                  "owui",
+                  "kilo",
+                  "opencode"
+                ],
+                "columns": [],
+                "default": null,
+                "key": "target",
+                "label": "To",
+                "maximum": null,
+                "minimum": null,
+                "options": false,
+                "type": "choice",
+                "unique": false
+              },
+              {
+                "choices": [],
+                "columns": [],
+                "default": "latest",
+                "key": "version",
+                "label": "Version",
+                "maximum": null,
+                "minimum": null,
+                "options": true,
+                "type": "text",
+                "unique": false
+              }
+            ],
+            "default": [
+              {
+                "source": "kilo",
+                "target": "opencode",
+                "version": "latest"
+              }
+            ],
+            "key": "rules",
+            "label": "Client rules",
+            "maximum": null,
+            "minimum": null,
+            "options": false,
+            "type": "rules",
+            "unique": false
+          }
+        ],
+        "surfaces": [
+          "on-upstream"
+        ],
+        "targets": [],
+        "title": "Client spoofing",
+        "values": {
+          "rules": [
+            {
+              "source": "kilo",
+              "target": "opencode",
+              "version": "latest"
+            }
+          ]
+        },
+        "version": "1.0.0"
+      },
       {
         "author": "nemoe7",
         "enabled": true,
@@ -5888,6 +5798,7 @@
         "record": {},
         "runs": [],
         "scope": "yaml",
+        "settings": [],
         "surfaces": [
           "on-catalog",
           "on-upstream"
@@ -5896,7 +5807,8 @@
           "openrouter"
         ],
         "title": "Cheapest output first",
-        "version": "1.0.3"
+        "values": {},
+        "version": "1.0.7"
       },
       {
         "author": "nemoe7",
@@ -5907,6 +5819,20 @@
         "record": {},
         "runs": [],
         "scope": "client",
+        "settings": [
+          {
+            "choices": [],
+            "columns": [],
+            "default": 500,
+            "key": "answer_chars",
+            "label": "Answer characters",
+            "maximum": 4000,
+            "minimum": 100,
+            "options": false,
+            "type": "number",
+            "unique": false
+          }
+        ],
         "surfaces": [
           "on-request",
           "on-prompt",
@@ -5916,7 +5842,10 @@
           "OWUI"
         ],
         "title": "Auto reasoning effort",
-        "version": "1.0.3"
+        "values": {
+          "answer_chars": 500
+        },
+        "version": "1.0.11"
       },
       {
         "author": "nemoe7",
@@ -5927,6 +5856,7 @@
         "record": {},
         "runs": [],
         "scope": "client",
+        "settings": [],
         "surfaces": [
           "on-chunk"
         ],
@@ -5934,11 +5864,12 @@
           "OWUI"
         ],
         "title": "Served model",
-        "version": "1.0.2"
+        "values": {},
+        "version": "1.0.7"
       }
     ],
     "path": "config/daedalus.yml",
-    "text": "# Router settings overrides. Missing keys use defaults from docs/configuration.md.\n# DAEDALUS_HOST, DAEDALUS_PORT, and HEADROOM_URL configure network binding and compression.\n\n# Open WebUI chat IDs stay in daedalus unless forward_owui_chat_id is true.\n# privacy: # nonemo: NMP101\n#   forward_owui_chat_id: false\n\n# The hook files of the repo. The Settings page lists them and takes the selected 1s.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n  order:\n    on-chunk:\n      - hooks/served_model.py\n      - hooks/owui_auto_reasoning_effort.py\n"
+    "text": "# Router settings overrides. Missing keys use defaults from docs/configuration.md.\n# DAEDALUS_HOST, DAEDALUS_PORT, and HEADROOM_URL configure network binding and compression.\n\n# Open WebUI chat IDs stay in daedalus unless forward_owui_chat_id is true.\n# privacy: {forward_owui_chat_id: false}\n\n# Hook sources for Settings, which lists available files and selected entries.\nhooks:\n  sources:\n    - repo: nemoe7/daedalus\n      path: hooks\n      ref: main\n      auto_update: false\n  order:\n    on-chunk:\n      - hooks/served_model.py\n      - hooks/owui_auto_reasoning_effort.py\naffinity:\n  mode: race\n"
   },
   "status": {
     "affinity": {
@@ -5949,12 +5880,12 @@
       "slow": 30.0
     },
     "catalog": {
-      "built": 1791608878.9896698,
-      "next": 1791612000.0,
+      "built": 1795664931.4093664,
+      "next": 1795665600.0,
       "rebuilding": false
     },
     "healthy": true,
-    "models": 76,
+    "models": 71,
     "sessions": 6,
     "version": "dev"
   }

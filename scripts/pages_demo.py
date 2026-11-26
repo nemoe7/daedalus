@@ -47,7 +47,7 @@ ENDPOINTS = (
 # The provider files of the demo. Its local main stays empty, and the shipped main supplies
 # cached cloud blocks that Providers form shows.
 DEMO_FILES = ("free.yml", "openrouter.yml", "pollinations.yml")
-# Models of demo: a captured snapshot of live catalog, 137 rows.
+# Models of demo: a captured snapshot of live catalog, 127 rows.
 MODELS_FILE = ROOT / "scripts" / "pages_models.json"
 TOOL = {"type": "function", "function": {"name": "get_weather", "parameters": {}}}
 # The models that the demo makes fail or rate limit, for 1 row each.
@@ -62,6 +62,55 @@ DEMO_SOURCE = {
 }
 # Request-level surfaces of demo file, in order of settings defaults.
 DEMO_HOOK_SURFACES = ("on-request", "on-prompt", "on-chunk")
+# The update card of the demo: behind 2 commits on the dev channel. A capture without
+# network leaves the check null, so the build falls back to this shape.
+DEMO_UPDATE = {
+  "at": 1791597600.0,
+  "behind": 2,
+  "channel": "dev",
+  "error": None,
+  "latest": None,
+  "repo": "nemoe7/daedalus",
+  "update": True,
+  "url": None,
+}
+# The notification feed of the demo: 1 limit warning, 1 scheduled rebuild, and 1 provider
+# reset. A fresh capture store holds no history, so the build falls back to this feed.
+DEMO_NOTIFICATIONS = {
+  "limits": [
+    {
+      "at": 1791597600.0,
+      "client": "owui",
+      "kind": "requests",
+      "limit": 30.0,
+      "model": "groq/openai/gpt-oss-120b",
+      "remaining": 6.0,
+      "reset": 1791601200.0,
+      "share": 0.2,
+      "span": "minute",
+    }
+  ],
+  "rebuilds": [
+    {
+      "added": ["groq/openai/gpt-oss-120b"],
+      "at": 1791594000.0,
+      "changed": ["groq/qwen/qwen3.8-27b"],
+      "failed": [],
+      "models": 127,
+      "reason": "scheduled",
+      "removed": [],
+    }
+  ],
+  "resets": [
+    {
+      "at": 1791590400.0,
+      "client": None,
+      "kind": "neurons",
+      "provider": "cloudflare",
+      "span": "day",
+    }
+  ],
+}
 # Prompts of captured rows, in order that table shows them.
 DEMO_CALLS = (
   ("daedalus/moros", "Count to three."),
@@ -94,7 +143,6 @@ DEMO_VALUES = (
   ("GEMINI_API_KEY", "not-a-real-gemini-key-0123"),
   ("GROQ_API_KEY", "not-a-real-groq-key-0123"),
   ("KILO_API_KEY", "not-a-real-kilo-key-0123"),
-  ("MISTRAL_API_KEY", "not-a-real-mistral-key-0123"),
   ("ZAI_API_KEY", "not-a-real-z-ai-key-0123"),
   ("POLLINATIONS_API_KEY", "not-a-real-pollinations-key-0123"),
 )
@@ -109,12 +157,22 @@ DEMO_HEADERS = {
   "x-ratelimit-limit-tokens-hour": "Infinity",
   "x-ratelimit-remaining-tokens-hour": "NaN",
 }
+# Rate-limit headers of a Cloudflare answer: the window sits in the header name.
+DEMO_RUN_HEADERS = {
+  "x-ratelimit-limit-requests-minute": "14400",
+  "x-ratelimit-remaining-requests-minute": "14312",
+  "x-ratelimit-reset-requests-minute": "37s",
+  "x-ratelimit-limit-tokens": "4000000",
+  "x-ratelimit-remaining-tokens": "3980123",
+  "x-ratelimit-reset-tokens": "12s",
+}
 
 
 def answer(request: httpx.Request) -> httpx.Response:
   """Answer 1 upstream call as an OpenAI-compatible provider does, with its failures."""
   path = request.url.path
   host = request.url.host
+  headers = DEMO_RUN_HEADERS if "cloudflare" in host else DEMO_HEADERS
   # The balance endpoints of Limits page: the shape of each provider answer.
   if host == "openrouter.ai" and path.endswith("/key"):
     return httpx.Response(
@@ -143,8 +201,8 @@ def answer(request: httpx.Request) -> httpx.Response:
     text = "A short transcript of the recording."
     # The native answer wraps text: the provider reads `result.text`.
     if native or "cloudflare" in request.url.host:
-      return httpx.Response(200, json={"result": {"text": text}}, headers=DEMO_HEADERS)
-    return httpx.Response(200, json={"text": text}, headers=DEMO_HEADERS)
+      return httpx.Response(200, json={"result": {"text": text}}, headers=headers)
+    return httpx.Response(200, json={"text": text}, headers=headers)
   try:
     body = json.loads(request.content)
   except ValueError:
@@ -169,10 +227,10 @@ def answer(request: httpx.Request) -> httpx.Response:
       },
     ]
     text = "".join(f"data: {json.dumps(frame)}\n\n" for frame in frames)
-    return httpx.Response(200, text=f"{text}data: [DONE]\n\n", headers=DEMO_HEADERS)
+    return httpx.Response(200, text=f"{text}data: [DONE]\n\n", headers=headers)
   return httpx.Response(
     200,
-    headers=DEMO_HEADERS,
+    headers=headers,
     json={
       "id": "chatcmpl-demo",
       "object": "chat.completion",
@@ -258,6 +316,8 @@ DEMO_SHAPES = (
     "app": "OWUI",
     "effort": "high",
     "via": "cloudflare/@cf/zai-org/glm-4.7-flash",
+    "seconds": 1.2,
+    "ttft": "0.001s",
     "attempts": [
       {
         "model": "cloudflare/@cf/zai-org/glm-4.7-flash",
@@ -466,8 +526,21 @@ def capture() -> dict[str, Any]:
       os.environ.update(environ)
       upstream.set_client(None)
       config.set_config(None)
-  # The temp folder of the capture never reaches fixtures.
-  return json.loads(json.dumps(found).replace(str(folder) + os.sep, ""))
+
+  # The capture temp folder never reaches fixtures, and paths keep the forward
+  # slashes of the shipped files, which the demo and pages match on.
+  def strip_folder(node: Any) -> Any:
+    if isinstance(node, str):
+      if node.startswith(str(folder)):
+        return node[len(str(folder)) :].lstrip(os.sep).replace(os.sep, "/")
+      return node
+    if isinstance(node, list):
+      return [strip_folder(item) for item in node]
+    if isinstance(node, dict):
+      return {key: strip_folder(value) for key, value in node.items()}
+    return node
+
+  return strip_folder(found)
 
 
 DEMO_JS = """\
@@ -492,7 +565,7 @@ const DEMO_FIXTURES = __FIXTURES__;
     return found ? Number(found[1]) : 0;
   })();
   const round = (value) => Math.round(value * 1000) / 1000;
-  const EMBED = "mistral/mistral-embed-2312";
+  const EMBED = "gemini/gemini-embedding-2";
   // Map each pool to the model IDs that the router can select.
   const MEMBERS = Object.fromEntries(
     DEMO_FIXTURES.pools.map((pool) => [pool.name, pool.members.map((item) => item.id)])
@@ -1721,9 +1794,11 @@ def demo_fixtures(version: str) -> dict[str, Any]:
     pool["members"] = [item for item in pool["members"] if item["id"] in kept]
   fixtures["login"]["version"] = version
   fixtures["status"]["version"] = version
-  update = fixtures["notifications"]["update"] or {}
+  update = dict(DEMO_UPDATE, **(fixtures["notifications"]["update"] or {}))
   update["current"] = version
   fixtures["notifications"]["update"] = update
+  for kind, events in DEMO_NOTIFICATIONS.items():
+    fixtures["notifications"][kind] = fixtures["notifications"][kind] or events
   # The hook rows come from the files of this repo, so the table shows the version each 1 carries.
   # The capture holds an older copy, and a version bump lands here without a new capture.
   settings_file = fixtures["settings"].setdefault("file", {})

@@ -119,7 +119,8 @@ def test_openwebui_embeds_through_listed_model() -> None:
   """The embedding line names a catalog row, not the short alias."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = _service_env(compose, "open-webui")
-  assert env["RAG_EMBEDDING_MODEL"] == "mistral/mistral-embed-2312"
+  assert env["RAG_EMBEDDING_MODEL"] == "gemini/gemini-embedding-2"
+  assert env["PGVECTOR_INITIALIZE_MAX_VECTOR_LENGTH"] == "3072"
 
 
 def test_headroom_pin_allows_internal_bind() -> None:
@@ -141,7 +142,7 @@ def test_openwebui_forwards_only_chat_id() -> None:
 
 
 def test_openwebui_keeps_memory_review_and_async_cap() -> None:
-  """The Open WebUI memory review and its async embedding, with the cap of the free Mistral key."""
+  """The Open WebUI memory review and its async embedding, inside the free Gemini limits."""
   compose = yaml.safe_load((ROOT / "compose.yml").read_text())
   env = _service_env(compose, "open-webui")
   assert env["ENABLE_MEMORY_BACKGROUND_REVIEW"] == "true"

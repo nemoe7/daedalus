@@ -174,26 +174,6 @@ kilo:
       - "liquid/lfm-2.5-2.6b*"
       - "liquid/lfm-3-1.7b*"
 
-mistral:
-  api_key: env:MISTRAL_API_KEY
-  exclude:
-    - "*-latest" # aliases can move to a model with different access
-    - mistral-small-2603 # the Free workspace reports 0 requests per minute
-    - voxtral-*-transcribe-3*
-    - voxtral-mini-tts-3*
-  tier:
-    TIER-C:
-      - codestral-2508
-      - labs-leanstral-1-5-1
-      - ministral-14b-2512
-    TIER-D:
-      - ministral-8b-2512
-      - ministral-3b-2512
-  models:
-    "voxtral-*transcribe*": { mode: audio_transcription }
-    "voxtral-mini-tts-2*": { mode: audio_speech } # the TTS models speak, they do not transcribe
-    "*embed*": { mode: embedding }
-
 openrouter:
   api_key: env:OPENROUTER_API_KEY
   exclude:
