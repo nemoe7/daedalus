@@ -49,7 +49,10 @@ def dump_models(
 def collect(kind: str, file_format: str, since: float) -> dict[str, str]:
   """Capture all requested fresh files without changing the dump folder."""
   if catalog.LAST_FAILED:
-    raise ValueError("a required provider fetch failed")
+    logger.warning(
+      "export includes stale rows from failed providers: %s",
+      ", ".join(catalog.LAST_FAILED),
+    )
   with TemporaryDirectory() as temporary:
     folder = Path(temporary)
     paths = []

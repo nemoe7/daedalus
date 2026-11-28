@@ -200,7 +200,12 @@ def dump(
         continue
       payload, fetched_at = record
       if since is not None and fetched_at < since:
-        raise ValueError("a selected enrichment snapshot was not refreshed")
+        logger.warning(
+          "stale enrichment snapshot for %s-%s: its last read failed",
+          prefix,
+          provider_name,
+        )
+        continue
       path = target / f"{prefix}-{provider_name}.{file_format}"
       if file_format == "json":
         wrapped = dump_record(payload, "fetched_at", fetched_at)

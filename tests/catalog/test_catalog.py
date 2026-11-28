@@ -525,6 +525,40 @@ def test_dump() -> None:
     assert cloudflare_csv.startswith("id,") and "@cf/zai-org/glm-5.3" in cloudflare_csv
 
 
+def test_dump_with_since_skips_stale_and_missing_snapshots(
+  tmp_path, monkeypatch, caplog
+):
+  """A `since` dump warns and skips providers with missing or stale snapshots instead of failing."""
+  import time
+
+  caplog.set_level(logging.WARNING, logger="daedalus")
+  fresh_url = "https://fresh.test/models"
+  stale_url = "https://stale.test/models"
+  missing_url = "https://missing.test/models"
+  config = {
+    "fresh": {"discovery_url": fresh_url},
+    "stale": {"discovery_url": stale_url},
+    "missing": {"discovery_url": missing_url},
+  }
+  monkeypatch.setattr(discovery, "get_config", lambda: config)
+  now = time.time()
+  records = {
+    fresh_url: ({"data": [{"id": "fresh"}]}, now),
+    stale_url: ({"data": [{"id": "stale"}]}, now - 1000),
+  }
+  monkeypatch.setattr(discovery, "cached_snapshot_record", lambda url: records.get(url))
+  folder = Path(tmp_path) / "dump"
+  folder.mkdir()
+  paths = discovery.dump(config, folder=folder, since=now, file_format="json")
+  assert {path.name for path in paths} == {"fresh.json"}
+  assert (folder / "fresh.json").read_text(encoding="utf-8") != ""
+  assert not (folder / "stale.json").exists()
+  assert not (folder / "missing.json").exists()
+  messages = [record.getMessage() for record in caplog.records]
+  assert "stale provider snapshot for stale: its last fetch failed" in messages
+  assert "skipped missing: no cached catalog snapshot" in messages
+
+
 def test_cached_snapshots() -> None:
   """Cached discovery uses saved snapshots without fetching and marks a missing snapshot as a provider failure."""
   url = "https://cache.test/v1/models"

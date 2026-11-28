@@ -585,13 +585,14 @@ def dump(
     if file_format == "json" or since is not None:
       record = cached_snapshot_record(provider["discovery_url"])
       if record is None:
-        if since is not None:
-          raise ValueError("a selected provider has no snapshot")
         logger.warning("skipped %s: no cached catalog snapshot", provider_name)
         continue
       payload, fetched_at = record
       if since is not None and fetched_at < since:
-        raise ValueError("a selected provider snapshot was not refreshed")
+        logger.warning(
+          "stale provider snapshot for %s: its last fetch failed", provider_name
+        )
+        continue
     if file_format == "json":
       wrapped = dump_record(payload, "fetched_at", fetched_at)
       path.write_text(json.dumps(wrapped, indent=2, ensure_ascii=False) + "\n", "utf-8")

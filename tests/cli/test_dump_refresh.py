@@ -126,10 +126,8 @@ def test_remote_export_rejects_paths_before_changing_output(
   assert not (tmp_path / "escape.json").exists()
 
 
-def test_failed_offline_fetch_keeps_existing_export_and_cached_rows(
-  tmp_path, monkeypatch
-):
-  """Retained model rows stay readable while export rejects stale fetches."""
+def test_failed_offline_fetch_still_writes_fresh_export(tmp_path, monkeypatch):
+  """A failed provider fetch keeps existing rows but still rewrites the export."""
   monkeypatch.setattr(store, "MODELS_DB", tmp_path / "models.sqlite3")
   folder = tmp_path / "dump"
   folder.mkdir()
@@ -140,7 +138,7 @@ def test_failed_offline_fetch_keeps_existing_export_and_cached_rows(
   monkeypatch.delenv(api.DAEDALUS_HOST, raising=False)
   monkeypatch.setattr(cli.logs, "setup_logging", lambda: None)
   store.write_store([{"id": "p/retained"}])
-  monkeypatch.setattr(catalog, "LAST_FAILED", [])
+  monkeypatch.setattr(catalog, "LAST_FAILED", ["p"])
   calls = []
 
   def absent(*args, **kwargs):
@@ -149,15 +147,15 @@ def test_failed_offline_fetch_keeps_existing_export_and_cached_rows(
   def refresh():
     calls.append("refresh")
     catalog.LAST_FAILED = ["p"]
+    store.write_store([{"id": "p/retained"}])
 
   monkeypatch.setattr(cli.urllib.request, "urlopen", absent)
   monkeypatch.setattr(catalog, "refresh", refresh)
-  with pytest.raises(SystemExit) as error:
-    cli.run(["dump", "models", "--refresh"])
-  assert error.value.code != 0
+  cli.run(["dump", "models", "--refresh"])
   assert calls == ["refresh"]
-  assert existing.read_text() == "old output"
   assert [row["id"] for row in store.stored_rows()] == ["p/retained"]
+  rows = json.loads(existing.read_text())["data"]
+  assert rows[0]["id"] == "p/retained"
 
 
 def test_fresh_enrichments_dump_writes_server_files_and_keeps_models(

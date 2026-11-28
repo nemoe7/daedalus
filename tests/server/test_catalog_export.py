@@ -89,18 +89,53 @@ def test_export_rejects_named_key_even_when_name_is_master(monkeypatch):
   assert calls == []
 
 
-def test_export_refuses_busy_or_failed_refresh(monkeypatch):
-  """A refusal or a failed provider fetch cannot return a fresh export."""
+def test_export_refuses_busy_refresh(monkeypatch):
+  """A running rebuild rejects a parallel export."""
   monkeypatch.setattr(api, "CATALOG_REFRESH", lambda: None)
   monkeypatch.setattr(schedule, "BUSY", True)
   client = TestClient(api.app, headers=AUTH)
   assert client.post("/v1/catalog?dump=all").status_code == 409
-  monkeypatch.setattr(schedule, "BUSY", False)
+
+
+def test_export_succeeds_with_failed_provider_fetch(monkeypatch):
+  """A failed provider fetch warns, keeps its rows, and still returns fresh files."""
+  from daedalus.catalog import enrichment
+
+  url = "https://export.test/models"
+  monkeypatch.setattr(config, "SAVED", {"p": {"discovery_url": url, "api_key": "key"}})
+  monkeypatch.setattr(discovery, "get_config", lambda: config.SAVED)
+  monkeypatch.setattr(enrichment, "get_config", lambda: config.SAVED)
   monkeypatch.setattr(catalog, "LAST_FAILED", ["p"])
-  response = client.post("/v1/catalog?dump=all")
-  assert response.status_code == 502
-  assert "files" not in response.json()
+  monkeypatch.setattr(schedule, "BUSY", False)
+  observed = []
+
+  def refresh():
+    observed.append(schedule.BUSY)
+    discovery.save_snapshot(url, {"data": [{"id": "fresh"}]})
+    discovery.save_snapshot(enrichment.litellm_url("p"), {"data": [{"id": "p/fresh"}]})
+    discovery.save_snapshot(
+      enrichment.modelschemas_url("p"),
+      {"models": [{"id": "fresh", "rawId": "fresh"}]},
+    )
+    store.write_store([{"id": "p/fresh"}])
+
+  monkeypatch.setattr(api, "CATALOG_REFRESH", refresh)
+  folder = discovery.DUMP_DIR
+  folder.mkdir(parents=True, exist_ok=True)
+  existing = folder / "keep.json"
+  existing.write_text("unchanged")
+  response = TestClient(api.app, headers=AUTH).post(
+    "/v1/catalog", params={"dump": "all", "format": "json"}
+  )
+  assert response.status_code == 200, response.text
+  assert observed == [True]
   assert not schedule.BUSY
+  body = response.json()
+  files = body["files"]
+  expected = {"p", "models", "litellm-p", "modelschemas-p"}
+  assert set(files) == {f"{name}.json" for name in expected}
+  assert body["failed"] == ["p"]
+  assert existing.read_text() == "unchanged"
 
 
 @pytest.mark.anyio
@@ -159,8 +194,11 @@ async def test_export_keeps_guard_until_capture_finishes(monkeypatch, cancel):
   assert threads and threads[0] != threading.get_ident()
 
 
-def test_export_refuses_snapshot_not_updated_by_refresh(monkeypatch):
-  """Export rejects an old snapshot from a provider without credentials."""
+def test_export_skips_stale_provider_snapshot(monkeypatch, caplog):
+  """An old provider snapshot warns and is skipped instead of failing the export."""
+  import logging
+
+  caplog.set_level(logging.WARNING, logger="daedalus")
   import sqlite3
   from contextlib import closing
 
@@ -172,8 +210,10 @@ def test_export_refuses_snapshot_not_updated_by_refresh(monkeypatch):
   monkeypatch.setattr(catalog, "LAST_FAILED", [])
   monkeypatch.setattr(api, "CATALOG_REFRESH", lambda: store.write_store([]))
   response = TestClient(api.app, headers=AUTH).post("/v1/catalog?dump=catalog")
-  assert response.status_code == 502
-  assert "files" not in response.json()
+  assert response.status_code == 200, response.text
+  assert response.json()["files"] == {}
+  messages = [record.getMessage() for record in caplog.records]
+  assert "stale provider snapshot for p: its last fetch failed" in messages
   assert discovery.cached_snapshot(url) == {"data": [{"id": "old"}]}
 
 

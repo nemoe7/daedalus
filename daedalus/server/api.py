@@ -19,7 +19,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from daedalus import __version__, dashboard, providers, store
+from daedalus import __version__, catalog, dashboard, providers, store
 from daedalus.catalog import exports, schedule
 from daedalus.config import get_config, remote, settings
 from daedalus.providers import hooks, signatures
@@ -461,7 +461,7 @@ async def rebuild_catalog(request: Request) -> Response:
       return upstream.error_response(
         502, "Catalog refresh or export failed.", "server_error"
       )
-    return JSONResponse({"files": files})
+    return JSONResponse({"files": files, "failed": list(catalog.LAST_FAILED)})
   if not schedule.start(CATALOG_REFRESH):
     return upstream.error_response(
       409, "A catalog rebuild runs now.", "invalid_request_error"

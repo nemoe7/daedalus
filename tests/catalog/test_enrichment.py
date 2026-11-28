@@ -617,6 +617,39 @@ def test_enrichment_dump_writes_cached_litellm_and_modelschemas_snapshots(
   assert [row["id"] for row in ms_rows] == ["a", "b", "c", "d", "e", "f", "no-raw"]
 
 
+def test_enrichment_dump_with_since_skips_stale_snapshots(
+  tmp_path, monkeypatch, caplog
+):
+  """A `since` enrichment dump warns and skips providers with stale snapshots instead of failing."""
+  import time
+
+  caplog.set_level(logging.WARNING, logger="daedalus")
+  folder = tmp_path / "dump"
+  folder.mkdir()
+  now = time.time()
+  records = {
+    enrichment.litellm_url("openrouter"): ({"data": [{"id": "fresh"}]}, now),
+    enrichment.modelschemas_url("openrouter"): (
+      {"models": [{"rawId": "stale"}]},
+      now - 1000,
+    ),
+  }
+  monkeypatch.setattr(enrichment, "get_config", lambda: {"openrouter": {}})
+  monkeypatch.setattr(
+    enrichment, "cached_snapshot_record", lambda url: records.get(url)
+  )
+  paths = enrichment.dump(
+    {"openrouter": {}}, folder=folder, since=now, file_format="json"
+  )
+  assert {path.name for path in paths} == {"litellm-openrouter.json"}
+  assert not (folder / "modelschemas-openrouter.json").exists()
+  messages = [record.getMessage() for record in caplog.records]
+  assert (
+    "stale enrichment snapshot for modelschemas-openrouter: its last read failed"
+    in messages
+  )
+
+
 def test_enrich_resolves_display_names_across_sources() -> None:
   """Config overrides beat native names, which beat modelschemas and humanized slugs."""
   ms_payload = {
