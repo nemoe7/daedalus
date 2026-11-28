@@ -11,9 +11,9 @@ COPY daedalus ./daedalus
 COPY config ./config
 COPY hooks ./hooks
 # Editable install stores state in /app/.daedalus-state, and tzdata sets local schedule times.
-# Upgrade libpcre2-8-0 and liblzma5, remove system pip, and mount uv only during build.
+# Upgrade libpcre2-8-0, liblzma5, libc6, libc-bin, and zlib1g, remove system pip, and mount uv only during build.
 RUN --mount=from=ghcr.io/astral-sh/uv:0.13.5,source=/uv,target=/bin/uv \
-  apt-get update && apt-get install -y --no-install-recommends tzdata libpcre2-8-0 liblzma5 \
+  apt-get update && apt-get install -y --no-install-recommends tzdata libpcre2-8-0 liblzma5 libc6 libc-bin zlib1g \
   && rm -rf /var/lib/apt/lists/* \
   && uv sync --locked \
   && /usr/local/bin/python -m pip uninstall -y pip setuptools \
